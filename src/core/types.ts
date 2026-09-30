@@ -124,3 +124,22 @@ export const ALL_STORES: readonly StoreName[] = [
 
 /** 当前 schema 版本。改动数据结构时必须 +1 并写迁移（PRD §6.4） */
 export const SCHEMA_VERSION = 1
+
+/**
+ * 一整套记录表。迁移（`core/migrate`）与备份（`core/backup`）共用。
+ *
+ * ⚠️ **不能写成 `Record<StoreName, CoreRecord[]>`**（CORE-API §5.7/§5.8 原来就是这么写的）：
+ * `SettingRecord` 只有 `{key, value, updatedAt}`，**没有** id / createdAt / deleted，
+ * 它不是 `CoreRecord`。写成那样要么编译不过，要么被迫 `as unknown as` 把类型系统关掉——
+ * 而备份/迁移恰恰是最需要类型系统兜底的地方（一次写错就是用户全部数据）。
+ *
+ * 逐字段列出来的额外好处：新增 store 时这里会编译失败，逼你同时更新迁移与备份。
+ */
+export interface RecordTable {
+  todos: TodoRecord[]
+  notes: NoteRecord[]
+  expenses: ExpenseRecord[]
+  anniversaries: AnniversaryRecord[]
+  categories: CategoryRecord[]
+  settings: SettingRecord[]
+}

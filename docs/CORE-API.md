@@ -32,7 +32,7 @@
 | `core/aggregate` | 日 / 周 / 月三级汇总，供视图直接消费 |
 | `core/migrate` | 版本迁移（纯函数） |
 | `core/backup` | 导出 Markdown / CSV / JSON，导入与校验 |
-| `core/validate` | 纯校验函数（金额、文本长度、日期） |
+| `core/validate` | 纯校验函数（金额、文本长度、日期）。**38 个测试** |
 | `core/clock` | **唯一**允许调用 `Date.now()` 的地方（铁律 3 的落地手段） |
 | `core/errors` | `DayCellError` 及其子类（见 §2.2） |
 | `core/types` | 记录类型与 `DateKey`（见 §3） |
@@ -568,6 +568,26 @@ const MIGRATIONS: Migration[];
 - 禁止"删库重建"
 - 失败 → 事务回滚，抛 `MigrationFailedError`，旧数据完好
 
+#### 实现时对本节的修订（`src/core/migrate/index.ts`，24 条测试，100% 语句覆盖）
+
+1. **`Record<StoreName, CoreRecord[]>` 换成了 `RecordTable`**（定义在 `types.ts`）。
+   原写法有类型漏洞：`SettingRecord` 只有 `{key, value, updatedAt}`，**没有** id/createdAt/deleted，
+   它不是 `CoreRecord`。硬套要么编译不过，要么被迫 `as unknown as` 把类型系统关掉——
+   而备份/迁移恰恰是最需要类型兜底的地方（写错一次就是用户全部数据）。
+   `RecordTable` 逐字段列出六个表，**新增 store 时这里会编译失败**，逼你同时更新迁移与备份。
+2. **不是自由函数，而是工厂 `createMigrator(migrations): Migrator`**。
+   真实 `MIGRATIONS` 现在是空的（v1 是基线），若链条逻辑只能跑真实那张表，
+   "多步迁移/链条断裂/越过目标"这些分支就永远测不到。注入合成迁移 = 现在就把机器测透。
+   模块同时导出绑定真实表的 `migrationPath` / `applyMigrations` / `assertChainComplete`。
+3. **`apply` 在入口和每步之后都深拷贝**。迁移是极低频、极高代价的操作，
+   而"某个 `up()` 就地改了入参"是这类代码最典型的 bug——它会让导入流程第 4 步的
+   "当前库快照"失去意义（快照和正在改的数据是同一个对象）。已用变异检验确认测试抓得住。
+4. **`up()` 的返回值会校验形状**：少一个表就抛 `MigrationFailedError` 并点名缺哪个。
+   迁移几年才写一次，"缺表"不会当场炸，只会在很久之后表现为"某类数据莫名没了"。
+5. **没有环保护**：构造时已强制 `to > from`，版本号严格递增，循环必然终止。
+   一个永远走不到的 catch 分支既测不到，也会让读代码的人以为这里真有风险。
+6. **`migrate/v1.ts` 没有创建**：v1 是基线，没有 v0→v1 这一步。空文件比没有文件更容易误导。
+
 ### 5.8 `core/backup`
 
 ```ts
@@ -629,7 +649,7 @@ function diagnose(deps: {
 
 ### 5.10 `core/validate`
 
-纯校验。**本节按已落地的实现回填**（`src/core/validate.ts`，46 个测试）。约定见 §2.1：一律返回 `ParseResult<T>`，不抛异常。
+纯校验。**本节按已落地的实现回填**（`src/core/validate.ts`，38 个测试）。约定见 §2.1：一律返回 `ParseResult<T>`，不抛异常。
 
 ```ts
 export type ValidateCode =
