@@ -2,7 +2,8 @@
 
 > **这份文件的用途**：让会话上下文可以安全丢弃。接手时先读这份，再按需读 PRD / CORE-API。
 > 最后更新：2026-09-29 · **v6 与 v6.1 均已落到文档 + 原型**；core 代码未受 v6.1 影响（仅一处注释）
-> 当前状态 **全绿**：`tsc -b` 0 错 / `eslint .` 0 错 / **336 测试通过**（~1.0 s）/ `node smoke.cjs` **218 项断言全通过**
+> 当前状态 **全绿**：`tsc -b` 0 错 / `eslint .` 0 错 / **440 测试通过**（12 文件，~0.6 s）/ `node smoke.cjs` **218 项断言全通过**
+> **已 git 化**（分支 `main`）。core 层已完成 10/13 个模块，剩 `backup/*` 与 `core/index.ts`。
 
 ---
 
@@ -119,7 +120,16 @@ store/memory.ts   内存实现（测试 + 降级）
 store/idb.ts      IndexedDB 实现（idb v8）
 store/contract.test.ts  ★ 同一套 67 用例跑两个实现
 repo/index.ts     todos/notes/expenses/anniversaries/categories/settings
-repo/repo.test.ts 60 用例，覆盖 US-04 顺延、E10/E11/E21/E24
+repo/repo.test.ts 62 用例，覆盖 US-04 顺延（含**保序**）、E10/E11/E21/E24
+aggregate/        ★ 三视图唯一数据源（CORE-API §5.6）
+  index.ts          createAggregates 工厂 + 5 个聚合方法 + E21 分类归并
+  money.ts          formatMoney / formatMoneyShort / formatMoneyCsv，全程整数分
+  *.test.ts         59 用例，**含查询次数间谍断言**（守 §6 性能契约）
+migrate/          ★ 纯函数版本迁移（PRD §6.4）
+  index.ts          createMigrator 工厂；真实 MIGRATIONS 目前为空（v1 是基线）
+  migrate.test.ts   24 用例，100% 语句覆盖，注入合成迁移测链条逻辑
+diagnose.ts       ★ 环境探测，全局对象**全部注入**（铁律 2 的落地）
+diagnose.test.ts  23 用例，100% 语句覆盖
 isolation.test.ts import.meta.glob 静态扫源码，守 ADR-0006 边界
 ```
 > 🗑 `validate.ts` 里的 **`parseQuickExpense` 已删除**（2026-09-29 用户批准，PRD Q7 关闭）。
@@ -131,7 +141,8 @@ isolation.test.ts import.meta.glob 静态扫源码，守 ADR-0006 边界
 而不是 `node:fs`——因为 `src/` 归 `tsconfig.app.json` 管（`types: ["vite/client"]`），出现 node 内置模块编译不过。
 jsdom 本身早已是 devDependency，本轮补装了缺失的 **`@types/jsdom`**。
 
-**尚未写**：`aggregate/*`（含 v6 新增的 `aggregateDayDetail`）、`migrate/*`、`backup/*`（json/csv/markdown/import）、`diagnose.ts`、`core/index.ts` 单一出口、`src/ui/*`、`src/app/*`、`index.html`、PWA 插件接线、`scripts/report-size.mjs`。
+**尚未写**：`backup/*`（json / csv / markdown / import，**唯一剩下的 core 模块**）、`core/index.ts` 单一出口、
+`src/ui/*`、`src/app/*`、`index.html`、PWA 插件接线、`scripts/report-size.mjs`、基准测试（§6 要求 4 万条记录）。
 
 ---
 
@@ -157,14 +168,18 @@ jsdom 本身早已是 devDependency，本轮补装了缺失的 **`@types/jsdom`*
 
 ## 4. 下一步（按序）
 
-1. `core/aggregate/` — `money.ts` 格式化 + `aggregateDayDetail`（**v6 首屏关键路径，先做这个**）+ `aggregateDay` / `aggregateWeek` / `aggregateMonth`（**恒 42 格，只发 3 次区间查询，绝不全库扫**）
-2. `core/migrate/`、`core/backup/`（json/csv/markdown/import）、`core/diagnose.ts`、`core/index.ts`
+1. ~~`core/aggregate/`~~ → ✅ 已完成（`aggregateDayDetail` 用 `[date-1, date]` 一次查询拿两天）
+2. ~~`core/migrate/`~~、~~`core/diagnose.ts`~~ → ✅ 已完成。**剩 `core/backup/`（json/csv/markdown/import）与 `core/index.ts`**
+   - backup 必须按 CORE-API §5.8 的五步导入顺序（校验 → 版本判定 → 迁移 → 快照 → 单事务写入）
+   - ⚠️ 契约里 `BackupFile.records` 用的 `Record<StoreName, CoreRecord[]>` **是错的**，
+     要换成 `types.ts` 的 `RecordTable`（`SettingRecord` 不是 `CoreRecord`，migrate 已因此改过一次）
+   - 测试契约 §7.6 要求**往返测试**：导出 → 清空 → 导入 → 数据完全一致（含墓碑）
 3. `src/app/*` — 视图状态机 + **一层来源栈** + `popstate`
 4. `src/ui/*` — 日/周/月三视图（手机无 sheet）+ `index.html` + PWA 接线（ADR-0002）
 5. `scripts/report-size.mjs` 守 **首屏 ≤ 80 KB gzip**（估算 ~62 KB；lunar 必须独立 chunk）
 6. 修 `package.json` 的 `test:tz`：现在引用了**未安装**的 `cross-env-shell`，改成 `TZ=… npx vitest run` 链式（ADR-0008 要求三时区跑）
 7. ~~原型是否跟进 v6~~ → ✅ 已升到 **v6.1**（三视图 + 单一录入入口），smoke 218 项全绿
-8. ~~等用户拍 PRD Q7~~ → ✅ **已删除**（2026-09-29 用户批准）
+8. ~~等用户拍 PRD Q7~~ → ✅ **已删除**（2026-09-29 用户批准，`git show df42d58`）
 9. **等用户拍 PRD Q6**：金额输入要不要吃 `¥` / `￥` 前缀（建议吃，约 1 行 + 2 个测试；现在 core 拒绝，原型已与之对齐）
 
 ---
@@ -180,6 +195,9 @@ jsdom 本身早已是 devDependency，本轮补装了缺失的 **`@types/jsdom`*
 - **墓碑永不物理删除**（`RecordStore` 故意没有 `remove`）；每次写都刷 `updatedAt`。
 - **返回路径必须冗余**（ADR-0005 v6）：手机「← 返回」+ `popstate` + 桌面 `Esc`；**不能只依赖键盘**；进日视图必须记住来源。
 - **对比度**：`--ink-3 #767676` 是文字下限（4.54:1）；`--ink-4 #C4C4C4` **只能用于装饰**，v6.1 起白名单**仅 `.empty .big` 一处**（`.qadd:disabled` 随顶部框一起删了）。
+- **core 每个模块都必须有测试**（CORE-API §7），且在**纯 Node 环境**跑（`environment:'node'`）——这本身就是铁律 2 的验证。
+- **迁移必须纯函数**：`applyMigrations` 入参不可被改动（导入流程靠它回滚）。已用变异检验确认测试抓得住。
+- **`RecordTable`（`types.ts`）不要用 `Record<StoreName, CoreRecord[]>` 代替**：`SettingRecord` 没有 id/createdAt/deleted。
 - **录入入口只有一个**（v6.1 / PRD D18）：日详情各区块的内联表单，写入目标恒为当前选中日。**不要重新引入任何常驻快捷录入框**——它会带回"看着 A 天写进今天"这一整类错误。
 - **UI 侧金额换算必须与 `core parseAmount` 逐位一致**（ADR-0003），由 `src/prototype-parity.test.ts` 强制。**禁止 `Math.round(parseFloat(x)*100)`**。
 
