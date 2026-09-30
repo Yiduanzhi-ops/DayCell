@@ -1,9 +1,9 @@
 # DayCell 实施进度快照
 
 > **这份文件的用途**：让会话上下文可以安全丢弃。接手时先读这份，再按需读 PRD / CORE-API。
-> 最后更新：2026-09-29 · **v6 与 v6.1 均已落到文档 + 原型**；core 代码未受 v6.1 影响（仅一处注释）
-> 当前状态 **全绿**：`tsc -b` 0 错 / `eslint .` 0 错 / **440 测试通过**（12 文件，~0.6 s）/ `node smoke.cjs` **218 项断言全通过**
-> **已 git 化**（分支 `main`）。core 层已完成 10/13 个模块，剩 `backup/*` 与 `core/index.ts`。
+> 最后更新：2026-09-30 · **app/ui 层已落地，`dist/` 已交用户拖拽部署**（纯静态根路径托管）
+> 当前状态 **全绿**：`tsc -b` 0 错 / `eslint .` 0 错 / **495 测试通过**（14 文件，~1.3 s）/ `node smoke.cjs` **218 项断言全通过**
+> **已 git 化**（分支 `main`）。core 层 12/13 模块完成，**只剩 `backup/*`**（2026-09-30 用户拍板：延后）。
 
 ---
 
@@ -33,12 +33,12 @@
 | `docs/adr/README.md` | 0005 行标题与状态 |
 | `docs/CORE-API.md` | 见下节 |
 
-**代码侧待办（v6 引起的）**：
-- `core/aggregate` 必须提供 **`aggregateDayDetail`**（日视图是首屏，要全文不只要计数）——契约已写进 CORE-API §5.6
-- `src/app` 需要一个**一层来源栈** `{view, date, scrollTop}` + `popstate` 处理
-- 翻日**不得 push history**（否则按一次返回只退一天，退不出日视图）
-- `src/ui` 三视图组件；手机不再有 sheet 组件
-- ~~原型没跟进 v6~~ → ✅ 已升到 v6，见下
+**代码侧待办（v6 引起的）**：✅ **2026-09-30 全部落地**（见 §1b）
+- ~~`core/aggregate` 提供 `aggregateDayDetail`~~ ✅（还扩展了 `WeekDay` 周行预览，契约已回写 CORE-API）
+- ~~`src/app` 一层来源栈 `{view, date, scrollTop}` + `popstate`~~ ✅（`app/store.ts`，48 用例守着）
+- ~~翻日不得 push history~~ ✅（有专测 + 变异检验）
+- ~~`src/ui` 三视图组件；手机不再有 sheet~~ ✅
+- ~~原型没跟进 v6~~ → ✅ 已升到 v6.1
 
 ---
 
@@ -141,8 +141,51 @@ isolation.test.ts import.meta.glob 静态扫源码，守 ADR-0006 边界
 而不是 `node:fs`——因为 `src/` 归 `tsconfig.app.json` 管（`types: ["vite/client"]`），出现 node 内置模块编译不过。
 jsdom 本身早已是 devDependency，本轮补装了缺失的 **`@types/jsdom`**。
 
-**尚未写**：`backup/*`（json / csv / markdown / import，**唯一剩下的 core 模块**）、`core/index.ts` 单一出口、
-`src/ui/*`、`src/app/*`、`index.html`、PWA 插件接线、`scripts/report-size.mjs`、基准测试（§6 要求 4 万条记录）。
+### 1b. 代码 `src/app/` + `src/ui/`（2026-09-30 落地，commits a285477 / 844ab48 / 93b6e75）
+```
+app/bootstrap.ts  全应用唯一触碰浏览器全局的入口（铁律 2 注入点）；
+                  E1 降级 memory store + degraded 横幅 / E4 农历 null，不白屏
+app/store.ts      Zustand vanilla 状态机（419 行，v6 导航红线全在这）：
+                  视图+日期单一真相 / 一层来源栈 {view,date,scrollTop} /
+                  history 协作（进日视图 push 一条、翻日绝不 push、setView/back/popstate
+                  三处弹幽灵条目）/ loadSeq 竞态守卫 / D18 空白日自动展开 /
+                  写操作一律 repo→refresh→toast，校验失败走 core 中文文案
+app/context.ts    React 绑定；测试可逐用例建独立 store
+ui/               App 外壳（横幅/快捷键 j k ←→ d w m Esc/Toast 1.9s）
+                  TopBar（日→周→月切换器 D17，「今天」按钮仅偏移时出现）
+                  DayView（滑动翻日 ≥50px 且 ≥1.5×纵向 / 顺延横幅 / 来源返回条）
+                  WeekView（7 行正文预览 + 滚动还原）/ MonthView（恒 6 行 42 格 D2）
+                  Todo/Expense/NoteSection（v6.1 单一入口内联表单；金额走 core
+                  parseAmount，UI 无 *100；IME isComposing 守卫；想法 ⌘+Enter 保存）
+index.html + main.tsx  生产入口（启动顺序=首屏关键路径，见 main.tsx 头注释）
+```
+测试：`app/store.test.ts` **48 用例**（纯 Node 环境跑，兑现 store.ts 头注释的承诺；
+history 用 stub 注入）。**变异检验 4/4 被抓**：删竞态守卫 1 败 / back 不还原日期 2 败 /
+翻日 push history 1 败 / 删自动展开 5 败。`ui/App.test.tsx` **3 冒烟**（jsdom）。
+⚠️ 两个测试环境坑：**vitest 未开 globals → RTL 自动 cleanup 不注册**，UI 测试必须手动
+`afterEach(cleanup)`；Node 无 `history` 全局（canHistory 自然短路，需要时注入 stub）。
+
+**本会话修的两个构建层问题**（都是上一会话遗留的破构建）：
+1. `tsconfig.app.json` 只有 `'@core/*'` 没有 bare `'@core'` → tsc 20 个错（vite 的字符串
+   alias 是前缀匹配所以 dev 能跑，tsc 的 paths 不是——**两边语义不同，改别名要两边都查**）
+2. `eslint.config.js` 层级重排：ADR-0004 全局块曾 spread CORE_FORBIDDEN_IMPORTS，
+   误伤 `src/main.tsx`（入口 import React/CSS 被当 core 违规）；且 flat config **同规则
+   后者整体覆盖前者**，ui/app 块反而把 lunar 限制覆盖丢了。现每块自带完整规则
+   （core 块与 ui/app 块各自并入 LUNAR_PATHS），ui/app 深导入 pattern 从 `@core/*/*`
+   收紧为 `@core/*`（旧 pattern 挡不住 `@core/repo` 一层深导入）。6 组 stdin 变异验证生效。
+
+**部署交付**（2026-09-30）：`dist/`（600 KB，8 文件）+ `daycell-dist.zip`（188 KB）。
+用户自选**拖拽上传**（Netlify Drop / Vercel / CF Pages 均可，根路径静态托管，无需 base 配置）。
+首屏实测 gzip ≈ **92 KB**（react-dom 独占 65 KB）——**超 PRD §5.1 的 80 KB 预算**，
+lunar chunk（102 KB gzip）是懒加载不计入。预算口径要不要把 vendor 算进去，待用户拍。
+沙箱网络到 github.com SSH/HTTPS 均超时（clash 未代理终端流量），CLI 部署路线走不通。
+
+**尚未写**（2026-09-30 更新）：
+- `backup/*`——**唯一剩下的 core 模块**。用户拍板延后（「导入导出备份都不要写，只完成记录」）。开工前的调研结论见 §4 第 3 条
+- **PWA 插件接线**——⚠️ 上线后最大风险：iOS Safari 不装 PWA 时 ITP **7 天清除 IndexedDB**（E3），而导出功能又还没有 → 用户数据暂时无逃生通道。下一步的优先项
+- **M11 纪念日创建入口**——core/repo/聚合/三视图徽章全就绪，只差 UI 表单（v0 Must 里唯一的缺口）；设置页同理未做
+- `scripts/report-size.mjs`、4 万条基准测试（§6）
+- ~~`core/index.ts`~~ ✅ ~~`src/ui/*`~~ ✅ ~~`src/app/*`~~ ✅ ~~`index.html`~~ ✅（见 §1b）
 
 ---
 
@@ -166,21 +209,27 @@ jsdom 本身早已是 devDependency，本轮补装了缺失的 **`@types/jsdom`*
 6. **清明只以节气形式出现**，不在 festivals 里
 7. 实测锚点：2026-09-29=八月十九 / 09-25=中秋节 / 09-07=白露(廿六) / 09-11=八月初一 / 09-10=教师节 / 2026-02-17=春节(正月初一) / 2025-07-25=闰六月初一 / **2026 年没有任何闰月**
 
-## 4. 下一步（按序）
+## 4. 下一步（按序，2026-09-30 重排）
 
-1. ~~`core/aggregate/`~~ → ✅ 已完成（`aggregateDayDetail` 用 `[date-1, date]` 一次查询拿两天）
-2. ~~`core/migrate/`~~、~~`core/diagnose.ts`~~ → ✅ 已完成。**剩 `core/backup/`（json/csv/markdown/import）与 `core/index.ts`**
-   - backup 必须按 CORE-API §5.8 的五步导入顺序（校验 → 版本判定 → 迁移 → 快照 → 单事务写入）
-   - ⚠️ 契约里 `BackupFile.records` 用的 `Record<StoreName, CoreRecord[]>` **是错的**，
-     要换成 `types.ts` 的 `RecordTable`（`SettingRecord` 不是 `CoreRecord`，migrate 已因此改过一次）
-   - 测试契约 §7.6 要求**往返测试**：导出 → 清空 → 导入 → 数据完全一致（含墓碑）
-3. `src/app/*` — 视图状态机 + **一层来源栈** + `popstate`
-4. `src/ui/*` — 日/周/月三视图（手机无 sheet）+ `index.html` + PWA 接线（ADR-0002）
-5. `scripts/report-size.mjs` 守 **首屏 ≤ 80 KB gzip**（估算 ~62 KB；lunar 必须独立 chunk）
-6. 修 `package.json` 的 `test:tz`：现在引用了**未安装**的 `cross-env-shell`，改成 `TZ=… npx vitest run` 链式（ADR-0008 要求三时区跑）
-7. ~~原型是否跟进 v6~~ → ✅ 已升到 **v6.1**（三视图 + 单一录入入口），smoke 218 项全绿
-8. ~~等用户拍 PRD Q7~~ → ✅ **已删除**（2026-09-29 用户批准，`git show df42d58`）
-9. **等用户拍 PRD Q6**：金额输入要不要吃 `¥` / `￥` 前缀（建议吃，约 1 行 + 2 个测试；现在 core 拒绝，原型已与之对齐）
+1. ~~`core/aggregate`~~ ~~`core/migrate`~~ ~~`core/diagnose`~~ ~~`core/index.ts`~~ ~~`src/app`~~ ~~`src/ui`~~ → ✅ 全部完成（见 §1b）
+2. **PWA 接线 + M11 纪念日创建入口**（上线后最紧的两件）：
+   - PWA（ADR-0002，`vite-plugin-pwa` 已在 devDeps）：iOS 不装主屏 = ITP 7 天清数据（E3），需要 manifest + SW + PNG 图标生成
+   - 纪念日：底层全就绪（repo/聚合/三视图徽章/E13 闰月回退），只差 DayView 一个区块表单（公历/农历 + 每年重复）
+3. **`core/backup/*`**（json/csv/markdown/import，唯一剩下的 core 模块；2026-09-30 用户拍板延后：「导入导出备份都不要写，只完成记录」）。
+   **开工前的调研结论（本会话已查完，别再查一遍）**：
+   - 五步导入顺序照 CORE-API §5.8；`BackupFile.records` 用 `RecordTable`（契约原文 `Record<StoreName, CoreRecord[]>` 是错的，§2 已记）
+   - `ValidateCode` **已含** `BAD_BACKUP` / `VERSION_TOO_NEW`（validate.ts 与 CORE-API §2.1 一致；§5.10 文档里写的 `INVALID_DATE` 是旧码，勿被误导）
+   - `putSetting` 需加可选参 `{updatedAt?: number}` 保留导入时间戳（interface + 两实现各 2–3 行），否则恢复出的设置 updatedAt 全变"刚刚"，LWW 会拿旧备份覆盖较新的本地设置——与 `PutOptions.keepTimestamps` 同一理由
+   - 契约第 4 步"快照当前库"可由 **tx 原子性等价提供**（idb tx = abort 回滚；memory tx 本身就是 snapshot+restore），不必再拷一份
+   - `validateBackup` 只做**文件级**结构校验；记录级形状问题逐条跳过计入 `skippedInvalid`——一条脏数据不该绑架整个备份
+   - 真实 MIGRATIONS 为空 → "低于当前版本走迁移"分支不可达，需仿照 createMigrator 的做法**注入合成版本号 + 迁移函数**才可测
+   - Markdown 想法时间戳需要 `HH:mm` → date.ts 加 `timeHm(ts)` / `stampText(ts)`（Date 仍只关在 date.ts，ADR-0008）
+   - 单文件 `backup/index.ts` 工厂起步（与 migrate 同构），CORE-API 附录画的四文件结构等长大再拆
+   - §7.6 要求**往返测试**：导出 → 清空 → 导入 → 完全一致（含墓碑）
+4. `scripts/report-size.mjs` 守首屏预算——**实测已 92 KB gzip（react-dom 独占 65 KB）**，先和用户对齐预算口径（vendor 算不算）再写阈值
+5. 修 `package.json` 的 `test:tz`：仍引用**未安装**的 `cross-env-shell`，改成 `TZ=… npx vitest run` 链式（ADR-0008 要求三时区跑）
+6. 4 万条记录基准测试（CORE-API §7.7 / §6 性能契约）
+7. **等用户拍 PRD Q6**：金额吃不吃 `¥` / `￥` 前缀（建议吃，约 1 行 + 2 个测试；core 现拒绝，原型已对齐）
 
 ---
 
@@ -218,8 +267,9 @@ jsdom 本身早已是 devDependency，本轮补装了缺失的 **`@types/jsdom`*
 > 否则改动会和上一轮的未提交内容混在一个 diff 里。
 `~/.npm` 被沙箱挡 → 装包一律 `npm install --cache ./.npmcache --no-audit --no-fund`。
 Node v24.18.1 / npm 10.9.8 / Python 3.9.6 / macOS（`cat -A` 不可用，用 python 看 repr）。
-**无 Xcode**（排除原生 iOS）、**无浏览器 provider**（视觉只能用户自己看）、**`web_search` 不可用**（不要断言未验证的第三方平台事实）。
-系统日期 **2026-09-29 周二**。
+**无 Xcode**（排除原生 iOS）、**无浏览器 provider**（视觉只能用户自己看；UI 验证靠 jsdom 冒烟测试 + curl 构建产物）、**`web_search` 不可用**（不要断言未验证的第三方平台事实）。
+**沙箱网络到 github.com 不通**（SSH 22 与 HTTPS 均超时；clash 装着但没代理终端流量）→ CLI 部署路线全部排除，交付方式 = 构建 `dist/` 由用户浏览器拖拽上传（`daycell-dist.zip`）。
+系统日期 **2026-09-30 周三**。
 栈：Vite 8.3.1(Rolldown) / TS 5.9.3（**不能升 7**，typescript-eslint 8.71 peer `<6.1.0`）/ React 19.3 / Zustand 5 / idb 8.0.3 / lunar-typescript 1.8.6 / Vitest 5.0.2 / lightningcss / fake-indexeddb。
 `vite.config.ts` 的 `manualChunks` **必须用函数形式**，Rolldown 不接受对象形式。
 **idb v8 的坑**：`IDBPDatabase` 只有 1 个泛型参数；`getAllFromIndex` **只挂在 database 上**，事务内必须 `tx.objectStore(s).index(name).getAll(range)`；`IDBKeyRange.bound(lo,hi)` 在 `lo>hi` 时抛 `DataError`（空区间要先短路返回 `[]`）。
