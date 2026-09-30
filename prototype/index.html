@@ -1,0 +1,1053 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>DayCell · 可点击原型 v6</title>
+<style>
+/* ============ 设计令牌：极简黑白灰 + 单一强调色 ============ */
+:root{
+  --accent:#2E4BA6;
+  --bg:#FFFFFF;
+  --bg-subtle:#FAFAFA;
+  --bg-hover:#F5F5F5;
+  /* 四级灰阶。前三级是「文字」，必须满足 WCAG AA 4.5:1；
+     --ink-4 是「装饰」，禁止承载任何信息（详见 docs/adr/0007 与 PRD §5.5）。
+     白底对比度：ink 17.4:1 · ink-2 7.5:1 · ink-3 4.54:1 · ink-4 1.74:1 */
+  --ink:#1A1A1A;             /* 一级：日期数字、待办正文、想法正文、金额 */
+  --ink-2:#555555;           /* 二级：周行正文、分类明细、次要说明（原 #5C5C5C） */
+  --ink-3:#767676;           /* 三级 = 文字对比度下限：农历、进度、时间戳、空状态、占位符
+                                （原 #9C9C9C 仅 2.75:1，不达标） */
+  --ink-4:#C4C4C4;           /* 仅装饰：禁用态背景、纯图形符号。不得用于文字 */
+  --line:#EBEBEB;
+  --line-2:#F4F4F4;
+  --accent-soft:color-mix(in srgb, var(--accent) 8%, #fff);
+  --accent-line:color-mix(in srgb, var(--accent) 28%, #fff);
+  --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--font);background:#E9E9EC;color:var(--ink);-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.5}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+input,textarea,select{font:inherit;color:inherit}
+
+/* ============ 原型控制条（不属于产品） ============ */
+.proto{position:fixed;left:0;right:0;bottom:0;z-index:999;background:#1B1B1F;color:#EDEDF0;
+  border-top:2px dashed #6B6B75;padding:9px 14px;display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;font-size:12px}
+.proto b{color:#fff;font-weight:600;letter-spacing:.04em}
+.proto .g{display:flex;gap:6px;align-items:center}
+.proto .lbl{color:#9A9AA5;margin-right:2px}
+.proto button{background:#2C2C33;border:1px solid #3D3D46;border-radius:6px;padding:3px 9px;color:#D6D6DC;font-size:12px}
+.proto button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.proto .sw{width:20px;height:20px;border-radius:50%;border:2px solid transparent;padding:0}
+.proto .sw.on{border-color:#fff}
+.proto .hint{color:#8A8A95;margin-left:auto}
+
+/* ============ 舞台与设备框 ============ */
+.stage{padding:22px 22px 74px;display:flex;justify-content:center;min-height:100%}
+.device{background:var(--bg);width:100%;max-width:1240px;height:calc(100vh - 116px);min-height:600px;
+  border-radius:14px;overflow:hidden;box-shadow:0 12px 48px rgba(0,0,0,.16);position:relative;display:flex;flex-direction:column}
+body[data-device="phone"] .device{width:390px;max-width:390px;height:844px;min-height:0;
+  border-radius:38px;border:9px solid #1B1B1F;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+
+/* ============ 顶栏 ============ */
+.topbar{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:12px 18px;border-bottom:1px solid var(--line)}
+.brand{font-size:15px;font-weight:650;letter-spacing:-.01em;display:flex;align-items:center;gap:7px}
+.brand .mark{width:17px;height:17px;border-radius:4px;background:var(--accent);position:relative;flex:0 0 auto}
+.brand .mark::after{content:"";position:absolute;inset:5px 3px auto 3px;height:2px;background:#fff;border-radius:1px;box-shadow:0 4px 0 #fff}
+.nav{display:flex;align-items:center;gap:2px;margin-left:6px}
+.nav button{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;color:var(--ink-2)}
+.nav button:hover{background:var(--bg-hover)}
+.title{font-size:15px;font-weight:600;min-width:96px;letter-spacing:-.01em}
+.title small{font-weight:400;color:var(--ink-3);font-size:11.5px;margin-left:6px}
+.spacer{flex:1}
+.seg{display:flex;background:var(--bg-subtle);border:1px solid var(--line);border-radius:8px;padding:2px}
+.seg button{padding:3px 12px;border-radius:6px;font-size:12.5px;color:var(--ink-2)}
+.seg button.on{background:var(--bg);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.07)}
+.today-btn{padding:4px 11px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;color:var(--ink-2)}
+.today-btn:hover{border-color:var(--accent-line);color:var(--accent)}
+.icon-btn{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--ink-2)}
+.icon-btn:hover{background:var(--bg-hover)}
+
+/* ============ 顶部快速输入（只写「今天」） ============
+   v5 定稿：两条录入路径并存，各司其职——
+     · 顶部框 = 快速路径，**目标锁定今天、不可切换**，保住"写入 < 5 秒"这条红线
+     · 日详情各区块的「+ 添加」= 精确路径，可写入任意选中的日期
+   已去掉麦克风按钮：输入法的语音键（豆包/搜狗/讯飞/iOS 听写）在标准输入框里天然可用，不需要自己接。 */
+.quick{flex:0 0 auto;display:flex;align-items:flex-end;gap:8px;padding:10px 18px;
+  border-bottom:1px solid var(--line);background:var(--bg-subtle)}
+.qtypes{display:flex;gap:4px;flex:0 0 auto;padding-bottom:1px}
+.qtypes button{padding:3px 10px;border-radius:7px;font-size:12px;color:var(--ink-2);border:1px solid transparent}
+.qtypes button.on{background:var(--bg);border-color:var(--accent-line);color:var(--accent);font-weight:600}
+.qfield{flex:1;min-width:0;display:flex;align-items:flex-end;background:var(--bg);
+  border:1px solid var(--line);border-radius:9px;padding:5px 10px}
+.qfield:focus-within{border-color:var(--accent-line);box-shadow:0 0 0 3px var(--accent-soft)}
+.qfield textarea{flex:1;min-width:0;border:none;outline:none;background:none;font-size:13.5px;
+  resize:none;line-height:1.45;max-height:96px;overflow-y:auto;padding:1px 0;font-family:var(--font)}
+.qfield textarea::placeholder{color:var(--ink-3)}
+.qcat{flex:0 0 auto;border:1px solid var(--line);background:var(--bg);border-radius:7px;
+  padding:3px 6px;font-size:12px;color:var(--ink-2);outline:none;margin-bottom:1px}
+/* 「只写今天」徽标：选中日 ≠ 今天时高亮告警，防止误以为写进了当前看的那一天 */
+.qbadge{flex:0 0 auto;font-size:11.5px;color:var(--ink-3);background:var(--bg);border:1px solid var(--line);
+  border-radius:6px;padding:2px 8px;white-space:nowrap;margin-bottom:1px;cursor:default}
+.qbadge.warn{color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft);font-weight:600}
+.qadd{flex:0 0 auto;width:28px;height:28px;border-radius:8px;background:var(--accent);color:#fff;
+  display:grid;place-items:center;margin-bottom:1px}
+.qadd:disabled{background:var(--ink-4);cursor:default}
+body[data-device="phone"] .quick{padding:9px 13px;gap:6px}
+body[data-device="phone"] .qtypes button{padding:3px 7px;font-size:11.5px}
+body[data-device="phone"] .qcat{font-size:11px;padding:2px 4px}
+body[data-device="phone"] .qbadge{font-size:10px;padding:2px 5px}
+
+/* ============ 分区块内联表单（精确路径：写入选中的那一天） ============ */
+.iform{margin-top:8px;border:1px solid var(--accent-line);border-radius:9px;
+  background:var(--accent-soft);padding:9px 10px;display:flex;flex-direction:column;gap:8px}
+.iform input,.iform textarea,.iform select{background:var(--bg);border:1px solid var(--line);
+  border-radius:7px;padding:6px 9px;font-size:13px;outline:none;font-family:var(--font);min-width:0;color:var(--ink)}
+.iform input::placeholder,.iform textarea::placeholder{color:var(--ink-3)}
+.iform input:focus,.iform textarea:focus,.iform select:focus{border-color:var(--accent-line)}
+.if-input{width:100%}
+.if-row{display:flex;gap:6px;align-items:center}
+.if-cat{flex:0 0 auto}
+.if-amt{width:78px;flex:0 0 auto;text-align:right;font-variant-numeric:tabular-nums}
+.if-expnote{flex:1;min-width:0}
+.if-area{width:100%;resize:vertical;min-height:62px;line-height:1.5}
+.if-acts{display:flex;justify-content:flex-end;gap:7px;align-items:center}
+.if-tip{margin-right:auto;font-size:10.5px;color:var(--ink-3)}
+.if-cancel{font-size:12px;color:var(--ink-3);padding:4px 10px;border-radius:6px}
+.if-cancel:hover{background:var(--bg-hover);color:var(--ink-2)}
+.if-save{font-size:12px;background:var(--accent);color:#fff;padding:4px 14px;border-radius:6px;font-weight:500}
+.if-save:hover{filter:brightness(1.12)}
+body[data-device="phone"] .if-row{flex-wrap:wrap}
+body[data-device="phone"] .if-expnote{flex:1 1 100%}
+body[data-device="phone"] .if-amt{width:70px}
+
+/* ============ 主体 ============ */
+.main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 372px}
+body[data-device="phone"] .main{grid-template-columns:minmax(0,1fr)}
+.cal{min-width:0;display:flex;flex-direction:column;overflow:hidden}
+.wkhead{flex:0 0 auto;display:grid;grid-template-columns:repeat(7,1fr);border-bottom:1px solid var(--line)}
+.wkhead div{padding:7px 0;text-align:center;font-size:11.5px;color:var(--ink-3);font-weight:500}
+.wkhead div.we{color:var(--ink-3)}
+body[data-view="week"] .wkhead{display:none}
+.grid-scroll{flex:1;min-height:0;overflow:auto}
+
+/* ---- 月视图 ---- */
+.month{display:grid;grid-template-columns:repeat(7,1fr);height:100%;min-height:520px}
+.cell{border-right:1px solid var(--line-2);border-bottom:1px solid var(--line-2);padding:6px 7px 7px;
+  min-width:0;cursor:pointer;position:relative;display:flex;flex-direction:column;gap:3px;text-align:left;background:var(--bg);transition:background .12s}
+.cell:hover{background:var(--bg-hover)}
+.cell:nth-child(7n){border-right:none}
+.cell.out{background:var(--bg-subtle)}
+.cell.out .cnum,.cell.out .clun{color:var(--ink-3)}
+.cell.sel{box-shadow:inset 0 0 0 2px var(--accent);z-index:2;background:var(--bg)}
+.crow1{display:flex;align-items:center;gap:5px}
+.cnum{font-size:14px;font-weight:600;line-height:1.15;letter-spacing:-.02em}
+.cell.today .cnum{background:var(--accent);color:#fff;width:21px;height:21px;border-radius:50%;
+  display:grid;place-items:center;font-size:12px;margin:-2px 0 -2px -2px}
+.clun{font-size:10.5px;color:var(--ink-3);line-height:1.2;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.clun.fest{color:var(--accent);font-weight:600}
+.clun.jq{color:var(--ink-2);font-weight:500}
+.crow3{display:flex;align-items:center;gap:5px;margin-top:auto;min-height:14px}
+.prog{font-size:10.5px;color:var(--ink-3);font-variant-numeric:tabular-nums;flex:0 0 auto}
+.prog.all{color:var(--accent);font-weight:600}
+.cost{font-size:10.5px;color:var(--ink-2);font-variant-numeric:tabular-nums;flex:1;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}
+/* 想法指示器：v2 的 4px 浅灰点太淡看不出来，v3 改成「实心点 + 条数」 */
+.nind{display:flex;align-items:center;gap:2.5px;flex:0 0 auto;font-size:10.5px;
+  color:var(--ink-2);font-variant-numeric:tabular-nums}
+.nind i{width:5px;height:5px;border-radius:50%;background:var(--ink-2);flex:0 0 auto}
+.nind b{font-weight:600}
+.cell.today .nind i{background:var(--accent)}
+body[data-device="phone"] .nind b{display:none}
+body[data-device="phone"] .nind{font-size:9px}
+
+/* ---- 周视图（竖排：每天一整行） ---- */
+.weekbar{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:8px 16px;
+  border-bottom:1px solid var(--line);background:var(--bg-subtle);font-size:12px;color:var(--ink-3)}
+.weekbar .wsum-cost{margin-left:auto;font-size:13px;font-weight:650;color:var(--ink);font-variant-numeric:tabular-nums;flex:0 0 auto}
+.weekbar .wsum-cost small{font-weight:400;color:var(--ink-3);font-size:11px;margin-right:4px}
+.week{display:flex;flex-direction:column}
+.wrow{display:flex;gap:12px;padding:11px 16px;border-bottom:1px solid var(--line-2);cursor:pointer;align-items:flex-start;background:var(--bg)}
+.wrow:hover{background:var(--bg-hover)}
+.wrow.sel{box-shadow:inset 3px 0 0 var(--accent);background:var(--accent-soft)}
+.wrow.out{background:var(--bg-subtle)}
+.wrow.out .wdate,.wrow.out .wlun{color:var(--ink-3)}
+.wleft{display:flex;flex-direction:column;align-items:center;width:40px;flex:0 0 auto;padding-top:1px}
+.wdate{font-size:18px;font-weight:650;line-height:1.1;letter-spacing:-.03em}
+.wrow.today .wdate{color:var(--accent)}
+.wdow{font-size:10px;color:var(--ink-3);margin-top:1px}
+.wright{min-width:0;flex:1;display:flex;flex-direction:column;gap:5px}
+.wtop{display:flex;align-items:center;gap:7px;min-height:16px}
+.wlun{font-size:11px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.wlun.fest{color:var(--accent);font-weight:600}
+.wcost{font-size:12px;font-weight:650;font-variant-numeric:tabular-nums;flex:0 0 auto;margin-left:auto}
+.witems{display:flex;flex-direction:column;gap:2px;min-width:0}
+.witem{font-size:12px;line-height:1.42;display:flex;gap:6px;align-items:flex-start;color:var(--ink-2);min-width:0}
+.witem .bx{width:11px;height:11px;border-radius:3px;border:1.4px solid var(--ink-3);flex:0 0 auto;margin-top:2px}
+.witem.done .bx{background:var(--accent);border-color:var(--accent)}
+.witem.done .tx{color:var(--ink-3);text-decoration:line-through;text-decoration-color:var(--ink-3)}
+.witem .tx{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wmore{font-size:10.5px;color:var(--ink-3);padding-left:17px}
+.wnote{font-size:12px;line-height:1.45;color:var(--ink-2);border-left:2px solid var(--line);padding-left:7px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.wcats{font-size:10.5px;color:var(--ink-3);font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wanni{font-size:10.5px;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:1px 6px;align-self:flex-start}
+.wempty{font-size:11.5px;color:var(--ink-3)}
+
+/* ============ 日详情 ============ */
+.detail{border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0;background:var(--bg);overflow:hidden}
+.dscroll{flex:1;min-height:0;overflow:auto;padding:16px 18px 28px}
+.dhead{margin-bottom:14px}
+.dtitle{font-size:19px;font-weight:650;letter-spacing:-.02em;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.dtitle .dow{font-size:13px;font-weight:400;color:var(--ink-3)}
+.dsub{font-size:12px;color:var(--ink-3);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.dsub .fest{color:var(--accent);font-weight:600}
+.anni-badge{color:var(--accent);background:var(--accent-soft);border:1px solid var(--accent-line);border-radius:5px;padding:0 6px;font-size:11px;font-weight:500}
+.roll{display:flex;align-items:center;gap:9px;margin-bottom:14px;background:var(--accent-soft);
+  border:1px solid var(--accent-line);border-radius:9px;padding:8px 11px;font-size:12px;color:var(--ink-2)}
+.roll .t{flex:1;min-width:0}
+.roll b{color:var(--accent);font-weight:600}
+.roll button{font-size:11.5px;padding:3px 9px;border-radius:6px;background:var(--accent);color:#fff;font-weight:500}
+.roll button.ghost{background:none;color:var(--ink-3);border:1px solid var(--line)}
+
+.sect{margin-bottom:20px}
+.sect-h{display:flex;align-items:center;gap:7px;margin-bottom:9px}
+.sect-h h3{font-size:12px;font-weight:650;letter-spacing:.06em;color:var(--ink-2)}
+.sect-h .n{font-size:11px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.sect-h .total{font-size:13px;font-weight:650;color:var(--ink);font-variant-numeric:tabular-nums}
+.sect-h .line{flex:1;height:1px;background:var(--line-2)}
+.addbtn{font-size:11.5px;color:var(--ink-3);display:flex;align-items:center;gap:3px}
+.addbtn:hover{color:var(--accent)}
+
+.tlist{display:flex;flex-direction:column;gap:1px}
+.titem{display:flex;align-items:flex-start;gap:9px;padding:6px 4px;border-radius:7px}
+.titem:hover{background:var(--bg-subtle)}
+.chk{width:16px;height:16px;border-radius:5px;border:1.5px solid var(--ink-3);flex:0 0 auto;margin-top:1px;display:grid;place-items:center;transition:.12s}
+.chk:hover{border-color:var(--accent)}
+.titem.done .chk{background:var(--accent);border-color:var(--accent)}
+.titem.done .ttxt{color:var(--ink-3);text-decoration:line-through;text-decoration-color:var(--ink-3)}
+.titem.rolledout{opacity:.42}
+.ttxt{flex:1;min-width:0;font-size:13.5px;line-height:1.45;word-break:break-word}
+.rolled{font-size:10.5px;color:var(--ink-3);background:var(--bg-subtle);border-radius:4px;padding:0 5px;margin-top:2px;flex:0 0 auto}
+
+.nlist{display:flex;flex-direction:column;gap:9px}
+.nitem{position:relative;padding-left:11px}
+.nitem::before{content:"";position:absolute;left:0;top:7px;bottom:2px;width:2px;background:var(--line);border-radius:1px}
+.ntxt{font-size:13.5px;line-height:1.55;color:var(--ink);word-break:break-word;white-space:pre-wrap}
+.ntime{font-size:10.5px;color:var(--ink-3);margin-top:2px;font-variant-numeric:tabular-nums}
+
+.elist{display:flex;flex-direction:column;gap:1px}
+.eitem{display:flex;align-items:center;gap:9px;padding:6px 4px;border-radius:7px}
+.eitem:hover{background:var(--bg-subtle)}
+.ecat{font-size:11px;color:var(--ink-2);background:var(--bg-subtle);border:1px solid var(--line);
+  border-radius:5px;padding:1px 6px;flex:0 0 auto}
+.enote{flex:1;min-width:0;font-size:13px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.enote .ph{color:var(--ink-3)}
+.eamt{font-size:13.5px;font-weight:600;font-variant-numeric:tabular-nums;flex:0 0 auto}
+.edel{opacity:0;font-size:15px;color:var(--ink-3);flex:0 0 auto;width:18px;text-align:center;line-height:1}
+.eitem:hover .edel{opacity:1}
+.ebreak{display:flex;flex-wrap:wrap;gap:5px 10px;margin-top:9px;padding-top:9px;border-top:1px dashed var(--line)}
+.ebreak span{font-size:11px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.ebreak b{color:var(--ink-2);font-weight:600}
+
+.empty{text-align:center;padding:20px 16px;color:var(--ink-3);font-size:12.5px;line-height:1.7}
+.empty .big{font-size:22px;margin-bottom:6px;color:var(--ink-4)}
+
+/* ============ v6：日 / 周 / 月三视图（ADR-0005 修订，不再有底部 sheet） ============
+   v5.2 及以前这里是"手机底部 sheet + 遮罩"。v6 把日详情提升为**一等视图**并设为默认落地页，
+   主界面不该被压在 90% 屏高的弹层里、也不该能被点遮罩关掉，故整块删除。
+   当年那个"点开后无法返回"的 bug（top:0 把 z-index 更低的遮罩完全盖住）随之消失，
+   但失败模式换了个样子——变成"进了某天出不来"，所以返回路径的冗余要求原样保留，见 .daybar。 */
+
+/* 桌面：week/month 时左日历 + 右 372px 日详情；切到 day 时日历收起、日详情占满（PRD M17） */
+body[data-view="day"] .main{grid-template-columns:minmax(0,1fr)}
+body[data-view="day"] .cal{display:none}
+body[data-view="day"] .detail{border-left:none}
+
+/* 手机：三视图各自全屏，同一时刻只渲染一个 */
+body[data-device="phone"] .main{grid-template-columns:minmax(0,1fr)}
+body[data-device="phone"] .detail{border-left:none}
+body[data-device="phone"]:not([data-view="day"]) .detail{display:none}
+body[data-device="phone"] .dscroll{padding-top:12px}
+
+/* 日视图工具条：只在"从周/月点格子进来"时出现返回键（手机）。
+   三条返回路径：① 这个按钮 ② 系统手势/popstate ③ Esc（桌面）。不能只依赖键盘。 */
+.daybar{display:none}
+body[data-view="day"] .daybar.has-source{display:flex}
+.daybar{align-items:center;gap:8px;flex:0 0 auto;padding:8px 10px;border-bottom:1px solid var(--line-2);
+  background:var(--bg-subtle)}
+.daybar .back{display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--ink-2);
+  padding:7px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);
+  min-height:36px} /* 触摸目标 ≥40px 见 PRD §5.5，这里靠 padding 撑到 36+，正式版要够 40 */
+.daybar .back:hover{border-color:var(--accent-line);color:var(--accent)}
+.daybar .src{font-size:11.5px;color:var(--ink-3);margin-left:auto}
+/* 翻日提示：日视图可左右滑动 */
+.daybar .hint{font-size:11px;color:var(--ink-3)}
+body[data-device="phone"] .topbar{padding-left:13px;padding-right:13px}
+body[data-device="phone"] .title{min-width:0;font-size:13.5px}
+body[data-device="phone"] .title small{display:none}
+body[data-device="phone"] .cell{padding:4px 4px 5px;gap:2px}
+body[data-device="phone"] .cnum{font-size:12.5px}
+body[data-device="phone"] .clun{font-size:9px}
+body[data-device="phone"] .crow3{min-height:12px;gap:3px}
+body[data-device="phone"] .prog{font-size:9px}
+body[data-device="phone"] .cost{font-size:9px}
+body[data-device="phone"] .nind i{width:4px;height:4px}
+body[data-device="phone"] .brand span{display:none}
+body[data-device="phone"] .today-btn{padding:4px 8px;font-size:11.5px}
+body[data-device="phone"] .wrow{padding:10px 13px}
+
+/* ============ 弹层与提示 ============ */
+.modal-wrap{position:absolute;inset:0;z-index:80;display:none;place-items:center;background:rgba(0,0,0,.3);padding:20px}
+.modal-wrap.on{display:grid}
+.modal{background:var(--bg);border-radius:13px;width:100%;max-width:400px;box-shadow:0 18px 54px rgba(0,0,0,.22);
+  overflow:hidden;max-height:88%;display:flex;flex-direction:column}
+.modal h2{font-size:15px;font-weight:650;padding:15px 18px 4px;flex:0 0 auto}
+.modal .mdesc{font-size:12.5px;color:var(--ink-3);padding:0 18px 13px;line-height:1.6;flex:0 0 auto}
+.modal .mbody{padding:0 18px 6px;display:flex;flex-direction:column;gap:8px;overflow:auto}
+.mrow{display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--line);border-radius:10px;text-align:left;width:100%}
+.mrow:hover{border-color:var(--accent-line);background:var(--accent-soft)}
+.mrow .mi{font-size:16px;flex:0 0 auto;width:20px;text-align:center;color:var(--ink-3)}
+.mrow .mt{flex:1;min-width:0}
+.mrow .mt b{display:block;font-size:13px;font-weight:600}
+.mrow .mt span{display:block;font-size:11.5px;color:var(--ink-3);margin-top:1px;line-height:1.5}
+.mfoot{padding:12px 18px 16px;display:flex;justify-content:flex-end;gap:8px;flex:0 0 auto}
+.note{font-size:11.5px;color:var(--ink-3);background:var(--bg-subtle);border-radius:8px;padding:9px 11px;line-height:1.6;margin:6px 0 0}
+.btn{font-size:11.5px;padding:3px 10px;border-radius:6px;border:1px solid var(--line);color:var(--ink-2)}
+.btn:hover{border-color:var(--accent-line);color:var(--accent)}
+.toast{position:absolute;left:50%;bottom:26px;transform:translateX(-50%) translateY(14px);background:#1B1B1F;color:#fff;
+  font-size:12.5px;padding:8px 15px;border-radius:9px;opacity:0;pointer-events:none;transition:.24s;z-index:90;
+  white-space:nowrap;max-width:88%;overflow:hidden;text-overflow:ellipsis}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body data-device="desktop" data-view="day">
+
+<div class="stage">
+  <div class="device">
+    <header class="topbar">
+      <div class="brand"><i class="mark"></i><span>DayCell</span></div>
+      <div class="nav">
+        <button id="prevBtn" title="上一个"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+        <button id="nextBtn" title="下一个"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+      </div>
+      <div class="title" id="calTitle"></div>
+      <div class="spacer"></div>
+      <button class="today-btn" id="todayBtn">今天</button>
+      <div class="seg">
+        <button data-view="day" class="on">日</button>
+        <button data-view="week">周</button>
+        <button data-view="month">月</button>
+      </div>
+      <button class="icon-btn" id="menuBtn" title="备份与设置"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg></button>
+    </header>
+
+    <div class="quick">
+      <div class="qtypes">
+        <button data-type="todo" class="on">待办</button>
+        <button data-type="note">想法</button>
+        <button data-type="cost">花费</button>
+      </div>
+      <div class="qfield">
+        <textarea id="qInput" rows="1" placeholder="要做的事，回车保存…" autocomplete="off"></textarea>
+      </div>
+      <select class="qcat" id="qCat" style="display:none"></select>
+      <span class="qbadge" id="qBadge">→ 今天</span>
+      <button class="qadd" id="qAdd" disabled title="保存到今天"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+    </div>
+
+    <div class="main">
+      <section class="cal">
+        <div class="wkhead"><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div class="we">六</div><div class="we">日</div></div>
+        <div class="weekbar" id="weekbar" style="display:none"></div>
+        <div class="grid-scroll" id="gridScroll"></div>
+      </section>
+      <aside class="detail" id="detail">
+        <div class="daybar" id="daybar">
+          <button class="back" id="backBtn">← 返回<span id="backSrc"></span></button>
+          <span class="hint">左右滑动可翻日</span>
+        </div>
+        <div class="dscroll" id="dscroll"></div>
+      </aside>
+    </div>
+
+
+    <div class="modal-wrap" id="modal">
+      <div class="modal">
+        <h2 id="mTitle">备份与数据</h2>
+        <div class="mdesc" id="mDesc"></div>
+        <div class="mbody" id="mBody"></div>
+        <div class="mfoot"><button class="btn" id="mClose">关闭</button></div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+  </div>
+</div>
+
+<div class="proto">
+  <b>原型控制 v6</b>
+  <div class="g"><span class="lbl">设备</span>
+    <button data-dev="desktop" class="on">桌面</button>
+    <button data-dev="phone">手机</button>
+  </div>
+  <div class="g"><span class="lbl">视图</span>
+    <button data-v="day" class="on">日（默认）</button>
+    <button data-v="week">周（竖排）</button>
+    <button data-v="month">月</button>
+  </div>
+  <div class="g"><span class="lbl">强调色</span>
+    <button class="sw on" data-accent="#2E4BA6" style="background:#2E4BA6" title="墨蓝"></button>
+    <button class="sw" data-accent="#2C6B57" style="background:#2C6B57" title="松绿"></button>
+    <button class="sw" data-accent="#B0512A" style="background:#B0512A" title="赭石"></button>
+    <button class="sw" data-accent="#3A3A3A" style="background:#3A3A3A" title="石墨"></button>
+  </div>
+  <div class="g"><span class="lbl">跳转</span>
+    <button data-goto="2026-09-29">今天</button>
+    <button data-goto="2026-09-21">空日子</button>
+    <button data-goto="2026-09-25">中秋</button>
+    <button data-goto="2026-09-24">大额支出</button>
+  </div>
+  <span class="hint">假数据 · 刷新恢复 · <b>默认日视图（今天）</b> · 日/周/月三视图 · 顶部框只写今天 + 日详情内分区添加</span>
+</div>
+
+<script>
+/* ===================================================================
+   DayCell 可点击原型 v6
+   v6 结构变更（PRD D16/D17、ADR-0005 修订）：**默认视图改为「日视图 + 今天」**
+     · 视图从 2 个（月/周）扩为 **3 个（日/周/月）**，切换器顺序固定 日 → 周 → 月，快捷键 d/w/m
+     · 手机端**取消底部 sheet 与遮罩**，日详情提升为全屏一等视图；点周/月的格子跳进日视图
+     · 日视图**可前后翻日**（顶栏 ‹ ›、j/k、←/→、手机左右滑动），翻日不改当前视图
+     · 从周/月进日视图会**记住来源**（视图 + 日期 + 滚动位置），「← 返回」精确还原，不会把人扔回今天
+     · 三条返回路径：← 返回按钮 / popstate（系统右滑手势）/ Esc（桌面）
+     · 桌面端：week/month 仍是左日历 + 右 372px 日详情分栏；切到「日」时日历收起、日详情占满
+     · 空状态区分「今天还什么都没有」（指向顶部输入框）与「这一天还什么都没有」
+   v5.2 修复：文字对比度不达标（--ink-3 2.75:1 / --ink-4 1.74:1，WCAG AA 要求 4.5:1）
+     → ink-2 #555555、ink-3 #767676，ink-4 语义收窄为「仅装饰、禁止承载信息」
+   v5.1 修复：手机端点开某天后无法返回（sheet 占满全屏盖住了遮罩层）
+     → sheet 改为最高 90% 高度并留出可点遮罩，新增右上「关闭 ✕」按钮，grab 条也可点击关闭
+   录入采用双路径（v5 定稿）：
+     · 顶部快速输入框 —— **目标锁定今天，不可切换**，负责"3 秒记下"
+     · 日详情各区块的「+ 添加」—— 内联表单，负责"写入任意选中的那一天"
+   相对 v3 的变更：
+     ① 去掉「心情」全部内容（5 档色阶分辨不清，且与待办进度数字争夺格子空间）
+     ② 去掉麦克风按钮（输入法自带语音键在标准输入框里天然可用，无需自己接）
+   v3：默认周视图 / 月格想法指示器加强 / 多行输入
+   v2：去掉当日总结 / 新增每日花费 / 周视图改竖排
+   纯前端假数据，无业务逻辑、无持久化。
+   =================================================================== */
+
+/* ---- 农历表（由 lunar-javascript 生成，已按白名单过滤次要纪念日） ----
+   'MM-DD' -> [显示文字, 类型, 原始农历日]   类型: ''=农历日, 'j'=节气, 'f'=节日/初一 */
+const LUNAR_RAW = {
+'08-24':['十二','','十二'],'08-25':['十三','','十三'],'08-26':['十四','','十四'],'08-27':['十五','','十五'],
+'08-28':['十六','','十六'],'08-29':['十七','','十七'],'08-30':['十八','','十八'],'08-31':['十九','','十九'],
+'09-01':['二十','','二十'],'09-02':['廿一','','廿一'],'09-03':['廿二','','廿二'],'09-04':['廿三','','廿三'],
+'09-05':['廿四','','廿四'],'09-06':['廿五','','廿五'],'09-07':['白露','j','廿六'],'09-08':['廿七','','廿七'],
+'09-09':['廿八','','廿八'],'09-10':['教师节','f','廿九'],'09-11':['八月','f','八月'],'09-12':['初二','','初二'],
+'09-13':['初三','','初三'],'09-14':['初四','','初四'],'09-15':['初五','','初五'],'09-16':['初六','','初六'],
+'09-17':['初七','','初七'],'09-18':['初八','','初八'],'09-19':['初九','','初九'],'09-20':['初十','','初十'],
+'09-21':['十一','','十一'],'09-22':['十二','','十二'],'09-23':['秋分','j','十三'],'09-24':['十四','','十四'],
+'09-25':['中秋节','f','十五'],'09-26':['十六','','十六'],'09-27':['十七','','十七'],'09-28':['十八','','十八'],
+'09-29':['十九','','十九'],'09-30':['二十','','二十'],
+'10-01':['国庆节','f','廿一'],'10-02':['廿二','','廿二'],'10-03':['廿三','','廿三'],'10-04':['廿四','','廿四'],
+'10-05':['廿五','','廿五'],'10-06':['廿六','','廿六'],'10-07':['廿七','','廿七'],'10-08':['寒露','j','廿八'],
+'10-09':['廿九','','廿九'],'10-10':['九月','f','九月'],'10-11':['初二','','初二'],'10-12':['初三','','初三'],
+'10-13':['初四','','初四'],'10-14':['初五','','初五'],'10-15':['初六','','初六'],'10-16':['初七','','初七'],
+'10-17':['初八','','初八'],'10-18':['重阳节','f','初九'],'10-19':['初十','','初十'],'10-20':['十一','','十一'],
+'10-21':['十二','','十二'],'10-22':['十三','','十三'],'10-23':['霜降','j','十四'],'10-24':['十五','','十五'],
+'10-25':['十六','','十六'],'10-26':['十七','','十七'],'10-27':['十八','','十八'],'10-28':['十九','','十九'],
+'10-29':['二十','','二十'],'10-30':['廿一','','廿一'],'10-31':['廿二','','廿二'],'11-01':['廿三','','廿三'],
+'11-02':['廿四','','廿四'],'11-03':['廿五','','廿五'],'11-04':['廿六','','廿六'],'11-05':['廿七','','廿七'],
+'11-06':['廿八','','廿八'],'11-07':['立冬','j','廿九'],'11-08':['三十','','三十'],
+};
+const LUNAR={}; for(const [k,v] of Object.entries(LUNAR_RAW)) LUNAR['2026-'+k]=v;
+
+/* ---- 纪念日（只在当天显示，不做提前倒数） ---- */
+const ANNIV=[
+  { date:'2026-10-02', title:'妈妈生日' },
+  { date:'2026-09-30', title:'体检' },
+];
+
+/* ---- 花费分类 ---- */
+const CATS=['餐饮','交通','购物','居住','娱乐','医疗','学习','其他'];
+
+/* ---- 假数据库 ---- */
+let SEQ=1; const uid=()=>'i'+(SEQ++);
+const T=(t,done,extra={})=>({id:uid(),text:t,done,...extra});
+const N=(t,time)=>({id:uid(),text:t,time});
+const X=(a,c,n)=>({id:uid(),amount:a,cat:c,note:n||''});
+
+const DB={
+'2026-09-29':{
+  todos:[T('写完 DayCell 的 PRD 初稿',false),T('回复客户的合同邮件',true),T('晚上跑步 5 公里',false),T('给妈妈打电话',true)],
+  notes:[
+    N('同步这件事想明白了：单设备场景下，双向同步的价值被高估了。先做本地 + 导出，真觉得烦再加云。','09:12'),
+    N('月视图和周视图分工——索引 vs 回顾。这比硬把内容塞进小格子好得多。','14:40'),
+    N('浏览器不能自动写磁盘，这条限制决定了"纯前端 + 全自动备份"技术上做不到。','16:05'),
+  ],
+  expenses:[X(45,'餐饮','午饭'),X(12.5,'交通','地铁'),X(71,'购物','买了本书')],
+},
+'2026-09-28':{
+  todos:[T('整理上周的会议纪要',false),T('提交季度报销',false),T('看完《设计中的设计》第三章',true)],
+  notes:[N('npm 缓存目录里有 root 拥有的文件导致安装失败，用 --cache 指到工作区绕过了。','10:22')],
+  expenses:[X(32,'餐饮','晚饭外卖'),X(6,'交通','公交')],
+},
+'2026-09-27':{
+  todos:[T('整理中秋的照片',true),T('给手机做一次备份',true)],
+  notes:[N('中秋家里聚了一次，很久没这么齐过。爸喝了两杯就开始讲他年轻时候的事，讲了第三遍。','20:14')],
+  expenses:[X(268,'餐饮','中秋家宴'),X(180,'购物','月饼礼盒'),X(52,'交通','打车')],
+},
+'2026-09-25':{
+  todos:[T('买月饼',true),T('订回家的车票',true),T('写周报',false)],
+  notes:[
+    N('月饼礼盒的包装越来越贵，馅越来越难吃。这算不算一种消费主义的通货膨胀？','11:02'),
+    N('今天在高铁上看窗外，突然想清楚了这个产品到底在解决什么——不是记录，是"回看时能认出自己"。','17:38'),
+  ],
+  expenses:[X(143,'交通','高铁票'),X(38,'餐饮','车上盒饭')],
+},
+'2026-09-24':{
+  todos:[T('收拾行李',true),T('交房租',true)],
+  notes:[N('每年这个时候都会想，是不是该换个城市住一年。然后每年都没换。','22:07')],
+  expenses:[X(2300,'居住','房租'),X(66,'购物','旅行装洗漱包')],
+},
+'2026-09-23':{
+  todos:[T('秋分 · review 第三季度的目标',true),T('修复登录页的样式错位',true),T('约牙医',false)],
+  notes:[N('秋分。昼夜等长的一天，适合做盘点。三季度定的 5 个目标，认真推进的只有 2 个。','08:45')],
+  expenses:[X(28,'餐饮','早咖啡'),X(45,'餐饮','晚饭')],
+},
+'2026-09-22':{
+  todos:[T('提交设计稿',true),T('和后端对齐接口字段',true),T('买生日礼物',false)],
+  notes:[N('妈妈生日下月初二，还没想好买什么。她总说什么都不要，但什么都不买好像也不对。','13:20')],
+  expenses:[X(388,'购物','给妈妈买的围巾'),X(35,'餐饮','')],
+},
+'2026-09-21':{ todos:[], notes:[], expenses:[] },
+'2026-09-20':{
+  todos:[T('周日的懒觉',true),T('洗衣服',true),T('读完那篇长文',true)],
+  notes:[N('一整天没干什么正经事，但心情很好。这种日子也需要被记下来，不然回头看会觉得这个月是空的。','19:30')],
+  expenses:[X(60,'娱乐','电影票两张'),X(24,'餐饮','')],
+},
+'2026-09-18':{
+  todos:[T('写完同步方案的对比',true),T('回复三封积压邮件',true),T('健身',false)],
+  notes:[N('把六种同步方案列出来之后发现，其中四种在实际使用里根本不成立。真正可选的只有两个。','15:11')],
+  expenses:[X(52,'餐饮',''),X(19,'交通','')],
+},
+'2026-09-15':{
+  todos:[T('需求评审会',true),T('整理会议纪要',false),T('交水电费',true)],
+  notes:[N('会上讨论了四十分钟"要不要做提醒"，最后结论是不做。四十分钟决定不做一件事，也算有价值。','11:30')],
+  expenses:[X(200,'医疗','洗牙'),X(36,'餐饮',''),X(187.4,'居住','水电燃气')],
+},
+'2026-09-11':{
+  todos:[T('八月初一 · 更新月度预算',true)],
+  notes:[N('新月。这个月的主题定为"少做，做透"。','07:50')],
+  expenses:[X(120,'学习','买了两本书')],
+},
+'2026-09-07':{
+  todos:[T('白露 · 收起夏装',true),T('预约体检',true)],
+  notes:[N('白露。早上出门明显凉了，短袖该收了。','08:15')],
+  expenses:[X(30,'餐饮','')],
+},
+'2026-09-03':{
+  todos:[T('提交项目立项书',true),T('和新同事一对一',true),T('修好家里的灯泡',false)],
+  notes:[N('立项书改了四版。第一版写给自己看，第四版写给不懂技术的人看——这中间的翻译工作量被严重低估了。','16:42')],
+  expenses:[X(89,'购物','灯泡和工具'),X(48,'餐饮','')],
+},
+'2026-09-01':{
+  todos:[T('九月的第一天 · 列出本月三件事',true),T('清理邮箱',true)],
+  notes:[N('本月三件事：1. 把 DayCell 做出来 2. 体检 3. 读完两本书。写在最显眼的地方。','09:00')],
+  expenses:[X(25,'餐饮',''),X(9.9,'娱乐','视频会员')],
+},
+'2026-10-02':{
+  todos:[T('妈妈生日 · 订蛋糕',false)],
+  notes:[], expenses:[X(328,'购物','生日蛋糕和花')],
+},
+};
+
+/* ---- 状态 ---- */
+const TODAY='2026-09-29';
+let st={ view:'day', cursor:TODAY, sel:TODAY, qtype:'todo', qcat:'餐饮', edit:null, newCat:'餐饮', rollDismissed:{},
+  /* v6：从周/月点格子进日视图时记住来源，返回要精确还原（ADR-0005 硬约束）。只需一层，v0 不做多级导航 */
+  source:null };
+
+/* ---- 工具 ---- */
+const $=s=>document.querySelector(s);
+const pad=n=>String(n).padStart(2,'0');
+const ymd=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parse=s=>{const[a,b,c]=s.split('-').map(Number);return new Date(a,b-1,c)};
+const addDays=(s,n)=>{const d=parse(s);d.setDate(d.getDate()+n);return ymd(d)};
+const DOW=['日','一','二','三','四','五','六'];
+const lunarOf=k=>LUNAR[k]||['','',''];
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const entry=k=>DB[k]||(DB[k]={todos:[],notes:[],expenses:[]});
+const todoProg=e=>{const a=e.todos.filter(t=>!t.rolledTo);return{done:a.filter(t=>t.done).length,n:a.length}};
+const anniOn=k=>ANNIV.filter(a=>a.date===k);
+
+/* 金额格式：日详情用两位小数，月格/周行用紧凑形式 */
+const money=n=>n.toFixed(2);
+const moneyShort=n=> n>=10000 ? (n/10000).toFixed(n>=100000?0:1)+'万'
+  : (Number.isInteger(n) ? String(n) : n.toFixed(n<100?1:0));
+const dayCost=k=>entry(k).expenses.reduce((s,x)=>s+x.amount,0);
+const rangeCost=keys=>keys.reduce((s,k)=>s+dayCost(k),0);
+function catBreakdown(list){
+  const m=new Map();
+  for(const x of list) m.set(x.cat,(m.get(x.cat)||0)+x.amount);
+  return [...m.entries()].sort((a,b)=>b[1]-a[1]);
+}
+/* 格子单行标签优先级：当天纪念日 > 节日/初一 > 节气 > 农历日（不做提前倒数） */
+function cellLabel(k){
+  const [lt,lk]=lunarOf(k);
+  const an=anniOn(k);
+  if(an.length) return {text:an.map(a=>a.title).join(' · '),cls:'fest'};
+  if(lk==='f')  return {text:lt,cls:'fest'};
+  if(lk==='j')  return {text:lt,cls:'jq'};
+  return {text:lt,cls:''};
+}
+
+/* ---- 标题 ---- */
+function renderTitle(){
+  const d=parse(st.cursor);
+  if(st.view==='day'){
+    /* 日视图的顶栏只给月份上下文——具体日期由 .dhead 显示，避免同一屏出现两遍 */
+    $('#calTitle').innerHTML=`${d.getFullYear()} 年 ${d.getMonth()+1} 月<small>${d.getDate()} 日 周${DOW[d.getDay()]}</small>`;
+  }else if(st.view==='month'){
+    const pfx=st.cursor.slice(0,7);
+    const keys=Object.keys(DB).filter(k=>k.startsWith(pfx));
+    $('#calTitle').innerHTML=`${d.getFullYear()} 年 ${d.getMonth()+1} 月`+
+      `<small>${keys.length} 天有记录 · ¥${money(rangeCost(keys))}</small>`;
+  }else{
+    const mon=startOfWeek(st.cursor), a=parse(mon), b=parse(addDays(mon,6));
+    const same=a.getMonth()===b.getMonth();
+    $('#calTitle').innerHTML=(same?`${a.getFullYear()} 年 ${a.getMonth()+1} 月`:`${a.getMonth()+1}月 – ${b.getMonth()+1}月`)+
+      `<small>${a.getDate()}–${b.getDate()} 日</small>`;
+  }
+}
+function startOfWeek(k){const d=parse(k);return addDays(k,-((d.getDay()+6)%7))}
+const weekKeys=k=>Array.from({length:7},(_,i)=>addDays(startOfWeek(k),i));
+
+/* ---- 月视图 ---- */
+function renderMonth(){
+  const first=parse(st.cursor.slice(0,7)+'-01');
+  const gridStart=addDays(ymd(first),-((first.getDay()+6)%7));
+  const curMonth=st.cursor.slice(0,7);
+  let h='<div class="month">';
+  for(let i=0;i<42;i++){
+    const k=addDays(gridStart,i), d=parse(k), e=entry(k);
+    const out=k.slice(0,7)!==curMonth;
+    const p=todoProg(e), c=dayCost(k), lab=cellLabel(k);
+    const cls=['cell']; if(out)cls.push('out'); if(k===TODAY)cls.push('today'); if(k===st.sel)cls.push('sel');
+    h+=`<div class="${cls.join(' ')}" data-k="${k}" role="button" tabindex="0" title="${k} · ${esc(lab.text)}${c?` · ¥${money(c)}`:''}">
+      <div class="crow1">
+        <span class="cnum">${d.getDate()}</span>
+        <span class="clun ${lab.cls}">${esc(lab.text)}</span>
+      </div>
+      <div class="crow3">
+        ${p.n?`<span class="prog ${p.done===p.n?'all':''}">${p.done}/${p.n}</span>`:'<span class="prog"></span>'}
+        ${c?`<span class="cost">¥${moneyShort(c)}</span>`:''}
+        ${e.notes.length?`<span class="nind" title="${e.notes.length} 条想法"><i></i><b>${e.notes.length}</b></span>`:''}
+      </div>
+    </div>`;
+  }
+  return h+'</div>';
+}
+
+/* ---- 周视图（竖排：每天一整行） ---- */
+function renderWeek(){
+  const keys=weekKeys(st.cursor), curMonth=st.cursor.slice(0,7);
+  const total=rangeCost(keys);
+  const todoAll=keys.reduce((s,k)=>{const p=todoProg(entry(k));return{done:s.done+p.done,n:s.n+p.n}},{done:0,n:0});
+  $('#weekbar').innerHTML=`<span>${todoAll.n?`待办 ${todoAll.done}/${todoAll.n}`:'无待办'}</span>
+    <span>·</span><span>${keys.filter(k=>entry(k).notes.length).length} 天有想法</span>
+    <span class="wsum-cost"><small>本周支出</small>¥${money(total)}</span>`;
+  let h='<div class="week">';
+  for(const k of keys){
+    const d=parse(k), e=entry(k);
+    const [,ld]=lunarOf(k);
+    const an=anniOn(k), lab=cellLabel(k);
+    const act=e.todos.filter(t=>!t.rolledTo);
+    const shown=act.slice(0,3), rest=act.length-shown.length;
+    const notes=e.notes.slice(0,2), c=dayCost(k);
+    const cls=['wrow']; if(k.slice(0,7)!==curMonth)cls.push('out');
+    if(k===TODAY)cls.push('today'); if(k===st.sel)cls.push('sel');
+    h+=`<div class="${cls.join(' ')}" data-k="${k}" role="button" tabindex="0">
+      <div class="wleft"><span class="wdate">${d.getDate()}</span><span class="wdow">周${DOW[d.getDay()]}</span></div>
+      <div class="wright">
+        <div class="wtop">
+          <span class="wlun ${lab.cls}">${esc(lab.text)}${lab.cls&&ld&&ld!==lab.text?` · ${esc(ld)}`:''}</span>
+          ${c?`<span class="wcost">¥${money(c)}</span>`:''}
+        </div>
+        ${an.length?`<span class="wanni">◷ ${esc(an.map(a=>a.title).join(' · '))}</span>`:''}
+        ${act.length?`<div class="witems">
+          ${shown.map(t=>`<div class="witem ${t.done?'done':''}"><i class="bx"></i><span class="tx">${esc(t.text)}</span></div>`).join('')}
+          ${rest>0?`<div class="wmore">+${rest} 项待办</div>`:''}
+        </div>`:''}
+        ${notes.map(n=>`<div class="wnote">${esc(n.text)}</div>`).join('')}
+        ${c?`<div class="wcats">${catBreakdown(e.expenses).map(([cat,v])=>`${esc(cat)} ${moneyShort(v)}`).join(' · ')}</div>`:''}
+        ${!act.length&&!notes.length&&!c?'<div class="wempty">空白的一天</div>':''}
+      </div>
+    </div>`;
+  }
+  return h+'</div>';
+}
+
+/* ---- 日详情 ---- */
+function renderDetail(){
+  const k=st.sel, d=parse(k), e=entry(k);
+  const [lt,lk,ld]=lunarOf(k);
+  const an=anniOn(k), p=todoProg(e), c=dayCost(k);
+  const prev=addDays(k,-1), pe=DB[prev];
+  const rolled=pe?pe.todos.filter(t=>!t.done&&!t.rolledTo):[];
+  const showRoll=rolled.length&&!st.rollDismissed[k];
+
+  let h=`<div class="dhead">
+    <div class="dtitle">${d.getFullYear()} 年 ${d.getMonth()+1} 月 ${d.getDate()} 日<span class="dow">周${DOW[d.getDay()]}</span>
+      ${k===TODAY?'<span class="dow" style="color:var(--accent);font-weight:600">今天</span>':''}</div>
+    <div class="dsub">
+      <span class="${lk?'fest':''}">${esc(lt)}${lk&&ld&&ld!==lt?` · ${esc(ld)}`:''}</span>
+      ${lk==='j'?'<span>节气</span>':''}
+      ${an.map(a=>`<span class="anni-badge">◷ ${esc(a.title)}</span>`).join('')}
+    </div>
+  </div>`;
+
+  if(showRoll){
+    h+=`<div class="roll"><span class="t">前一天还有 <b>${rolled.length}</b> 件没做完</span>
+      <button data-act="roll">顺延</button><button class="ghost" data-act="rollDismiss">忽略</button></div>`;
+  }
+
+  /* 待办 */
+  h+=`<div class="sect"><div class="sect-h"><h3>待办</h3>${p.n?`<span class="n">${p.done}/${p.n}</span>`:''}
+      <span class="line"></span><button class="addbtn" data-act="addTodo">${st.edit==='todo'?'收起':'+ 添加'}</button></div><div class="tlist">`;
+  h+= e.todos.length ? e.todos.map(t=>`<div class="titem ${t.done?'done':''} ${t.rolledTo?'rolledout':''}">
+      <button class="chk" data-todo="${t.id}">${t.done?'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>':''}</button>
+      <span class="ttxt">${esc(t.text)}</span>
+      ${t.rolledTo?'<span class="rolled">已顺延 →</span>':''}
+      ${t.rolledFrom?`<span class="rolled">顺延自 ${parse(t.rolledFrom).getMonth()+1}/${parse(t.rolledFrom).getDate()}</span>`:''}
+    </div>`).join('') : (st.edit==='todo'?'':'<div class="empty" style="padding:14px">今天还没有待办</div>');
+  h+=`</div>${formHtml('todo')}</div>`;
+
+  /* 花费 */
+  const bd=catBreakdown(e.expenses);
+  h+=`<div class="sect"><div class="sect-h"><h3>花费</h3>
+      ${c?`<span class="total">¥${money(c)}</span>`:'<span class="n">无</span>'}
+      <span class="line"></span><button class="addbtn" data-act="addCost">${st.edit==='cost'?'收起':'+ 记一笔'}</button></div>`;
+  if(e.expenses.length){
+    h+=`<div class="elist">${e.expenses.map(x=>`<div class="eitem">
+        <span class="ecat">${esc(x.cat)}</span>
+        <span class="enote">${x.note?esc(x.note):'<span class="ph">无备注</span>'}</span>
+        <span class="eamt">${money(x.amount)}</span>
+        <button class="edel" data-del-exp="${x.id}" title="删除">×</button>
+      </div>`).join('')}</div>`;
+    if(bd.length>1) h+=`<div class="ebreak">${bd.map(([cat,v])=>`<span>${esc(cat)} <b>${money(v)}</b></span>`).join('')}</div>`;
+  }else if(st.edit!=='cost'){
+    h+='<div class="empty" style="padding:14px">今天还没有记账</div>';
+  }
+  h+=`${formHtml('cost')}</div>`;
+
+  /* 想法 */
+  h+=`<div class="sect"><div class="sect-h"><h3>想法</h3>${e.notes.length?`<span class="n">${e.notes.length}</span>`:''}
+      <span class="line"></span><button class="addbtn" data-act="addNote">${st.edit==='note'?'收起':'+ 添加'}</button></div><div class="nlist">`;
+  h+= e.notes.length ? e.notes.map(n=>`<div class="nitem"><div class="ntxt">${esc(n.text)}</div><div class="ntime">${n.time||''}</div></div>`).join('')
+      : (st.edit==='note'?'':'<div class="empty" style="padding:14px">没有记下想法</div>');
+  h+=`</div>${formHtml('note')}</div>`;
+
+  if(!e.todos.length&&!e.notes.length&&!e.expenses.length&&!st.edit){
+    /* v6：日视图是默认落地页，"今天全空"成了最高频的空状态，文案要指向顶部输入框 */
+    h += k===TODAY
+      ? '<div class="empty"><div class="big">○</div>今天还什么都没有<br/>在上面的输入框写一句，或点区块右上角「+ 添加」</div>'
+      : '<div class="empty"><div class="big">○</div>这一天还什么都没有<br/>点各区块右上角的「+ 添加」开始记录</div>';
+  }
+  $('#dscroll').innerHTML=h;
+}
+
+/* ---- 总渲染 ---- */
+function render(){
+  renderTitle();
+  document.body.dataset.view=st.view;
+  $('#weekbar').style.display = st.view==='week'?'flex':'none';
+  /* 日视图下日历是 display:none（CSS 控制），这里就不必生成 42 格 / 7 行的 DOM 了 */
+  $('#gridScroll').innerHTML = st.view==='month'?renderMonth():(st.view==='week'?renderWeek():'');
+  renderDetail();
+  /* 返回条只在"从周/月点进来"时出现；用 seg 或快捷键主动切到日视图时没有来源，不显示 */
+  const srcName = st.source ? ({week:'周视图',month:'月视图'}[st.source.view]||'') : '';
+  $('#daybar').classList.toggle('has-source', !!st.source && st.view==='day');
+  $('#backSrc').textContent = srcName ? ' '+srcName : '';
+  /* 顶部框始终写今天；选中日不是今天时把徽标点亮，避免误以为写进了正在看的那天 */
+  const bg=$('#qBadge'), off=st.sel!==TODAY, sd=parse(st.sel), td=parse(TODAY);
+  bg.classList.toggle('warn',off);
+  bg.title = off
+    ? `顶部输入框始终写入今天（${td.getMonth()+1}/${td.getDate()}）。要写入选中的 ${sd.getMonth()+1}/${sd.getDate()}，请用日详情里各区块的「+ 添加」`
+    : '顶部输入框写入今天';
+  document.querySelectorAll('.seg button').forEach(b=>b.classList.toggle('on',b.dataset.view===st.view));
+  document.querySelectorAll('.proto [data-v]').forEach(b=>b.classList.toggle('on',b.dataset.v===st.view));
+  syncHistory();
+}
+
+/* ---- 交互：日历 ---- */
+function selectDay(k,fromCalendar){
+  /* 必须在覆盖 cursor 之前把来源抓下来，否则记到的是新日期 */
+  const pv=st.view, pc=st.cursor, ps=$('#gridScroll').scrollTop;
+  st.sel=k; st.cursor=k; st.edit=null;
+  if(fromCalendar && document.body.dataset.device==='phone' && pv!=='day'){
+    st.source={view:pv, cursor:pc, scrollTop:ps};
+    st.view='day';
+  }
+  render();
+}
+/* 返回来源视图：视图 + 日期 + 滚动位置都要还原，不能把用户扔回今天（ADR-0005 v6） */
+function backToSource(){
+  if(!st.source) return false;
+  const src=st.source; st.source=null;
+  st.view=src.view; st.cursor=src.cursor; st.sel=src.cursor; st.edit=null;
+  render();
+  $('#gridScroll').scrollTop=src.scrollTop||0;
+  return true;
+}
+$('#gridScroll').addEventListener('click',ev=>{const c=ev.target.closest('[data-k]');if(c)selectDay(c.dataset.k,true)});
+function shiftMonth(k,n){const d=parse(k.slice(0,7)+'-01');d.setMonth(d.getMonth()+n);return ymd(d)}
+/* 原型假数据只覆盖 2026-09 ~ 2026-10，翻出去会空白，所以拦住。正式版农历实时计算，无此限制 */
+function clampCursor(k){ if(k<'2026-09-01'||k>'2026-10-31'){toast('原型只做了 2026 年 9–10 月的假数据');return st.cursor} return k }
+/* 步进量随视图变：日 ±1 天、周 ±7 天、月 ±1 月 */
+function shiftCursor(dir){
+  const raw = st.view==='month' ? shiftMonth(st.cursor,dir)
+            : st.view==='week'  ? addDays(st.cursor,dir*7)
+            :                     addDays(st.cursor,dir);
+  const next = clampCursor(raw);
+  if(next===st.cursor) return;
+  st.cursor=next;
+  if(st.view==='day'){ st.sel=next; st.edit=null; }   /* 翻日不改当前视图 */
+  render();
+}
+$('#prevBtn').onclick=()=>shiftCursor(-1);
+$('#nextBtn').onclick=()=>shiftCursor(1);
+$('#todayBtn').onclick=()=>{st.cursor=TODAY;selectDay(TODAY,false)};
+/* 主动切视图（seg / 控制面板 / 快捷键）不是"返回"，要清掉来源栈 */
+function setView(v){ st.view=v; st.source=null; render(); }
+document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>setView(b.dataset.view));
+document.querySelectorAll('.proto [data-v]').forEach(b=>b.onclick=()=>setView(b.dataset.v));
+$('#backBtn').onclick=()=>requestBack();
+document.querySelectorAll('.proto [data-dev]').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.proto [data-dev]').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); document.body.dataset.device=b.dataset.dev;
+  /* 跨设备模式时清掉来源栈：手机上记的来源在桌面没意义（PRD US-09） */
+  st.source=null; render();
+});
+document.querySelectorAll('.proto .sw').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.proto .sw').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); document.documentElement.style.setProperty('--accent',b.dataset.accent);
+});
+document.querySelectorAll('.proto [data-goto]').forEach(b=>b.onclick=()=>selectDay(b.dataset.goto,false));
+
+/* ---- 交互：顶部快速输入（只写今天） ---- */
+const PH={todo:'要做的事，回车保存…',note:'冒出来的念头，回车保存…',cost:'金额 + 说明，如「45 午饭」'};
+/* 输入框自动增高：说一段长想法时单行框很难受 */
+function grow(){
+  const el=$('#qInput'); el.style.height='auto';
+  el.style.height=Math.min(el.scrollHeight,96)+'px';
+}
+/* 花费快速解析：取文本里第一个数字当金额，其余当备注（精确录入请用日详情里的表单） */
+function parseCost(t){
+  const m=t.match(/(\d+(?:\.\d{1,2})?)/);
+  if(!m) return null;
+  return { cents:Math.round(parseFloat(m[1])*100), note:t.replace(m[0],' ').replace(/\s+/g,' ').trim() };
+}
+function syncQuickUI(){
+  document.querySelectorAll('.qtypes button').forEach(x=>x.classList.toggle('on',x.dataset.type===st.qtype));
+  $('#qInput').placeholder=PH[st.qtype];
+  $('#qCat').style.display=st.qtype==='cost'?'':'none';
+}
+function quickAdd(){
+  const v=$('#qInput').value.trim(); if(!v)return;
+  const e=entry(TODAY);          // ← 目标恒为今天，与当前选中日无关
+  if(st.qtype==='todo'){ e.todos.push(T(v,false)); toast('已加到今天的待办'); }
+  else if(st.qtype==='note'){
+    const d=new Date();
+    e.notes.push(N(v,`${pad(d.getHours())}:${pad(d.getMinutes())}`)); toast('已记到今天');
+  }else{
+    const c=parseCost(v);
+    if(!c){ toast('先写金额，例如「45 午饭」'); return; }
+    e.expenses.push(X(c.cents/100,st.qcat,c.note));
+    toast(`今天 · ${st.qcat} ¥${money(c.cents/100)}${c.note?' · '+c.note:''}`);
+  }
+  $('#qInput').value=''; $('#qAdd').disabled=true; grow(); render(); $('#qInput').focus();
+}
+$('#qCat').innerHTML=CATS.map(c=>`<option value="${c}">${c}</option>`).join('');
+document.querySelectorAll('.qtypes button').forEach(b=>b.onclick=()=>{st.qtype=b.dataset.type;syncQuickUI();$('#qInput').focus()});
+$('#qCat').onchange=e=>{st.qcat=e.target.value};
+$('#qAdd').onclick=quickAdd;
+$('#qInput').addEventListener('input',e=>{$('#qAdd').disabled=!e.target.value.trim();grow()});
+$('#qInput').addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();quickAdd()}
+});
+
+/* ---- 交互：分区块内联添加 ----
+   点开某一天，在「待办 / 花费 / 想法」各自区块末尾内联展开表单。
+   保存后表单保留并清空，方便连续录入多条；Esc 或「取消」收起。 */
+const FORM_FIELD={todo:'#ifTodo',note:'#ifNoteArea',cost:'#ifAmt'};
+const IF_TIP={todo:'回车保存',note:'⌘ / Ctrl + 回车保存',cost:'回车保存'};
+const ifActs=t=>`<div class="if-acts"><span class="if-tip">${IF_TIP[t]}</span>
+  <button class="if-cancel" data-edit="cancel">取消</button><button class="if-save" data-edit="save">保存</button></div>`;
+function formHtml(t){
+  if(st.edit!==t) return '';
+  if(t==='todo') return `<div class="iform">
+      <input class="if-input" id="ifTodo" placeholder="要做的事" autocomplete="off"/>${ifActs(t)}</div>`;
+  if(t==='note') return `<div class="iform">
+      <textarea class="if-area" id="ifNoteArea" rows="3" placeholder="冒出来的念头，可以写好几行"></textarea>${ifActs(t)}</div>`;
+  return `<div class="iform"><div class="if-row">
+      <select class="if-cat" id="ifCat">${CATS.map(c=>`<option value="${c}"${c===st.newCat?' selected':''}>${c}</option>`).join('')}</select>
+      <input class="if-amt" id="ifAmt" placeholder="0.00" inputmode="decimal" autocomplete="off"/>
+      <input class="if-expnote" id="ifExpNote" placeholder="备注（可空）" autocomplete="off"/>
+    </div>${ifActs(t)}</div>`;
+}
+const focusForm=()=>{const f=FORM_FIELD[st.edit]; if(f&&$(f)) $(f).focus()};
+/* 手机 sheet 内容较长时，新展开的表单可能在折叠线以下，滚进视野 */
+function revealForm(){
+  const f=document.querySelector('.iform');
+  if(f&&typeof f.scrollIntoView==='function') f.scrollIntoView({block:'nearest'});
+}
+function openForm(t){ st.edit = st.edit===t ? null : t; render(); if(st.edit){focusForm();revealForm()} }
+function closeForm(){ st.edit=null; render(); }
+/* 金额换算成整数「分」再运算，避免 0.1+0.2!==0.3 的浮点误差 */
+function saveForm(){
+  const e=entry(st.sel);
+  if(st.edit==='todo'){
+    const v=($('#ifTodo').value||'').trim();
+    if(!v){toast('待办内容不能为空');$('#ifTodo').focus();return}
+    e.todos.push(T(v,false)); toast('已添加待办');
+  }else if(st.edit==='note'){
+    const v=($('#ifNoteArea').value||'').trim();
+    if(!v){toast('想法内容不能为空');$('#ifNoteArea').focus();return}
+    const d=new Date();
+    e.notes.push(N(v,`${pad(d.getHours())}:${pad(d.getMinutes())}`)); toast('已记下这个想法');
+  }else if(st.edit==='cost'){
+    const raw=($('#ifAmt').value||'').trim();
+    const cents=Math.round(parseFloat(raw)*100);
+    if(!raw||isNaN(cents)||cents<=0){toast('请填写正确的金额，例如 45 或 45.5');$('#ifAmt').focus();return}
+    const cat=$('#ifCat').value, note=($('#ifExpNote').value||'').trim();
+    e.expenses.push(X(cents/100,cat,note)); st.newCat=cat;
+    toast(`${cat} ¥${money(cents/100)}${note?' · '+note:''}`);
+  }
+  render(); focusForm(); revealForm();   // 表单保留并清空，方便连续录入
+}
+
+/* ---- 交互：日详情 ---- */
+$('#dscroll').addEventListener('click',ev=>{
+  const ed=ev.target.closest('[data-edit]');
+  if(ed){ ed.dataset.edit==='cancel' ? closeForm() : saveForm(); return }
+  const chk=ev.target.closest('[data-todo]');
+  if(chk){const e=entry(st.sel),t=e.todos.find(x=>x.id===chk.dataset.todo);if(t){t.done=!t.done;render();if(t.done)toast('完成了一件')}return}
+  const del=ev.target.closest('[data-del-exp]');
+  if(del){const e=entry(st.sel);e.expenses=e.expenses.filter(x=>x.id!==del.dataset.delExp);render();toast('已删除这笔支出');return}
+  const b=ev.target.closest('[data-act]'); if(!b)return;
+  const act=b.dataset.act, e=entry(st.sel);
+  if(act==='roll'){
+    const pk=addDays(st.sel,-1),pe=DB[pk];
+    pe.todos.filter(t=>!t.done&&!t.rolledTo).forEach(t=>{t.rolledTo=st.sel;e.todos.push(T(t.text,false,{rolledFrom:pk}))});
+    st.rollDismissed[st.sel]=1; render(); toast('已顺延到今天');
+  }
+  else if(act==='rollDismiss'){st.rollDismissed[st.sel]=1;render()}
+  else if(act==='addTodo') openForm('todo');
+  else if(act==='addNote') openForm('note');
+  else if(act==='addCost') openForm('cost');
+});
+/* 表单内键盘：回车保存（多行想法用 ⌘/Ctrl+回车），Esc 收起 */
+$('#dscroll').addEventListener('keydown',ev=>{
+  if(!st.edit||!/INPUT|TEXTAREA|SELECT/.test(ev.target.tagName))return;
+  if(ev.key==='Escape'){ev.preventDefault();ev.stopPropagation();closeForm();return}
+  if(ev.key!=='Enter')return;
+  if(ev.target.tagName==='TEXTAREA'){ if(ev.metaKey||ev.ctrlKey){ev.preventDefault();saveForm()} return }
+  if(ev.target.tagName==='INPUT'){ev.preventDefault();saveForm()}
+});
+/* v6 的三条返回路径（原来挂在 sheet 上，现在挂在日视图上）：
+   ① 左上「← 返回」按钮（上面已接）  ② 系统手势返回 popstate  ③ Esc（桌面）
+   手机没有键盘，所以绝不能只依赖 Esc——这是 v5.1 那个"点开后无法返回"bug 的教训。 */
+/* 系统手势返回：浏览器已经弹过栈了，只需清标记并还原视图 */
+window.addEventListener('popstate',()=>{ pushed=false; backToSource(); });
+/* 进入日视图时压一条 history，让系统右滑手势能触发 popstate。
+   注意：**翻日不压 history**，否则按一次返回只退一天、退不出日视图。 */
+let pushed=false;
+function syncHistory(){
+  const inDay=!!st.source && st.view==='day';
+  if(inDay && !pushed){ history.pushState({daycell:'day'},''); pushed=true }
+}
+/* 按钮 / Esc 触发的返回：浏览器不知道，得自己把压进去的那条弹掉。
+   不弹的话 pushed 会一直卡在 true，第二次进日视图时手势返回就失效了。
+   history.back() 会再触发一次 popstate，但那时 source 已为 null，backToSource 直接返回 false，不会成环。 */
+function requestBack(){
+  if(!st.source) return false;
+  const needPop=pushed;
+  const done=backToSource();
+  if(done && needPop){ pushed=false; history.back(); }
+  return done;
+}
+/* 日视图左右滑动翻日（竖向滚动优先，避免和 .dscroll 打架） */
+let tx0=null,ty0=null;
+$('#dscroll').addEventListener('touchstart',e=>{
+  if(st.view!=='day')return; const t=e.changedTouches[0]; tx0=t.clientX; ty0=t.clientY;
+},{passive:true});
+$('#dscroll').addEventListener('touchend',e=>{
+  if(st.view!=='day'||tx0===null)return;
+  const t=e.changedTouches[0], dx=t.clientX-tx0, dy=t.clientY-ty0; tx0=null;
+  if(Math.abs(dx)<50 || Math.abs(dx)<Math.abs(dy)*1.5) return;
+  shiftCursor(dx<0?1:-1);            /* 左滑 → 后一天 */
+},{passive:true});
+
+/* ---- 备份弹层 ---- */
+$('#menuBtn').onclick=()=>{
+  $('#mTitle').textContent='备份与数据';
+  $('#mDesc').textContent='所有数据都存在这台设备的浏览器里，不会上传到任何服务器。';
+  $('#mBody').innerHTML=`
+    <button class="mrow" data-m="exp-md"><span class="mi">↓</span><span class="mt"><b>导出为 Markdown</b><span>按月一个文件，含待办、想法、花费明细，适合阅读和归档</span></span></button>
+    <button class="mrow" data-m="exp-csv"><span class="mi">↓</span><span class="mt"><b>导出花费为 CSV</b><span>可用 Excel / Numbers 打开，方便自己做统计</span></span></button>
+    <button class="mrow" data-m="exp-json"><span class="mi">↓</span><span class="mt"><b>导出完整备份 (JSON)</b><span>含全部数据，换设备时可恢复</span></span></button>
+    <button class="mrow" data-m="imp"><span class="mi">↑</span><span class="mt"><b>从备份恢复</b><span>选择一个 JSON 备份文件导入</span></span></button>
+    <button class="mrow" data-m="anni"><span class="mi">◷</span><span class="mt"><b>纪念日管理</b><span>${ANNIV.length} 个 · 支持公历与农历生日</span></span></button>
+    <button class="mrow" data-m="cats"><span class="mi">▤</span><span class="mt"><b>花费分类管理</b><span>${CATS.length} 个 · ${CATS.join(' / ')}</span></span></button>
+    <div class="note">⚠ 浏览器数据可能被系统清理（尤其 iOS 存储紧张时）。建议每 1–2 周导出一次备份，超过 7 天未备份应用会提醒你。</div>`;
+  $('#modal').classList.add('on');
+};
+$('#mBody').addEventListener('click',ev=>{
+  const r=ev.target.closest('[data-m]'); if(!r)return;
+  const m=r.dataset.m;
+  if(m==='anni'){
+    $('#mTitle').textContent='纪念日'; $('#mDesc').textContent='只在当天显示名称，不做提前预告。';
+    $('#mBody').innerHTML=ANNIV.map(a=>`<div class="mrow" style="cursor:default"><span class="mi">◷</span>
+      <span class="mt"><b>${esc(a.title)}</b><span>${a.date} · 每年重复</span></span></div>`).join('')
+      +'<button class="mrow" data-m="back"><span class="mi">+</span><span class="mt"><b>添加纪念日</b><span>支持公历或农历</span></span></button>';
+    return;
+  }
+  if(m==='cats'){
+    $('#mTitle').textContent='花费分类'; $('#mDesc').textContent='记账时选一个分类，用于日 / 周 / 月的分类汇总。';
+    $('#mBody').innerHTML=`<div class="note">${CATS.map(c=>`<b style="color:var(--ink-2)">${c}</b>`).join(' · ')}</div>
+      <button class="mrow" data-m="back"><span class="mi">+</span><span class="mt"><b>自定义分类</b><span>正式版可增删改，原型中固定</span></span></button>`;
+    return;
+  }
+  if(m==='back'){$('#menuBtn').click();return}
+  toast({'exp-md':'已导出 Markdown（原型中为演示）','exp-csv':'已导出花费 CSV（原型中为演示）',
+    'exp-json':'已导出完整备份（原型中为演示）','imp':'原型中未实现'}[m]||'');
+});
+$('#mClose').onclick=()=>$('#modal').classList.remove('on');
+$('#modal').addEventListener('click',ev=>{if(ev.target.id==='modal')$('#modal').classList.remove('on')});
+
+/* ---- toast / 快捷键 ---- */
+let tt;
+function toast(msg){ if(!msg)return; const el=$('#toast'); el.textContent=msg; el.classList.add('on');
+  clearTimeout(tt); tt=setTimeout(()=>el.classList.remove('on'),1900); }
+document.addEventListener('keydown',ev=>{
+  if(/INPUT|TEXTAREA|SELECT/.test(ev.target.tagName))return;
+  if(ev.key==='j'||ev.key==='ArrowRight') shiftCursor(1);
+  else if(ev.key==='k'||ev.key==='ArrowLeft') shiftCursor(-1);
+  else if(ev.key==='d') setView('day');
+  else if(ev.key==='w') setView('week');
+  else if(ev.key==='m') setView('month');
+  else if(ev.key==='Escape'){
+    if(st.edit){st.edit=null;render();return}
+    if($('#modal').classList.contains('on')){$('#modal').classList.remove('on');return}
+    requestBack();
+  }
+});
+
+syncQuickUI();
+render();
+</script>
+</body>
+</html>
