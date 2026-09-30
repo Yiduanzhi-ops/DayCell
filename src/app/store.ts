@@ -1,0 +1,419 @@
+/**
+ * 应用层状态机（Zustand vanilla store；React 绑定见 context.ts）。
+ *
+ * 职责（SPEC §3 / ADR-0005 v6）：
+ *  - **视图（日/周/月）与选中日期的单一真相**：切视图不丢日期、翻日不丢视图
+ *  - **一层来源栈**：手机从周/月点格子进日视图时记住 {view, date, scrollTop}，
+ *    返回时精确还原——不得把人扔回今天（原型 v5.1 sheet 事故的 v6 变形防线）
+ *  - **history 协作**：进日视图 push 一条；翻日**绝不 push**（否则按一次返回
+ *    只退一天，永远退不出日视图）；popstate → back()
+ *  - 所有写操作走 repo，成功后 refresh() 重新加载当前视图的聚合数据
+ *
+ * ⚠️ 本文件在**纯 Node 测试环境**里也会被 import：所有 window/history/matchMedia
+ *    访问都必须typeof 守卫或注入（isNarrow 可注入正是为此）。
+ */
+import { createStore, type StoreApi } from 'zustand'
+import {
+  addDays,
+  addMonths,
+  formatMoney,
+  isDayCellError,
+  today as todayKey,
+  type DateKey,
+  type DayAggregate,
+  type DayDetail,
+  type MonthSummary,
+  type WeekDay,
+  type WeekTotal,
+  type CategoryRecord,
+} from '@core'
+import type { CoreBundle } from './bootstrap'
+
+export type View = 'day' | 'week' | 'month'
+/** v6.1：内联表单是唯一录入入口，同一时刻最多展开一个 */
+export type FormKind = 'todo' | 'cost' | 'note'
+
+export interface SourceState {
+  view: 'week' | 'month'
+  selected: DateKey
+  scrollTop: number
+}
+
+export interface ToastState {
+  msg: string
+  /** 每次 +1，让相同文案也能重新触发 Toast 的动画/计时 */
+  seq: number
+}
+
+export interface AppState {
+  today: DateKey
+  view: View
+  selected: DateKey
+  source: SourceState | null
+  /** 有一条自己 push 且尚未弹掉的 history 条目 */
+  historyPushed: boolean
+  /** 返回来源视图后要还原的滚动位置；由 Week/MonthView 挂载时消费一次 */
+  restoreScrollTo: number | null
+
+  detail: DayDetail | null
+  week: { days: WeekDay[]; total: WeekTotal } | null
+  month: { days: DayAggregate[]; summary: MonthSummary } | null
+  cats: CategoryRecord[]
+
+  /** IndexedDB 不可用（PRD E1）：数据不持久，UI 顶部红色横幅 */
+  degraded: boolean
+  /** 农历加载失败（PRD E4）：v0 暂不单独提示，标签自动留空 */
+  lunarFailed: boolean
+  loading: boolean
+  toast: ToastState | null
+
+  edit: FormKind | null
+  /** 请求聚焦当前表单并 scrollIntoView；DayView 渲染后消费一次 */
+  wantFocus: boolean
+  /** 空白日自动展开过、但被用户收起的日期（会话级，PRD D18） */
+  formDismissed: Record<string, true>
+  /** 已点「忽略」顺延横幅的日期（会话级） */
+  rollDismissed: Record<string, true>
+  /** 上次记花费选的分类（S5，会话级） */
+  lastCatId: string | null
+
+  // ---- actions ----
+  init(): Promise<void>
+  refresh(): Promise<void>
+  setView(v: View): void
+  gotoToday(): void
+  /** 翻页：日 ±1 天 / 周 ±7 天 / 月 ±1 月（US-09） */
+  shift(dir: 1 | -1): void
+  /** 点周/月的格子。窄屏跳进日视图并记来源；宽屏只切换右栏 */
+  selectFromCalendar(k: DateKey, scrollTop?: number): void
+  /** 返回来源视图。没有来源时返回 false（Esc 等路径靠它判断有没有事发生） */
+  back(): boolean
+  onPopstate(): void
+  openForm(f: FormKind): void
+  closeForm(): void
+  consumeFocus(): void
+  consumeRestoreScroll(): void
+  createTodo(text: string): Promise<boolean>
+  toggleTodo(id: string): Promise<void>
+  deleteTodo(id: string): Promise<void>
+  createNote(text: string): Promise<boolean>
+  deleteNote(id: string): Promise<void>
+  createExpense(cents: number, catId: string, note: string): Promise<boolean>
+  deleteExpense(id: string): Promise<void>
+  rollOver(): Promise<void>
+  dismissRoll(): void
+  showToast(msg: string): void
+  clearToast(): void
+}
+
+export interface AppStoreOptions {
+  /** 注入的"今天"（测试用固定值）；缺省用真实时钟 */
+  today?: DateKey
+  /** 窄屏判定（< 900px）。缺省用 matchMedia；测试注入固定值 */
+  isNarrow?: () => boolean
+}
+
+/** 断点与 CSS 一致（ADR-0005：布局归 CSS 媒体查询，这里只用于**导航行为**分叉） */
+export const defaultIsNarrow = (): boolean => {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
+  return window.matchMedia('(max-width: 899.98px)').matches
+}
+
+const errMsg = (e: unknown): string =>
+  isDayCellError(e) ? e.message : '操作失败，请重试'
+
+export function createAppStore(
+  bundle: CoreBundle,
+  opts: AppStoreOptions = {},
+): StoreApi<AppState> {
+  const { repos, aggregates } = bundle
+  const narrow = opts.isNarrow ?? defaultIsNarrow
+  /** 并发保护：快速翻页时旧响应不得覆盖新状态 */
+  let loadSeq = 0
+  let toastSeq = 0
+
+  const canHistory = (): boolean => typeof globalThis.history?.pushState === 'function'
+
+  return createStore<AppState>()((set, get) => ({
+    today: opts.today ?? todayKey(),
+    view: 'day',
+    selected: opts.today ?? todayKey(),
+    source: null,
+    historyPushed: false,
+    restoreScrollTo: null,
+
+    detail: null,
+    week: null,
+    month: null,
+    cats: [],
+
+    degraded: bundle.degraded,
+    lunarFailed: bundle.lunarFailed,
+    loading: true,
+    toast: null,
+
+    edit: null,
+    wantFocus: false,
+    formDismissed: {},
+    rollDismissed: {},
+    lastCatId: null,
+
+    async init() {
+      set({ loading: true })
+      try {
+        const cats = await repos.categories.all()
+        set({ cats, lastCatId: cats[0]?.id ?? null })
+      } catch (e) {
+        get().showToast(errMsg(e))
+      }
+      await get().refresh()
+    },
+
+    async refresh() {
+      const seq = ++loadSeq
+      const { selected, view } = get()
+      try {
+        // detail 恒加载（桌面分栏右栏 / 手机日视图都要）；日历数据按当前视图加载
+        const [detail, week, monthDays, monthSum] = await Promise.all([
+          aggregates.aggregateDayDetail(selected),
+          view === 'week' ? aggregates.aggregateWeek(selected) : Promise.resolve(null),
+          view === 'month' ? aggregates.aggregateMonth(selected) : Promise.resolve(null),
+          view === 'month' ? aggregates.monthSummary(selected) : Promise.resolve(null),
+        ])
+        if (seq !== loadSeq) return // 已有更新的加载在飞，丢弃过期结果
+
+        const patch: Partial<AppState> = {
+          detail,
+          week,
+          month: monthDays ? { days: monthDays, summary: monthSum! } : null,
+          loading: false,
+        }
+
+        // v6.1 补速（PRD D18）：完全空白的一天自动展开待办表单并聚焦。
+        // 前提：① 日详情此刻真的可见（窄屏周/月视图下它是 display:none）
+        //       ② 用户没在这一天主动收起过——否则就成了赶不走的骚扰
+        const s = get()
+        const detailVisible = s.view === 'day' || !narrow()
+        if (detail.summary.isEmpty && !s.edit && !s.formDismissed[s.selected] && detailVisible) {
+          patch.edit = 'todo'
+          patch.wantFocus = true
+        }
+        set(patch)
+      } catch (e) {
+        if (seq !== loadSeq) return
+        set({ loading: false })
+        get().showToast(errMsg(e))
+      }
+    },
+
+    setView(v) {
+      const s = get()
+      if (s.view === v) return
+      // 主动切视图不是"返回"：清来源栈，并弹掉之前压的 history 条目（否则它会变成幽灵，
+      // 下一次系统返回会被它吃掉）。popstate 到来时 source 已是 null，back() 自然无操作。
+      const needPop = s.historyPushed
+      set({ view: v, source: null, historyPushed: false, edit: null, wantFocus: false })
+      if (needPop && canHistory()) history.back()
+      void get().refresh()
+    },
+
+    gotoToday() {
+      const s = get()
+      if (s.selected === s.today) return
+      set({ selected: s.today, edit: null, wantFocus: false })
+      void get().refresh()
+    },
+
+    shift(dir) {
+      const s = get()
+      const next =
+        s.view === 'day'
+          ? addDays(s.selected, dir)
+          : s.view === 'week'
+            ? addDays(s.selected, dir * 7)
+            : addMonths(s.selected, dir)
+      if (next === s.selected) return
+      set({ selected: next, edit: null, wantFocus: false })
+      void get().refresh()
+    },
+
+    selectFromCalendar(k, scrollTop = 0) {
+      const s = get()
+      if (narrow() && s.view !== 'day') {
+        // 手机：跳进全屏日视图并记住来源（ADR-0005 v6 硬约束）
+        if (canHistory()) history.pushState({ daycell: 'day' }, '')
+        set({
+          source: { view: s.view as 'week' | 'month', selected: s.selected, scrollTop },
+          selected: k,
+          view: 'day',
+          historyPushed: true,
+          edit: null,
+          wantFocus: false,
+        })
+      } else {
+        // 桌面分栏：只切换右栏内容，不打断日历
+        if (k === s.selected) return
+        set({ selected: k, edit: null, wantFocus: false })
+      }
+      void get().refresh()
+    },
+
+    back() {
+      const s = get()
+      if (!s.source) return false
+      const src = s.source
+      const needPop = s.historyPushed
+      set({
+        source: null,
+        view: src.view,
+        selected: src.selected,
+        historyPushed: false,
+        edit: null,
+        wantFocus: false,
+        restoreScrollTo: src.scrollTop,
+      })
+      void get().refresh()
+      // 手势返回（popstate）进来时条目已被浏览器弹掉，needPop 为 false，不会二次 back
+      if (needPop && canHistory()) history.back()
+      return true
+    },
+
+    onPopstate() {
+      if (!get().historyPushed) return // 不是我们压的条目（或已弹掉），不处理
+      set({ historyPushed: false })
+      get().back()
+    },
+
+    openForm(f) {
+      const s = get()
+      if (s.edit === f) {
+        // 再点一次同一个「+ 添加」= 收起。必须记账：否则空白日会立刻又被自动展开，
+        // 用户根本关不掉这个表单（v6.1 自动展开的副作用，原型实测踩过）
+        set({ edit: null, wantFocus: false, formDismissed: { ...s.formDismissed, [s.selected]: true } })
+      } else {
+        set({ edit: f, wantFocus: true })
+      }
+    },
+
+    closeForm() {
+      const s = get()
+      if (!s.edit) return
+      set({ edit: null, wantFocus: false, formDismissed: { ...s.formDismissed, [s.selected]: true } })
+    },
+
+    consumeFocus() {
+      set({ wantFocus: false })
+    },
+
+    consumeRestoreScroll() {
+      set({ restoreScrollTo: null })
+    },
+
+    // ---- 写操作：repo 校验（失败抛 DayCellError → toast 中文文案）→ refresh ----
+
+    async createTodo(text) {
+      try {
+        await repos.todos.create(get().selected, text)
+        await get().refresh()
+        get().showToast('已添加待办')
+        return true // 表单保留并清空，方便连续录入（US-06）
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async toggleTodo(id) {
+      try {
+        const t = await repos.todos.toggle(id)
+        await get().refresh()
+        if (t.done) get().showToast('完成了一件')
+      } catch (e) {
+        get().showToast(errMsg(e))
+      }
+    },
+
+    async deleteTodo(id) {
+      try {
+        await repos.todos.softDelete(id)
+        await get().refresh()
+        get().showToast('已删除')
+      } catch (e) {
+        get().showToast(errMsg(e))
+      }
+    },
+
+    async createNote(text) {
+      try {
+        await repos.notes.create(get().selected, text)
+        await get().refresh()
+        get().showToast('已记下这个想法')
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async deleteNote(id) {
+      try {
+        await repos.notes.softDelete(id)
+        await get().refresh()
+        get().showToast('已删除')
+      } catch (e) {
+        get().showToast(errMsg(e))
+      }
+    },
+
+    async createExpense(cents, catId, note) {
+      try {
+        const rec = await repos.expenses.create(get().selected, { amountCents: cents, catId, note })
+        set({ lastCatId: catId }) // S5：下次默认选中同一分类
+        await get().refresh()
+        const name = get().cats.find((c) => c.id === catId)?.name ?? ''
+        get().showToast(`${name} ¥${formatMoney(rec.amountCents)}${note ? ' · ' + note : ''}`)
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async deleteExpense(id) {
+      try {
+        await repos.expenses.softDelete(id)
+        await get().refresh()
+        get().showToast('已删除这笔支出')
+      } catch (e) {
+        get().showToast(errMsg(e))
+      }
+    },
+
+    async rollOver() {
+      const s = get()
+      const from = addDays(s.selected, -1)
+      try {
+        const r = await repos.todos.rollOver(from, s.selected)
+        set({ rollDismissed: { ...s.rollDismissed, [s.selected]: true } })
+        await get().refresh()
+        get().showToast(r.moved.length > 0 ? `已顺延 ${r.moved.length} 件` : '没有可顺延的待办')
+      } catch (e) {
+        get().showToast(errMsg(e))
+      }
+    },
+
+    dismissRoll() {
+      const s = get()
+      set({ rollDismissed: { ...s.rollDismissed, [s.selected]: true } })
+    },
+
+    showToast(msg) {
+      if (!msg) return
+      set({ toast: { msg, seq: ++toastSeq } })
+    },
+
+    clearToast() {
+      set({ toast: null })
+    },
+  }))
+}

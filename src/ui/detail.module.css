@@ -1,0 +1,129 @@
+/* 日详情三区块与内联表单的共享样式（TodoSection / ExpenseSection / NoteSection 共用）。
+   从原型 v6.1 的 .sect / .tlist / .elist / .nlist / .iform 段移植。 */
+
+.sect {
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 10px 12px 12px;
+}
+.sectH { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.sectH h3 { font-size: 12px; font-weight: 600; color: var(--ink-3); letter-spacing: 0.02em; flex: 0 0 auto; }
+.sectH .n { font-size: 11.5px; color: var(--ink-3); flex: 0 0 auto; }
+.sectH .total { font-size: 12.5px; color: var(--ink); font-weight: 600; flex: 0 0 auto; }
+.sectH .line { flex: 1; height: 1px; background: var(--line); }
+.addbtn {
+  font-size: 11.5px;
+  color: var(--accent);
+  padding: 5px 9px;
+  border-radius: 7px;
+  border: 1px solid var(--accent-line);
+  background: var(--bg);
+  flex: 0 0 auto;
+  /* 触摸目标（PRD §5.5） */
+  min-height: 32px;
+}
+.addbtn:hover { background: var(--accent-soft); }
+
+/* ---- 待办 ---- */
+.tlist { display: flex; flex-direction: column; }
+.titem { display: flex; align-items: flex-start; gap: 9px; padding: 6px 0; }
+.chk {
+  width: 17px; height: 17px; border-radius: 50%;
+  border: 1.6px solid var(--ink-4);
+  flex: 0 0 auto; margin-top: 1px;
+  display: grid; place-items: center;
+  /* 视觉 17px，但命中区靠 padding 扩大（PRD §5.5 触摸目标） */
+  padding: 0;
+  position: relative;
+}
+/* 用伪元素把点击热区扩到 ~33px，不影响布局 */
+.chk::before { content: ""; position: absolute; inset: -8px; }
+.chk:hover { border-color: var(--accent); }
+.done .chk { background: var(--accent); border-color: var(--accent); }
+.ttxt { flex: 1; min-width: 0; font-size: 13.5px; line-height: 1.5; word-break: break-word; }
+.done .ttxt { color: var(--ink-3); text-decoration: line-through; text-decoration-color: var(--ink-4); }
+.tdel {
+  flex: 0 0 auto; font-size: 14px; color: var(--ink-4); width: 24px; height: 24px;
+  border-radius: 6px; display: grid; place-items: center; visibility: hidden;
+}
+.titem:hover .tdel { visibility: visible; }
+.tdel:hover { color: #c0392b; background: var(--bg-hover); }
+/* 手机没有 hover：删除键常驻（弱化为 ink-3 满足对比度） */
+@media (hover: none) {
+  .tdel { visibility: visible; color: var(--ink-3); }
+}
+.rolled { font-size: 10.5px; color: var(--ink-3); background: var(--bg-hover); border: 1px solid var(--line); padding: 1px 6px; border-radius: 4px; flex: 0 0 auto; margin-top: 2px; }
+.rolledout { opacity: 0.55; }
+
+/* ---- 花费 ---- */
+.elist { display: flex; flex-direction: column; }
+.eitem { display: flex; align-items: baseline; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line-2); }
+.eitem:last-child { border-bottom: none; }
+.ecat { font-size: 11px; color: var(--accent); background: var(--accent-soft); border-radius: 4px; padding: 1px 6px; flex: 0 0 auto; }
+.enote { flex: 1; min-width: 0; font-size: 12.5px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.enote .ph { color: var(--ink-3); }
+.eamt { font-size: 13.5px; font-weight: 600; flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+.edel { flex: 0 0 auto; font-size: 14px; color: var(--ink-4); width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; visibility: hidden; }
+.eitem:hover .edel { visibility: visible; }
+.edel:hover { color: #c0392b; background: var(--bg-hover); }
+@media (hover: none) {
+  .edel { visibility: visible; color: var(--ink-3); }
+}
+.ebreak { margin-top: 7px; padding-top: 7px; border-top: 1px dashed var(--line); font-size: 11.5px; color: var(--ink-3); display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.ebreak b { color: var(--ink-2); font-weight: 600; }
+
+/* ---- 想法 ---- */
+.nlist { display: flex; flex-direction: column; gap: 8px; }
+.nitem { background: var(--bg-subtle); border-radius: 8px; padding: 9px 11px; position: relative; }
+.ntxt { font-size: 13.5px; line-height: 1.65; white-space: pre-wrap; word-break: break-word; }
+.ntime { font-size: 10.5px; color: var(--ink-3); margin-top: 5px; }
+.ndel { position: absolute; top: 6px; right: 6px; font-size: 14px; color: var(--ink-4); width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; visibility: hidden; }
+.nitem:hover .ndel { visibility: visible; }
+.ndel:hover { color: #c0392b; background: var(--bg-hover); }
+@media (hover: none) {
+  .ndel { visibility: visible; color: var(--ink-3); }
+}
+
+/* 分区内的小空状态（区别于整日的大空状态） */
+.emptySm { text-align: center; padding: 14px; color: var(--ink-3); font-size: 12.5px; line-height: 1.7; }
+
+/* ---- 内联表单（v6.1 唯一录入入口） ---- */
+.iform {
+  margin-top: 8px;
+  border: 1px solid var(--accent-line);
+  border-radius: 9px;
+  background: var(--accent-soft);
+  padding: 9px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.iform input, .iform textarea, .iform select {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 6px 9px;
+  font-size: 13px;
+  outline: none;
+  font-family: var(--font);
+  min-width: 0;
+  color: var(--ink);
+}
+.iform input::placeholder, .iform textarea::placeholder { color: var(--ink-3); }
+.iform input:focus, .iform textarea:focus, .iform select:focus { border-color: var(--accent-line); box-shadow: 0 0 0 3px var(--accent-soft); }
+.ifRow { display: flex; gap: 7px; flex-wrap: wrap; }
+.ifCat { flex: 0 0 82px; }
+.ifAmt { flex: 0 0 84px; }
+.ifExpNote { flex: 1; min-width: 100px; }
+.ifInput { width: 100%; }
+.ifArea { width: 100%; resize: vertical; min-height: 60px; line-height: 1.6; }
+.acts { display: flex; align-items: center; gap: 7px; }
+.tip { flex: 1; font-size: 10.5px; color: var(--ink-3); }
+.cancel { font-size: 11.5px; color: var(--ink-2); padding: 5px 11px; border-radius: 6px; min-height: 32px; }
+.cancel:hover { background: var(--bg-hover); }
+.save {
+  font-size: 11.5px; background: var(--accent); color: #fff;
+  padding: 5px 15px; border-radius: 6px; font-weight: 500; min-height: 32px;
+}
+.save:hover { filter: brightness(1.08); }

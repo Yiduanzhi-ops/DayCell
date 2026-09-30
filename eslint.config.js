@@ -21,6 +21,12 @@ const CORE_FORBIDDEN_IMPORTS = {
   ],
 }
 
+/** ADR-0004：农历库只能通过 core/lunar.ts 的 loadLunar() 动态加载（全项目适用） */
+const LUNAR_PATHS = [
+  { name: 'lunar-typescript', message: '农历库必须经 core/lunar.ts 的 loadLunar() 动态加载（ADR-0004）' },
+  { name: 'lunar-javascript', message: '统一用 lunar-typescript，且必须经 core/lunar.ts 动态加载（ADR-0004）' },
+]
+
 /** core 层禁止访问的全局（ADR-0006 铁律 2） */
 const domGlobal = (name, extra = '') => ({
   name,
@@ -52,6 +58,17 @@ export default tseslint.config(
     },
   },
 
+  // ---------- ADR-0004：农历库只能通过 core/lunar.ts 动态加载 ----------
+  // ⚠️ flat config 里同一规则**后者整体覆盖前者**：本块只管 lunar，
+  //    core / ui / app 的 no-restricted-imports 由后面的专属块定义（各自已并入 LUNAR_PATHS）。
+  //    曾经在这里 spread CORE_FORBIDDEN_IMPORTS，把 core 的禁令误伤到 src/main.tsx（入口当然可以 import React/CSS）。
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/core/lunar.ts', 'src/core/**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': ['error', { paths: LUNAR_PATHS }],
+    },
+  },
   // ---------- ADR-0006：core 层隔离（测试文件除外，测试需要 fake-indexeddb 等） ----------
   {
     files: ['src/core/**/*.ts'],
@@ -61,7 +78,7 @@ export default tseslint.config(
       globals: {},
     },
     rules: {
-      'no-restricted-imports': ['error', CORE_FORBIDDEN_IMPORTS],
+      'no-restricted-imports': ['error', { ...CORE_FORBIDDEN_IMPORTS, paths: LUNAR_PATHS }],
       'no-restricted-globals': [
         'error',
         domGlobal('window'),
@@ -132,23 +149,6 @@ export default tseslint.config(
     },
   },
 
-  // ---------- ADR-0004：农历库只能通过 core/lunar.ts 动态加载 ----------
-  {
-    files: ['src/**/*.{ts,tsx}'],
-    ignores: ['src/core/lunar.ts', 'src/core/**/*.test.ts'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          ...CORE_FORBIDDEN_IMPORTS,
-          paths: [
-            { name: 'lunar-typescript', message: '农历库必须经 core/lunar.ts 的 loadLunar() 动态加载（ADR-0004）' },
-            { name: 'lunar-javascript', message: '统一用 lunar-typescript，且必须经 core/lunar.ts 动态加载（ADR-0004）' },
-          ],
-        },
-      ],
-    },
-  },
   {
     files: ['src/core/lunar.ts'],
     rules: {
@@ -158,15 +158,18 @@ export default tseslint.config(
   },
 
   // ---------- ADR-0006：core 的唯一出口 ----------
+  // 本块会覆盖前面全局块的 no-restricted-imports，所以 LUNAR_PATHS 必须在这里重复（否则 ui/app 就能直连农历库）。
+  // 旧 pattern '@core/*/*' 只挡两层深路径，'@core/repo' 这种一层深的挡不住——已收紧为 '@core/*'。
   {
     files: ['src/ui/**/*.{ts,tsx}', 'src/app/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
         'error',
         {
+          paths: LUNAR_PATHS,
           patterns: [
             {
-              group: ['@core/*/*', '../core/*/*', '../../core/*/*'],
+              group: ['@core/*', '@/core/*', '../core/*', '../../core/*'],
               message: 'UI/app 只能从 core 的唯一出口 @core（core/index.ts）导入，不得深入子模块（CORE-API 附录）',
             },
           ],

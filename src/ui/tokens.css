@@ -1,0 +1,39 @@
+/**
+ * 全局设计令牌（从原型 v6.1 原样移植）。
+ *
+ * ⚠️ 四级灰阶的对比度是硬约束（WCAG AA / PRD §5.5，smoke.cjs 第 9 节守着原型侧）：
+ *   --ink 17.4:1 · --ink-2 7.5:1 · --ink-3 4.54:1（文字下限）· --ink-4 1.74:1（**仅装饰**）
+ * 改任何一个颜色值之前先算对比度。
+ */
+:root {
+  --accent: #2E4BA6;
+  --bg: #FFFFFF;
+  --bg-subtle: #FAFAFA;
+  --bg-hover: #F5F5F5;
+  --ink: #1A1A1A;
+  --ink-2: #555555;
+  --ink-3: #767676;
+  --ink-4: #C4C4C4;
+  --line: #EBEBEB;
+  --line-2: #F4F4F4;
+  --accent-soft: color-mix(in srgb, var(--accent) 8%, #fff);
+  --accent-line: color-mix(in srgb, var(--accent) 28%, #fff);
+  --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", system-ui, sans-serif;
+  color-scheme: light; /* E23：跟随系统深色时也不反色 */
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #root { height: 100%; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  font-size: 14px;
+  line-height: 1.5;
+  overscroll-behavior-y: none; /* 手机边缘下拉刷新会打断左右滑翻日的手感 */
+}
+button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+input, textarea, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent-line); outline-offset: 1px; }

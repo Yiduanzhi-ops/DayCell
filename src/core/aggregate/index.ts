@@ -84,6 +84,22 @@ export interface WeekTotal {
   costCents: number
 }
 
+/**
+ * 周视图的一行 = 指示器 + **正文预览**（PRD US-08：待办前 3 条、想法前 2 条）。
+ *
+ * 为什么在聚合层给预览而不是让 UI 再查一次：数据在 `byDateAll` 里**已经拿到了**，
+ * 让 UI 补查等于同一份数据查两遍，还得把"排墓碑、排 rolledTo、排序"的规则复制出去。
+ * （契约 §5.6 原稿只有 DayAggregate，这是实现时的扩展，已回写 CORE-API。）
+ */
+export interface WeekDay extends DayAggregate {
+  /** 活跃待办（已排 rolledTo）的前 3 条；「+N 项待办」= todoTotal - todoPreview.length */
+  todoPreview: TodoRecord[]
+  /** 想法的前 2 条（UI 负责每条 2 行截断） */
+  notePreview: NoteRecord[]
+  /** 原始农历日（'十五'）。label 是节日/节气/纪念日时，UI 拼「中秋节 · 十五」用 */
+  lunarDay?: string
+}
+
 /** 日视图（v6 的默认落地页）的唯一数据源：计数 + **全文** */
 export interface DayDetail {
   date: DateKey
@@ -123,7 +139,7 @@ export interface AggregateDeps {
 
 export interface Aggregates {
   aggregateDay(date: DateKey): Promise<DayAggregate>
-  aggregateWeek(cursor: DateKey, opts?: ViewOpts): Promise<{ days: DayAggregate[]; total: WeekTotal }>
+  aggregateWeek(cursor: DateKey, opts?: ViewOpts): Promise<{ days: WeekDay[]; total: WeekTotal }>
   aggregateMonth(cursor: DateKey, opts?: ViewOpts): Promise<DayAggregate[]>
   monthSummary(cursor: DateKey): Promise<MonthSummary>
   aggregateDayDetail(date: DateKey): Promise<DayDetail>
@@ -148,6 +164,13 @@ interface DayBucket {
 }
 
 const emptyBucket = (): DayBucket => ({ todos: [], notes: [], expenses: [] })
+
+/** buildRangeDetailed 的中间产物：指示器 + 原始记录 + 农历（周行预览要用后两个） */
+interface DayBuild {
+  agg: DayAggregate
+  bucket: DayBucket
+  info: LunarInfo | null
+}
 
 /** 把一批记录按 date 分桶。O(n)，不排序（`byDateAll` 已保证 date 升序 + 同日 createdAt 升序） */
 function bucketize(data: {
@@ -349,7 +372,7 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
    * 取 `[from, to]` 的全部数据并逐日建好 DayAggregate。
    * 三个视图共用这一条路径，**查询次数固定为 3**，与区间天数无关。
    */
-  const buildRange = async (keys: readonly DateKey[]): Promise<DayAggregate[]> => {
+  const buildRangeDetailed = async (keys: readonly DateKey[]): Promise<DayBuild[]> => {
     if (keys.length === 0) return []
     const from = keys[0]!
     const to = keys[keys.length - 1]!
@@ -363,10 +386,19 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
 
     const buckets = bucketize(data)
     const cats = makeCatResolver(catMap)
-    return keys.map((k) =>
-      buildDay(k, buckets.get(k) ?? emptyBucket(), anniv.get(k) ?? [], lunar?.lunarOf(k) ?? null, cats),
-    )
+    return keys.map((k) => {
+      const bucket = buckets.get(k) ?? emptyBucket()
+      const info = lunar?.lunarOf(k) ?? null
+      return {
+        agg: buildDay(k, bucket, anniv.get(k) ?? [], info, cats),
+        bucket,
+        info,
+      }
+    })
   }
+
+  const buildRange = async (keys: readonly DateKey[]): Promise<DayAggregate[]> =>
+    (await buildRangeDetailed(keys)).map((d) => d.agg)
 
   return {
     async aggregateDay(date) {
@@ -376,7 +408,14 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
 
     async aggregateWeek(cursor, opts) {
       const keys = weekKeys(cursor, opts?.weekStartsOn ?? 1)
-      const days = await buildRange(keys)
+      const built = await buildRangeDetailed(keys)
+      const days: WeekDay[] = built.map(({ agg, bucket, info }) => ({
+        ...agg,
+        // 周行只展示活跃待办（已顺延出去的淡化在日详情里看，不占周行）
+        todoPreview: bucket.todos.filter((t) => !t.rolledTo).slice(0, 3),
+        notePreview: bucket.notes.slice(0, 2),
+        lunarDay: info?.lunarDay,
+      }))
 
       const total: WeekTotal = { todoDone: 0, todoTotal: 0, daysWithNotes: 0, costCents: 0 }
       for (const d of days) {

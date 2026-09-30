@@ -1,0 +1,85 @@
+/* 应用外壳布局（ADR-0005 v6）。
+   断点 900px；手机三视图各自全屏，桌面周/月为「左日历 + 右 372px 日详情」分栏。 */
+
+.app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  position: relative;
+  overflow: hidden;
+}
+
+/* PRD E1：IndexedDB 不可用的红色横幅，常驻不可关闭（数据不落盘必须让用户知道） */
+.banner {
+  flex: 0 0 auto;
+  background: #c0392b;
+  color: #fff;
+  font-size: 12.5px;
+  padding: 8px 14px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.main {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 372px;
+}
+
+.cal {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.detail {
+  min-height: 0;
+  min-width: 0;
+  border-left: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 日视图：日历收起，日详情占满（M17） */
+.app[data-view='day'] .main { grid-template-columns: minmax(0, 1fr); }
+.app[data-view='day'] .cal { display: none; }
+.app[data-view='day'] .detail { border-left: none; }
+
+/* 手机（<900px）：三视图各自全屏，同一时刻只显示一个。
+   ⚠️ 教训见 ADR-0005：绝不能出现"某个视图下用户无路可退"的组合 */
+@media (max-width: 899.98px) {
+  .main { grid-template-columns: minmax(0, 1fr); }
+  .detail { border-left: none; }
+  .app:not([data-view='day']) .detail { display: none; }
+}
+
+/* 极窄屏（<320px，PRD E22）：月格隐藏花费，只留进度与想法点——规则在 MonthView.module.css */
+
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: 26px;
+  transform: translateX(-50%) translateY(14px);
+  background: #1b1b1f;
+  color: #fff;
+  font-size: 12.5px;
+  padding: 8px 15px;
+  border-radius: 9px;
+  opacity: 0;
+  pointer-events: none;
+  transition: 0.24s;
+  z-index: 90;
+  white-space: nowrap;
+  max-width: 88%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.toast.on {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}

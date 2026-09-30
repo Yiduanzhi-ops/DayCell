@@ -267,6 +267,34 @@ describe('aggregateWeek — 恒 7 行', () => {
     expect(spy).toHaveBeenCalledTimes(1)
     expect(spy.mock.calls[0]).toEqual(['2026-09-28', '2026-10-04'])
   })
+
+  it('周行带正文预览：待办前 3、想法前 2（US-08）', async () => {
+    await seedDay('2026-09-29', { todos: 5, done: 1, notes: 3 })
+    const { days } = await agg.aggregateWeek(k('2026-09-29'))
+    const tue = days[1]!
+    expect(tue.todoPreview.map((t) => t.text)).toEqual([
+      '2026-09-29 待办1', '2026-09-29 待办2', '2026-09-29 待办3',
+    ]) // 已完成的也在前 3（周行要划线显示），只有 rolledTo 才排除
+    expect(tue.notePreview.map((n) => n.text)).toEqual(['2026-09-29 想法1', '2026-09-29 想法2'])
+  })
+
+  it('预览排除已顺延出去的待办；来源日显示「顺延 →」由 UI 按 rolledTo 判断', async () => {
+    await seedDay('2026-09-28', { todos: 2 })
+    await repos.todos.rollOver(k('2026-09-28'), k('2026-09-29'))
+    const { days } = await agg.aggregateWeek(k('2026-09-29'))
+    const mon = days[0]! // 09-28：原有 2 条都顺延出去了
+    expect(mon.todoPreview).toHaveLength(0)
+    expect(mon.todoTotal).toBe(0)
+    const tue = days[1]! // 09-29：顺延来的 2 条，带 rolledFrom
+    expect(tue.todoPreview.map((t) => t.rolledFrom)).toEqual(['2026-09-28', '2026-09-28'])
+  })
+
+  it('lunarDay 给 UI 拼「中秋节 · 十五」（label 被节日占用时的副标签）', async () => {
+    const { days } = await agg.aggregateWeek(k('2026-09-25'))
+    const fri = days.find((d) => d.date === '2026-09-25')!
+    expect(fri.label.text).toBe('中秋节')
+    expect(fri.lunarDay).toBe('十五')
+  })
 })
 
 describe('aggregateMonth — 恒 42 格', () => {
