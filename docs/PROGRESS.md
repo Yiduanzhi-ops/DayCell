@@ -185,10 +185,18 @@ jsdom 本身早已是 devDependency，本轮补装了缺失的 **`@types/jsdom`*
 ## 6. 环境事实
 
 工作目录 `/Users/wangduanmao/DayCell`；sandbox `workspace-write`。
-> ⚠️ **这个仓库没有 git**（`git rev-parse` 失败）。做破坏性多文件改动前**先手动快照**：
-> `tar --exclude=node_modules --exclude=.npmcache -cf - . | (cd /tmp/xxx && tar xf -)`
-> 本轮快照在 `/tmp/daycell-v6-snapshot`；改前单文件备份 `/tmp/index.v6-pre-quick.bak`、`/tmp/PRD.v6.bak`、`/tmp/SPEC.v6.bak`、`/tmp/CORE-API.v6.bak`、`/tmp/PROGRESS.v6.bak`。
-> **建议尽早 `git init`**——但没有用户点头不要擅自建 `.git`。
+> ✅ **已 `git init`**（2026-09-29，用户批准）。分支 `main`，`.git` 约 740 KB。
+> `.gitignore` 忽略 `node_modules/`(220M)、`.npmcache/`(447M)、`coverage/`、`*.tsbuildinfo`。
+> **`.npmcache` 必须忽略**：沙箱下 `~/.npm` 不可写，装包一律 `--cache ./.npmcache`，
+> 它会在项目目录里长出几百 MB 缓存。同样规则也写进了 `.git/info/exclude`（仓库级，
+> 对 `--work-tree` 指向别处的提交也生效）。
+>
+> 前三个提交：① v6.1 改动前的追溯快照（取自 `/tmp/daycell-v6-snapshot`，**不是当时的真实提交**，
+> 提交信息里已写明）② `git init + .gitignore` ③ v6.1 改动本身。
+> 这样做的目的是让 v6.1 成为一个**可审阅的单一 diff**（`git show HEAD`）。
+>
+> 以后不需要再手动 tar 快照了；但**破坏性改动前先 `git status` 确认工作区干净**，
+> 否则改动会和上一轮的未提交内容混在一个 diff 里。
 `~/.npm` 被沙箱挡 → 装包一律 `npm install --cache ./.npmcache --no-audit --no-fund`。
 Node v24.18.1 / npm 10.9.8 / Python 3.9.6 / macOS（`cat -A` 不可用，用 python 看 repr）。
 **无 Xcode**（排除原生 iOS）、**无浏览器 provider**（视觉只能用户自己看）、**`web_search` 不可用**（不要断言未验证的第三方平台事实）。
@@ -203,7 +211,7 @@ Node v24.18.1 / npm 10.9.8 / Python 3.9.6 / macOS（`cat -A` 不可用，用 pyt
 - PRD §11：Q1 回看价值靠什么撑（我建议真实用两周后再议）/ ~~Q2~~ **已关闭** / Q3 调休数据源 / Q4 部署平台 / Q5 v1 同步存储 / **Q6 金额吃不吃 `¥`** / **Q7 `parseQuickExpense` 删不删**
 - 遗留物去留：`genlunar.cjs`、`smoke.cjs`、`prototype/`。
   ⚠️ 注意 `src/prototype-parity.test.ts` **依赖 `prototype/index.html` 存在**——删原型时必须连它一起删（文件头注释已写明）
-- **是否 `git init`**（见 §6）
+- ~~是否 `git init`~~ → ✅ 已做（见 §6）。**遗留物去留那条现在可以真的执行了**：删 `prototype/` 时记得连 `src/prototype-parity.test.ts` 一起删
 
 ## 8. 用户沟通偏好
 
