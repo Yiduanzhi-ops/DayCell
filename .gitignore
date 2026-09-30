@@ -1,0 +1,22 @@
+# 依赖
+node_modules/
+
+# 构建产物
+dist/
+dev-dist/
+coverage/
+*.tsbuildinfo
+
+# 本地 npm 缓存（沙箱下 ~/.npm 不可写，装包一律 --cache ./.npmcache）
+.npmcache/
+
+# 日志
+*.log
+npm-debug.log*
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+*.local
+.idea/
+.vscode/
