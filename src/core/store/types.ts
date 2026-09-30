@@ -29,8 +29,14 @@ export interface PutOptions {
   /**
    * 保留记录自带的 createdAt / updatedAt，不自动刷新。
    *
-   * **导入备份时必须为 true**——否则恢复出来的记录 updatedAt 全变成"刚刚"，
-   * 记录级 last-write-wins 会把云端较新的数据反过来覆盖掉（ADR-0001）。
+   * 只有两个合法用途，都要求调用方**自己保证两个时间戳一致**：
+   *
+   * 1. **导入备份**（必须 true）——否则恢复出来的记录 updatedAt 全变成"刚刚"，
+   *    记录级 last-write-wins 会把云端较新的数据反过来覆盖掉（ADR-0001）。
+   * 2. **批量写入需要保序时**（如 `rollOver`）——同一批记录的 createdAt 若完全相同，
+   *    排序就退化成按 id 字典序，而 UUID 的字典序是随机的。
+   *
+   * ⚠️ 用了它就绕过了 `deleted` 的默认归一化，**必须显式传 `deleted`**。
    */
   keepTimestamps?: boolean
 }

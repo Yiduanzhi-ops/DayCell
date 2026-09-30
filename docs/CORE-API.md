@@ -427,6 +427,24 @@ interface SettingRepo {
 type SettingKey = 'accentColor' | 'lastBackupAt' | 'backupReminderOff' | 'onboarded' | 'weekStartsOn';
 ```
 
+#### 实现时对本节的修订
+
+1. **`AnniversaryRepo.byMonth(month)` 没有实现**，改为在 `aggregate` 里做区间解析。
+   理由：把纪念日解析成公历日期**需要农历 API**，而 repo 一直是"存储 + 校验"层、不依赖 lunar；
+   aggregate 本来就依赖 lunar（`DayAggregate.label` 要 `cellLabel(lunar, …)`），放它那里依赖图更干净。
+   另外 `byMonth` 只覆盖一个月，而月视图是 **42 格**（含邻月补齐日），按 month 开口反而不够用。
+2. **新增 `CategoryRepo.nameMap(): Promise<Map<string,string>>` 与 `resolveName(id)`**。
+   `nameMap` 一次取完整张分类表，供聚合层把 `catId` 换成中文名——否则每笔支出都要查一次分类。
+   ⚠️ 它只含**活着的**分类（`store.all()` 默认排墓碑），所以"查不到"就等于该分类已删除，
+   调用方按 PRD **E21** 处理（见 §5.6）。`resolveName` 则直接返回 `'已删除分类'`，供单条展示用。
+3. **`rollOver` 必须让 `createdAt` 逐条递增**（`base + i`，并用 `keepTimestamps: true` 写入）。
+   这是一次真实的 bug 修复：原实现在同步循环里对每条记录取同一个 `now()`，整批 `createdAt` 完全相同，
+   排序于是退化成 `sortDated` 的 **id 字典序**兜底；生产环境 id 是 UUID，
+   结果就是**顺延过来的待办顺序随机**，和昨天对不上——而 US-04 要的正是可追溯。
+   用 `keepTimestamps` 是因为 `put` 默认会把 `updatedAt` 刷成 `now()`，
+   那样会得到 `createdAt > updatedAt`（记录在被创建之前就被修改了）。
+   回归测试注入了一个**字典序递减**的 idGen，确保不是"id 恰好也是递增的"在掩盖问题。
+
 ### 5.6 `core/aggregate`
 
 **这是三视图的直接数据源，也是性能契约的落点（PRD §5.1）。**
@@ -501,6 +519,38 @@ function formatMoneyShort(cents: number): string;
 /** CSV 导出用：元为单位，两位小数，不带货币符号 */
 function formatMoneyCsv(cents: number): string;
 ```
+
+#### 实现时对本节的修订（`src/core/aggregate/`，已实测）
+
+1. **不是自由函数，而是工厂方法**：
+   ```ts
+   function createAggregates(deps: {
+     store: RecordStore          // 范围查询只有 store 开口（byDateAll），repo 没有对应方法
+     repos: Repos                // anniversaries.all() / categories.nameMap()
+     lunar?: LunarApi | null     // null = 农历加载失败（PRD E4）
+   }): Aggregates
+   ```
+   返回 `{ aggregateDay, aggregateWeek, aggregateMonth, monthSummary, aggregateDayDetail, invalidate }`，
+   方法名与原契约一致。改成工厂是为了注入依赖——自由函数需要模块级单例，既不可测也违反铁律 2。
+2. **`aggregateDayDetail` 只发 1 次 `byDateAll`**：区间开成 `[date-1, date]`，
+   一次拿到"今天的内容"和"昨天有几条可顺延"，然后按 date 劈开。
+   **不要**为 `prevDayRollable` 再查一次（有测试用间谍断言 `toHaveBeenCalledTimes(1)`）。
+3. **`aggregateMonth` 全程 3 次查询，与天数无关**：`byDateAll` + `anniversaries.all` + `categories.nameMap`，
+   三者 `Promise.all` 并发。有测试断言 `store.all` **从不**被用于 `todos/notes/expenses`
+   （即"用 `all()` 拿内容记录再在内存过滤日期"这条禁令是被机器守着的）。
+4. **目录是 `index.ts` + `money.ts`**，不是原计划的 `day.ts week.ts month.ts money.ts`。
+   三个视图共用同一个 `buildRange(keys)`——正是它保证了"查询次数与天数无关"。
+   拆开要么把 `buildRange` 复制三份，要么再多一个共享文件，都不如放一起。
+5. **PRD E21 在这里落地**：分类被删 → 该笔支出**并入「其他」**的汇总行，不单独成行；
+   若连「其他」也被删了，才用导出的 `DELETED_CAT_LABEL`（`'已删除分类'`）单独成行。
+   当日总额 `costCents` **不受影响**——钱确实花掉了。
+6. **`byCat` 的排序是 金额降序 → catId 升序**。第二段不是多余的：
+   只有金额降序时，同额分类的相对顺序取决于 `Map` 的迭代序，输出不确定，React key 会抖。
+7. **新增 `invalidate()`**：分类名做了缓存（CORE-API §6 要求"翻日时不得重查分类表"），
+   代价是分类改名/增删后必须调一次。**UI 在 categories 任何写操作后调用。**
+8. **`isEmpty` 含 rolledTo 的待办、不含纪念日**。那条待办仍属于这一天、仍会显示（划线态），
+   所以不算空白；而纪念日不是用户写的东西——一天只有纪念日时，
+   仍要走 v6.1 的"空白日自动展开待办表单"。
 
 ### 5.7 `core/migrate`
 
@@ -708,7 +758,8 @@ src/
     repo/
       todos.ts  notes.ts  expenses.ts  anniversaries.ts  categories.ts  settings.ts
     aggregate/
-      day.ts  week.ts  month.ts  money.ts
+      index.ts        ← createAggregates 工厂 + 五个聚合方法（原计划 day/week/month 三文件，
+      money.ts          因共用 buildRange 而合并，理由见 §5.6 修订 4）
     migrate/
       index.ts  v1.ts
     backup/

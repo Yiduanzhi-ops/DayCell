@@ -238,20 +238,33 @@ export function createRepos(deps: RepoDeps): Repos {
       // 否则会出现"复制了但没标记" → 下次又顺延一遍
       const moved = await store.tx(async (scope) => {
         const created: TodoRecord[] = []
-        for (const t of candidates) {
-          const ts = now()
+        const base = now()
+        for (const [i, t] of candidates.entries()) {
+          // ⚠️ **createdAt 必须逐条递增**，不能整批共用一个时间戳。
+          // 顺延是一批同时写入，共用 ts 会让目标日的排序整个落到 sortDated 的 id 兜底上；
+          // 生产环境 id 是 UUID，等于「顺延过来的待办顺序随机」，和昨天的顺序对不上
+          // （PRD US-04 要的就是可追溯，顺序乱了就追溯不了）。
+          // +i 毫秒既保序又不改变语义——一批写入本来就发生在同一瞬间。
+          //
+          // 用 keepTimestamps 是因为 put 默认把 updatedAt 刷成 now()，
+          // 那样会得到 createdAt > updatedAt（记录在被创建之前就被修改了）。
+          const ts = base + i
           created.push(
-            await scope.put<TodoRecord>('todos', {
-              id: idGen.next(),
-              type: 'todo',
-              date: to,
-              text: t.text,
-              done: false,
-              rolledFrom: from,
-              createdAt: ts,
-              updatedAt: ts,
-              deleted: false,
-            }),
+            await scope.put<TodoRecord>(
+              'todos',
+              {
+                id: idGen.next(),
+                type: 'todo',
+                date: to,
+                text: t.text,
+                done: false,
+                rolledFrom: from,
+                createdAt: ts,
+                updatedAt: ts,
+                deleted: false,
+              },
+              { keepTimestamps: true },
+            ),
           )
           await scope.put<TodoRecord>('todos', { ...t, rolledTo: to })
         }

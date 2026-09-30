@@ -167,6 +167,41 @@ describe('todos.rollOver（PRD US-04 / E11）', () => {
     await repos.todos.toggle(done1.id)
   })
 
+  it('★ 保序：顺延后的顺序 = 源日顺序，即使新 id 的字典序是反的', async () => {
+    // 这条守的是一个真实 bug：rollOver 曾在同步循环里对每条记录取同一个 now()，
+    // 于是整批 createdAt 完全相同，排序退化成 sortDated 的 id 字典序兜底；
+    // 生产环境 id 是 UUID → **顺延过来的待办顺序随机**，和昨天对不上。
+    //
+    // 为了不让"恰好 id 也是递增的"掩盖问题，这里故意注入一个字典序**递减**的 idGen。
+    const desc = ['z', 'y', 'x', 'w', 'v', 'u']
+    let n = 0
+    const r2 = createRepos({ store, now: clock, idGen: { next: () => desc[n++]! } })
+
+    // 源日三条，用递增的 createdAt 把源顺序钉死成 A/B/C
+    await r2.todos.create(k('2026-10-05'), 'A'); clock.advance(1000)
+    await r2.todos.create(k('2026-10-05'), 'B'); clock.advance(1000)
+    await r2.todos.create(k('2026-10-05'), 'C')
+    expect((await r2.todos.byDate(k('2026-10-05'))).map((t) => t.text)).toEqual(['A', 'B', 'C'])
+
+    await r2.todos.rollOver(k('2026-10-05'), k('2026-10-06'))
+
+    // 关键断言：读回来的顺序（= UI 看到的）仍是 A/B/C。
+    // 新 id 是 w/v/u，字典序会把它们排成 u(C) v(B) w(A)——只有 createdAt 递增才压得住。
+    const moved = await r2.todos.byDate(k('2026-10-06'))
+    expect(moved.map((t) => t.text)).toEqual(['A', 'B', 'C'])
+    expect(moved[0]!.createdAt < moved[1]!.createdAt).toBe(true)
+    expect(moved[1]!.createdAt < moved[2]!.createdAt).toBe(true)
+  })
+
+  it('批量顺延的时间戳一致：createdAt 不得晚于 updatedAt', async () => {
+    const r = await repos.todos.rollOver(k('2026-09-28'), k('2026-09-29'))
+    for (const m of r.moved) {
+      // keepTimestamps 绕过了 put 的自动刷新，所以这个不变量要自己守
+      expect(m.createdAt).toBeLessThanOrEqual(m.updatedAt)
+      expect(m.deleted).toBe(false)
+    }
+  })
+
   it('把未完成的搬到目标日，并标 rolledFrom', async () => {
     const r = await repos.todos.rollOver(k('2026-09-28'), k('2026-09-29'))
     expect(r.moved).toHaveLength(2)
