@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<title>DayCell · 可点击原型 v6</title>
+<title>DayCell · 可点击原型 v6.1</title>
 <style>
 /* ============ 设计令牌：极简黑白灰 + 单一强调色 ============ */
 :root{
@@ -18,7 +18,8 @@
   --ink-2:#555555;           /* 二级：周行正文、分类明细、次要说明（原 #5C5C5C） */
   --ink-3:#767676;           /* 三级 = 文字对比度下限：农历、进度、时间戳、空状态、占位符
                                 （原 #9C9C9C 仅 2.75:1，不达标） */
-  --ink-4:#C4C4C4;           /* 仅装饰：禁用态背景、纯图形符号。不得用于文字 */
+  --ink-4:#C4C4C4;           /* 仅装饰：纯图形符号。不得用于文字。
+                                v6.1 起白名单只剩 .empty .big 一处（.qadd:disabled 随顶部框一起删了） */
   --line:#EBEBEB;
   --line-2:#F4F4F4;
   --accent-soft:color-mix(in srgb, var(--accent) 8%, #fff);
@@ -69,37 +70,18 @@ body[data-device="phone"] .device{width:390px;max-width:390px;height:844px;min-h
 .icon-btn{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--ink-2)}
 .icon-btn:hover{background:var(--bg-hover)}
 
-/* ============ 顶部快速输入（只写「今天」） ============
-   v5 定稿：两条录入路径并存，各司其职——
-     · 顶部框 = 快速路径，**目标锁定今天、不可切换**，保住"写入 < 5 秒"这条红线
-     · 日详情各区块的「+ 添加」= 精确路径，可写入任意选中的日期
-   已去掉麦克风按钮：输入法的语音键（豆包/搜狗/讯飞/iOS 听写）在标准输入框里天然可用，不需要自己接。 */
-.quick{flex:0 0 auto;display:flex;align-items:flex-end;gap:8px;padding:10px 18px;
-  border-bottom:1px solid var(--line);background:var(--bg-subtle)}
-.qtypes{display:flex;gap:4px;flex:0 0 auto;padding-bottom:1px}
-.qtypes button{padding:3px 10px;border-radius:7px;font-size:12px;color:var(--ink-2);border:1px solid transparent}
-.qtypes button.on{background:var(--bg);border-color:var(--accent-line);color:var(--accent);font-weight:600}
-.qfield{flex:1;min-width:0;display:flex;align-items:flex-end;background:var(--bg);
-  border:1px solid var(--line);border-radius:9px;padding:5px 10px}
-.qfield:focus-within{border-color:var(--accent-line);box-shadow:0 0 0 3px var(--accent-soft)}
-.qfield textarea{flex:1;min-width:0;border:none;outline:none;background:none;font-size:13.5px;
-  resize:none;line-height:1.45;max-height:96px;overflow-y:auto;padding:1px 0;font-family:var(--font)}
-.qfield textarea::placeholder{color:var(--ink-3)}
-.qcat{flex:0 0 auto;border:1px solid var(--line);background:var(--bg);border-radius:7px;
-  padding:3px 6px;font-size:12px;color:var(--ink-2);outline:none;margin-bottom:1px}
-/* 「只写今天」徽标：选中日 ≠ 今天时高亮告警，防止误以为写进了当前看的那一天 */
-.qbadge{flex:0 0 auto;font-size:11.5px;color:var(--ink-3);background:var(--bg);border:1px solid var(--line);
-  border-radius:6px;padding:2px 8px;white-space:nowrap;margin-bottom:1px;cursor:default}
-.qbadge.warn{color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft);font-weight:600}
-.qadd{flex:0 0 auto;width:28px;height:28px;border-radius:8px;background:var(--accent);color:#fff;
-  display:grid;place-items:center;margin-bottom:1px}
-.qadd:disabled{background:var(--ink-4);cursor:default}
-body[data-device="phone"] .quick{padding:9px 13px;gap:6px}
-body[data-device="phone"] .qtypes button{padding:3px 7px;font-size:11.5px}
-body[data-device="phone"] .qcat{font-size:11px;padding:2px 4px}
-body[data-device="phone"] .qbadge{font-size:10px;padding:2px 5px}
+/* ============ 顶部快速输入 —— v6.1 已整段移除 ============
+   原来这里常驻一整行「待办 / 想法 / 花费」快捷录入框，目标恒定写今天。
+   v6 把日视图变成默认落地页之后，它成了纯粹的冗余：
+     · 功能上和日详情各区块的内联表单完全重复（同一套字段、同样回车保存）
+     · 但它写死今天：看着 9/25 却存进 9/29，只能靠一个 warn 徽标 + toast 打补丁
+     · 白占约 56px 竖向空间，而全屏日视图最缺的就是竖向空间
+   替代方案：**完全空白的一天自动展开待办内联表单**（输入框直接聚焦），
+   "落地即写"的交互次数比原来的顶部框还少一次。见 renderDetail() 里的 autoExpand。 */
 
-/* ============ 分区块内联表单（精确路径：写入选中的那一天） ============ */
+/* ============ 分区块内联表单 ============
+   v6.1 起这是**唯一**的录入路径（顶部快捷框已删）。写入目标恒为 st.sel，
+   即当前正在看的那一天——不再有"看着 A 天却写进今天"的可能。 */
 .iform{margin-top:8px;border:1px solid var(--accent-line);border-radius:9px;
   background:var(--accent-soft);padding:9px 10px;display:flex;flex-direction:column;gap:8px}
 .iform input,.iform textarea,.iform select{background:var(--bg);border:1px solid var(--line);
@@ -343,20 +325,6 @@ body[data-device="phone"] .wrow{padding:10px 13px}
       <button class="icon-btn" id="menuBtn" title="备份与设置"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg></button>
     </header>
 
-    <div class="quick">
-      <div class="qtypes">
-        <button data-type="todo" class="on">待办</button>
-        <button data-type="note">想法</button>
-        <button data-type="cost">花费</button>
-      </div>
-      <div class="qfield">
-        <textarea id="qInput" rows="1" placeholder="要做的事，回车保存…" autocomplete="off"></textarea>
-      </div>
-      <select class="qcat" id="qCat" style="display:none"></select>
-      <span class="qbadge" id="qBadge">→ 今天</span>
-      <button class="qadd" id="qAdd" disabled title="保存到今天"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-    </div>
-
     <div class="main">
       <section class="cal">
         <div class="wkhead"><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div class="we">六</div><div class="we">日</div></div>
@@ -387,7 +355,7 @@ body[data-device="phone"] .wrow{padding:10px 13px}
 </div>
 
 <div class="proto">
-  <b>原型控制 v6</b>
+  <b>原型控制 v6.1</b>
   <div class="g"><span class="lbl">设备</span>
     <button data-dev="desktop" class="on">桌面</button>
     <button data-dev="phone">手机</button>
@@ -409,12 +377,21 @@ body[data-device="phone"] .wrow{padding:10px 13px}
     <button data-goto="2026-09-25">中秋</button>
     <button data-goto="2026-09-24">大额支出</button>
   </div>
-  <span class="hint">假数据 · 刷新恢复 · <b>默认日视图（今天）</b> · 日/周/月三视图 · 顶部框只写今天 + 日详情内分区添加</span>
+  <span class="hint">假数据 · 刷新恢复 · <b>默认日视图（今天）</b> · 日/周/月三视图 · <b>顶部快捷框已移除</b>，空白日自动展开待办表单</span>
 </div>
 
 <script>
 /* ===================================================================
-   DayCell 可点击原型 v6
+   DayCell 可点击原型 v6.1
+   v6.1 变更（PRD D18）：**移除顶部常驻快捷录入行**（待办/想法/花费 三标签 + 输入框 + 「→ 今天」徽标 + ＋按钮）
+     · 理由：v6 之后日视图就是落地页，这一行与日详情各区块的内联表单**完全重复**；
+       而它写死今天，看着 9/25 却存进 9/29，只能靠一个 warn 徽标 + toast 打补丁
+     · 补速：**完全空白的一天自动展开待办内联表单并聚焦**，"落地即写"比原来还少一次点击；
+       用户收起过的那一天不再自动弹（formDismissed）
+     · 连带取消「45 午饭」一句话记花费——它和三字段表单并存正是 PRD Q2 的别扭点，Q2 自动关闭
+     · 代价：core 的 parseQuickExpense 失去调用方（待决，见 PROGRESS §0）；
+       手机周/月视图下不再有录入入口，必须先点格子进日视图（与 v6「点格子→日视图」的导航本来就一致）
+     · 顺手修掉 #ifAmt 的 Math.round(parseFloat(x)*100)（1.005 会少一分），改用与 core parseAmount 同规则的字符串算法
    v6 结构变更（PRD D16/D17、ADR-0005 修订）：**默认视图改为「日视图 + 今天」**
      · 视图从 2 个（月/周）扩为 **3 个（日/周/月）**，切换器顺序固定 日 → 周 → 月，快捷键 d/w/m
      · 手机端**取消底部 sheet 与遮罩**，日详情提升为全屏一等视图；点周/月的格子跳进日视图
@@ -422,14 +399,14 @@ body[data-device="phone"] .wrow{padding:10px 13px}
      · 从周/月进日视图会**记住来源**（视图 + 日期 + 滚动位置），「← 返回」精确还原，不会把人扔回今天
      · 三条返回路径：← 返回按钮 / popstate（系统右滑手势）/ Esc（桌面）
      · 桌面端：week/month 仍是左日历 + 右 372px 日详情分栏；切到「日」时日历收起、日详情占满
-     · 空状态区分「今天还什么都没有」（指向顶部输入框）与「这一天还什么都没有」
+     · 空状态区分「今天还什么都没有」（开始记录）与「这一天还什么都没有」（补记）
    v5.2 修复：文字对比度不达标（--ink-3 2.75:1 / --ink-4 1.74:1，WCAG AA 要求 4.5:1）
      → ink-2 #555555、ink-3 #767676，ink-4 语义收窄为「仅装饰、禁止承载信息」
    v5.1 修复：手机端点开某天后无法返回（sheet 占满全屏盖住了遮罩层）
      → sheet 改为最高 90% 高度并留出可点遮罩，新增右上「关闭 ✕」按钮，grab 条也可点击关闭
-   录入采用双路径（v5 定稿）：
-     · 顶部快速输入框 —— **目标锁定今天，不可切换**，负责"3 秒记下"
-     · 日详情各区块的「+ 添加」—— 内联表单，负责"写入任意选中的那一天"
+   录入路径（v6.1 起收敛为单一入口）：
+     · 日详情各区块的「+ 添加」内联表单 —— 写入目标恒为**当前正在看的那一天**
+     · v5 的双路径已废：顶部快速输入框在 v6.1 移除
    相对 v3 的变更：
      ① 去掉「心情」全部内容（5 档色阶分辨不清，且与待办进度数字争夺格子空间）
      ② 去掉麦克风按钮（输入法自带语音键在标准输入框里天然可用，无需自己接）
@@ -566,9 +543,11 @@ const DB={
 
 /* ---- 状态 ---- */
 const TODAY='2026-09-29';
-let st={ view:'day', cursor:TODAY, sel:TODAY, qtype:'todo', qcat:'餐饮', edit:null, newCat:'餐饮', rollDismissed:{},
+let st={ view:'day', cursor:TODAY, sel:TODAY, edit:null, newCat:'餐饮', rollDismissed:{},
   /* v6：从周/月点格子进日视图时记住来源，返回要精确还原（ADR-0005 硬约束）。只需一层，v0 不做多级导航 */
-  source:null };
+  source:null,
+  /* v6.1：空白日自动展开待办表单；用户主动收起过的那一天就不再自动弹 */
+  formDismissed:{} };
 
 /* ---- 工具 ---- */
 const $=s=>document.querySelector(s);
@@ -699,6 +678,18 @@ function renderDetail(){
   const rolled=pe?pe.todos.filter(t=>!t.done&&!t.rolledTo):[];
   const showRoll=rolled.length&&!st.rollDismissed[k];
 
+  /* v6.1：顶部快捷框删掉后，靠这段补回"落地即写"的速度。
+     完全空白的一天自动展开待办内联表单，输入框直接聚焦——敲字、回车就存，
+     交互次数比原来的顶部框还少一次（原来要先点一下顶部输入框）。
+     两个前提：① 日详情此刻真的可见（手机周/月视图下它是 display:none，展开了也白展开）
+              ② 用户没在这一天主动收起过（formDismissed），否则就成了赶不走的骚扰。 */
+  const blank = !e.todos.length && !e.notes.length && !e.expenses.length;
+  /* v6.1 修：分区空状态原来写死"今天还没有待办"，可日视图能翻到任意一天，
+     看着 9/21 却说"今天"是错的（和刚删掉的顶部框同一类毛病）。非今天就省掉主语。 */
+  const dayWord = k===TODAY ? '今天' : '';
+  const detailVisible = st.view==='day' || document.body.dataset.device==='desktop';
+  if(blank && detailVisible && !st.edit && !st.formDismissed[k]){ st.edit='todo'; autoExpand=true }
+
   let h=`<div class="dhead">
     <div class="dtitle">${d.getFullYear()} 年 ${d.getMonth()+1} 月 ${d.getDate()} 日<span class="dow">周${DOW[d.getDay()]}</span>
       ${k===TODAY?'<span class="dow" style="color:var(--accent);font-weight:600">今天</span>':''}</div>
@@ -722,7 +713,7 @@ function renderDetail(){
       <span class="ttxt">${esc(t.text)}</span>
       ${t.rolledTo?'<span class="rolled">已顺延 →</span>':''}
       ${t.rolledFrom?`<span class="rolled">顺延自 ${parse(t.rolledFrom).getMonth()+1}/${parse(t.rolledFrom).getDate()}</span>`:''}
-    </div>`).join('') : (st.edit==='todo'?'':'<div class="empty" style="padding:14px">今天还没有待办</div>');
+    </div>`).join('') : (st.edit==='todo'?'':`<div class="empty" style="padding:14px">${dayWord}还没有待办</div>`);
   h+=`</div>${formHtml('todo')}</div>`;
 
   /* 花费 */
@@ -739,7 +730,7 @@ function renderDetail(){
       </div>`).join('')}</div>`;
     if(bd.length>1) h+=`<div class="ebreak">${bd.map(([cat,v])=>`<span>${esc(cat)} <b>${money(v)}</b></span>`).join('')}</div>`;
   }else if(st.edit!=='cost'){
-    h+='<div class="empty" style="padding:14px">今天还没有记账</div>';
+    h+=`<div class="empty" style="padding:14px">${dayWord}还没有记账</div>`;
   }
   h+=`${formHtml('cost')}</div>`;
 
@@ -747,19 +738,24 @@ function renderDetail(){
   h+=`<div class="sect"><div class="sect-h"><h3>想法</h3>${e.notes.length?`<span class="n">${e.notes.length}</span>`:''}
       <span class="line"></span><button class="addbtn" data-act="addNote">${st.edit==='note'?'收起':'+ 添加'}</button></div><div class="nlist">`;
   h+= e.notes.length ? e.notes.map(n=>`<div class="nitem"><div class="ntxt">${esc(n.text)}</div><div class="ntime">${n.time||''}</div></div>`).join('')
-      : (st.edit==='note'?'':'<div class="empty" style="padding:14px">没有记下想法</div>');
+      : (st.edit==='note'?'':`<div class="empty" style="padding:14px">${dayWord}没有记下想法</div>`);
   h+=`</div>${formHtml('note')}</div>`;
 
-  if(!e.todos.length&&!e.notes.length&&!e.expenses.length&&!st.edit){
-    /* v6：日视图是默认落地页，"今天全空"成了最高频的空状态，文案要指向顶部输入框 */
+  if(blank&&!st.edit){
+    /* 能走到这里，说明用户已经把自动展开的表单收起了（formDismissed[k]）。
+       v6.1：文案不再提"上面的输入框"——那个框已经不存在了。
+       今天用「开始记录」、别的日子用「补记」，区分当下写和回头补。 */
     h += k===TODAY
-      ? '<div class="empty"><div class="big">○</div>今天还什么都没有<br/>在上面的输入框写一句，或点区块右上角「+ 添加」</div>'
-      : '<div class="empty"><div class="big">○</div>这一天还什么都没有<br/>点各区块右上角的「+ 添加」开始记录</div>';
+      ? '<div class="empty"><div class="big">○</div>今天还什么都没有<br/>点各区块右上角的「+ 添加」开始记录</div>'
+      : '<div class="empty"><div class="big">○</div>这一天还什么都没有<br/>点各区块右上角的「+ 添加」补记</div>';
   }
   $('#dscroll').innerHTML=h;
 }
 
 /* ---- 总渲染 ---- */
+/* renderDetail() 若因"空白日"自动展开了表单就置这个标记，由 render() 在 innerHTML
+   落地之后统一聚焦——在 renderDetail 内部直接 focus 是无效的，那时 DOM 还没换上去。 */
+let autoExpand=false;
 function render(){
   renderTitle();
   document.body.dataset.view=st.view;
@@ -767,16 +763,11 @@ function render(){
   /* 日视图下日历是 display:none（CSS 控制），这里就不必生成 42 格 / 7 行的 DOM 了 */
   $('#gridScroll').innerHTML = st.view==='month'?renderMonth():(st.view==='week'?renderWeek():'');
   renderDetail();
+  if(autoExpand){ autoExpand=false; focusForm(); revealForm() }
   /* 返回条只在"从周/月点进来"时出现；用 seg 或快捷键主动切到日视图时没有来源，不显示 */
   const srcName = st.source ? ({week:'周视图',month:'月视图'}[st.source.view]||'') : '';
   $('#daybar').classList.toggle('has-source', !!st.source && st.view==='day');
   $('#backSrc').textContent = srcName ? ' '+srcName : '';
-  /* 顶部框始终写今天；选中日不是今天时把徽标点亮，避免误以为写进了正在看的那天 */
-  const bg=$('#qBadge'), off=st.sel!==TODAY, sd=parse(st.sel), td=parse(TODAY);
-  bg.classList.toggle('warn',off);
-  bg.title = off
-    ? `顶部输入框始终写入今天（${td.getMonth()+1}/${td.getDate()}）。要写入选中的 ${sd.getMonth()+1}/${sd.getDate()}，请用日详情里各区块的「+ 添加」`
-    : '顶部输入框写入今天';
   document.querySelectorAll('.seg button').forEach(b=>b.classList.toggle('on',b.dataset.view===st.view));
   document.querySelectorAll('.proto [data-v]').forEach(b=>b.classList.toggle('on',b.dataset.v===st.view));
   syncHistory();
@@ -837,47 +828,51 @@ document.querySelectorAll('.proto .sw').forEach(b=>b.onclick=()=>{
 });
 document.querySelectorAll('.proto [data-goto]').forEach(b=>b.onclick=()=>selectDay(b.dataset.goto,false));
 
-/* ---- 交互：顶部快速输入（只写今天） ---- */
-const PH={todo:'要做的事，回车保存…',note:'冒出来的念头，回车保存…',cost:'金额 + 说明，如「45 午饭」'};
-/* 输入框自动增高：说一段长想法时单行框很难受 */
-function grow(){
-  const el=$('#qInput'); el.style.height='auto';
-  el.style.height=Math.min(el.scrollHeight,96)+'px';
-}
-/* 花费快速解析：取文本里第一个数字当金额，其余当备注（精确录入请用日详情里的表单） */
-function parseCost(t){
-  const m=t.match(/(\d+(?:\.\d{1,2})?)/);
-  if(!m) return null;
-  return { cents:Math.round(parseFloat(m[1])*100), note:t.replace(m[0],' ').replace(/\s+/g,' ').trim() };
-}
-function syncQuickUI(){
-  document.querySelectorAll('.qtypes button').forEach(x=>x.classList.toggle('on',x.dataset.type===st.qtype));
-  $('#qInput').placeholder=PH[st.qtype];
-  $('#qCat').style.display=st.qtype==='cost'?'':'none';
-}
-function quickAdd(){
-  const v=$('#qInput').value.trim(); if(!v)return;
-  const e=entry(TODAY);          // ← 目标恒为今天，与当前选中日无关
-  if(st.qtype==='todo'){ e.todos.push(T(v,false)); toast('已加到今天的待办'); }
-  else if(st.qtype==='note'){
-    const d=new Date();
-    e.notes.push(N(v,`${pad(d.getHours())}:${pad(d.getMinutes())}`)); toast('已记到今天');
+/* ---- 顶部快速输入：v6.1 已移除 ----
+   连带删掉：PH 占位符表、grow() 自动增高、parseCost() 一句话解析、syncQuickUI()、quickAdd()，
+   以及 #qInput / #qCat / #qBadge / #qAdd 的全部事件绑定。
+   现在唯一的录入路径是下面「分区块内联添加」。
+   一句话记花费（「45 午饭」）随之取消——它和三字段表单并存正是 PRD Q2 记的别扭点，
+   Q2 因此自动关闭。代价：core 里的 parseQuickExpense 从此没有调用方（待决，见 PROGRESS §0）。 */
+
+/* 金额 → 整数「分」。这一段是 core/validate.ts parseAmount 的**等价复刻**，
+   规则必须逐条对齐——否则原型演示的就是真应用不会有的行为（第一版就偏了：
+   我自作主张吃掉了 ¥ 前缀和内部空格，而 core 两者都拒绝）。
+     · 全角数字 ０-９、全角句点 ．、句号 。 先归一化（中文输入法的常态）
+     · 千分位 , 与 ， 直接去掉
+     · 只 trim 首尾空白，**不吃内部空格**：'1 200' 应当被拒绝
+     · **不接受 ¥ / ￥ 前缀**（core 也不接受；要不要放宽见 PRD §11 Q6）
+     · 标准十进制走字符串逐位运算：**不能用 Math.round(parseFloat(x)*100)**，
+       1.005*100 === 100.49999999999999，那样会少记一分
+     · 第三位小数 round half up
+     · 科学计数法（'1e3'）兜底走 Number（PRD US-03 明确允许） */
+const MAX_CENTS=9999999900;             /* 与 core LIMITS.maxAmountCents 一致 */
+function toCents(raw){
+  const s=String(raw)
+    .replace(/[\uFF10-\uFF19]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xfee0))
+    .replace(/[\uFF0E\u3002]/g,'.')
+    .replace(/[\uFF0C\u002C]/g,'')
+    .trim();
+  if(!s) return null;                                   /* core: EMPTY */
+  const m=/^([+-]?)(\d+)(?:\.(\d+))?$/.exec(s);
+  let c;
+  if(m){
+    if(m[1]==='-') return null;                         /* core: NOT_POSITIVE */
+    const i=Number(m[2]);
+    if(!Number.isSafeInteger(i)) return null;            /* core: TOO_LARGE */
+    const f=m[3]||'';
+    c=i*100+Number((f+'00').slice(0,2));
+    const third=f.charCodeAt(2);
+    if(third>=0x35&&third<=0x39) c+=1;                   /* '5'..'9' → 进一分 */
   }else{
-    const c=parseCost(v);
-    if(!c){ toast('先写金额，例如「45 午饭」'); return; }
-    e.expenses.push(X(c.cents/100,st.qcat,c.note));
-    toast(`今天 · ${st.qcat} ¥${money(c.cents/100)}${c.note?' · '+c.note:''}`);
+    const n=Number(s);
+    if(!Number.isFinite(n)||n<0) return null;            /* core: NOT_A_NUMBER / NOT_POSITIVE */
+    c=Math.round(n*100);
   }
-  $('#qInput').value=''; $('#qAdd').disabled=true; grow(); render(); $('#qInput').focus();
+  if(!(c>0)) return null;
+  if(!Number.isSafeInteger(c)||c>MAX_CENTS) return null;  /* core: TOO_LARGE */
+  return c;
 }
-$('#qCat').innerHTML=CATS.map(c=>`<option value="${c}">${c}</option>`).join('');
-document.querySelectorAll('.qtypes button').forEach(b=>b.onclick=()=>{st.qtype=b.dataset.type;syncQuickUI();$('#qInput').focus()});
-$('#qCat').onchange=e=>{st.qcat=e.target.value};
-$('#qAdd').onclick=quickAdd;
-$('#qInput').addEventListener('input',e=>{$('#qAdd').disabled=!e.target.value.trim();grow()});
-$('#qInput').addEventListener('keydown',e=>{
-  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();quickAdd()}
-});
 
 /* ---- 交互：分区块内联添加 ----
    点开某一天，在「待办 / 花费 / 想法」各自区块末尾内联展开表单。
@@ -899,13 +894,18 @@ function formHtml(t){
     </div>${ifActs(t)}</div>`;
 }
 const focusForm=()=>{const f=FORM_FIELD[st.edit]; if(f&&$(f)) $(f).focus()};
-/* 手机 sheet 内容较长时，新展开的表单可能在折叠线以下，滚进视野 */
+/* 日详情较长时，新展开的表单可能在折叠线以下，滚进视野 */
 function revealForm(){
   const f=document.querySelector('.iform');
   if(f&&typeof f.scrollIntoView==='function') f.scrollIntoView({block:'nearest'});
 }
-function openForm(t){ st.edit = st.edit===t ? null : t; render(); if(st.edit){focusForm();revealForm()} }
-function closeForm(){ st.edit=null; render(); }
+function openForm(t){
+  /* 再点一次同一个「+ 添加」= 收起。收起必须记账：否则空白日会立刻又被自动展开，
+     用户根本点不掉这个表单——这是 v6.1 自动展开的副作用，得一起处理。 */
+  if(st.edit===t){ st.formDismissed[st.sel]=1; st.edit=null } else { st.edit=t }
+  render(); if(st.edit){focusForm();revealForm()}
+}
+function closeForm(){ if(st.edit) st.formDismissed[st.sel]=1; st.edit=null; render(); }
 /* 金额换算成整数「分」再运算，避免 0.1+0.2!==0.3 的浮点误差 */
 function saveForm(){
   const e=entry(st.sel);
@@ -920,8 +920,8 @@ function saveForm(){
     e.notes.push(N(v,`${pad(d.getHours())}:${pad(d.getMinutes())}`)); toast('已记下这个想法');
   }else if(st.edit==='cost'){
     const raw=($('#ifAmt').value||'').trim();
-    const cents=Math.round(parseFloat(raw)*100);
-    if(!raw||isNaN(cents)||cents<=0){toast('请填写正确的金额，例如 45 或 45.5');$('#ifAmt').focus();return}
+    const cents=toCents(raw);
+    if(cents===null){toast('请填写正确的金额，例如 45 或 45.5');$('#ifAmt').focus();return}
     const cat=$('#ifCat').value, note=($('#ifExpNote').value||'').trim();
     e.expenses.push(X(cents/100,cat,note)); st.newCat=cat;
     toast(`${cat} ¥${money(cents/100)}${note?' · '+note:''}`);
@@ -1040,13 +1040,12 @@ document.addEventListener('keydown',ev=>{
   else if(ev.key==='w') setView('week');
   else if(ev.key==='m') setView('month');
   else if(ev.key==='Escape'){
-    if(st.edit){st.edit=null;render();return}
+    if(st.edit){closeForm();return}
     if($('#modal').classList.contains('on')){$('#modal').classList.remove('on');return}
     requestBack();
   }
 });
 
-syncQuickUI();
 render();
 </script>
 </body>

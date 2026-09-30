@@ -33,6 +33,9 @@
 | `core/migrate` | 版本迁移（纯函数） |
 | `core/backup` | 导出 Markdown / CSV / JSON，导入与校验 |
 | `core/validate` | 纯校验函数（金额、文本长度、日期） |
+| `core/clock` | **唯一**允许调用 `Date.now()` 的地方（铁律 3 的落地手段） |
+| `core/errors` | `DayCellError` 及其子类（见 §2.2） |
+| `core/types` | 记录类型与 `DateKey`（见 §3） |
 | `core/diagnose` | 环境探测（IndexedDB 可用性、配额、是否已安装） |
 
 ### 1.2 三条铁律（必须用 ESLint 强制，不能靠自觉）
@@ -574,6 +577,81 @@ function diagnose(deps: {
 
 ---
 
+### 5.10 `core/validate`
+
+纯校验。**本节按已落地的实现回填**（`src/core/validate.ts`，46 个测试）。约定见 §2.1：一律返回 `ParseResult<T>`，不抛异常。
+
+```ts
+export type ValidateCode =
+  | 'EMPTY' | 'TOO_LONG' | 'NOT_A_NUMBER' | 'NOT_POSITIVE' | 'TOO_LARGE' | 'INVALID_DATE'
+export type ParseResult<T> = ParseOk<T> | ParseErr
+export const ok:  <T>(value: T) => ParseOk<T>
+export const err: (code: ValidateCode, message: string) => ParseErr
+
+export const LIMITS: {
+  readonly todoText: 500
+  readonly noteText: 5000
+  readonly expenseNote: 200
+  readonly anniversaryTitle: 50
+  readonly categoryName: 12
+  readonly maxAmountCents: 9_999_999_900   // 99,999,999 元（PRD E7）
+}
+
+/** 全角数字 ０-９ / 全角句点 ．/ 句号 。→ 半角；千分位 , 与 ， 去掉。
+ *  **只 trim 首尾空白**，不吃内部空格（'1 200' 应判为 NOT_A_NUMBER）；不接受 ¥ / ￥ 前缀（PRD Q6 待决） */
+export function normalizeNumericInput(raw: string): string
+
+/** 元 → **整数分**。标准十进制走字符串逐位运算，第三位小数 round half up。
+ *  ⚠️ 绝不能用 Math.round(Number(s) * 100)：1.005 * 100 === 100.49999999999999，会少一分。
+ *  非标准形态（'1e3'）兜底走 Number（PRD US-03 允许） */
+export function parseAmount(raw: string): ParseResult<number>
+
+export const parseTodoText:         (raw: string) => ParseResult<string>
+export const parseNoteText:         (raw: string) => ParseResult<string>
+export function parseExpenseNote(   raw: string): ParseResult<string>
+export const parseAnniversaryTitle: (raw: string) => ParseResult<string>
+export const parseCategoryName:     (raw: string) => ParseResult<string>
+export function parseDateKey(       raw: string): ParseResult<DateKey>
+
+/** 按 Unicode 码点计数，不是 .length（emoji / 生僻字占 2 个 UTF-16 单元） */
+export function textLength(raw: string): number
+```
+
+> ⚠️ **`parseQuickExpense` 在 v6.1 之后成了孤儿**
+> ```ts
+> export function parseQuickExpense(raw: string): ParseResult<{ cents: number; note: string }>
+> ```
+> 它唯一的调用方是原型的**顶部快速录入框**（`45 午饭` 一句话解析），该行已在 v6.1 整行移除（PRD **D18** / SPEC §3.3）。
+> 函数本身完好、仍有 15 个测试覆盖，但**当前无任何调用方**。
+> 去留见 PRD §11 **Q7**（建议删：留着会诱导第二条花费录入路径重新长回来，那正是 Q2 的病灶）。
+> **Q7 有结论前不要删**——删已测代码需要产品负责人点头。
+
+> **UI 侧不得另写一份金额换算**（ADR-0003）。原型的 `toCents()` 是 `parseAmount` 的等价复刻，
+> 由 `src/prototype-parity.test.ts` 用 40 组输入强制逐位一致（覆盖 round half up 边界、全角、千分位、
+> `1e3`、上限、`¥` 前缀、内部空格、空串）。写这个测试的当天就抓到原型自作主张吃掉了 `¥` 和内部空格。
+
+### 5.11 `core/clock`
+
+铁律 3 的落地手段：**这是全项目唯一允许出现 `Date.now()` 的文件**。ESLint 只对 `core/clock.ts` 关闭 `no-restricted-syntax`；`core/store/**` 与 `core/migrate/**` 则完全禁用 `Date`。
+
+```ts
+export type Clock = () => number
+export const systemClock: Clock
+
+export interface FakeClock extends Clock {
+  advance(ms: number): void
+  set(ms: number): void
+}
+export function createFakeClock(start?: number): FakeClock   // 默认 1_700_000_000_000
+```
+
+> ⚠️ `createFakeClock()` 返回的是**可调用对象**（函数本身 + 挂两个方法），不是 `{ now }`。
+> 注入时要写 `now: fakeClock`，**不能写 `now: fakeClock.now`**——后者是 `undefined`，
+> 会静默退回 `systemClock`，测试变成"看起来在跑、其实在用真实时间"。
+> 这个坑在 repo 测试里踩过一次，一次带走 10 个用例。
+
+---
+
 ## 6. 性能契约
 
 | 调用 | 上限 | 说明 |
@@ -623,7 +701,7 @@ core 的每个模块都必须有测试，且：
 ```
 src/
   core/
-    id.ts  date.ts  lunar.ts  label.ts  validate.ts  diagnose.ts
+    id.ts  date.ts  lunar.ts  label.ts  validate.ts  clock.ts  errors.ts  types.ts  diagnose.ts
     store/
       types.ts        ← RecordStore 接口
       idb.ts          ← 生产实现

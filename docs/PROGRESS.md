@@ -1,12 +1,12 @@
 # DayCell 实施进度快照
 
 > **这份文件的用途**：让会话上下文可以安全丢弃。接手时先读这份，再按需读 PRD / CORE-API。
-> 最后更新：2026-09-29 · **v6 需求已落到文档，代码尚未跟进**
-> 代码当前状态 **全绿**：`tsc -b` 0 错 / `eslint .` 0 错 / **295 测试通过**（~0.4 s）
+> 最后更新：2026-09-29 · **v6 与 v6.1 均已落到文档 + 原型**；core 代码未受 v6.1 影响（仅一处注释）
+> 当前状态 **全绿**：`tsc -b` 0 错 / `eslint .` 0 错 / **336 测试通过**（~1.0 s）/ `node smoke.cjs` **218 项断言全通过**
 
 ---
 
-## 0. ★ v6 新需求（用户 2026-09-29 提出，**文档已改完，代码未动**）
+## 0. ★ v6 / v6.1 需求（用户 2026-09-29 提出，**文档与原型均已跟进；core 代码基本未动**）
 
 **需求原话**：「打开之后默认是今日的页面，然后可以切换为周和月，先周后月。」
 
@@ -37,7 +37,49 @@
 - `src/app` 需要一个**一层来源栈** `{view, date, scrollTop}` + `popstate` 处理
 - 翻日**不得 push history**（否则按一次返回只退一天，退不出日视图）
 - `src/ui` 三视图组件；手机不再有 sheet 组件
-- 原型 `prototype/index.html` **仍是 v5.2**，没跟进 v6（用户说先改文档）
+- ~~原型没跟进 v6~~ → ✅ 已升到 v6，见下
+
+---
+
+## 0b. ★ v6.1 新需求（用户 2026-09-29 提出，**已全部落地**）
+
+**需求原话**：「由于目前引入了今日视图，所以不需要在顶部进行想法或者花费什么的添加了，把那一行都统一去掉吧。」
+
+**我的判断：有必要，且理由比"省地方"更硬**（已写进 PRD **D18** / SPEC §3.3）：
+1. v6 之后日视图就是落地页，顶部框与日详情各区块的内联表单**字段、交互、提交方式完全重复**
+2. 顶部框写死今天：看着 9/25 却存进 9/29。原方案要靠「→ 今天」warn 徽标 + hover 长文案 + toast 带"今天"字样**三重补丁**缓解——**补丁需要三重，就是设计本身错了的证据**
+3. 白占约 56 px 竖向空间，而全屏日视图最缺的就是竖向空间
+
+**补速手段（关键，否则红线 1 会掉）**：完全空白的一天**自动展开待办区块的内联表单并聚焦**。
+今天还空着时打开应用直接敲字回车，**比原来的顶部框还少一次点击**（原来要先点一下输入框）。
+用户主动收起过的那一天按日期记在 `formDismissed`，不再自动弹。
+
+**已明确接受的代价**：
+- 今天已有内容时不自动展开（不能挡内容），要先点一次「+ 添加」→ **比 v6 多一次点击**
+- 手机周/月视图下**没有录入入口**，必须先点格子进日视图（与 v6 导航一致）
+- 「45 午饭」一句话记花费取消 → **PRD Q2 自动关闭**；`core/validate.ts parseQuickExpense` **失去调用方** → 转 **PRD Q7 待决**
+
+**文档改动落点**：
+| 文件 | 改了什么 |
+|---|---|
+| `docs/PRD.md` | §1.4 **新增 v6.1 取舍说明**、§2 **场景 A/B/C 全部重写**、§3 **M7 废除（编号保留不复用）+ M8 升为唯一入口**、§4 **US-01 整条重写 + US-03 补金额算法规则**、§8 **空状态表改写 + 新增第 4 条规矩**、§9 **新增 D18**、§10 验收清单、§11 **Q2 关闭 + 新增 Q6/Q7** |
+| `SPEC.md` | §3.1 决策表（**顺带修掉两处 v6 就该改却漏掉的"默认视图 → 周"**）、**§3.3 整节重写为单一入口**、§3.3.1、§3.5 录入方式、§7 路线图 v0、§8 清单 |
+| `docs/CORE-API.md` | **新增 §5.10 `core/validate`**（此前只有表格一行，从没给过接口章节）、**新增 §5.11 `core/clock`**（此前整个模块未登记）、§1.1 补 clock/errors/types 三行、附录目录结构补全 |
+| `src/core/validate.ts` | 仅**注释**：给 `parseQuickExpense` 标注孤儿状态 + 指向 Q7（**无行为改动**） |
+| `prototype/index.html` | v6 → **v6.1**，66,284 bytes（见下） |
+| `smoke.cjs` | **整体重写**，114 → **218 项断言**（见下） |
+| `src/prototype-parity.test.ts` | **新增**：原型 `toCents` ↔ core `parseAmount` 平价检验，40 组输入 |
+
+**顺带修掉的三个既有 bug（都是 v6.1 改动直接暴露的）**：
+1. `#ifAmt` 用 `Math.round(parseFloat(x)*100)` → `1.005` 会少记一分。删掉一句话解析后它成了**唯一**花费入口，必须修。现改为与 core `parseAmount` 逐位一致的字符串算法
+2. 分区空文案写死「今天还没有待办/记账」→ 日视图能翻到任意一天，看着 9/21 却说"今天"。非今天一律省掉主语（**与顶部框同一类毛病**）
+3. `syncHistory` 的 `pushed` 标记：用按钮/Esc 返回时没有真正弹掉自己压的 history 条目，`pushed` 会一直卡在 `true`，**第二次进日视图时系统手势返回就失效**（会直接退出应用）。已加 `requestBack()` 统一处理
+
+**smoke.cjs 重写时修掉的两个测试框架自身缺陷**：
+1. **退出码只看对比度那一项**：`bad` 数组收集了却从不打印、从不影响 `process.exit`，所有功能断言失败被静默吞掉。已修
+2. 一处在 `click(null)` 抛错就整体崩掉，后面所有断言跳过。已改为每节 `sec()` 独立 try/catch
+
+> ✅ **变异检验已做**：故意把顶部框塞回去、删掉自动展开、金额退回浮点算法 → smoke 报 **22 项失败、退出码 1**；还原后 0。**一个永远不会失败的测试没有价值**，所以这一步不能省。
 
 ---
 
@@ -46,17 +88,21 @@
 ### 文档 `docs/`
 | 文件 | 内容 |
 |---|---|
-| `PRD.md` | v0 需求定稿：§3 MoSCoW（**M1–M18**）/ §4 **US-01~US-12** / §7 **E1–E25** / §8 空状态 / §9 **D1–D17** / §11 Q1–Q5 未决 |
-| `CORE-API.md` | core 层 TS 契约，11 个模块，3 条铁律 |
+| `PRD.md` | v0 需求定稿：§3 MoSCoW（**M1–M18**，M7 已废除）/ §4 **US-01~US-12** / §7 **E1–E25** / §8 空状态（10 个）/ §9 **D1–D18** / §11 **Q1–Q7**（Q2 已关闭） |
+| `CORE-API.md` | core 层 TS 契约，**13 个模块**（§5.1–§5.11），3 条铁律 |
 | `adr/0001~0008` | 存储选型 / SW 策略 / 金额整数分 / lunar 懒加载 / **响应式三视图** / core 无 React / CSS Modules / 自写 date |
 | `README.md` | 索引；冲突优先级 **PRD > CORE-API > adr > SPEC** |
 
 `SPEC.md`（仓库根）= 决策日志；其 §5 数据模型已被 PRD §6 取代。
 
 ### 原型 `prototype/index.html`
-**v5.2**（⚠️ 早于 v6，仍是 sheet 方案），59,966 bytes，零依赖。服务在 http://127.0.0.1:5199/index.html
-（nohup `python3 -m http.server 5199 --bind 127.0.0.1`，日志 `/tmp/daycell-proto.log`；**不是** DSH 托管 job，重启需手动）
-`smoke.cjs`（jsdom）**114 项全通过**。
+**v6.1**（日/周/月三视图 + 默认日视图 + 单一录入入口），**66,284 bytes**、1053 行、手写 CSS 298 行 / 约 209 条规则，**零依赖**。
+
+> ⚠️ **不需要服务器**。它是纯静态单文件：无 ES module、无 fetch、无 localStorage、无任何外部引用。
+> 直接 `open prototype/index.html` 即可。（曾经挂过一个 nohup http.server，**已杀掉**——用户正确质疑了它的必要性。）
+
+`smoke.cjs`（jsdom）**218 项断言全通过**，覆盖：默认落地 / 顶部框移除防回归 / 金额取整 / 心情移除 /
+空白日自动展开 / 三类内联表单 / 月周回归 / 顺延 / 弹层 / 翻日与步进量 / **手机三条返回路径** / 对比度。
 
 ### 代码 `src/core/`（全部有测试）
 ```
@@ -76,6 +122,13 @@ repo/index.ts     todos/notes/expenses/anniversaries/categories/settings
 repo/repo.test.ts 60 用例，覆盖 US-04 顺延、E10/E11/E21/E24
 isolation.test.ts import.meta.glob 静态扫源码，守 ADR-0006 边界
 ```
+> ⚠️ `validate.ts` 里的 **`parseQuickExpense` 自 v6.1 起没有调用方**（唯一消费者是被移除的顶部框）。
+> 函数与它的 15 个测试都还在，**未删**——删已测代码要用户点头。去留见 PRD §11 **Q7**。
+
+另有 `src/prototype-parity.test.ts`（**不在 `src/core/` 下**，以躲开 `isolation.test.ts` 的 `./**/*.ts` 源码扫描）：
+把原型的 `toCents()` 与 core 的 `parseAmount()` 用 40 组输入逐位比对。用 `import.meta.glob(..., ?raw)` 读原型
+而不是 `node:fs`——因为 `src/` 归 `tsconfig.app.json` 管（`types: ["vite/client"]`），出现 node 内置模块编译不过。
+jsdom 本身早已是 devDependency，本轮补装了缺失的 **`@types/jsdom`**。
 
 **尚未写**：`aggregate/*`（含 v6 新增的 `aggregateDayDetail`）、`migrate/*`、`backup/*`（json/csv/markdown/import）、`diagnose.ts`、`core/index.ts` 单一出口、`src/ui/*`、`src/app/*`、`index.html`、PWA 插件接线、`scripts/report-size.mjs`。
 
@@ -109,7 +162,9 @@ isolation.test.ts import.meta.glob 静态扫源码，守 ADR-0006 边界
 4. `src/ui/*` — 日/周/月三视图（手机无 sheet）+ `index.html` + PWA 接线（ADR-0002）
 5. `scripts/report-size.mjs` 守 **首屏 ≤ 80 KB gzip**（估算 ~62 KB；lunar 必须独立 chunk）
 6. 修 `package.json` 的 `test:tz`：现在引用了**未安装**的 `cross-env-shell`，改成 `TZ=… npx vitest run` 链式（ADR-0008 要求三时区跑）
-7. 原型是否跟进 v6（改成三视图）——**待用户决定**
+7. ~~原型是否跟进 v6~~ → ✅ 已升到 **v6.1**（三视图 + 单一录入入口），smoke 218 项全绿
+8. **等用户拍 PRD Q7**：`parseQuickExpense` 删还是留（建议删，约 30 行 + 15 个测试）
+9. **等用户拍 PRD Q6**：金额输入要不要吃 `¥` / `￥` 前缀（建议吃，约 1 行 + 2 个测试；现在 core 拒绝，原型已与之对齐）
 
 ---
 
@@ -123,11 +178,17 @@ isolation.test.ts import.meta.glob 静态扫源码，守 ADR-0006 边界
 - **core 不得 import React/DOM/zustand/CSS**（ESLint 强制 + `isolation.test.ts` 扫源码）。
 - **墓碑永不物理删除**（`RecordStore` 故意没有 `remove`）；每次写都刷 `updatedAt`。
 - **返回路径必须冗余**（ADR-0005 v6）：手机「← 返回」+ `popstate` + 桌面 `Esc`；**不能只依赖键盘**；进日视图必须记住来源。
-- **对比度**：`--ink-3 #767676` 是文字下限（4.54:1）；`--ink-4 #C4C4C4` **只能用于装饰**，白名单仅 `.qadd:disabled` 与 `.empty .big`。
+- **对比度**：`--ink-3 #767676` 是文字下限（4.54:1）；`--ink-4 #C4C4C4` **只能用于装饰**，v6.1 起白名单**仅 `.empty .big` 一处**（`.qadd:disabled` 随顶部框一起删了）。
+- **录入入口只有一个**（v6.1 / PRD D18）：日详情各区块的内联表单，写入目标恒为当前选中日。**不要重新引入任何常驻快捷录入框**——它会带回"看着 A 天写进今天"这一整类错误。
+- **UI 侧金额换算必须与 `core parseAmount` 逐位一致**（ADR-0003），由 `src/prototype-parity.test.ts` 强制。**禁止 `Math.round(parseFloat(x)*100)`**。
 
 ## 6. 环境事实
 
 工作目录 `/Users/wangduanmao/DayCell`；sandbox `workspace-write`。
+> ⚠️ **这个仓库没有 git**（`git rev-parse` 失败）。做破坏性多文件改动前**先手动快照**：
+> `tar --exclude=node_modules --exclude=.npmcache -cf - . | (cd /tmp/xxx && tar xf -)`
+> 本轮快照在 `/tmp/daycell-v6-snapshot`；改前单文件备份 `/tmp/index.v6-pre-quick.bak`、`/tmp/PRD.v6.bak`、`/tmp/SPEC.v6.bak`、`/tmp/CORE-API.v6.bak`、`/tmp/PROGRESS.v6.bak`。
+> **建议尽早 `git init`**——但没有用户点头不要擅自建 `.git`。
 `~/.npm` 被沙箱挡 → 装包一律 `npm install --cache ./.npmcache --no-audit --no-fund`。
 Node v24.18.1 / npm 10.9.8 / Python 3.9.6 / macOS（`cat -A` 不可用，用 python 看 repr）。
 **无 Xcode**（排除原生 iOS）、**无浏览器 provider**（视觉只能用户自己看）、**`web_search` 不可用**（不要断言未验证的第三方平台事实）。
@@ -138,11 +199,15 @@ Node v24.18.1 / npm 10.9.8 / Python 3.9.6 / macOS（`cat -A` 不可用，用 pyt
 
 ## 7. 未决（等用户拍）
 
-- PRD §9 **D1–D17 默认值表从未被逐条确认过**（D16/D17 是 v6 新增，方向已口头确认）
-- PRD §11 **Q1–Q5**：Q1 回看价值靠什么撑（我建议真实用两周后再议）/ Q2 双路径花费录入不一致 / Q3 调休数据源 / Q4 部署平台 / Q5 v1 同步存储
-- 遗留物去留：`genlunar.cjs`、`smoke.cjs`、`prototype/`（v6 后原型已与文档不一致）
+- PRD §9 **D1–D18 默认值表从未被逐条确认过**（D16/D17/D18 是 v6/v6.1 新增，方向已口头确认）
+- PRD §11：Q1 回看价值靠什么撑（我建议真实用两周后再议）/ ~~Q2~~ **已关闭** / Q3 调休数据源 / Q4 部署平台 / Q5 v1 同步存储 / **Q6 金额吃不吃 `¥`** / **Q7 `parseQuickExpense` 删不删**
+- 遗留物去留：`genlunar.cjs`、`smoke.cjs`、`prototype/`。
+  ⚠️ 注意 `src/prototype-parity.test.ts` **依赖 `prototype/index.html` 存在**——删原型时必须连它一起删（文件头注释已写明）
+- **是否 `git init`**（见 §6）
 
 ## 8. 用户沟通偏好
 
 少给选项、不给矩阵；解释控制在两句内；**给带理由的推荐**而不是菜单；直说权衡与不确定性；**改动前先说清代价**。
-用户会自己发现真问题并推翻自己之前的指令（v6 就是一例：他自己把默认视图从周改成了日）。
+用户会自己发现真问题并推翻自己之前的指令（v6 把默认视图从周改成日；v6.1 又砍掉了 v5 定稿的双路径录入）。
+他会问"你觉得是不是有必要"——**这是真的要你的判断和理由，不是客套**；判断完要连带说清代价，再动手。
+他也质疑过工具链的必要性（"原型图为什么需要连服务器？不是静态 html 么"）——**他是对的，不要为省事引入不必要的依赖**。

@@ -29,6 +29,8 @@ adr/         →  怎么做的关键选择（可单独推翻，不改 PRD）
 | `SPEC.md` §5 | 数据模型是"一天一个 DayEntry blob"，**已废弃** | 已在该节顶部标注，正式模型见 PRD §6 |
 | `SPEC.md` §6 | 技术栈曾写 Tailwind / dayjs / 手写 manifest | 已回写，理由见 ADR-0007 / 0008 / 0002 |
 | `SPEC.md` 整体 | 读起来像 changelog，同一主题的新旧决策并存 | **有意保留**——它的价值就是变更轨迹。定稿信息一律查 PRD |
+| `prototype/` + `smoke.cjs` | 都是**过渡产物**：真 UI 落地后应一并删除 | ⚠️ 但 `src/prototype-parity.test.ts` **依赖 `prototype/index.html` 存在**（用 `import.meta.glob ?raw` 读它），删原型时必须连这个测试一起删 |
+| `docs/PROGRESS.md` | 会话交接快照（     213 行），非需求文档 | 上下文被压缩后**先读这份**。它不进 PRD > CORE-API > adr > SPEC 的优先级链 |
 
 ## 尚未编写
 
@@ -43,11 +45,11 @@ adr/         →  怎么做的关键选择（可单独推翻，不改 PRD）
 
 ```
 DayCell/
-├── SPEC.md                    决策日志（305 行）
+├── SPEC.md                    决策日志（     356 行）
 ├── docs/
 │   ├── README.md              本文件
-│   ├── PRD.md                 产品需求文档 v1.0（509 行）
-│   ├── CORE-API.md            core 层接口契约 v1.0
+│   ├── PRD.md                 产品需求文档 v1.0（     564 行）
+│   ├── CORE-API.md            core 层接口契约 v1.0（     723 行）
 │   └── adr/
 │       ├── README.md          ADR 索引与约定
 │       ├── 0001-local-storage-indexeddb.md
@@ -59,5 +61,6 @@ DayCell/
 │       ├── 0007-css-modules-not-tailwind.md
 │       └── 0008-date-module-not-dayjs.md
 └── prototype/
-    └── index.html             可点击原型 v5.1（102 项测试通过）
+    └── index.html             可点击原型 v6.1（`node smoke.cjs` 218 项断言通过）
+                               ⚠️ 纯静态单文件，**不需要服务器**，直接 open 即可
 ```
