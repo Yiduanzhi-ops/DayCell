@@ -389,7 +389,7 @@ body[data-device="phone"] .wrow{padding:10px 13px}
      · 补速：**完全空白的一天自动展开待办内联表单并聚焦**，"落地即写"比原来还少一次点击；
        用户收起过的那一天不再自动弹（formDismissed）
      · 连带取消「45 午饭」一句话记花费——它和三字段表单并存正是 PRD Q2 的别扭点，Q2 自动关闭
-     · 代价：core 的 parseQuickExpense 失去调用方（待决，见 PROGRESS §0）；
+     · 代价：core 的 parseQuickExpense 失去调用方（已删除，PRD Q7 已关闭）；
        手机周/月视图下不再有录入入口，必须先点格子进日视图（与 v6「点格子→日视图」的导航本来就一致）
      · 顺手修掉 #ifAmt 的 Math.round(parseFloat(x)*100)（1.005 会少一分），改用与 core parseAmount 同规则的字符串算法
    v6 结构变更（PRD D16/D17、ADR-0005 修订）：**默认视图改为「日视图 + 今天」**
@@ -833,7 +833,7 @@ document.querySelectorAll('.proto [data-goto]').forEach(b=>b.onclick=()=>selectD
    以及 #qInput / #qCat / #qBadge / #qAdd 的全部事件绑定。
    现在唯一的录入路径是下面「分区块内联添加」。
    一句话记花费（「45 午饭」）随之取消——它和三字段表单并存正是 PRD Q2 记的别扭点，
-   Q2 因此自动关闭。代价：core 里的 parseQuickExpense 从此没有调用方（待决，见 PROGRESS §0）。 */
+   Q2 因此自动关闭。代价：core 里的 parseQuickExpense 从此没有调用方，已删除（PRD Q7 已关闭）。 */
 
 /* 金额 → 整数「分」。这一段是 core/validate.ts parseAmount 的**等价复刻**，
    规则必须逐条对齐——否则原型演示的就是真应用不会有的行为（第一版就偏了：

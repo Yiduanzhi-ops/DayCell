@@ -617,14 +617,12 @@ export function parseDateKey(       raw: string): ParseResult<DateKey>
 export function textLength(raw: string): number
 ```
 
-> ⚠️ **`parseQuickExpense` 在 v6.1 之后成了孤儿**
-> ```ts
-> export function parseQuickExpense(raw: string): ParseResult<{ cents: number; note: string }>
-> ```
-> 它唯一的调用方是原型的**顶部快速录入框**（`45 午饭` 一句话解析），该行已在 v6.1 整行移除（PRD **D18** / SPEC §3.3）。
-> 函数本身完好、仍有 15 个测试覆盖，但**当前无任何调用方**。
-> 去留见 PRD §11 **Q7**（建议删：留着会诱导第二条花费录入路径重新长回来，那正是 Q2 的病灶）。
-> **Q7 有结论前不要删**——删已测代码需要产品负责人点头。
+> 🗑 **`parseQuickExpense` 已删除**（v6.1，PRD **Q7** 已关闭）
+> 它曾负责解析顶部快速框的一句话花费（`45 午饭` → `{cents:4500, note:'午饭'}`）。
+> 该输入框在 v6.1 整行移除（PRD **D18** / SPEC §3.3），函数随之失去唯一调用方，
+> 经产品负责人确认后删除：`validate.ts` −28 行、测试 −8 个 `it`。
+> **不要重新引入**——第二条花费录入路径正是 PRD Q2 记的那个别扭点。
+> 需要找回实现看 git 历史：`git log -S parseQuickExpense`。
 
 > **UI 侧不得另写一份金额换算**（ADR-0003）。原型的 `toCents()` 是 `parseAmount` 的等价复刻，
 > 由 `src/prototype-parity.test.ts` 用 40 组输入强制逐位一致（覆盖 round half up 边界、全角、千分位、

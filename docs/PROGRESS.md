@@ -57,7 +57,7 @@
 **已明确接受的代价**：
 - 今天已有内容时不自动展开（不能挡内容），要先点一次「+ 添加」→ **比 v6 多一次点击**
 - 手机周/月视图下**没有录入入口**，必须先点格子进日视图（与 v6 导航一致）
-- 「45 午饭」一句话记花费取消 → **PRD Q2 自动关闭**；`core/validate.ts parseQuickExpense` **失去调用方** → 转 **PRD Q7 待决**
+- 「45 午饭」一句话记花费取消 → **PRD Q2 自动关闭**；`core/validate.ts parseQuickExpense` 失去唯一调用方 → **已删除**（PRD Q7 已关闭）
 
 **文档改动落点**：
 | 文件 | 改了什么 |
@@ -65,7 +65,7 @@
 | `docs/PRD.md` | §1.4 **新增 v6.1 取舍说明**、§2 **场景 A/B/C 全部重写**、§3 **M7 废除（编号保留不复用）+ M8 升为唯一入口**、§4 **US-01 整条重写 + US-03 补金额算法规则**、§8 **空状态表改写 + 新增第 4 条规矩**、§9 **新增 D18**、§10 验收清单、§11 **Q2 关闭 + 新增 Q6/Q7** |
 | `SPEC.md` | §3.1 决策表（**顺带修掉两处 v6 就该改却漏掉的"默认视图 → 周"**）、**§3.3 整节重写为单一入口**、§3.3.1、§3.5 录入方式、§7 路线图 v0、§8 清单 |
 | `docs/CORE-API.md` | **新增 §5.10 `core/validate`**（此前只有表格一行，从没给过接口章节）、**新增 §5.11 `core/clock`**（此前整个模块未登记）、§1.1 补 clock/errors/types 三行、附录目录结构补全 |
-| `src/core/validate.ts` | 仅**注释**：给 `parseQuickExpense` 标注孤儿状态 + 指向 Q7（**无行为改动**） |
+| `src/core/validate.ts` | **删除 `parseQuickExpense`**（−28 行，Q7 已关闭）；`validate.test.ts` −8 个 `it` |
 | `prototype/index.html` | v6 → **v6.1**，66,284 bytes（见下） |
 | `smoke.cjs` | **整体重写**，114 → **218 项断言**（见下） |
 | `src/prototype-parity.test.ts` | **新增**：原型 `toCents` ↔ core `parseAmount` 平价检验，40 组输入 |
@@ -122,8 +122,9 @@ repo/index.ts     todos/notes/expenses/anniversaries/categories/settings
 repo/repo.test.ts 60 用例，覆盖 US-04 顺延、E10/E11/E21/E24
 isolation.test.ts import.meta.glob 静态扫源码，守 ADR-0006 边界
 ```
-> ⚠️ `validate.ts` 里的 **`parseQuickExpense` 自 v6.1 起没有调用方**（唯一消费者是被移除的顶部框）。
-> 函数与它的 15 个测试都还在，**未删**——删已测代码要用户点头。去留见 PRD §11 **Q7**。
+> 🗑 `validate.ts` 里的 **`parseQuickExpense` 已删除**（2026-09-29 用户批准，PRD Q7 关闭）。
+> 它唯一的消费者是被移除的顶部框。删除后 `validate.ts` 覆盖率从 97.26% **升到 98.38%**（分支 95.12% → 97.14%），
+> 测试总数 336 → 328。找回实现：`git log -S parseQuickExpense`。**不要重新引入第二条花费录入路径。**
 
 另有 `src/prototype-parity.test.ts`（**不在 `src/core/` 下**，以躲开 `isolation.test.ts` 的 `./**/*.ts` 源码扫描）：
 把原型的 `toCents()` 与 core 的 `parseAmount()` 用 40 组输入逐位比对。用 `import.meta.glob(..., ?raw)` 读原型
@@ -163,7 +164,7 @@ jsdom 本身早已是 devDependency，本轮补装了缺失的 **`@types/jsdom`*
 5. `scripts/report-size.mjs` 守 **首屏 ≤ 80 KB gzip**（估算 ~62 KB；lunar 必须独立 chunk）
 6. 修 `package.json` 的 `test:tz`：现在引用了**未安装**的 `cross-env-shell`，改成 `TZ=… npx vitest run` 链式（ADR-0008 要求三时区跑）
 7. ~~原型是否跟进 v6~~ → ✅ 已升到 **v6.1**（三视图 + 单一录入入口），smoke 218 项全绿
-8. **等用户拍 PRD Q7**：`parseQuickExpense` 删还是留（建议删，约 30 行 + 15 个测试）
+8. ~~等用户拍 PRD Q7~~ → ✅ **已删除**（2026-09-29 用户批准）
 9. **等用户拍 PRD Q6**：金额输入要不要吃 `¥` / `￥` 前缀（建议吃，约 1 行 + 2 个测试；现在 core 拒绝，原型已与之对齐）
 
 ---
@@ -208,7 +209,7 @@ Node v24.18.1 / npm 10.9.8 / Python 3.9.6 / macOS（`cat -A` 不可用，用 pyt
 ## 7. 未决（等用户拍）
 
 - PRD §9 **D1–D18 默认值表从未被逐条确认过**（D16/D17/D18 是 v6/v6.1 新增，方向已口头确认）
-- PRD §11：Q1 回看价值靠什么撑（我建议真实用两周后再议）/ ~~Q2~~ **已关闭** / Q3 调休数据源 / Q4 部署平台 / Q5 v1 同步存储 / **Q6 金额吃不吃 `¥`** / **Q7 `parseQuickExpense` 删不删**
+- PRD §11：Q1 回看价值靠什么撑（我建议真实用两周后再议）/ ~~Q2~~ **已关闭** / Q3 调休数据源 / Q4 部署平台 / Q5 v1 同步存储 / **Q6 金额吃不吃 `¥`**（仍未决）/ ~~Q7~~ **已关闭：parseQuickExpense 已删**
 - 遗留物去留：`genlunar.cjs`、`smoke.cjs`、`prototype/`。
   ⚠️ 注意 `src/prototype-parity.test.ts` **依赖 `prototype/index.html` 存在**——删原型时必须连它一起删（文件头注释已写明）
 - ~~是否 `git init`~~ → ✅ 已做（见 §6）。**遗留物去留那条现在可以真的执行了**：删 `prototype/` 时记得连 `src/prototype-parity.test.ts` 一起删

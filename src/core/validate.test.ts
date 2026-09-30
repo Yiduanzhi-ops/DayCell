@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
   parseAmount,
-  parseQuickExpense,
   parseTodoText,
   parseNoteText,
   parseExpenseNote,
@@ -148,47 +147,6 @@ describe('normalizeNumericInput', () => {
   })
   it('去掉逗号', () => {
     expect(normalizeNumericInput('1,280')).toBe('1280')
-  })
-})
-
-describe('parseQuickExpense — 顶部快速框的一句话解析', () => {
-  it('「45 午饭」→ 4500 分 + 午饭', () => {
-    expect(val(parseQuickExpense('45 午饭'))).toEqual({ cents: 4500, note: '午饭' })
-  })
-
-  it('数字在后也认', () => {
-    expect(val(parseQuickExpense('午饭 45'))).toEqual({ cents: 4500, note: '午饭' })
-    expect(val(parseQuickExpense('午饭45'))).toEqual({ cents: 4500, note: '午饭' })
-  })
-
-  it('只有金额、没有备注', () => {
-    expect(val(parseQuickExpense('45'))).toEqual({ cents: 4500, note: '' })
-    expect(val(parseQuickExpense('45.5'))).toEqual({ cents: 4550, note: '' })
-  })
-
-  it('分隔符会被清掉', () => {
-    expect(val(parseQuickExpense('45，午饭')).note).toBe('午饭')
-    expect(val(parseQuickExpense('45:午饭')).note).toBe('午饭')
-    expect(val(parseQuickExpense('45 - 午饭')).note).toBe('午饭')
-  })
-
-  it('空 → EMPTY', () => {
-    expect(code(parseQuickExpense(''))).toBe('EMPTY')
-    expect(code(parseQuickExpense('   '))).toBe('EMPTY')
-  })
-
-  it('没有数字 → NOT_A_NUMBER', () => {
-    expect(code(parseQuickExpense('午饭'))).toBe('NOT_A_NUMBER')
-  })
-
-  it('取第一个数字串（「买了2个包子共15元」取 2）', () => {
-    // 这是已知取舍：一句话解析必然有歧义，所以分区表单提供三字段精确路径
-    expect(val(parseQuickExpense('买了2个包子共15元')).cents).toBe(200)
-  })
-
-  it('与 parseAmount 共用换算，不会出现两套结果', () => {
-    const quick = val(parseQuickExpense('1.005 测试'))
-    expect(quick.cents).toBe(val(parseAmount('1.005')))
   })
 })
 

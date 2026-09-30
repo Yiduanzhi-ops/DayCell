@@ -106,34 +106,6 @@ export function parseAmount(raw: string): ParseResult<number> {
   return ok(cents)
 }
 
-/**
- * 从一句话里提取金额与备注（`45 午饭` → {cents:4500, note:'午饭'}）。
- *
- * 与 parseAmount 共用同一套换算，**不得另写一份**（ADR-0003）。
- * 取第一个能解析成金额的数字串；找不到则整体交给 parseAmount 报错。
- *
- * ⚠️ **v6.1 起本函数没有任何调用方**：它唯一的消费者是原型顶部的常驻快捷录入框，
- *    该行已整行移除（PRD D18 / SPEC §3.3）。留着是因为删除已测代码需要产品负责人点头，
- *    去留见 PRD §11 **Q7**（建议删——留着会诱导第二条花费录入路径重新长回来，那正是 Q2 的病灶）。
- *    在 Q7 有结论前**不要删、也不要给它接新调用方**。
- */
-export function parseQuickExpense(raw: string): ParseResult<{ cents: number; note: string }> {
-  const t = normalizeNumericInput(raw).trim()
-  if (!t) return err('EMPTY', '请填写内容，例如「45 午饭」')
-
-  const m = /(\d+(?:\.\d+)?)/.exec(t)
-  // 没有任何数字串 → 一定是错的，不必再走 parseAmount
-  if (!m) return err('NOT_A_NUMBER', '没找到金额，例如「45 午饭」')
-
-  const amount = parseAmount(m[1]!)
-  if (!amount.ok) return amount
-
-  const note = (t.slice(0, m.index) + t.slice(m.index + m[1]!.length))
-    .replace(/^[\s:：,，、-]+|[\s:：,，、-]+$/g, '')
-    .trim()
-  return ok({ cents: amount.value, note })
-}
-
 // ---------------------------------------------------------------------------
 // 文本
 // ---------------------------------------------------------------------------
