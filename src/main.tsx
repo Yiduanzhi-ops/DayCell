@@ -25,6 +25,15 @@ async function main(): Promise<void> {
   const el = document.getElementById('root')
   if (!el) throw new Error('#root 不存在')
   createRoot(el).render(<App store={store} />)
+
+  // SW 注册放在首帧之后——注册与预缓存安装都不该占首屏关键路径（PRD §5.1）。
+  // 策略见 ADR-0002：新 SW 不 skipWaiting，所有页签关闭后自然激活；注册失败静默忽略
+  // （离线能力是增强，不是功能前提；E1 的存储降级横幅与此无关，照常工作）。
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {})
+    })
+  }
 }
 
 void main()

@@ -1,9 +1,31 @@
 # DayCell 实施进度快照
 
 > **这份文件的用途**：让会话上下文可以安全丢弃。接手时先读这份，再按需读 PRD / CORE-API。
-> 最后更新：2026-09-30（第三轮）· **v7.1 已落地**：月格三行重构 + 启动页「人生小格」（见 §0d）
+> 最后更新：2026-10-01 · **PWA 已接线，dist 已重建交付**（见 §0e）；此前 v7.1（月格三行 + 启动页，§0d）
 > 当前状态 **全绿**：`tsc -b` 0 错 / `eslint .` 0 错 / **503 测试通过**（14 文件）/ `node smoke.cjs` 218 项断言（只守原型，见 §0c）
 > **已 git 化**（分支 `main`）。core 层 12/13 模块完成，**只剩 `backup/*`**（2026-09-30 用户拍板：延后）。
+
+---
+
+## 0e. ★ PWA 接线 + dist 重建（2026-10-01，用户指令「做成 PWA 然后构建 dist」）
+
+**按 ADR-0002 落地，零新依赖**（`vite-plugin-pwa` 1.3.0 本来就在 devDeps）：
+
+- `vite.config.ts`：`VitePWA({ registerType: 'prompt', injectRegister: null, ... })`
+  - **precache 全部构建产物**（含懒加载 lunar chunk）→ 首访后完整离线（US-11）；16 条清单里 4 条 URL 重复（插件把 manifest 引用的图标追加了一遍），workbox 按 cache key 幂等，实测无害
+  - `registerType:'prompt'` = 不自动 skipWaiting/clientsClaim（E20：不在运行中偷换资源）。⚠️ generateSW 产物里**总有一段** `message: SKIP_WAITING → self.skipWaiting()` 监听——v0 没有发送方，它是为将来「有新版本点击刷新」提示预留的，不违背 E20（已核对产物确认）
+  - `injectRegister:null`：注册收敛到 `src/main.tsx` 一处（挂载后 window.load 时，不占首屏关键路径；失败静默——离线是增强不是前提）。第一版忘了关，dist 里长出没人引用的 `registerSW.js` 且与手动注册构成双重路径，已修
+  - 图标不写 `includeAssets`（globPatterns 的 `*.png` 已捕获，两处写会重复）
+  - 无任何 runtime caching（§5.4 运行时零网络请求）；`navigateFallback:'/index.html'`
+- manifest：`name「人生小格 DayCell」/ short_name「人生小格」（主屏名）/ start_url '/?source=pwa' / display standalone / lang zh-CN / 192+512+maskable`
+- `index.html`：iOS meta 四件套（`apple-mobile-web-app-capable` 等）+ `apple-touch-icon`（E3：装主屏才豁免 ITP 7 天清数据）
+- **图标是 `scripts/gen-icons.mjs` 生成的**（新增，已提交）：手写 PNG 编码器（zlib deflate + CRC32，~60 行），accent 圆角方 + 白色两横（与 TopBar `.mark` logo 同源），maskable 版内容缩进 20% 安全区。**不装 sharp/jimp**——一次性脚本不值得引入原生二进制依赖。改图标 = 改脚本重跑，产物直接提交
+
+**dist 交付**（2026-10-01 重建，含 v7 + v7.1 + PWA）：
+- `dist/` 15 文件 644 KB；`daycell-dist.zip` **201 KB**（内容在 zip 根，拖拽部署口径与上次一致）
+- `vite preview` + curl 验证：`/`、`/sw.js`、`/manifest.webmanifest`、图标、主 JS 全 200 且 content-type 正确
+- 首屏 gzip ≈ **91 KB**（react-dom 独占 65 KB）——仍超 PRD §5.1 的 80 KB 预算，**预算口径（vendor 算不算）仍未拍**（§4 第 4 条）；lunar 102 KB 懒加载不计入
+- ⚠️ **验收还差真机一步**（PRD §10）：iOS Safari 部署到 HTTPS → 添加到主屏幕 → 飞行模式 → 从主屏启动能读能写。沙箱无浏览器 provider，SW 实际注册行为只能真机确认
 
 ---
 
@@ -140,9 +162,9 @@
 ### 文档 `docs/`
 | 文件 | 内容 |
 |---|---|
-| `PRD.md` | v0 需求定稿：§3 MoSCoW（**M1–M18**，M7 已废除）/ §4 **US-01~US-12** / §7 **E1–E25** / §8 空状态（10 个）/ §9 **D1–D18** / §11 **Q1–Q7**（Q2 已关闭） |
-| `CORE-API.md` | core 层 TS 契约，**13 个模块**（§5.1–§5.11），3 条铁律 |
-| `adr/0001~0008` | 存储选型 / SW 策略 / 金额整数分 / lunar 懒加载 / **响应式三视图** / core 无 React / CSS Modules / 自写 date |
+| `PRD.md` | 需求定稿 v1.1（US-01~US-13，M1–M19） |
+| `CORE-API.md` | core 层 TS 契约，13 个模块（§5.1–§5.11），3 条铁律。**backup（§5.8）仍未实现** |
+| `adr/0001~0008` | 存储 / SW（**✅ 2026-10-01 已接线，见 PROGRESS §0e**）/ 金额 / lunar 懒加载 / 三视图 / core 隔离 / CSS Modules / 自写 date |
 | `README.md` | 索引；冲突优先级 **PRD > CORE-API > adr > SPEC** |
 
 `SPEC.md`（仓库根）= 决策日志；其 §5 数据模型已被 PRD §6 取代。
@@ -260,12 +282,12 @@ lunar chunk（102 KB gzip）是懒加载不计入。预算口径要不要把 ven
 6. **清明只以节气形式出现**，不在 festivals 里
 7. 实测锚点：2026-09-29=八月十九 / 09-25=中秋节 / 09-07=白露(廿六) / 09-11=八月初一 / 09-10=教师节 / 2026-02-17=春节(正月初一) / 2025-07-25=闰六月初一 / **2026 年没有任何闰月**
 
-## 4. 下一步（按序，2026-09-30 重排）
+## 4. 下一步（按序，2026-10-01 重排）
 
-0. **⚠️ `dist/` 与 `daycell-dist.zip` 是 v7 之前的构建**（2026-09-30 上午交付的那份含翻日、无就地编辑）。要部署 v7 必须先 `npm run build` 重建并重新打包，否则线上跑的还是旧版。
+0. ~~**⚠️ `dist/` 与 `daycell-dist.zip` 是 v7 之前的构建**~~ → ✅ **2026-10-01 已重建**（含 v7 + v7.1 + PWA，见 §0e）。用户拖拽 `daycell-dist.zip` 部署即可
 1. ~~`core/aggregate`~~ ~~`core/migrate`~~ ~~`core/diagnose`~~ ~~`core/index.ts`~~ ~~`src/app`~~ ~~`src/ui`~~ → ✅ 全部完成（见 §1b；v7 修订见 §0c）
-2. **PWA 接线 + M11 纪念日创建入口**（上线后最紧的两件）：
-   - PWA（ADR-0002，`vite-plugin-pwa` 已在 devDeps）：iOS 不装主屏 = ITP 7 天清数据（E3），需要 manifest + SW + PNG 图标生成
+2. **~~PWA 接线~~ ✅（§0e）+ M11 纪念日创建入口**：
+   - ~~PWA（ADR-0002）~~ ✅ 已接线并构建验证；**剩真机验收**（iOS 装主屏 + 飞行模式读写，PRD §10）与 S1 首启引导（`diag.installed/userAgentIOS` 已在 state 里，只差 UI）
    - 纪念日：底层全就绪（repo/聚合/三视图徽章/E13 闰月回退），只差 DayView 一个区块表单（公历/农历 + 每年重复）
 3. **`core/backup/*`**（json/csv/markdown/import，唯一剩下的 core 模块；2026-09-30 用户拍板延后：「导入导出备份都不要写，只完成记录」）。
    **开工前的调研结论（本会话已查完，别再查一遍）**：

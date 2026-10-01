@@ -7,6 +7,12 @@
 <meta name="description" content="人生小格（DayCell）—— 以「一天」为容器的记录本：待办、想法、花费。今天视图写当天，周视图回顾，月视图看密度。作者：以端枳"/>
 <meta name="theme-color" content="#FFFFFF"/>
 <meta name="author" content="以端枳"/>
+<!-- iOS PWA（ADR-0002 / PRD E3）：装到主屏才豁免 Safari ITP 的 7 天数据清除 -->
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="人生小格"/>
+<link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png"/>
 <title>人生小格 DayCell</title>
 <style>
   /* 启动页（v7.1）：内联在 HTML 里，JS bundle 下载期间就显示，填补白屏。
