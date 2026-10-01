@@ -4,6 +4,9 @@ import { VitePWA } from 'vite-plugin-pwa'
 import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
+  // GitHub Pages 项目页部署在 https://Yiduanzhi-ops.github.io/DayCell/ 子路径下，
+  // 必须显式设置 base，否则构建产物的 /assets/... 绝对路径会指向站点根目录而 404
+  base: '/DayCell/',
   plugins: [
     react(),
     // PWA（ADR-0002，v7.1 接线）：
@@ -24,20 +27,20 @@ export default defineConfig({
         short_name: '人生小格', // 主屏图标下的名字，中文用户优先（SPEC §3.7）
         description: '以「一天」为容器的记录本：待办、想法、花费。作者：以端枳。',
         lang: 'zh-CN',
-        start_url: '/?source=pwa', // ADR-0002：标记启动来源，不做埋点上报（PRD §5.4）
-        scope: '/',
+        start_url: '/DayCell/?source=pwa', // ADR-0002：标记启动来源，不做埋点上报（PRD §5.4）；前缀与 base 保持一致
+        scope: '/DayCell/',
         display: 'standalone',
         background_color: '#FFFFFF',
         theme_color: '#FFFFFF',
         icons: [
-          { src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/pwa-512x512.png', sizes: '512x512', type: 'image/png' },
-          { src: '/maskable-icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: '/DayCell/pwa-192x192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/DayCell/pwa-512x512.png', sizes: '512x512', type: 'image/png' },
+          { src: '/DayCell/maskable-icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,svg,ico,webmanifest}'],
-        navigateFallback: '/index.html', // 任意路径断网可打开（ADR-0002）
+        navigateFallback: '/DayCell/index.html', // 任意路径断网可打开（ADR-0002）；前缀与 base 保持一致
         // 42 格月视图 + 10 年数据的首屏与 lunar chunk 都远小于此默认上限，无需调
       },
     }),
