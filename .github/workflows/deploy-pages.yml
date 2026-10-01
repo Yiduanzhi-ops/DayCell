@@ -35,6 +35,9 @@ jobs:
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
+        with:
+          # 首次部署时仓库的 Pages 尚未启用，必须显式开启（否则报 Get Pages site failed）
+          enablement: true
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
