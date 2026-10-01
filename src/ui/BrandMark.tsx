@@ -1,16 +1,12 @@
 /**
- * 品牌 logo（v7.4 更换，用户拍板）：「小格」概念——accent 圆角方块 + 白色田字格线，
- * 右上格实心白（人生小格 = 被标记出的那一格）。与启动页 splash、PWA 图标同源图形。
- * 颜色用 var(--accent) 跟随主题；尺寸由使用处的 CSS 控制（.brand svg）。
+ * 品牌 logo（v7.6 更换，用户提供）：「浅蓝渐变圆角方块 + 白色矩形对勾」应用图标。
+ * 与启动页 splash、PWA 图标同源（public/logo.png，scripts/gen-logo-icons.py 生成）。
+ * 尺寸由使用处的 CSS 控制（.brand img）；BASE_URL 适配 GitHub Pages 子路径。
  */
 import type { JSX } from 'react'
 
+const LOGO_URL = `${import.meta.env.BASE_URL}logo.png`
+
 export function BrandMark(): JSX.Element {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="2.5" y="2.5" width="19" height="19" rx="5.5" fill="var(--accent)" />
-      <path d="M12 6.2v11.6M6.2 12h11.6" stroke="#fff" strokeWidth="1.7" opacity="0.9" />
-      <rect x="12.8" y="6.4" width="5" height="5" rx="1.3" fill="#fff" />
-    </svg>
-  )
+  return <img src={LOGO_URL} alt="" className={undefined} aria-hidden="true" />
 }
