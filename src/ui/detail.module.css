@@ -42,6 +42,24 @@
 .chk:hover { border-color: var(--accent); }
 .done .chk { background: var(--accent); border-color: var(--accent); }
 .ttxt { flex: 1; min-width: 0; font-size: 13.5px; line-height: 1.5; word-break: break-word; }
+/* v7 / US-13：点文字就地编辑。ttxtBtn 是包住 ttxt 的透明按钮，hover 底色提示可点 */
+.ttxtBtn {
+  flex: 1; min-width: 0; text-align: left; cursor: text;
+  border-radius: 6px; margin: -2px -4px; padding: 2px 4px;
+  display: flex;
+}
+.ttxtBtn:hover { background: var(--bg-hover); }
+/* 编辑输入框：字号行高与正文一致，避免进入编辑时行高跳动 */
+.tedit {
+  flex: 1; min-width: 0;
+  font-size: 13.5px; line-height: 1.5;
+  background: var(--bg);
+  border: 1px solid var(--accent-line);
+  border-radius: 6px;
+  padding: 3px 7px;
+  outline: none;
+}
+.tedit:focus { box-shadow: 0 0 0 3px var(--accent-soft); }
 .done .ttxt { color: var(--ink-3); text-decoration: line-through; text-decoration-color: var(--ink-4); }
 .tdel {
   flex: 0 0 auto; font-size: 14px; color: var(--ink-4); width: 24px; height: 24px;
@@ -77,6 +95,17 @@
 .nlist { display: flex; flex-direction: column; gap: 8px; }
 .nitem { background: var(--bg-subtle); border-radius: 8px; padding: 9px 11px; position: relative; }
 .ntxt { font-size: 13.5px; line-height: 1.65; white-space: pre-wrap; word-break: break-word; }
+/* v7 / US-13：点正文就地编辑 */
+.ntxtBtn { display: block; width: 100%; text-align: left; cursor: text; border-radius: 6px; }
+.ntxtBtn:hover .ntxt { background: var(--bg-hover); }
+.nedit { background: var(--accent-soft); border: 1px solid var(--accent-line); display: flex; flex-direction: column; gap: 8px; }
+.neditArea {
+  width: 100%; resize: vertical; min-height: 60px;
+  font-size: 13.5px; line-height: 1.6;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 7px;
+  padding: 6px 9px; outline: none; font-family: var(--font); color: var(--ink);
+}
+.neditArea:focus { border-color: var(--accent-line); box-shadow: 0 0 0 3px var(--accent-soft); }
 .ntime { font-size: 10.5px; color: var(--ink-3); margin-top: 5px; }
 .ndel { position: absolute; top: 6px; right: 6px; font-size: 14px; color: var(--ink-4); width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; visibility: hidden; }
 .nitem:hover .ndel { visibility: visible; }

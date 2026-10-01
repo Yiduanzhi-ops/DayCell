@@ -10,7 +10,7 @@
 | [0002](0002-service-worker-strategy.md) | Service Worker 缓存与更新策略 | 已接受 | 装不上主屏 / 离线不可用，产品定位崩塌 |
 | [0003](0003-money-as-integer-cents.md) | 金额以整数「分」存储 | 已接受 | 长期累加出现分币误差，账目对不上 |
 | [0004](0004-lunar-lib-lazy-load.md) | 农历库懒加载与降级 | 已接受 | 首屏多 80 KB；发版后旧页签白屏 |
-| [0005](0005-responsive-sheet-layout.md) | 响应式布局：桌面分栏 / 移动三视图 | 已接受（**v6 修订**：移动 sheet → 全屏日视图） | **手机点开后无法返回**（已实际踩过；v6 后同一失败模式变为"进了某天出不来"） |
+| [0005](0005-responsive-sheet-layout.md) | 响应式布局：桌面分栏 / 移动三视图 | 已接受（**v6 修订**：移动 sheet → 全屏日视图；**v7 修订**：日视图并入「今天」，删除翻日） | **手机点开后无法返回**（已实际踩过；v6 后同一失败模式变为"进了某天出不来"） |
 | [0006](0006-core-no-react-no-dom.md) | core 层禁止依赖 React 与 DOM | 已接受 | 出小程序时无法复用，重写 100% 而非 30% |
 | [0007](0007-css-modules-not-tailwind.md) | 样式方案：CSS Modules 而非 Tailwind | 已接受 | 影响可控，属口味权衡 |
 | [0008](0008-date-module-not-dayjs.md) | 日期处理：自写 core/date 而非 dayjs | 已接受 | 时区陷阱导致"今天"算错一天 |

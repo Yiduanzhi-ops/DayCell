@@ -27,7 +27,6 @@
 }
 .backBtn:hover { border-color: var(--accent-line); color: var(--accent); }
 .backSrc { font-size: 11.5px; color: var(--ink-3); }
-.swipeHint { font-size: 11px; color: var(--ink-3); margin-left: auto; }
 
 .dscroll {
   flex: 1 1 auto;

@@ -1,12 +1,13 @@
 /**
  * 应用层状态机测试（纯 Node 环境——store.ts 头部注释承诺过它可以在这里被 import）。
  *
- * 重点守的是 v6/v6.1 的**导航红线**（ADR-0005 / PRD D17 / D18）：
- *  - 切视图不丢选中日期、翻日不丢视图
- *  - 手机进日视图必须记来源 {view, date, scrollTop}，返回精确还原
- *  - 翻日绝不 push history；进日视图 push 的条目必须被 back/setView/popstate 正确弹掉
+ * 重点守的是 v6/v6.1/**v7** 的**导航红线**（ADR-0005 / PRD D17 / D18 / D19）：
+ *  - 周/月之间切视图不丢选中日期；「今天」标签恒回到今天（v7 / D19）
+ *  - 今天视图 shift() 是 no-op——翻日已删除（v7）
+ *  - 手机进日详情必须记来源 {view, date, scrollTop}，返回精确还原
+ *  - 周/月翻页绝不 push history；进日详情 push 的条目必须被 back/setView/popstate 正确弹掉
  *  - 空白日自动展开待办表单；用户收起过的那天不再弹
- *  - 过期加载不得覆盖新状态（快速翻页竞态）
+ *  - 过期加载不得覆盖新状态（快速切日竞态）
  *
  * history 用 stub 注入 globalThis（Node 无 history 全局，canHistory() 会自然短路——
  * 这本身也验证了 store 对无 history 环境的容错）。
@@ -114,18 +115,30 @@ describe('初始化', () => {
   })
 })
 
-describe('视图与日期不变量（US-09 / D17）', () => {
-  it('切视图不丢选中日期', async () => {
+describe('视图与日期不变量（US-09 / D17 / D19·v7）', () => {
+  it('周/月之间切视图不丢选中日期；切回「今天」恒回到今天（v7 / D19）', async () => {
     const { app } = await makeApp()
     S(app).selectFromCalendar('2026-10-01' as DateKey) // 宽屏：只换日期
     await waitFor(() => expect(S(app).selected).toBe('2026-10-01'))
     S(app).setView('week')
-    S(app).setView('month')
-    S(app).setView('day')
     expect(S(app).selected).toBe('2026-10-01')
+    S(app).setView('month')
+    expect(S(app).selected).toBe('2026-10-01')
+    S(app).setView('day') // 「今天」标签：日视图只代表今天，选中日复位
+    expect(S(app).selected).toBe(TODAY)
   })
 
-  it('翻日不丢当前视图', async () => {
+  it('日视图 shift() 是 no-op：v7 起今天视图不翻日（D19）', async () => {
+    const { app, bundle } = await makeApp()
+    const spy = vi.spyOn(bundle.aggregates, 'aggregateDayDetail')
+    S(app).shift(1)
+    S(app).shift(-1)
+    expect(S(app).selected).toBe(TODAY)
+    await new Promise((r) => setTimeout(r, 10))
+    expect(spy).not.toHaveBeenCalled() // 连刷新都没触发，不是"翻了又翻回来"
+  })
+
+  it('周视图翻页不丢当前视图', async () => {
     const { app } = await makeApp()
     S(app).setView('week')
     S(app).shift(1)
@@ -133,13 +146,8 @@ describe('视图与日期不变量（US-09 / D17）', () => {
     expect(S(app).view).toBe('week')
   })
 
-  it('翻页步长：日 ±1 天 / 周 ±7 天 / 月 ±1 月（月末夹取）', async () => {
+  it('翻页步长：周 ±7 天 / 月 ±1 月（月末夹取）', async () => {
     const { app } = await makeApp()
-    S(app).shift(1)
-    await waitFor(() => expect(S(app).selected).toBe('2026-09-30'))
-    S(app).shift(-1)
-    await waitFor(() => expect(S(app).selected).toBe(TODAY))
-
     S(app).setView('week')
     S(app).shift(1)
     await waitFor(() => expect(S(app).selected).toBe('2026-10-06'))
@@ -152,9 +160,10 @@ describe('视图与日期不变量（US-09 / D17）', () => {
     await waitFor(() => expect(S(app).selected).toBe('2026-11-30'))
   })
 
-  it('翻日绝不 push history（否则按一次返回只退一天，退不出日视图）', async () => {
+  it('周/月翻页绝不 push history（否则按一次返回只退一页，退不出当前视图）', async () => {
     const h = installHistory()
     const { app } = await makeApp()
+    S(app).setView('week')
     S(app).shift(1)
     S(app).shift(1)
     S(app).shift(-1)
@@ -246,12 +255,12 @@ describe('手机来源栈（ADR-0005 v6 硬约束）', () => {
 
   it('popstate 但没有自己压的条目：忽略（别的代码/浏览器压的）', async () => {
     const { app } = await makeApp({ narrow: true })
-    S(app).selectFromCalendar('2026-10-01' as DateKey) // 窄屏但已在日视图 → 不 push
-    await waitFor(() => expect(S(app).selected).toBe('2026-10-01'))
+    S(app).setView('week')
+    await waitFor(() => expect(S(app).week).not.toBeNull())
+    S(app).gotoToday() // 选中日没动（本来就是今天）→ 无来源、无 push
     expect(S(app).historyPushed).toBe(false)
     S(app).onPopstate()
-    expect(S(app).selected).toBe('2026-10-01') // 没被拉回今天
-    expect(S(app).view).toBe('day')
+    expect(S(app).view).toBe('week') // 没被拉走
   })
 
   it('主动切视图清来源栈并弹掉幽灵条目（否则下一次系统返回被它吃掉）', async () => {
@@ -274,11 +283,12 @@ describe('手机来源栈（ADR-0005 v6 硬约束）', () => {
     expect(h.back).toHaveBeenCalledTimes(1)
   })
 
-  it('窄屏已在日视图时点日期（如「今天」后翻日）不再叠来源', async () => {
+  it('窄屏已在日详情时点「今天」：换日期但不叠来源、不 push（来源栈保持一层）', async () => {
     const h = installHistory()
     const { app } = await makeApp({ narrow: true })
-    S(app).selectFromCalendar('2026-10-01' as DateKey)
-    await waitFor(() => expect(S(app).selected).toBe('2026-10-01'))
+    S(app).gotoToday() // 选中日已是今天 → no-op
+    S(app).selectFromCalendar(TODAY) // 已在今天 → no-op
+    await waitFor(() => expect(S(app).selected).toBe(TODAY))
     expect(S(app).source).toBeNull()
     expect(S(app).historyPushed).toBe(false)
     expect(h.pushState).not.toHaveBeenCalled()
@@ -333,20 +343,21 @@ describe('空白日自动展开（v6.1 补速，PRD D18）', () => {
     expect(S(app).wantFocus).toBe(false)
   })
 
-  it('用户收起过的那天不再弹；翻到别的空白日照常弹', async () => {
+  it('用户收起过的那天不再弹；进到别的空白日照常弹', async () => {
     const { app } = await makeApp()
     expect(S(app).edit).toBe('todo')
     S(app).closeForm()
     expect(S(app).formDismissed[TODAY]).toBe(true)
 
-    S(app).shift(1) // 09-30 也是空白日，且没被收起过
+    // v7：日视图不翻日，进其他日子走 selectFromCalendar（宽屏 = 右栏换日）
+    S(app).selectFromCalendar('2026-09-30' as DateKey) // 也是空白日，且没被收起过
     // ⚠️ 等 detail.date 而不是 selected：selected 是同步换的，
     //    自动展开发生在 refresh 落地那一刻，等早了会误判
     await waitFor(() => expect(S(app).detail?.date).toBe('2026-09-30'))
     expect(S(app).edit).toBe('todo')
 
     S(app).closeForm()
-    S(app).shift(-1) // 回到今天：空白但已收起 → 不弹
+    S(app).selectFromCalendar(TODAY) // 回到今天：空白但已收起 → 不弹
     await waitFor(() => expect(S(app).detail?.date).toBe(TODAY))
     expect(S(app).edit).toBeNull()
   })
@@ -414,7 +425,7 @@ describe('表单状态机（v6.1 单一入口）', () => {
   it('shift / gotoToday / selectFromCalendar 都会收起表单', async () => {
     const { app } = await makeApp()
     S(app).openForm('cost')
-    S(app).shift(1)
+    S(app).selectFromCalendar('2026-10-01' as DateKey) // 日视图 shift 是 no-op（v7），换日走点格子
     expect(S(app).edit).toBeNull()
     expect(S(app).wantFocus).toBe(false)
   })
@@ -435,6 +446,33 @@ describe('写操作（repo 校验 → refresh → toast）', () => {
     expect(ok).toBe(false)
     expect(S(app).toast?.msg).toBe('请填写待办')
     expect(S(app).detail?.todos).toEqual([])
+  })
+
+  it('updateTodoText（US-13）：文字更新、toast、返回 true', async () => {
+    const { app } = await makeApp()
+    await S(app).createTodo('买牛奶')
+    const id = S(app).detail!.todos[0]!.id
+    const ok = await S(app).updateTodoText(id, '买燕麦奶')
+    expect(ok).toBe(true)
+    expect(S(app).detail?.todos.map((t) => t.text)).toEqual(['买燕麦奶'])
+    expect(S(app).toast?.msg).toBe('已更新待办')
+  })
+
+  it('updateTodoText 校验失败：旧值保留，core 文案进 toast', async () => {
+    const { app } = await makeApp()
+    await S(app).createTodo('买牛奶')
+    const id = S(app).detail!.todos[0]!.id
+    const ok = await S(app).updateTodoText(id, '   ')
+    expect(ok).toBe(false)
+    expect(S(app).detail?.todos.map((t) => t.text)).toEqual(['买牛奶'])
+    expect(S(app).toast?.msg).toBe('请填写待办')
+  })
+
+  it('updateTodoText 记录不存在（已被别的标签页删掉，E19）：NotFoundError 文案兜底', async () => {
+    const { app } = await makeApp()
+    const ok = await S(app).updateTodoText('no-such-id', '改不动')
+    expect(ok).toBe(false)
+    expect(S(app).toast?.msg).toBe('记录不存在或已被删除')
   })
 
   it('toggleTodo：勾完 toast「完成了一件」；取消勾选不刷新 toast', async () => {
@@ -475,6 +513,26 @@ describe('写操作（repo 校验 → refresh → toast）', () => {
     const { app } = await makeApp()
     const ok = await S(app).createNote('')
     expect(ok).toBe(false)
+    expect(S(app).toast?.msg).toBe('请填写想法')
+  })
+
+  it('updateNoteText（US-13）：多行正文更新、换行保留（D6）', async () => {
+    const { app } = await makeApp()
+    await S(app).createNote('第一版')
+    const id = S(app).detail!.notes[0]!.id
+    const ok = await S(app).updateNoteText(id, '改过的\n第二行')
+    expect(ok).toBe(true)
+    expect(S(app).detail?.notes.map((n) => n.text)).toEqual(['改过的\n第二行'])
+    expect(S(app).toast?.msg).toBe('已更新想法')
+  })
+
+  it('updateNoteText 校验失败：旧值保留', async () => {
+    const { app } = await makeApp()
+    await S(app).createNote('留着')
+    const id = S(app).detail!.notes[0]!.id
+    const ok = await S(app).updateNoteText(id, '  ')
+    expect(ok).toBe(false)
+    expect(S(app).detail?.notes.map((n) => n.text)).toEqual(['留着'])
     expect(S(app).toast?.msg).toBe('请填写想法')
   })
 
@@ -531,15 +589,16 @@ describe('顺延（US-04）', () => {
   it('昨天未完成的顺延到今天：带 rolledFrom 痕迹，toast 报件数，横幅收起', async () => {
     const { app } = await makeApp()
     S(app).closeForm()
-    S(app).shift(-1) // → 09-28
-    await waitFor(() => expect(S(app).selected).toBe('2026-09-28'))
+    // v7：日视图不翻日，补记昨天走 selectFromCalendar（宽屏右栏换日）
+    S(app).selectFromCalendar('2026-09-28' as DateKey)
+    await waitFor(() => expect(S(app).detail?.date).toBe('2026-09-28'))
     await S(app).createTodo('写周报')
     await S(app).createTodo('洗碗')
     // 按文本找而不是 [0]：同一毫秒创建的两条 createdAt 相同，先后顺序不保证
     const weekly = S(app).detail!.todos.find((t) => t.text === '写周报')!
     await S(app).toggleTodo(weekly.id) // 写周报 → 完成，不顺延
 
-    S(app).shift(1) // 回到今天
+    S(app).gotoToday() // 回到今天
     // 等 refresh 落地（detail.date），不是等 selected——prevDayRollable 是 refresh 的产物
     await waitFor(() => expect(S(app).detail?.date).toBe(TODAY))
     expect(S(app).detail?.prevDayRollable).toBe(1) // 横幅数据源
@@ -586,7 +645,7 @@ describe('toast', () => {
 })
 
 describe('并发保护（loadSeq）', () => {
-  it('快速翻页：慢的旧响应回来时不得覆盖新状态', async () => {
+  it('快速切日：慢的旧响应回来时不得覆盖新状态', async () => {
     const { app, bundle } = await makeApp()
     const orig = bundle.aggregates.aggregateDayDetail
     let n = 0
@@ -597,8 +656,8 @@ describe('并发保护（loadSeq）', () => {
       return r
     }
     try {
-      S(app).shift(1) // 09-30：触发慢加载 #1
-      S(app).shift(1) // 10-01：触发快加载 #2
+      S(app).selectFromCalendar('2026-09-30' as DateKey) // 触发慢加载 #1
+      S(app).selectFromCalendar('2026-10-01' as DateKey) // 触发快加载 #2
       await waitFor(() => expect(S(app).selected).toBe('2026-10-01'))
       await new Promise((r) => setTimeout(r, 80)) // 等 #1 迟到归来
       expect(S(app).detail?.date).toBe('2026-10-01') // #1 被丢弃

@@ -49,6 +49,7 @@
 .app[data-view='day'] .main { grid-template-columns: minmax(0, 1fr); }
 .app[data-view='day'] .cal { display: none; }
 .app[data-view='day'] .detail { border-left: none; }
+/* v7 / D19：今天视图不翻日——顶栏前后箭头的隐藏规则在 TopBar.module.css（CSS Modules 类名不跨文件） */
 
 /* 手机（<900px）：三视图各自全屏，同一时刻只显示一个。
    ⚠️ 教训见 ADR-0005：绝不能出现"某个视图下用户无路可退"的组合 */

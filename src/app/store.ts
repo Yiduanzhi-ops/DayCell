@@ -1,12 +1,13 @@
 /**
  * 应用层状态机（Zustand vanilla store；React 绑定见 context.ts）。
  *
- * 职责（SPEC §3 / ADR-0005 v6）：
- *  - **视图（日/周/月）与选中日期的单一真相**：切视图不丢日期、翻日不丢视图
- *  - **一层来源栈**：手机从周/月点格子进日视图时记住 {view, date, scrollTop}，
+ * 职责（SPEC §3 / ADR-0005 v6，**v7 修订**）：
+ *  - **视图（今天/周/月）与选中日期的单一真相**：v7 起「日视图」并入「今天」——
+ *    今天标签恒显示今天；其他日子的日详情只能从周/月点格子进入（selected 跟随格子）
+ *  - **一层来源栈**：手机从周/月点格子进日详情时记住 {view, date, scrollTop}，
  *    返回时精确还原——不得把人扔回今天（原型 v5.1 sheet 事故的 v6 变形防线）
- *  - **history 协作**：进日视图 push 一条；翻日**绝不 push**（否则按一次返回
- *    只退一天，永远退不出日视图）；popstate → back()
+ *  - **history 协作**：进日详情 push 一条；周/月翻页**绝不 push**（否则按一次返回
+ *    只退一页，永远退不出当前视图）；popstate → back()
  *  - 所有写操作走 repo，成功后 refresh() 重新加载当前视图的聚合数据
  *
  * ⚠️ 本文件在**纯 Node 测试环境**里也会被 import：所有 window/history/matchMedia
@@ -82,7 +83,7 @@ export interface AppState {
   refresh(): Promise<void>
   setView(v: View): void
   gotoToday(): void
-  /** 翻页：日 ±1 天 / 周 ±7 天 / 月 ±1 月（US-09） */
+  /** 翻页：周 ±7 天 / 月 ±1 月（US-09）。**日视图 no-op**——v7 起今天视图不翻日 */
   shift(dir: 1 | -1): void
   /** 点周/月的格子。窄屏跳进日视图并记来源；宽屏只切换右栏 */
   selectFromCalendar(k: DateKey, scrollTop?: number): void
@@ -95,8 +96,12 @@ export interface AppState {
   consumeRestoreScroll(): void
   createTodo(text: string): Promise<boolean>
   toggleTodo(id: string): Promise<void>
+  /** 就地编辑待办文字（v7 / US-13 / 原 C3）。失败返回 false 并 toast core 文案 */
+  updateTodoText(id: string, text: string): Promise<boolean>
   deleteTodo(id: string): Promise<void>
   createNote(text: string): Promise<boolean>
+  /** 就地编辑想法正文（v7 / US-13 / 原 C3） */
+  updateNoteText(id: string, text: string): Promise<boolean>
   deleteNote(id: string): Promise<void>
   createExpense(cents: number, catId: string, note: string): Promise<boolean>
   deleteExpense(id: string): Promise<void>
@@ -212,7 +217,17 @@ export function createAppStore(
       // 主动切视图不是"返回"：清来源栈，并弹掉之前压的 history 条目（否则它会变成幽灵，
       // 下一次系统返回会被它吃掉）。popstate 到来时 source 已是 null，back() 自然无操作。
       const needPop = s.historyPushed
-      set({ view: v, source: null, historyPushed: false, edit: null, wantFocus: false })
+      // v7：日视图 = 今天。「今天」标签从任何状态按下都回到今天（D16/D19）；
+      // 周/月之间切换仍然保留选中日期（D17）
+      const nextSelected = v === 'day' ? s.today : s.selected
+      set({
+        view: v,
+        selected: nextSelected,
+        source: null,
+        historyPushed: false,
+        edit: null,
+        wantFocus: false,
+      })
       if (needPop && canHistory()) history.back()
       void get().refresh()
     },
@@ -226,12 +241,10 @@ export function createAppStore(
 
     shift(dir) {
       const s = get()
-      const next =
-        s.view === 'day'
-          ? addDays(s.selected, dir)
-          : s.view === 'week'
-            ? addDays(s.selected, dir * 7)
-            : addMonths(s.selected, dir)
+      // v7：今天视图不翻日（D19）——补记其他日子走周/月点格子。
+      // 顶栏的翻页按钮在日视图下由 CSS 隐藏，这里是行为层的同一事实。
+      if (s.view === 'day') return
+      const next = s.view === 'week' ? addDays(s.selected, dir * 7) : addMonths(s.selected, dir)
       if (next === s.selected) return
       set({ selected: next, edit: null, wantFocus: false })
       void get().refresh()
@@ -333,6 +346,18 @@ export function createAppStore(
       }
     },
 
+    async updateTodoText(id, text) {
+      try {
+        await repos.todos.setText(id, text)
+        await get().refresh()
+        get().showToast('已更新待办')
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
     async deleteTodo(id) {
       try {
         await repos.todos.softDelete(id)
@@ -348,6 +373,18 @@ export function createAppStore(
         await repos.notes.create(get().selected, text)
         await get().refresh()
         get().showToast('已记下这个想法')
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async updateNoteText(id, text) {
+      try {
+        await repos.notes.setText(id, text)
+        await get().refresh()
+        get().showToast('已更新想法')
         return true
       } catch (e) {
         get().showToast(errMsg(e))

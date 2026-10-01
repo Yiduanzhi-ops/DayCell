@@ -29,7 +29,7 @@ adr/         →  怎么做的关键选择（可单独推翻，不改 PRD）
 | `SPEC.md` §5 | 数据模型是"一天一个 DayEntry blob"，**已废弃** | 已在该节顶部标注，正式模型见 PRD §6 |
 | `SPEC.md` §6 | 技术栈曾写 Tailwind / dayjs / 手写 manifest | 已回写，理由见 ADR-0007 / 0008 / 0002 |
 | `SPEC.md` 整体 | 读起来像 changelog，同一主题的新旧决策并存 | **有意保留**——它的价值就是变更轨迹。定稿信息一律查 PRD |
-| `prototype/` + `smoke.cjs` | 都是**过渡产物**：真 UI 落地后应一并删除 | ⚠️ 但 `src/prototype-parity.test.ts` **依赖 `prototype/index.html` 存在**（用 `import.meta.glob ?raw` 读它），删原型时必须连这个测试一起删 |
+| `prototype/` + `smoke.cjs` | 都是**过渡产物**：真 UI 落地后应一并删除。⚠️ **真 UI 自 v7 起已领先原型**（原型停在 v6.1：仍有翻日/滑动，无就地编辑），smoke.cjs 只守原型、不再代表真 UI 行为 | ⚠️ 但 `src/prototype-parity.test.ts` **依赖 `prototype/index.html` 存在**（用 `import.meta.glob ?raw` 读它），删原型时必须连这个测试一起删 |
 | `docs/PROGRESS.md` | 会话交接快照（     213 行），非需求文档 | 上下文被压缩后**先读这份**。它不进 PRD > CORE-API > adr > SPEC 的优先级链 |
 
 ## 尚未编写

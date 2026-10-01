@@ -37,8 +37,8 @@ function Shell(): JSX.Element {
   const shift = useApp((s) => s.shift)
   const onPopstate = useApp((s) => s.onPopstate)
 
-  // 全局快捷键（S4 / D17）：j/k、←/→ 翻，d/w/m 切视图，Esc 收起表单或返回。
-  // 输入控件聚焦时跳过（表单里 Enter/Esc 有自己的语义）；IME 组合中跳过，
+  // 全局快捷键（S4 / D17·v7）：j/k、←/→ 翻周/月（今天视图 no-op），d/t 回今天、w 周、m 月，
+  // Esc 收起表单或返回。输入控件聚焦时跳过（表单里 Enter/Esc 有自己的语义）；IME 组合中跳过，
   // 否则中文输入按回车确认候选词会误触发保存/翻页。
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -48,7 +48,7 @@ function Shell(): JSX.Element {
       switch (e.key) {
         case 'j': case 'ArrowRight': shift(1); break
         case 'k': case 'ArrowLeft': shift(-1); break
-        case 'd': setView('day'); break
+        case 'd': case 't': setView('day'); break
         case 'w': setView('week'); break
         case 'm': setView('month'); break
         case 'Escape':

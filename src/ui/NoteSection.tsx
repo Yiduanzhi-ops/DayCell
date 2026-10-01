@@ -1,9 +1,12 @@
 /**
  * 想法区块（M5 / US-02）：多行纯文本，不解析 Markdown（D6）。
  * ⌘/Ctrl+Enter 保存（多行场景里裸回车必须是换行），保存后表单保留并清空。
+ * US-13（v7）：点正文就地编辑——裸回车换行、⌘/Ctrl+Enter 或「保存」按钮提交、Esc 取消，
+ * 失焦时「有改动即保存」。手机没有 ⌘ 键，所以编辑态也必须给可点的「保存」。
  */
 import { useRef, useState } from 'react'
 import type { JSX } from 'react'
+import type { NoteRecord } from '@core'
 import { useApp } from '@/app/context'
 import { FormActs } from './forms'
 import styles from './detail.module.css'
@@ -22,6 +25,8 @@ export function NoteSection({ dayWord }: { dayWord: string }): JSX.Element {
   const deleteNote = useApp((s) => s.deleteNote)
 
   const notes = detail?.notes ?? []
+  /** 正在就地编辑的想法 id（v7 / US-13）。同一时刻最多一条 */
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   return (
     <div className={styles.sect}>
@@ -35,15 +40,25 @@ export function NoteSection({ dayWord }: { dayWord: string }): JSX.Element {
       </div>
       <div className={styles.nlist}>
         {notes.length > 0 ? (
-          notes.map((n) => (
-            <div key={n.id} className={styles.nitem}>
-              <div className={styles.ntxt}>{n.text}</div>
-              <div className={styles.ntime}>{hhmm(n.createdAt)}</div>
-              <button className={styles.ndel} aria-label="删除这条想法" onClick={() => void deleteNote(n.id)}>
-                ×
-              </button>
-            </div>
-          ))
+          notes.map((n) =>
+            editingId === n.id ? (
+              <NoteEdit key={n.id} note={n} onDone={() => setEditingId(null)} />
+            ) : (
+              <div key={n.id} className={styles.nitem}>
+                <button
+                  className={styles.ntxtBtn}
+                  aria-label={`编辑想法：${n.text}`}
+                  onClick={() => setEditingId(n.id)}
+                >
+                  <span className={styles.ntxt}>{n.text}</span>
+                </button>
+                <div className={styles.ntime}>{hhmm(n.createdAt)}</div>
+                <button className={styles.ndel} aria-label="删除这条想法" onClick={() => void deleteNote(n.id)}>
+                  ×
+                </button>
+              </div>
+            ),
+          )
         ) : edit === 'note' ? null : (
           <div className={styles.emptySm}>{dayWord}没有记下想法</div>
         )}
@@ -86,6 +101,51 @@ function NoteForm(): JSX.Element {
         }}
       />
       <FormActs tip="⌘ / Ctrl + 回车保存" onCancel={closeForm} onSave={submit} />
+    </div>
+  )
+}
+
+/**
+ * 就地编辑一条想法（US-13）。
+ *
+ * 多行语义与新建表单一致：裸回车 = 换行，⌘/Ctrl+Enter = 保存。
+ * 失焦「有改动即保存」——手机上点别处收起键盘就是提交；「保存」按钮是给
+ * 没有 ⌘ 键的设备的显式出口（PRD 场景 B 的同一理由）。
+ * `done` 防双触发：保存按钮的 click 之前浏览器先派发 blur，谁先到谁生效。
+ */
+function NoteEdit({ note, onDone }: { note: NoteRecord; onDone: () => void }): JSX.Element {
+  const updateNoteText = useApp((s) => s.updateNoteText)
+  const [v, setV] = useState(note.text)
+  const done = useRef(false)
+
+  const finish = (save: boolean): void => {
+    if (done.current) return
+    done.current = true
+    if (save && v !== note.text) void updateNoteText(note.id, v)
+    onDone()
+  }
+
+  return (
+    <div className={`${styles.nitem} ${styles.nedit}`}>
+      <textarea
+        className={styles.neditArea}
+        rows={3}
+        value={v}
+        autoFocus
+        aria-label="编辑想法"
+        onChange={(e) => setV(e.target.value)}
+        onBlur={() => finish(true)}
+        onKeyDown={(e) => {
+          if (e.nativeEvent.isComposing) return
+          if (e.key === 'Escape') { e.preventDefault(); finish(false); return }
+          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); finish(true) }
+        }}
+      />
+      <div className={styles.acts}>
+        <span className={styles.tip}>回车换行 · ⌘ / Ctrl + 回车保存</span>
+        <button className={styles.cancel} onClick={() => finish(false)}>取消</button>
+        <button className={styles.save} onClick={() => finish(true)}>保存</button>
+      </div>
     </div>
   )
 }

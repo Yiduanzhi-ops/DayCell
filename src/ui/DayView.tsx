@@ -1,11 +1,18 @@
 /**
- * 日视图（v6 的默认落地页）：日头 + 顺延横幅 + 待办/花费/想法三区块。
+ * 日视图（v7：并入「今天」语义）：日头 + 顺延横幅 + 待办/花费/想法三区块。
  *
- * 三条硬性交互（ADR-0005 v6 / PRD D18）：
+ * 今天标签恒显示今天；其他日子的日详情只能从周/月点格子进入（手机全屏 + 返回条，
+ * 桌面右栏）。**不再提供翻日**（D19）——左右滑动翻日已删除：它既是低频路径，
+ * 也正是「左右切换不丝滑」的来源（手势与纵向滚动打架 + 每翻一天整页硬切）。
+ *
+ * 两条硬性交互（ADR-0005 v6 / PRD D18）：
  *  1. 「← 返回」只在**从周/月点格子进来**（source != null）时出现，回到来源视图+日期+滚动位置
- *  2. 左右滑动翻日（仅日视图；水平位移 ≥50px 且 ≥1.5× 垂直位移，避免和纵向滚动打架）
- *  3. 完全空白的一天自动展开待办表单并聚焦（wantFocus → [data-autofocus]），
+ *  2. 完全空白的一天自动展开待办表单并聚焦（wantFocus → [data-autofocus]），
  *     且必须 scrollIntoView——表单可能在折叠线以下，不滚过去看起来像"点了没反应"
+ *
+ * 换日过渡（v7）：detail 刷新期间旧内容保持可见（store.refresh 不清 detail），
+ * 新数据落地后按 selected 变化重放一次 CSS 入场动画——窄屏整屏滑入、宽屏内容淡入。
+ * 动画是渐进增强：jsdom / 无 Web Animations 环境静默跳过，prefers-reduced-motion 尊重系统设置。
  */
 import { useEffect, useRef } from 'react'
 import type { JSX } from 'react'
@@ -23,9 +30,7 @@ export function DayView(): JSX.Element {
   const selected = useApp((s) => s.selected)
   const today = useApp((s) => s.today)
   const source = useApp((s) => s.source)
-  const view = useApp((s) => s.view)
   const back = useApp((s) => s.back)
-  const shift = useApp((s) => s.shift)
   const rollDismissed = useApp((s) => s.rollDismissed)
   const rollOver = useApp((s) => s.rollOver)
   const dismissRoll = useApp((s) => s.dismissRoll)
@@ -34,7 +39,6 @@ export function DayView(): JSX.Element {
   const consumeFocus = useApp((s) => s.consumeFocus)
 
   const scrollRef = useRef<HTMLDivElement>(null)
-  const touch = useRef({ x: 0, y: 0 })
 
   // 表单聚焦（自动展开 / 手动展开共用一条路径）
   useEffect(() => {
@@ -44,6 +48,32 @@ export function DayView(): JSX.Element {
     el?.scrollIntoView?.({ block: 'nearest' })
     consumeFocus()
   }, [wantFocus, edit, consumeFocus])
+
+  // 换日过渡：selected 变化（点格子进详情 / 桌面右栏换日 / 返回今天）时重放入场动画。
+  // 首次挂载不播——落地页直接出现，不该有位移。
+  const firstRender = useRef(true)
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false
+      return
+    }
+    const el = scrollRef.current
+    if (!el || typeof el.animate !== 'function') return
+    if (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return
+    }
+    const narrow =
+      typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 899.98px)').matches
+    // 窄屏：日详情是全屏页面，整屏滑入（原生 App 的推页手感）；宽屏：右栏内容轻淡入
+    const from = narrow ? 56 : 14
+    void el.animate(
+      [
+        { opacity: 0.35, transform: `translateX(${from}px)` },
+        { opacity: 1, transform: 'none' },
+      ],
+      { duration: narrow ? 220 : 160, easing: 'cubic-bezier(0.25, 0.8, 0.35, 1)' },
+    )
+  }, [selected])
 
   if (!detail) {
     return <div className={styles.dscroll} ref={scrollRef}><div className={styles.empty}>加载中…</div></div>
@@ -64,25 +94,9 @@ export function DayView(): JSX.Element {
             ← 返回
             <span className={styles.backSrc}>{source.view === 'week' ? '周视图' : '月视图'}</span>
           </button>
-          <span className={styles.swipeHint}>左右滑动可翻日</span>
         </div>
       )}
-      <div
-        className={styles.dscroll}
-        ref={scrollRef}
-        onTouchStart={(e) => {
-          const t0 = e.changedTouches[0]
-          touch.current = { x: t0.clientX, y: t0.clientY }
-        }}
-        onTouchEnd={(e) => {
-          if (view !== 'day') return
-          const t1 = e.changedTouches[0]
-          const dx = t1.clientX - touch.current.x
-          const dy = t1.clientY - touch.current.y
-          if (Math.abs(dx) < 50 || Math.abs(dx) < 1.5 * Math.abs(dy)) return
-          shift(dx < 0 ? 1 : -1) // 左滑 → 下一天，右滑 → 前一天
-        }}
-      >
+      <div className={styles.dscroll} ref={scrollRef}>
         <div className={styles.dhead}>
           <div className={styles.dtitle}>
             {y} 年 {m} 月 {d} 日

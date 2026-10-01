@@ -1,9 +1,37 @@
 # DayCell 实施进度快照
 
 > **这份文件的用途**：让会话上下文可以安全丢弃。接手时先读这份，再按需读 PRD / CORE-API。
-> 最后更新：2026-09-30 · **app/ui 层已落地，`dist/` 已交用户拖拽部署**（纯静态根路径托管）
-> 当前状态 **全绿**：`tsc -b` 0 错 / `eslint .` 0 错 / **495 测试通过**（14 文件，~1.3 s）/ `node smoke.cjs` **218 项断言全通过**
+> 最后更新：2026-09-30（第二轮）· **v7 已落地**：日视图并入「今天」（删翻日）+ 待办/想法就地编辑 + 换日入场过渡
+> 当前状态 **全绿**：`tsc -b` 0 错 / `eslint .` 0 错 / **502 测试通过**（14 文件，~2.2 s）/ `node smoke.cjs` 218 项断言（只守原型，见 §0c）
 > **已 git 化**（分支 `main`）。core 层 12/13 模块完成，**只剩 `backup/*`**（2026-09-30 用户拍板：延后）。
+
+---
+
+## 0c. ★ v7 需求（用户 2026-09-30 提出，**代码与文档均已落地**）
+
+**需求原话**：「①日视图左右切换非常不丝滑 ②无法修改已保存的想法和待办 ③日视图其实只代表今天，把今天和日合并；想看其他日子，在周/月视图点对应格子即可。」
+
+**落地方式**：
+1. **不丝滑 → 结构性解决**：不是调手势阈值，而是**删掉翻日**（与 ③ 合并处理）。横滑手势、日视图下的前后箭头、`shift(±1)` 全部移除；日详情换日只剩"周/月点格子"一条路，换日时旧内容保持可见（refresh 不清 detail）+ Web Animations 入场过渡（窄屏整屏滑入 220ms / 宽屏淡入 160ms，`prefers-reduced-motion` 尊重，jsdom 无 `el.animate` 静默跳过）
+2. **就地编辑**：待办/想法点文字原位变输入框（US-13，原 Could-C3 提前实现）。回车保存（想法 ⌘/Ctrl+回车）、Esc 取消、**失焦有改动即保存**；校验复用 `repos.*.setText` → core `parseTodoText/parseNoteText`，无第二套规则；IME isComposing 守卫与新建表单一致
+3. **今天/日合并**：切换器首标签「日」→「今天」；`setView('day')` 恒把 selected 复位为今天；快捷键 `d` 语义变为"回今天"（加 `t` 别名）；`j/k`/`←/→` 只在周/月生效。**内部 View 值仍是 `'day'`**（避免 CSS 属性选择器与测试大面积改名）
+
+**代码改动落点**：
+| 文件 | 改了什么 |
+|---|---|
+| `src/app/store.ts` | `shift()` 日视图 no-op；`setView('day')` 复位 selected=today；新增 `updateTodoText` / `updateNoteText`（repo→refresh→toast，与 create 同构） |
+| `src/ui/DayView.tsx` | 删 touch 滑动与 swipeHint；新增 selected 变化时的入场动画（useEffect + el.animate，首挂载不播） |
+| `src/ui/TopBar.tsx` | 首标签「今天」；日视图下前后箭头加 `navDay` 类隐藏（CSS Modules 类名不跨文件，规则放 TopBar.module.css） |
+| `src/ui/App.tsx` | 快捷键 `d`/`t` 回今天 |
+| `src/ui/TodoSection.tsx` / `NoteSection.tsx` | 就地编辑（TodoEdit / NoteEdit 子组件；`done` ref 防 blur+click 双触发） |
+| `src/ui/detail.module.css` | `.ttxtBtn/.tedit/.ntxtBtn/.nedit/.neditArea` |
+| 测试 | store.test.ts 54 用例（改 8 个旧用例 + 新增 7 个：shift no-op / setView 复位 / 编辑成功与校验失败 / NotFound）；App.test.tsx 4 冒烟（新增就地编辑一条）。**变异检验 2/2 被抓**：恢复日视图翻日 → 1 败；setView('day') 不复位今天 → 2 败 |
+
+**文档改动落点**：PRD **v1.0 → v1.1**（§1.4 新增 v7 取舍 / 场景 C 重写 / M1/M4/M5/M17/M18/S4 / C3 标记已实现 / **US-09 重写 + US-13 新增** / §5.1 翻日行改"换日" / §8 / **D16/D17 修订 + D19 新增** / §10 清单）；SPEC.md（头部 v7、§2 决策表加两行、§3.1 三视图表加"翻日"行、§3.2、§3.3 就地编辑约定、§7、§8）；ADR-0005（状态行、**新增"v7 修订的起因"**、硬性约束、后果、实施要点）；adr/README、docs/README（原型落后于真 UI 的债务）。
+
+**⚠️ 原型从此不再代表真 UI**：`prototype/index.html` 停在 v6.1（仍有顶部框时代的翻日/滑动，无就地编辑）。`smoke.cjs` 的 218 项断言只守原型自身回归；真 UI 的行为由 vitest（502 用例）守。`src/prototype-parity.test.ts`（金额算法平价）仍有效——两边算法未动。
+
+**已明确接受的代价（v7）**：连续补记相邻多天要"点格子 → 记 → 返回 → 点下一格"，比滑动翻日多两步（PRD 场景 C / D19）。
 
 ---
 
@@ -211,7 +239,8 @@ lunar chunk（102 KB gzip）是懒加载不计入。预算口径要不要把 ven
 
 ## 4. 下一步（按序，2026-09-30 重排）
 
-1. ~~`core/aggregate`~~ ~~`core/migrate`~~ ~~`core/diagnose`~~ ~~`core/index.ts`~~ ~~`src/app`~~ ~~`src/ui`~~ → ✅ 全部完成（见 §1b）
+0. **⚠️ `dist/` 与 `daycell-dist.zip` 是 v7 之前的构建**（2026-09-30 上午交付的那份含翻日、无就地编辑）。要部署 v7 必须先 `npm run build` 重建并重新打包，否则线上跑的还是旧版。
+1. ~~`core/aggregate`~~ ~~`core/migrate`~~ ~~`core/diagnose`~~ ~~`core/index.ts`~~ ~~`src/app`~~ ~~`src/ui`~~ → ✅ 全部完成（见 §1b；v7 修订见 §0c）
 2. **PWA 接线 + M11 纪念日创建入口**（上线后最紧的两件）：
    - PWA（ADR-0002，`vite-plugin-pwa` 已在 devDeps）：iOS 不装主屏 = ITP 7 天清数据（E3），需要 manifest + SW + PNG 图标生成
    - 纪念日：底层全就绪（repo/聚合/三视图徽章/E13 闰月回退），只差 DayView 一个区块表单（公历/农历 + 每年重复）
@@ -242,12 +271,14 @@ lunar chunk（102 KB gzip）是懒加载不计入。预算口径要不要把 ven
 - **日期只用 `new Date(y, m-1, d)`**；`new Date('2026-09-29')` 按 UTC 午夜解析，在 UTC−x 会差一天。`daysBetween` 用 `Date.UTC` 避 DST。
 - **core 不得 import React/DOM/zustand/CSS**（ESLint 强制 + `isolation.test.ts` 扫源码）。
 - **墓碑永不物理删除**（`RecordStore` 故意没有 `remove`）；每次写都刷 `updatedAt`。
-- **返回路径必须冗余**（ADR-0005 v6）：手机「← 返回」+ `popstate` + 桌面 `Esc`；**不能只依赖键盘**；进日视图必须记住来源。
+- **日视图 = 今天（v7 / PRD D19）**：不得重新引入翻日（滑动、前后箭头、日视图下的 `shift`）。其他日子的日详情只从周/月点格子进入；`setView('day')` 恒复位 selected=today。
+- **返回路径必须冗余**（ADR-0005 v6）：手机「← 返回」+ `popstate` + 桌面 `Esc`；**不能只依赖键盘**；进日详情必须记住来源。
 - **对比度**：`--ink-3 #767676` 是文字下限（4.54:1）；`--ink-4 #C4C4C4` **只能用于装饰**，v6.1 起白名单**仅 `.empty .big` 一处**（`.qadd:disabled` 随顶部框一起删了）。
 - **core 每个模块都必须有测试**（CORE-API §7），且在**纯 Node 环境**跑（`environment:'node'`）——这本身就是铁律 2 的验证。
 - **迁移必须纯函数**：`applyMigrations` 入参不可被改动（导入流程靠它回滚）。已用变异检验确认测试抓得住。
 - **`RecordTable`（`types.ts`）不要用 `Record<StoreName, CoreRecord[]>` 代替**：`SettingRecord` 没有 id/createdAt/deleted。
 - **录入入口只有一个**（v6.1 / PRD D18）：日详情各区块的内联表单，写入目标恒为当前选中日。**不要重新引入任何常驻快捷录入框**——它会带回"看着 A 天写进今天"这一整类错误。
+- **编辑不另起炉灶**（v7 / US-13）：就地编辑走 `repos.*.setText`，校验、文案、墓碑语义与新建完全同源；**不要**在 UI 层写第二套校验或"删了重建"。
 - **UI 侧金额换算必须与 `core parseAmount` 逐位一致**（ADR-0003），由 `src/prototype-parity.test.ts` 强制。**禁止 `Math.round(parseFloat(x)*100)`**。
 
 ## 6. 环境事实

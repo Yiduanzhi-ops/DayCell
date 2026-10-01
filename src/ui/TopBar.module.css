@@ -36,6 +36,8 @@
 }
 
 .nav { display: flex; align-items: center; gap: 2px; margin-left: 6px; }
+/* v7 / D19：今天视图不翻日，前后箭头只在周/月视图出现（隐藏而不是留一个 no-op 按钮） */
+.navDay { display: none; }
 .nav button {
   width: 26px;
   height: 26px;
