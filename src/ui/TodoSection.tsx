@@ -34,7 +34,12 @@ export function TodoSection({ dayWord }: { dayWord: string }): JSX.Element {
         <h3>待办</h3>
         {total > 0 && <span className={styles.n}>{done}/{total}</span>}
         <span className={styles.line} />
-        <button className={styles.addbtn} onClick={() => openForm('todo')} aria-expanded={edit === 'todo'}>
+        <button
+          className={styles.addbtn}
+          onClick={() => openForm('todo')}
+          aria-expanded={edit === 'todo'}
+          aria-label={edit === 'todo' ? '收起待办表单' : '添加待办'}
+        >
           {edit === 'todo' ? '收起' : '+ 添加'}
         </button>
       </div>

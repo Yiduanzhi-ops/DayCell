@@ -4,12 +4,92 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <meta name="color-scheme" content="light"/>
-<meta name="description" content="DayCell —— 以「一天」为容器的记录本：待办、想法、花费。日视图写今天，周视图回顾，月视图看密度。"/>
+<meta name="description" content="人生小格（DayCell）—— 以「一天」为容器的记录本：待办、想法、花费。今天视图写当天，周视图回顾，月视图看密度。作者：以端枳"/>
 <meta name="theme-color" content="#FFFFFF"/>
-<title>DayCell</title>
+<meta name="author" content="以端枳"/>
+<title>人生小格 DayCell</title>
+<style>
+  /* 启动页（v7.1）：内联在 HTML 里，JS bundle 下载期间就显示，填补白屏。
+     显示时长**固定 1.5s**（用户拍板）——不由应用就绪触发提前退场，到点淡出。
+     零外部请求、零 JS 依赖（下面 3 行兜底脚本除外）；prefers-reduced-motion 只留淡入淡出。 */
+  #splash {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+      "Microsoft YaHei", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    transition: opacity 0.3s ease;
+  }
+  #splash.out { opacity: 0; pointer-events: none; }
+  .sp-brand {
+    font-size: 30px;
+    font-weight: 650;
+    letter-spacing: -0.015em;
+    color: #1A1A1A;
+    animation: sp-rise 0.5s cubic-bezier(0.25, 0.8, 0.35, 1) both;
+  }
+  .sp-name {
+    margin-top: 10px;
+    font-size: 14px;
+    font-weight: 400;
+    color: #555555;
+    letter-spacing: 0.35em;
+    text-indent: 0.35em; /* 抵消末字后的字距，保证视觉居中 */
+    animation: sp-rise 0.5s 0.12s cubic-bezier(0.25, 0.8, 0.35, 1) both;
+  }
+  .sp-rule {
+    margin-top: 22px;
+    width: 44px;
+    height: 2px;
+    border-radius: 1px;
+    background: #2E4BA6;
+    transform-origin: center;
+    animation: sp-grow 0.6s 0.24s cubic-bezier(0.25, 0.8, 0.35, 1) both;
+  }
+  .sp-author {
+    margin-top: 20px;
+    font-size: 11px;
+    color: #767676; /* ink-3：文字对比度下限 4.54:1（PRD §5.5） */
+    letter-spacing: 0.12em;
+    animation: sp-rise 0.5s 0.36s cubic-bezier(0.25, 0.8, 0.35, 1) both;
+  }
+  @keyframes sp-rise {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes sp-grow {
+    from { opacity: 0; transform: scaleX(0); }
+    to { opacity: 1; transform: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sp-brand, .sp-name, .sp-rule, .sp-author { animation: none; }
+  }
+</style>
 </head>
 <body>
+<div id="splash" aria-hidden="true">
+  <div class="sp-brand">DayCell</div>
+  <div class="sp-name">人生小格</div>
+  <div class="sp-rule"></div>
+  <div class="sp-author">以端枳 作品</div>
+</div>
 <div id="root"></div>
+<script>
+  // 固定 1.5s 后淡出（300ms），淡出完移除节点。应用启动快慢不影响这个时长。
+  setTimeout(function () {
+    var el = document.getElementById('splash');
+    if (!el) return;
+    el.classList.add('out');
+    setTimeout(function () { el.remove(); }, 320);
+  }, 1500);
+</script>
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>

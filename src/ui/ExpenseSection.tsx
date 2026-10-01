@@ -31,7 +31,12 @@ export function ExpenseSection({ dayWord }: { dayWord: string }): JSX.Element {
           ? <span className={styles.total}>¥{formatMoney(costCents)}</span>
           : <span className={styles.n}>无</span>}
         <span className={styles.line} />
-        <button className={styles.addbtn} onClick={() => openForm('cost')} aria-expanded={edit === 'cost'}>
+        <button
+          className={styles.addbtn}
+          onClick={() => openForm('cost')}
+          aria-expanded={edit === 'cost'}
+          aria-label={edit === 'cost' ? '收起记账表单' : '记一笔花费'}
+        >
           {edit === 'cost' ? '收起' : '+ 记一笔'}
         </button>
       </div>

@@ -34,7 +34,12 @@ export function NoteSection({ dayWord }: { dayWord: string }): JSX.Element {
         <h3>想法</h3>
         {notes.length > 0 && <span className={styles.n}>{notes.length}</span>}
         <span className={styles.line} />
-        <button className={styles.addbtn} onClick={() => openForm('note')} aria-expanded={edit === 'note'}>
+        <button
+          className={styles.addbtn}
+          onClick={() => openForm('note')}
+          aria-expanded={edit === 'note'}
+          aria-label={edit === 'note' ? '收起想法表单' : '添加想法'}
+        >
           {edit === 'note' ? '收起' : '+ 添加'}
         </button>
       </div>

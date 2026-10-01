@@ -81,4 +81,31 @@ describe('App 冒烟', () => {
     expect(store.getState().view).toBe('day')
     await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
   })
+
+  it('月格三行：只有花费（无待办）也显示金额；想法以点提示在右下角（v7.1）', async () => {
+    const store = await renderApp()
+    // 收掉自动展开的待办表单，只记一笔花费 + 一条想法——复现旧版被 todoTotal gate 住的场景
+    fireEvent.click(screen.getByRole('button', { name: '收起待办表单' }))
+    fireEvent.click(screen.getByRole('button', { name: '记一笔花费' }))
+    fireEvent.change(screen.getByLabelText('金额（元）'), { target: { value: '129' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(store.getState().detail?.summary.costCents).toBe(12900))
+    fireEvent.click(screen.getByRole('button', { name: '添加想法' }))
+    fireEvent.change(screen.getByLabelText('新想法'), { target: { value: '一个念头' } })
+    fireEvent.click(screen.getAllByRole('button', { name: '保存' }).at(-1)!)
+    await waitFor(() => expect(store.getState().detail?.notes).toHaveLength(1))
+
+    fireEvent.click(screen.getByRole('tab', { name: '月' }))
+    await waitFor(() => expect(screen.getAllByRole('gridcell')).toHaveLength(42))
+    const cell = screen.getByLabelText(/2026年9月29日/)
+    // 行2：花费独立显示（修复前：无待办的日子花费不可见）
+    expect(cell.textContent).toContain('¥129')
+    // 行3 右下角：想法点（i 元素，aria-hidden，条数 1 不带数字）
+    const nind = cell.querySelector('[class*="nind"]')
+    expect(nind).not.toBeNull()
+    expect(nind!.querySelector('i')).not.toBeNull()
+    expect(nind!.textContent).toBe('')
+    // 无待办 → 不渲染进度 chip
+    expect(cell.querySelector('[class*="prog"]')).toBeNull()
+  })
 })
