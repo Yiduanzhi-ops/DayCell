@@ -31,3 +31,14 @@ export function Check({ size = 10 }: { size?: number }): JSX.Element {
     </svg>
   )
 }
+
+/** v7.5：顶栏右上角菜单按钮（⋯） */
+export function Ellipsis(): JSX.Element {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <circle cx="5" cy="12" r="1.9" />
+      <circle cx="12" cy="12" r="1.9" />
+      <circle cx="19" cy="12" r="1.9" />
+    </svg>
+  )
+}

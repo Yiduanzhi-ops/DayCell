@@ -75,7 +75,7 @@
   border-radius: 3px; flex: 0 0 auto; display: inline-grid; place-items: center;
   transform: translateY(1px);
 }
-.witems .done .wchk { background: var(--accent); border-color: var(--accent); }
+.witems .done .wchk { background: var(--accent-strong); border-color: var(--accent-strong); }
 .wtxt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wmore { font-size: 11px; color: var(--ink-3); }
 

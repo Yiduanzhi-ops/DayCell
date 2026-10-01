@@ -19,6 +19,7 @@ export type ValidateCode =
   | 'BAD_DATE'
   | 'BAD_BACKUP'
   | 'VERSION_TOO_NEW'
+  | 'BAD_VALUE'
 
 export interface ParseOk<T> {
   ok: true

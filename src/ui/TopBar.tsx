@@ -1,21 +1,25 @@
 /**
- * 顶栏：品牌（logo + 人生小格·DayCell）/ 前后翻页 / 标题 / 今天按钮。
+ * 顶栏：品牌（logo + 人生小格·DayCell）/ 前后翻页 / 标题 / 今天按钮 / **右上角菜单**（v7.5）。
+ *
  * 标题内容按视图分叉（原型 renderTitle 的移植）：
- *  - 今天：`1 日 周二`（v7.4：不显示年月，用户拍板）
+ *  - 今天：**空**（v7.5 用户拍板：顶栏不重复显示日期周几，内容区已有完整日期）
  *  - 周：月份或跨月区间 + `28–4 日`
  *  - 月：`2026 年 9 月` + `N 天有记录 · ¥x`（月汇总，US-11）
  * 「今天」按钮只在选中日 ≠ 今天时出现（US-09）。
  * 翻页箭头在今天视图下由 CSS 隐藏——v7 起日视图不翻日（D19），行为层 shift() 也是 no-op。
- * 视图切换器 v7.3 起移到底部固定 tab bar（TabBar.tsx，D17 修订），顶栏不再承载。
+ *
+ * ## v7.5 右上角菜单（手机端同位置）——菜单项顺序（用户拍板）：
+ * 导出备份 → 导入备份 → 一键导出 MD（点开弹本周/本月）→ 纪念日设置
+ * → 分隔线 → 夜间模式（手动开关，最下面）→ 关于（占位，暂不实现）
+ * 导入走隐藏 <input type=file>；MD 二级菜单返回上级。
  */
+import { useRef, useState } from 'react'
 import type { JSX } from 'react'
-import { dowOf, formatMoney, fromKey } from '@core'
+import { formatMoney, fromKey } from '@core'
 import { useApp } from '@/app/context'
-import { ChevronLeft, ChevronRight } from './icons'
+import { ChevronLeft, ChevronRight, Ellipsis } from './icons'
 import { BrandMark } from './BrandMark'
 import styles from './TopBar.module.css'
-
-const DOW = ['日', '一', '二', '三', '四', '五', '六'] as const
 
 export function TopBar(): JSX.Element {
   const view = useApp((s) => s.view)
@@ -26,12 +30,30 @@ export function TopBar(): JSX.Element {
   const shift = useApp((s) => s.shift)
   const gotoToday = useApp((s) => s.gotoToday)
 
-  const { y, m, d } = fromKey(selected)
+  // ---- v7.5 菜单 ----
+  const theme = useApp((s) => s.theme)
+  const setTheme = useApp((s) => s.setTheme)
+  const openAnniv = useApp((s) => s.openAnniv)
+  const exportBackup = useApp((s) => s.exportBackup)
+  const importBackup = useApp((s) => s.importBackup)
+  const exportMd = useApp((s) => s.exportMd)
+  const showToast = useApp((s) => s.showToast)
+
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [mdOpen, setMdOpen] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const closeMenu = (): void => {
+    setMenuOpen(false)
+    setMdOpen(false)
+  }
+
+  const { y, m } = fromKey(selected)
   let title = `${y} 年 ${m} 月`
   let sub = ''
   if (view === 'day') {
-    // v7.4：今天视图顶栏不显示年月（用户拍板：手机上"某年某月"冗余），只留日期
-    title = `${d} 日 周${DOW[dowOf(selected)]}`
+    // v7.5：今天视图顶栏只留品牌——日期与周几由内容区展示，避免重复（用户拍板）
+    title = ''
   } else if (view === 'week') {
     const a = week?.days[0] ? fromKey(week.days[0].date) : null
     const b = week?.days[6] ? fromKey(week.days[6].date) : null
@@ -67,6 +89,115 @@ export function TopBar(): JSX.Element {
           今天
         </button>
       )}
+      <button
+        className={styles.menuBtn}
+        onClick={() => setMenuOpen((v) => !v)}
+        aria-label="菜单"
+        aria-expanded={menuOpen}
+        title="菜单"
+      >
+        <Ellipsis />
+      </button>
+
+      {menuOpen && (
+        <>
+          <div className={styles.mask} onClick={closeMenu} />
+          <div className={styles.menu} role="menu">
+            {!mdOpen ? (
+              <>
+                <button
+                  className={styles.mi}
+                  role="menuitem"
+                  onClick={() => {
+                    closeMenu()
+                    void exportBackup()
+                  }}
+                >
+                  导出备份
+                </button>
+                <button className={styles.mi} role="menuitem" onClick={() => fileRef.current?.click()}>
+                  导入备份
+                </button>
+                <button className={styles.mi} role="menuitem" onClick={() => setMdOpen(true)}>
+                  一键导出 MD
+                </button>
+                <button
+                  className={styles.mi}
+                  role="menuitem"
+                  onClick={() => {
+                    closeMenu()
+                    openAnniv()
+                  }}
+                >
+                  纪念日设置
+                </button>
+                <div className={styles.sep} />
+                <div className={styles.themeRow}>
+                  <span>夜间模式</span>
+                  <button
+                    role="switch"
+                    aria-checked={theme === 'dark'}
+                    className={theme === 'dark' ? `${styles.switch} ${styles.switchOn}` : styles.switch}
+                    onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                  >
+                    <span className={styles.knob} />
+                  </button>
+                </div>
+                <button
+                  className={`${styles.mi} ${styles.about}`}
+                  role="menuitem"
+                  onClick={() => {
+                    closeMenu()
+                    showToast('关于页即将上线')
+                  }}
+                >
+                  关于
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  className={styles.mi}
+                  role="menuitem"
+                  onClick={() => {
+                    closeMenu()
+                    void exportMd('week')
+                  }}
+                >
+                  本周
+                </button>
+                <button
+                  className={styles.mi}
+                  role="menuitem"
+                  onClick={() => {
+                    closeMenu()
+                    void exportMd('month')
+                  }}
+                >
+                  本月
+                </button>
+                <button className={styles.mi} role="menuitem" onClick={() => setMdOpen(false)}>
+                  ← 返回
+                </button>
+              </>
+            )}
+          </div>
+        </>
+      )}
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept="application/json,.json"
+        hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          e.target.value = '' // 允许再次选择同一文件
+          if (!f) return
+          closeMenu()
+          void importBackup(f)
+        }}
+      />
     </header>
   )
 }

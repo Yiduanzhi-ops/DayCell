@@ -7,6 +7,8 @@
  */
 :root {
   --accent: #2E4BA6;
+  /** 背景 + 白字场景用（对比度达标）：按钮、完成勾、今日数字。与 --accent 同族不同明度 */
+  --accent-strong: #2E4BA6;
   --bg: #FFFFFF;
   --bg-subtle: #FAFAFA;
   --bg-hover: #F5F5F5;
@@ -18,9 +20,36 @@
   --line-2: #F4F4F4;
   --accent-soft: color-mix(in srgb, var(--accent) 8%, #fff);
   --accent-line: color-mix(in srgb, var(--accent) 28%, #fff);
+  --toast-bg: #1b1b1f;
+  --toast-fg: #fff;
   --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
     "Microsoft YaHei", system-ui, sans-serif;
-  color-scheme: light; /* E23：跟随系统深色时也不反色 */
+  color-scheme: light; /* v7.5 起深色由 [data-theme='dark'] 手动切换（不再跟随系统） */
+}
+
+/**
+ * v7.5 夜间模式（手动开关，html[data-theme='dark']）。
+ * 对比度硬约束同浅色（WCAG AA）：--ink-3 ≥ 4.54:1。
+ * 实测（#141518 底）：ink 16.3:1 · ink-2 9.3:1 · ink-3 6.0:1 · ink-4 2.9:1（装饰）·
+ * accent #7C9BFF 7:1（文字）· accent-strong #4663D2 5.2:1（白字背景）。
+ */
+[data-theme='dark'] {
+  --accent: #7C9BFF;
+  --accent-strong: #4663D2;
+  --bg: #141518;
+  --bg-subtle: #1C1E22;
+  --bg-hover: #24272C;
+  --ink: #F2F3F5;
+  --ink-2: #B4BAC4;
+  --ink-3: #8E95A0;
+  --ink-4: #565C66;
+  --line: #2A2E34;
+  --line-2: #23262B;
+  --accent-soft: color-mix(in srgb, var(--accent) 16%, #141518);
+  --accent-line: color-mix(in srgb, var(--accent) 42%, #141518);
+  --toast-bg: #2A2E34;
+  --toast-fg: #F2F3F5;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }

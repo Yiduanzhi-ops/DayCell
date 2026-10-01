@@ -11,11 +11,13 @@ import type { JSX } from 'react'
 import type { StoreApi } from 'zustand'
 import type { AppState } from '@/app/store'
 import { AppStoreContext, useApp } from '@/app/context'
+import { applyTheme } from '@/app/store'
 import { TopBar } from './TopBar'
 import { TabBar } from './TabBar'
 import { DayView } from './DayView'
 import { WeekView } from './WeekView'
 import { MonthView } from './MonthView'
+import { AnnivSettings } from './AnnivSettings'
 import styles from './App.module.css'
 
 export function App({ store }: { store: StoreApi<AppState> }): JSX.Element {
@@ -37,6 +39,14 @@ function Shell(): JSX.Element {
   const setView = useApp((s) => s.setView)
   const shift = useApp((s) => s.shift)
   const onPopstate = useApp((s) => s.onPopstate)
+  const theme = useApp((s) => s.theme)
+  const annivOpen = useApp((s) => s.annivOpen)
+
+  // v7.5 夜间模式：store 里 setTheme 已同步 localStorage 与 <html>；这里兜底保证
+  // 挂载时（含 localStorage 被别的标签页改过）状态一致
+  useEffect(() => {
+    applyTheme(theme)
+  }, [theme])
 
   // 全局快捷键（S4 / D17·v7）：j/k、←/→ 翻周/月（今天视图 no-op），d/t 回今天、w 周、m 月，
   // Esc 收起表单或返回。输入控件聚焦时跳过（表单里 Enter/Esc 有自己的语义）；IME 组合中跳过，
@@ -100,6 +110,7 @@ function Shell(): JSX.Element {
       >
         {toast?.msg ?? ''}
       </div>
+      {annivOpen && <AnnivSettings />}
     </div>
   )
 }

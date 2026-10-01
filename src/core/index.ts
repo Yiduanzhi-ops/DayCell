@@ -41,6 +41,9 @@ export type { IdbDeps } from './store/idb'
 export * from './repo/index'
 export * from './aggregate/index'
 
+// ---- 备份（导出 / 合并导入 / Markdown，PRD M14/M15） ----
+export * from './backup/index'
+
 // ---- 迁移与环境探测 ----
 export * from './migrate/index'
 export * from './diagnose'

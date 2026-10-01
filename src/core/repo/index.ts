@@ -115,10 +115,16 @@ export interface ExpenseRepo {
 
 export interface AnniversaryInput {
   title: string
-  /** isLunar=false → 公历 'YYYY-MM-DD'；isLunar=true → 农历月日（年份无意义） */
+  /**
+   * date 的语义随 repeat（见 AnniversaryRecord 注释）：
+   * - none / yearly：'YYYY-MM-DD'（农历时只看 MM-DD）
+   * - monthly：'YYYY-MM-DD'，只取日号 DD
+   * - weekly：'YYYY-MM-DD'，只取星期几（参考日期）
+   */
   date: string
   isLunar: boolean
-  repeat: 'none' | 'yearly'
+  /** v7.5 扩展：weekly（每周）/ monthly（每月）。weekly/monthly 仅公历 */
+  repeat: 'none' | 'yearly' | 'monthly' | 'weekly'
   /** 农历闰月生日；该年无闰月时按同月号计（PRD E13） */
   isLeapMonth?: boolean
 }
@@ -345,6 +351,14 @@ export function createRepos(deps: RepoDeps): Repos {
     softDelete: softDelete('expenses'),
   }
 
+  const annivRepeats = ['none', 'yearly', 'monthly', 'weekly'] as const
+  const assertRepeat = (repeat: string): void => {
+    // 运行时防御：weekly/monthly 只允许公历，农历只允许 none/yearly
+    if (!(annivRepeats as readonly string[]).includes(repeat)) {
+      throw new ValidationError('BAD_VALUE', '重复频率不正确')
+    }
+  }
+
   const anniversaries: AnniversaryRepo = {
     all: () => store.all<AnniversaryRecord>('anniversaries'),
 
@@ -352,6 +366,10 @@ export function createRepos(deps: RepoDeps): Repos {
       const title = unwrap(parseAnniversaryTitle(input.title))
       if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) {
         throw new ValidationError('BAD_DATE', '日期格式不正确')
+      }
+      assertRepeat(input.repeat)
+      if ((input.repeat === 'weekly' || input.repeat === 'monthly') && input.isLunar) {
+        throw new ValidationError('BAD_VALUE', '每周/每月重复仅支持公历')
       }
       const ts = now()
       return store.put<AnniversaryRecord>('anniversaries', {
@@ -379,8 +397,15 @@ export function createRepos(deps: RepoDeps): Repos {
         next.date = patch.date
       }
       if (patch.isLunar !== undefined) next.isLunar = patch.isLunar
-      if (patch.repeat !== undefined) next.repeat = patch.repeat
+      if (patch.repeat !== undefined) {
+        assertRepeat(patch.repeat)
+        next.repeat = patch.repeat
+      }
       if (patch.isLeapMonth !== undefined) next.isLeapMonth = patch.isLeapMonth
+      // 组合校验放在合并之后：isLunar / repeat 任一被改都要按**最终值**检查
+      if ((next.repeat === 'weekly' || next.repeat === 'monthly') && next.isLunar) {
+        throw new ValidationError('BAD_VALUE', '每周/每月重复仅支持公历')
+      }
       return store.put<AnniversaryRecord>('anniversaries', next)
     },
 

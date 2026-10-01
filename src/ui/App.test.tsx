@@ -23,6 +23,8 @@ afterEach(cleanup)
 const TODAY = '2026-09-29' as DateKey
 
 async function renderApp() {
+  // v7.5：夜间模式读 localStorage，测试间必须清掉，否则上个用例切了 dark 会串场
+  localStorage.clear()
   const bundle = await initCore({ store: createMemoryStore(), skipLunar: true })
   const store = createAppStore(bundle, { today: TODAY, isNarrow: () => false })
   await store.getState().init()
@@ -110,5 +112,52 @@ describe('App 冒烟', () => {
     expect(nind!.textContent).toBe('')
     // 无待办 → 不渲染进度 chip
     expect(cell.querySelector('[class*="prog"]')).toBeNull()
+  })
+
+  it('v7.5 今天视图顶栏不再显示日期与周几（内容区保留完整日期）', async () => {
+    await renderApp()
+    // 顶栏只留品牌；日期在内容区（dhead），不重复
+    const header = document.querySelector('header')!
+    expect(header.textContent).toContain('人生小格·DayCell')
+    expect(header.textContent).not.toContain('29 日')
+    expect(header.textContent).not.toContain('2026 年')
+    expect(document.body.textContent).toContain('2026 年 9 月 29 日') // 内容区仍在
+  })
+
+  it('v7.5 右上角菜单：项齐全、顺序正确、夜间模式开关生效', async () => {
+    await renderApp()
+    fireEvent.click(screen.getByRole('button', { name: '菜单' }))
+    const items = screen.getAllByRole('menuitem').map((el) => el.textContent)
+    expect(items).toEqual(['导出备份', '导入备份', '一键导出 MD', '纪念日设置', '关于'])
+    expect(screen.getByRole('switch')).toBeInTheDocument() // 夜间模式行（最下面，分隔线之后）
+    expect(screen.getByText('夜间模式')).toBeInTheDocument()
+
+    // 默认浅色；点开关 → 深色（html data-theme + localStorage 持久化）
+    expect(document.documentElement.dataset.theme).toBe('light')
+    fireEvent.click(screen.getByRole('switch'))
+    expect(document.documentElement.dataset.theme).toBe('dark')
+    expect(localStorage.getItem('daycell-theme')).toBe('dark')
+  })
+
+  it('v7.5 纪念日设置：从菜单进入、新增每周纪念日、列表显示', async () => {
+    const store = await renderApp()
+    fireEvent.click(screen.getByRole('button', { name: '菜单' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '纪念日设置' }))
+
+    // 设置页出现（覆盖层），从空列表开始
+    expect(screen.getByRole('dialog', { name: '纪念日设置' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '＋ 新增' }))
+
+    // 填名字、切每周、选周三
+    fireEvent.change(screen.getByPlaceholderText('如：妈妈的生日、发工资'), { target: { value: '每周例会' } })
+    fireEvent.click(screen.getByRole('button', { name: '每周' }))
+    fireEvent.click(screen.getByRole('button', { name: '周三' }))
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+
+    // 回到列表：名称 + 频率描述
+    expect(await screen.findByText('每周例会')).toBeInTheDocument()
+    expect(screen.getByText('每周周三')).toBeInTheDocument()
+    expect(store.getState().annivList).toHaveLength(1)
+    expect(store.getState().annivList[0]).toMatchObject({ repeat: 'weekly', isLunar: false })
   })
 })

@@ -23,15 +23,17 @@
 
 import {
   addDays,
+  dowOf,
   fromKey,
   isValidKey,
   monthGrid,
   monthKeys,
+  rangeKeys,
   weekKeys,
   type WeekStartsOn,
 } from '../date'
 import { cellLabel, type CellLabel } from '../label'
-import { resolveSolarAnniversary, type LunarApi, type LunarInfo } from '../lunar'
+import type { LunarApi, LunarInfo } from '../lunar'
 import { isRollable, todoProgress, type Repos } from '../repo'
 import type { RecordStore } from '../store/types'
 import type {
@@ -232,18 +234,48 @@ function makeCatResolver(catMap: ReadonlyMap<string, string>): CatResolver {
   return { otherId, name: (catId) => catMap.get(catId) ?? null }
 }
 
-/** 区间覆盖到的年份。42 格的月视图最多跨 2 年（跨年那一格） */
-function yearsOf(from: DateKey, to: DateKey): number[] {
-  const a = fromKey(from).y
-  const b = fromKey(to).y
-  const out: number[] = []
-  for (let y = a; y <= b; y++) out.push(y)
-  return out
+// ---------------------------------------------------------------------------
+// 纪念日匹配（v7.5 扩展：weekly / monthly）
+// ---------------------------------------------------------------------------
+
+/**
+ * 单日命中判定（纯函数）。
+ *
+ * - none：一次性，就是 date 本身（公历）或 date 指定年份的农历（农历一次性）
+ * - yearly：每年同月日（公历按 MM-DD；农历走 lunar.lunarAnniversary，年份取目标年）
+ * - monthly：每月同日号（date 的 DD；不存在的日期——如 2 月 31 日——自动不命中）
+ * - weekly：每周同星期几（date 只是"参考日期"，取它的 dow）
+ * - weekly / monthly 仅公历；农历 repeat 只允许 none / yearly（设置 UI 约束），
+ *   防御性兜底：非法组合返回 false
+ */
+function annivHitsOn(r: AnniversaryRecord, date: DateKey, lunar: LunarApi | null): boolean {
+  if (r.deleted) return false
+  if (!r.isLunar) {
+    switch (r.repeat) {
+      case 'none':
+        return isValidKey(r.date) && r.date === date
+      case 'weekly':
+        // r.date 是"参考日期"（公历 YYYY-MM-DD 定宽），只看星期几
+        return dowOf(r.date as DateKey) === dowOf(date)
+      case 'monthly':
+        // 同日号。date 本身是合法存在的日期，所以不存在的日号天然不会命中
+        return r.date.slice(8) === date.slice(8)
+      case 'yearly':
+        return r.date.slice(5) === date.slice(5)
+    }
+  }
+  if (!lunar) return false
+  if (r.repeat === 'none') {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(r.date)) return false
+    return lunar.lunarAnniversary(r.date, Number(r.date.slice(0, 4)), r.isLeapMonth).key === date
+  }
+  if (r.repeat === 'yearly') {
+    return lunar.lunarAnniversary(r.date, fromKey(date).y, r.isLeapMonth).key === date
+  }
+  return false
 }
 
-// ---------------------------------------------------------------------------
-// 工厂
-// ---------------------------------------------------------------------------
+export { annivHitsOn }
 
 export function createAggregates(deps: AggregateDeps): Aggregates {
   const { store, repos } = deps
@@ -260,9 +292,9 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
   /**
    * 区间内每天命中的纪念日标题。
    *
-   * 一次 `anniversaries.all()`（表很小）+ 纯计算，**不逐日查询**。
-   * 公历走 `resolveSolarAnniversary`（纯函数，不依赖农历库），
-   * 农历走 `lunar.lunarAnniversary`——**农历库不可用时整类跳过**（PRD E4），
+   * 一次 `anniversaries.all()`（表很小）+ 逐日纯计算（周/月视图 7~42 天 × 纪念日数，
+   * 微秒级），**不逐日查询**。weekly/monthly/yearly/一次性统一走 `annivHitsOn`。
+   * 农历命中依赖 `lunar`——**农历库不可用时整类跳过**（PRD E4），
    * 公历纪念日必须照常显示，否则农历一挂连"妈妈生日"都没了。
    */
   const anniversaryTitles = async (
@@ -274,34 +306,12 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
     const recs = all.filter((r) => !r.deleted)
     if (recs.length === 0) return out
 
-    const years = yearsOf(from, to)
-    const push = (k: DateKey | null, title: string): void => {
-      // 'YYYY-MM-DD' 定宽，字典序即时间序，可以直接比
-      if (k === null || k < from || k > to) return
-      const a = out.get(k)
-      if (a) a.push(title)
-      else out.set(k, [title])
-    }
-
-    for (const r of recs) {
-      if (!r.isLunar) {
-        if (r.repeat === 'none') {
-          // 一次性公历：就是它自己那一天，不做年份替换
-          if (isValidKey(r.date)) push(r.date, r.title)
-        } else {
-          for (const y of years) push(resolveSolarAnniversary(r.date, y).key, r.title)
-        }
-        continue
-      }
-      // 农历纪念日
-      if (!lunar) continue
-      if (r.repeat === 'none') {
-        // 一次性农历：年份有意义（type 注释说的"年份被忽略"只针对 yearly）
-        const y = /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? Number(r.date.slice(0, 4)) : null
-        if (y !== null) push(lunar.lunarAnniversary(r.date, y, r.isLeapMonth).key, r.title)
-      } else {
-        for (const y of years) {
-          push(lunar.lunarAnniversary(r.date, y, r.isLeapMonth).key, r.title)
+    for (const k of rangeKeys(from, to)) {
+      for (const r of recs) {
+        if (annivHitsOn(r, k, lunar)) {
+          const a = out.get(k)
+          if (a) a.push(r.title)
+          else out.set(k, [r.title])
         }
       }
     }
@@ -311,20 +321,7 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
   /** 当天命中的 AnniversaryRecord（日视图要显示完整信息，不只是标题） */
   const anniversaryRecordsOn = async (date: DateKey): Promise<AnniversaryRecord[]> => {
     const all = await repos.anniversaries.all()
-    const y = fromKey(date).y
-    return all.filter((r) => {
-      if (r.deleted) return false
-      if (!r.isLunar) {
-        if (r.repeat === 'none') return isValidKey(r.date) && r.date === date
-        return resolveSolarAnniversary(r.date, y).key === date
-      }
-      if (!lunar) return false
-      if (r.repeat === 'none') {
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(r.date)) return false
-        return lunar.lunarAnniversary(r.date, Number(r.date.slice(0, 4)), r.isLeapMonth).key === date
-      }
-      return lunar.lunarAnniversary(r.date, y, r.isLeapMonth).key === date
-    })
+    return all.filter((r) => annivHitsOn(r, date, lunar))
   }
 
   /**

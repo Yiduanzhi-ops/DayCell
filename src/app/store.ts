@@ -19,7 +19,16 @@ import {
   addMonths,
   formatMoney,
   isDayCellError,
+  mergeBackup,
+  monthKeys,
+  parseBackup,
+  rangeKeys,
+  renderRangeMd,
+  serializeBackup,
   today as todayKey,
+  weekKeys,
+  type AnniversaryInput,
+  type AnniversaryRecord,
   type DateKey,
   type DayAggregate,
   type DayDetail,
@@ -60,6 +69,8 @@ export interface AppState {
   week: { days: WeekDay[]; total: WeekTotal } | null
   month: { days: DayAggregate[]; summary: MonthSummary } | null
   cats: CategoryRecord[]
+  /** v7.5：纪念日设置页列表（打开页面时加载，刷新随 CRUD） */
+  annivList: AnniversaryRecord[]
 
   /** IndexedDB 不可用（PRD E1）：数据不持久，UI 顶部红色横幅 */
   degraded: boolean
@@ -67,6 +78,11 @@ export interface AppState {
   lunarFailed: boolean
   loading: boolean
   toast: ToastState | null
+
+  /** v7.5：夜间模式。手动开关（不跟随系统），持久化在 localStorage */
+  theme: 'light' | 'dark'
+  /** v7.5：纪念日设置页是否打开（全屏覆盖层） */
+  annivOpen: boolean
 
   edit: FormKind | null
   /** 请求聚焦当前表单并 scrollIntoView；DayView 渲染后消费一次 */
@@ -107,6 +123,22 @@ export interface AppState {
   dismissRoll(): void
   showToast(msg: string): void
   clearToast(): void
+
+  // ---- v7.5：菜单 / 主题 / 备份 / 纪念日 ----
+  setTheme(t: 'light' | 'dark'): void
+  /** 加载纪念日列表（设置页打开/CRUD 后调用） */
+  refreshAnniv(): Promise<void>
+  openAnniv(): void
+  closeAnniv(): void
+  /** 导出整库 JSON 备份（PRD M14）。浏览器里触发下载 */
+  exportBackup(): Promise<boolean>
+  /** 从 JSON 备份**合并**导入（PRD M15，v7.5 用户口径：按 id 去重，不覆盖本地） */
+  importBackup(file: { name?: string; text(): Promise<string> }): Promise<boolean>
+  /** 一键导出 Markdown：kind='week' 本周 / 'month' 本月 */
+  exportMd(kind: 'week' | 'month'): Promise<boolean>
+  createAnniversary(input: AnniversaryInput): Promise<boolean>
+  updateAnniversary(id: string, patch: Partial<AnniversaryInput>): Promise<boolean>
+  deleteAnniversary(id: string): Promise<boolean>
 }
 
 export interface AppStoreOptions {
@@ -124,6 +156,38 @@ export const defaultIsNarrow = (): boolean => {
 
 const errMsg = (e: unknown): string =>
   isDayCellError(e) ? e.message : '操作失败，请重试'
+
+// ---------------------------------------------------------------------------
+// v7.5：夜间模式（手动开关，localStorage 持久化，不跟随系统）
+// ---------------------------------------------------------------------------
+
+const THEME_KEY = 'daycell-theme'
+
+export const readTheme = (): 'light' | 'dark' => {
+  if (typeof localStorage !== 'undefined' && localStorage.getItem(THEME_KEY) === 'dark') return 'dark'
+  return 'light'
+}
+
+/** 应用主题到 <html data-theme> 与 theme-color meta（splash 与 PWA 状态栏同步） */
+export function applyTheme(t: 'light' | 'dark'): void {
+  if (typeof document === 'undefined') return
+  document.documentElement.dataset.theme = t
+  const meta = document.querySelector('meta[name="theme-color"]')
+  if (meta) meta.setAttribute('content', t === 'dark' ? '#141518' : '#FFFFFF')
+}
+
+const downloadText = (filename: string, text: string, mime: string): void => {
+  if (typeof document === 'undefined') return // Node 测试环境不真下载
+  const blob = new Blob([text], { type: mime })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
 
 export function createAppStore(
   bundle: CoreBundle,
@@ -149,11 +213,15 @@ export function createAppStore(
     week: null,
     month: null,
     cats: [],
+    annivList: [],
 
     degraded: bundle.degraded,
     lunarFailed: bundle.lunarFailed,
     loading: true,
     toast: null,
+
+    theme: readTheme(),
+    annivOpen: false,
 
     edit: null,
     wantFocus: false,
@@ -428,6 +496,149 @@ export function createAppStore(
     dismissRoll() {
       const s = get()
       set({ rollDismissed: { ...s.rollDismissed, [s.selected]: true } })
+    },
+
+    // ---- v7.5：主题 / 菜单页 / 备份 / 纪念日 ----
+
+    setTheme(t) {
+      set({ theme: t })
+      try {
+        if (typeof localStorage !== 'undefined') localStorage.setItem(THEME_KEY, t)
+      } catch {
+        // 隐私模式等写入失败：本次会话仍生效，只是不持久
+      }
+      applyTheme(t)
+    },
+
+    openAnniv() {
+      set({ annivOpen: true })
+      void get().refreshAnniv()
+    },
+
+    closeAnniv() {
+      set({ annivOpen: false })
+    },
+
+    async refreshAnniv() {
+      try {
+        const all = await repos.anniversaries.all()
+        set({ annivList: all.filter((r) => !r.deleted) })
+      } catch (e) {
+        get().showToast(errMsg(e))
+      }
+    },
+
+    async exportBackup() {
+      try {
+        const file = await serializeBackup(bundle.store)
+        const day = new Date(file.exportedAt).toISOString().slice(0, 10)
+        downloadText(
+          `daycell-backup-${day}.json`,
+          JSON.stringify(file, null, 2),
+          'application/json',
+        )
+        get().showToast('已导出备份')
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async importBackup(file) {
+      try {
+        const parsed = parseBackup(await file.text())
+        const stats = await mergeBackup(bundle.store, parsed)
+        // 分类可能新增 → 清分类名缓存，避免显示旧名
+        aggregates.invalidate()
+        await get().refresh()
+        const total =
+          stats.added.todos + stats.added.notes + stats.added.expenses +
+          stats.added.anniversaries + stats.added.categories + stats.settingsAdded
+        if (total > 0) {
+          get().showToast(`已合并导入 ${total} 条记录`)
+        } else {
+          get().showToast('备份里没有新数据，本地已是最新')
+        }
+        return true
+      } catch (e) {
+        // BackupCorruptError 自带"现有数据未改动"语义，直接透传给用户
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async exportMd(kind) {
+      const s = get()
+      try {
+        const weekStartsOn = (await repos.settings.get('weekStartsOn', 1)) as 0 | 1
+        const keys =
+          kind === 'week' ? weekKeys(s.selected, weekStartsOn) : monthKeys(s.selected)
+        const from = keys[0]
+        const to = keys[keys.length - 1]!
+        const [data, catMap] = await Promise.all([
+          bundle.store.byDateAll(from, to),
+          repos.categories.nameMap(),
+        ])
+        const days = rangeKeys(from, to).map((date) => ({
+          date,
+          todos: data.todos.filter((t) => t.date === date),
+          notes: data.notes.filter((n) => n.date === date),
+          expenses: data.expenses.filter((e) => e.date === date),
+          catName: (catId: string) => catMap.get(catId) ?? '已删除分类',
+        }))
+        const title = kind === 'week' ? '人生小格 · 本周记录' : '人生小格 · 本月记录'
+        const md = renderRangeMd(title, days)
+        downloadText(
+          `daycell-${kind === 'week' ? '周记录' : '月记录'}-${from}.md`,
+          md,
+          'text/markdown;charset=utf-8',
+        )
+        get().showToast(`已导出${kind === 'week' ? '本周' : '本月'} Markdown`)
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async createAnniversary(input) {
+      try {
+        await repos.anniversaries.create(input)
+        await get().refresh()
+        await get().refreshAnniv()
+        get().showToast('已添加纪念日')
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async updateAnniversary(id, patch) {
+      try {
+        await repos.anniversaries.update(id, patch)
+        await get().refresh()
+        await get().refreshAnniv()
+        get().showToast('已更新纪念日')
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async deleteAnniversary(id) {
+      try {
+        await repos.anniversaries.softDelete(id)
+        await get().refresh()
+        await get().refreshAnniv()
+        get().showToast('已删除纪念日')
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
     },
 
     showToast(msg) {

@@ -639,3 +639,102 @@ describe('并发保护（loadSeq）', () => {
     }
   })
 })
+
+// ===========================================================================
+// v7.5：夜间模式 / 备份导出导入（合并）/ 一键导出 MD / 纪念日 CRUD
+// ===========================================================================
+
+describe('v7.5 主题', () => {
+  it('setTheme 更新 state；无 localStorage/DOM 的环境不炸（Node 守卫）', async () => {
+    const { app } = await makeApp()
+    expect(S(app).theme).toBe('light') // Node 无 localStorage → 默认 light
+    S(app).setTheme('dark')
+    expect(S(app).theme).toBe('dark')
+    S(app).setTheme('light')
+    expect(S(app).theme).toBe('light')
+  })
+})
+
+describe('v7.5 纪念日 CRUD', () => {
+  it('创建/更新/删除都会刷新 annivList（设置页数据源）', async () => {
+    const { app } = await makeApp()
+    expect(S(app).annivList).toEqual([])
+
+    const ok = await S(app).createAnniversary({ title: '周会', date: '2026-10-07', isLunar: false, repeat: 'weekly' })
+    expect(ok).toBe(true)
+    expect(S(app).annivList).toHaveLength(1)
+    const rec = S(app).annivList[0]!
+
+    expect(await S(app).updateAnniversary(rec.id, { title: '周例会' })).toBe(true)
+    expect(S(app).annivList[0]!.title).toBe('周例会')
+
+    expect(await S(app).deleteAnniversary(rec.id)).toBe(true)
+    expect(S(app).annivList).toEqual([])
+  })
+
+  it('非法输入 → 返回 false 且 toast core 文案', async () => {
+    const { app } = await makeApp()
+    const ok = await S(app).createAnniversary({ title: '坏', date: '2026-10-07', isLunar: true, repeat: 'weekly' })
+    expect(ok).toBe(false)
+    expect(S(app).annivList).toEqual([])
+    expect(S(app).toast?.msg).toContain('每周/每月重复仅支持公历')
+  })
+})
+
+describe('v7.5 备份导出与合并导入', () => {
+  it('importBackup 合并：本地保留 + 备份新增补入 + 设置本地优先', async () => {
+    const { app, bundle } = await makeApp()
+    // 本地已有：一条 todo + onboarded=false
+    await S(app).createTodo('本地待办')
+    await app.getState().refresh()
+
+    // 构造一个备份文件：同一条 todo（改过文本，id 相同才有"合并冲突"语义）+ 一条新 todo + 新设置
+    const existing = (await bundle.repos.todos.byDate(TODAY))[0]!
+    const backup = {
+      app: 'daycell',
+      version: 1,
+      exportedAt: 2_000_000_000_000,
+      schemaVersion: 1,
+      data: {
+        todos: [
+          { ...existing, text: '备份改的文本' },
+          { id: 'b-new', type: 'todo', date: TODAY, text: '备份新增', done: false, createdAt: 1, updatedAt: 1, deleted: false },
+        ],
+        notes: [], expenses: [], anniversaries: [], categories: [],
+        settings: [{ key: 'weekStartsOn', value: 0, updatedAt: 1 }],
+      },
+    }
+
+    const ok = await S(app).importBackup({ text: async () => JSON.stringify(backup) })
+    expect(ok).toBe(true)
+    // 本地那条没被覆盖；新增的补进来了
+    const detail = S(app).detail
+    const texts = detail!.todos.map((t) => t.text)
+    expect(texts).toContain('本地待办')
+    expect(texts).toContain('备份新增')
+    expect(texts).not.toContain('备份改的文本')
+    expect(S(app).toast?.msg).toContain('已合并导入 2 条记录') // 1 条待办 + 1 项设置
+    // 设置本地优先不受影响（weekStartsOn 是备份新 key → 补入）
+    expect(await bundle.repos.settings.get('weekStartsOn', 1)).toBe(0)
+  })
+
+  it('importBackup 坏文件 → false 且现有数据不动', async () => {
+    const { app } = await makeApp()
+    const ok = await S(app).importBackup({ text: async () => 'not json' })
+    expect(ok).toBe(false)
+    expect(S(app).toast?.msg).toContain('JSON')
+    expect(S(app).detail?.todos).toHaveLength(0)
+  })
+
+  it('exportMd 在 Node（无 document）下安全返回', async () => {
+    const { app } = await makeApp()
+    await S(app).createTodo('写周报')
+    expect(await S(app).exportMd('week')).toBe(true)
+    expect(await S(app).exportMd('month')).toBe(true)
+  })
+
+  it('exportBackup 在 Node（无 document）下安全返回', async () => {
+    const { app } = await makeApp()
+    expect(await S(app).exportBackup()).toBe(true)
+  })
+})

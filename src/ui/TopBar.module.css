@@ -1,6 +1,7 @@
 /* 顶栏（原型 .topbar 的移植；手机端的紧凑规则在底部媒体查询里） */
 
 .topbar {
+  position: relative; /* 菜单浮层的定位锚点 */
   flex: 0 0 auto;
   display: flex;
   align-items: center;
@@ -47,6 +48,94 @@
 }
 .todayBtn:hover { border-color: var(--accent-line); color: var(--accent); }
 
+/* ---- v7.5：右上角菜单 ---- */
+
+.menuBtn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  color: var(--ink-2);
+  flex: 0 0 auto;
+}
+.menuBtn:hover { background: var(--bg-hover); color: var(--ink); }
+
+/* 点击外部关闭的透明遮罩（手机端也要，点页面空白即收起） */
+.mask {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: transparent;
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 12px;
+  z-index: 41;
+  min-width: 176px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.16);
+}
+
+.mi {
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  color: var(--ink);
+  text-align: left;
+  white-space: nowrap;
+}
+.mi:hover { background: var(--bg-hover); }
+
+.about { color: var(--ink-3); }
+
+.sep { height: 1px; background: var(--line); margin: 5px 4px; }
+
+/* 夜间模式开关行 */
+.themeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 38px;
+  padding: 0 12px;
+  font-size: 13.5px;
+  color: var(--ink);
+}
+.switch {
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  position: relative;
+  flex: 0 0 auto;
+  transition: background 0.18s;
+}
+.switch .knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.18s;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+}
+.switchOn { background: var(--accent-strong); border-color: var(--accent-strong); }
+.switchOn .knob { transform: translateX(18px); }
+
 @media (max-width: 899.98px) {
   .topbar { padding: 10px 13px; gap: 8px; }
   .title { min-width: 0; font-size: 13.5px; }
@@ -54,4 +143,6 @@
   /* v7.3：品牌名手机端也显示（新需求）；字号微调防挤占标题 */
   .brand { font-size: 13.5px; letter-spacing: -0.02em; }
   .todayBtn { padding: 4px 8px; font-size: 11.5px; }
+  /* v7.5：手机端菜单也贴右上角 */
+  .menu { right: 10px; }
 }

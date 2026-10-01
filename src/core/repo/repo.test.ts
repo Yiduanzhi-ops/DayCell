@@ -480,6 +480,29 @@ describe('anniversaries', () => {
     await repos.anniversaries.softDelete(a.id)
     expect(await repos.anniversaries.all()).toHaveLength(0)
   })
+
+  it('v7.5 创建 weekly / monthly 纪念日', async () => {
+    const w = await repos.anniversaries.create({ title: '周会', date: '2026-10-07', isLunar: false, repeat: 'weekly' })
+    expect(w.repeat).toBe('weekly')
+    const m = await repos.anniversaries.create({ title: '还款', date: '2026-01-15', isLunar: false, repeat: 'monthly' })
+    expect(m.repeat).toBe('monthly')
+  })
+
+  it('v7.5 每周/每月重复拒绝农历组合', async () => {
+    await expect(
+      repos.anniversaries.create({ title: 'x', date: '2026-10-07', isLunar: true, repeat: 'weekly' }),
+    ).rejects.toMatchObject({ validateCode: 'BAD_VALUE' })
+    await expect(
+      repos.anniversaries.create({ title: 'x', date: '2026-01-15', isLunar: true, repeat: 'monthly' }),
+    ).rejects.toMatchObject({ validateCode: 'BAD_VALUE' })
+  })
+
+  it('v7.5 update 改成农历 + weekly 也拒绝', async () => {
+    const a = await repos.anniversaries.create({ title: '周会', date: '2026-10-07', isLunar: false, repeat: 'weekly' })
+    await expect(
+      repos.anniversaries.update(a.id, { isLunar: true }),
+    ).rejects.toMatchObject({ validateCode: 'BAD_VALUE' })
+  })
 })
 
 describe('settings', () => {

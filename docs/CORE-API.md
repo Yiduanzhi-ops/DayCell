@@ -588,43 +588,47 @@ const MIGRATIONS: Migration[];
    一个永远走不到的 catch 分支既测不到，也会让读代码的人以为这里真有风险。
 6. **`migrate/v1.ts` 没有创建**：v1 是基线，没有 v0→v1 这一步。空文件比没有文件更容易误导。
 
-### 5.8 `core/backup`
+### 5.8 `core/backup`（v7.5 已实现；契约按实现回填）
+
+> **v1.0 契约修订**（2026-10-01，v7.5）：①`BackupFile.records: Record<StoreName, CoreRecord[]>` 改为 **`data` 分表对象**（todos/notes/expenses/anniversaries/categories/settings，settings 是 `SettingRecord[]` 不是 CoreRecord）；②导入**只有合并**（用户拍板：覆盖会丢数据），`mode='replace'` 移除；③合并按 **id 去重、本地优先**（非"较新者胜"——本地数据总是赢），备份墓碑不导入，settings 本地 key 不覆盖、只补新 key；④CSV 导出未实现（无需求方），MD 导出为 `renderRangeMd`（周/月区间），由 store 层 `exportMd('week'|'month')` 调用。
 
 ```ts
 interface BackupFile {
   app: 'daycell';
-  schemaVersion: number;
-  exportedAt: number;
-  records: Record<StoreName, CoreRecord[]>;   // **含墓碑**，否则同步/恢复会复活已删记录
+  version: 1;
+  schemaVersion: 1;
+  exportedAt: number;          // 毫秒时间戳
+  data: {
+    todos: TodoRecord[]; notes: NoteRecord[]; expenses: ExpenseRecord[];
+    anniversaries: AnniversaryRecord[]; categories: CategoryRecord[];
+    settings: SettingRecord[]; // 仅白名单 5 key（accentColor/lastBackupAt/backupReminderOff/onboarded/weekStartsOn）
+  };
 }
 
-function exportJson(): Promise<BackupFile>;
+/** 全表导出，**含墓碑**（否则导入后已删记录会复活） */
+function serializeBackup(deps: { store: RecordStore; clock: Clock }): Promise<BackupFile>;
 
-/** UTF-8 **带 BOM**，否则 Excel 打开中文乱码（PRD US-10）
- *  列：date,category,note,amount */
-function exportCsv(opts?: { from?: DateKey; to?: DateKey }): Promise<string>;
+/** 全量校验（app/version/schemaVersion/exportedAt/逐记录 type 与字段/settings key 白名单）。
+ *  坏即抛 `BackupCorruptError`（消息承诺「现有数据未改动」），不返回部分结果 */
+function parseBackup(raw: unknown): BackupFile;
 
-/** 按月一个文件。含待办（勾选态）、想法（含时间）、花费明细与当日合计、分类汇总 */
-function exportMarkdown(month: string): Promise<string>;
+interface MergeStats { inserted: number; retained: number; tombstoneSkipped: number; settingsAdded: number }
 
-/** 只校验不写入。返回具体原因，UI 直接展示 message */
-function validateBackup(raw: unknown): ParseResult<BackupFile>;
+/** 合并：按 id 去重、本地优先、备份墓碑不导入、settings 本地 key 不覆盖只补新 key。
+ *  单事务（store.tx）+ 全部写入 keepTimestamps:true（防 last-write-wins 把本地较新记录反转）。
+ *  任何一步失败整体回滚（idb tx abort / memory tx snapshot-restore） */
+function mergeBackup(file: BackupFile, deps: { store: RecordStore; clock: Clock }): Promise<MergeStats>;
 
-interface ImportReport {
-  inserted: number; updated: number; skippedOlder: number; skippedInvalid: number;
-  migratedFrom?: number;
-}
-/** 按 id 合并 + updatedAt 较新者胜（PRD US-10）。
- *  mode='replace' 仍需先做一次当前库快照 */
-function importJson(b: BackupFile, mode?: 'merge' | 'replace'): Promise<ImportReport>;
+/** 周/月区间 Markdown：标题→区间→每日「待办 checkbox / 想法引用块 / 花费-分类¥金额（备注）」
+ *  →每日小计→区间合计。金额用 formatMoney（整数分），墓碑过滤 */
+function renderRangeMd(range: { from: DateKey; to: DateKey }, deps: { store: RecordStore; nameMap: Record<string, string> }): Promise<string>;
 ```
 
-**导入流程（必须按此顺序，PRD E17/E18）**：
-1. `validateBackup` → 失败则**一条都不写**，抛 `BackupCorruptError`
-2. `schemaVersion` 高于当前 → 返回 `VERSION_TOO_NEW`，拒绝
-3. 低于当前 → 走 `migrate.up`
-4. 自动快照当前库（内存即可，失败则中止导入）
-5. 单事务写入；任何一步失败整体回滚
+**导入流程（store.importBackup，必须按此顺序）**：
+1. `parseBackup` → 失败则**一条都不写**，抛 `BackupCorruptError`（toast「备份文件损坏…现有数据未改动」）
+2. `schemaVersion` 高于当前 → `VERSION_TOO_NEW`，拒绝
+3. `mergeBackup` 单事务写入 → `aggregates.invalidate()` → 刷新 → toast「已合并导入 N 条记录」
+4. `schemaVersion` 低于当前：真实 MIGRATIONS 为空（v1 是基线），分支不可达（注入合成迁移可测，同 `createMigrator`）
 
 ### 5.9 `core/diagnose`
 
@@ -748,7 +752,7 @@ core 的每个模块都必须有测试，且：
 3. `core/date` 必须覆盖：跨年、跨月、6 行月份、`addMonths` 夹取（1/31 + 1 月）、周一起始、闰年 2/29
 4. `core/validate` 必须覆盖 PRD US-03 的全部 6 种金额输入
 5. `core/migrate` 必须能从 v1 的 fixture 一路迁移到当前版本
-6. `core/backup` 必须有**往返测试**：导出 → 清空 → 导入 → 数据完全一致（含墓碑）
+6. `core/backup` 测试：serialize 含墓碑 / parse 非法结构 / merge 合并语义（本地优先、新增补入、墓碑跳过、设置补新 key）/ renderRangeMd 小计合计（14 用例，`backup.test.ts`）
 7. `aggregateMonth` 有 4 万条记录的基准测试
 
 覆盖率要求：**core ≥ 80%**（PRD §10）。UI 层不设硬指标，但 US-01~US-12 必须有对应的组件测试。

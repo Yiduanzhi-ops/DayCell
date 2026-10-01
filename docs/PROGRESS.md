@@ -1,9 +1,38 @@
 # DayCell 实施进度快照
 
 > **这份文件的用途**：让会话上下文可以安全丢弃。接手时先读这份，再按需读 PRD / CORE-API。
-> 最后更新：2026-10-01 · **v7.4 录入手动化 + 月汇总条 + 新 logo**（见 §0h）；此前 v7.3 应用名 + 底部切换器（§0g）、v7.2 手机端录入打磨（§0f）、PWA 已接线 + dist 重建（§0e）、v7.1 月格三行 + 启动页（§0d）
-> 当前状态 **全绿**：`tsc -b` 0 错 / `eslint .` 0 错 / **501 测试通过**（14 文件）/ `node smoke.cjs` 218 项断言（只守原型，见 §0c）
-> **已 git 化**（分支 `main`）。core 层 12/13 模块完成，**只剩 `backup/*`**（2026-09-30 用户拍板：延后）。
+> 最后更新：2026-10-01 · **v7.5 右上角菜单 + 备份导出/合并导入 + MD 导出 + 纪念日设置 + 夜间模式**（见 §0i）；此前 v7.4 录入手动化 + 月汇总条 + 新 logo（§0h）、v7.3 应用名 + 底部切换器（§0g）、v7.2 手机端录入打磨（§0f）、PWA 已接线 + dist 重建（§0e）、v7.1 月格三行 + 启动页（§0d）
+> 当前状态 **全绿**：`tsc -b` 0 错 / `eslint .` 0 错 / **532 测试通过**（15 文件，backup 模块已补齐）/ `node smoke.cjs` 218 项断言（只守原型，见 §0c）
+> **已 git 化**（分支 `main`）。core 层 **13/13 模块全部完成**（含 `backup/*`，v7.5 补齐）。
+
+---
+
+## 0i. ★ v7.5 右上角菜单 + 备份导出/合并导入 + MD 导出 + 纪念日设置 + 夜间模式（2026-10-01，用户指令）
+
+**需求原话（多次澄清后锁定）**：「①右上角菜单栏，点开显示很多功能 ②夜间模式（手动开关，不跟随系统）③备份的导出、导入 ④一键导出本周或本月的数据（点开弹本周/本月）⑤设置纪念日，每周/每月/每年 + 自定义名字 ⑥导入用**合并**（覆盖会丢数据）⑦关于暂时先不实现 ⑧菜单项顺序：导出备份 / 导入备份 / 一键导出 MD / 纪念日设置 / 夜间模式放最下面 / 再下面放关于 ⑨手机端菜单栏也在右上角 ⑩今天视图最上边不再显示日期和周几（中间已展示，重复）」
+
+**落地方式**：
+1. **右上角「⋯」菜单**（`TopBar.tsx` + `icons.tsx` Ellipsis + `TopBar.module.css`）：手机端同样右上角（浮层右对齐）。菜单项顺序按用户原话：导出备份 / 导入备份 / 一键导出 MD（二级弹本周/本月/返回）/ 纪念日设置 / 分隔线 / 夜间模式 switch（最下面）/ 分隔线 / 关于（占位 toast「关于页即将上线」）。点 mask 外部关闭。
+2. **夜间模式**：`store.theme('light'|'dark')` + `setTheme`；`tokens.css` 新增 `[data-theme='dark']` 全变量集（对比度按 WCAG AA 重算：ink 16.3:1 / ink-2 9.3:1 / ink-3 6.0:1 / accent #7C9BFF 7:1 / accent-strong #4663D2 5.2:1）；`index.html` 内联脚本在 splash 渲染前同步 `data-theme` + `theme-color`（无闪烁）+ `color-scheme: light dark`；DayView/detail/MonthView/WeekView 白字背景改 `--accent-strong`。手动开关，不跟随系统。
+3. **备份导出/合并导入**（新模块 `core/backup/index.ts`，已注册 `core/index.ts`）：
+   - `serializeBackup`：全表含墓碑 + settings（Clock 注入）；`parseBackup`：app/version/schemaVersion/exportedAt/逐记录 type/字段/settings key 白名单全量校验，坏即抛 `BackupCorruptError`（「现有数据未改动」）；`mergeBackup`：**合并口径**——按 id 去重、本地优先、备份墓碑不导入、settings 本地 key 不覆盖只补新 key、`store.tx` 单事务、所有写入 `keepTimestamps:true` 防 LWW 反转，返回 MergeStats。
+   - `store.exportBackup`（JSON 下载 `daycell-backup-YYYY-MM-DD.json`）/ `importBackup`（parse→merge→aggregates.invalidate→refresh→toast「已合并导入 N 条记录」；菜单隐藏 `<input type=file accept=application/json>`）/ `exportMd('week'|'month')`（`renderRangeMd`：标题→区间→每日「待办 checkbox / 想法引用块 / 花费-分类¥金额（备注）」→每日小计→区间合计，墓碑过滤）。
+4. **纪念日设置**（新页 `AnnivSettings.tsx|module.css`）：全屏覆盖层；列表（标题 + 中文频率描述，点击编辑/删除 confirm）；表单——名称 ≤20、频率 seg 每周/每月/每年/仅一次，**每周选星期几**（date 存本周一起的基准日）、**每月选 1–31 日号**（date 存 `当年-01-DD`）、**每年选公历/农历 + 月日 + 闰月 checkbox**（date `2000-MM-DD` 闰年锚定）、**仅一次选公历/农历日期**；`dateExists` 校验。同日多纪念日显示「前 2 个 +N」（聚合 `anniversaryTitles`）。
+5. **core 扩展**：`AnniversaryRecord.repeat` 加 `'weekly'|'monthly'`；`ValidateCode` 加 `'BAD_VALUE'`；repo 创建/更新加组合校验（weekly/monthly 拒绝农历，**update 按合并后最终值判断**——修 repo 测试时发现只改 isLunar 的路径会漏）；`aggregate.annivHitsOn(record, dateKey, lunar)` 纯函数（none 精确日 / weekly 比 dowOf / monthly 比日号 / yearly 比 MM-DD；农历只走 none/yearly），`anniversaryTitles`/`anniversaryRecordsOn` 复用（删除旧的 `yearsOf`+`resolveSolarAnniversary` 展开法）。
+6. **今天视图顶栏**：`TopBar` day 分支 title=''（v7.4 的「1 日 周二」也去掉），只留品牌；内容区 dtitle 完整日期保留（不重复）。
+
+**测试**：532 全绿（15 文件，较 v7.4 的 501 +31）：
+- `backup.test.ts` 14（serialize 含墓碑 / parse 6 类非法 / merge 新增-保留-墓碑-设置 / 渲染含小计合计）
+- `aggregate` 新增 3：weekly（9 月视图 42 格 8/31~10/11 内周三命中——**初版断言误用 10/14/21/28，实际不在网格里，已修**）、monthly（15 号命中；**2 月视图含 1/31，31 号用例的断言修正**）
+- `repo` 新增 3：weekly/monthly 创建、农历组合拒绝、**update 改成农历也拒绝**（由此修了 repo 按最终值校验的实现 bug）
+- `store` 新增 6：setTheme Node 安全、纪念日 CRUD 刷新列表、非法输入 toast、**合并导入**（同 id 本地优先 + 新记录补入 + 设置补新 key——测试里两次 makeApp 各建新内存库导致 existing 取空，已修）、坏文件、exportMd/exportBackup Node 安全
+- `App.test.tsx` 新增 3：今天顶栏无日期周几、菜单顺序 + 夜间 switch（data-theme + localStorage）、纪念日设置每周流程；`renderApp` 加 `localStorage.clear()` 防 theme 串场
+
+**tsc / eslint 0 错；`npm run build` 通过**（PWA precache 13 entries ~634 KiB）。
+
+**文档落点**：PRD（修订行 v1.4 / US-09 修订 / M19 修订?——夜间与菜单 / 新增备份与纪念日条目）；SPEC（版本行 / 决策表 / §3.x 新增菜单与主题）；CORE-API（§5.8 backup 补齐）；本节。
+
+**遗留**：真机验收菜单浮层、夜间模式视觉、导入导出文件流；「关于」页占位；纪念日同日多条的「+N」折叠规则待真机确认。
 
 ---
 
@@ -215,7 +244,7 @@
 | 文件 | 内容 |
 |---|---|
 | `PRD.md` | 需求定稿 v1.1（US-01~US-13，M1–M19） |
-| `CORE-API.md` | core 层 TS 契约，13 个模块（§5.1–§5.11），3 条铁律。**backup（§5.8）仍未实现** |
+| `CORE-API.md` | core 层 TS 契约，13 个模块（§5.1–§5.11），3 条铁律。**backup（§5.8）v7.5 已实现**（serialize/parse/merge/renderRangeMd） |
 | `adr/0001~0008` | 存储 / SW（**✅ 2026-10-01 已接线，见 PROGRESS §0e**）/ 金额 / lunar 懒加载 / 三视图 / core 隔离 / CSS Modules / 自写 date |
 | `README.md` | 索引；冲突优先级 **PRD > CORE-API > adr > SPEC** |
 
@@ -341,8 +370,7 @@ lunar chunk（102 KB gzip）是懒加载不计入。预算口径要不要把 ven
 2. **~~PWA 接线~~ ✅（§0e）+ M11 纪念日创建入口**：
    - ~~PWA（ADR-0002）~~ ✅ 已接线并构建验证；**剩真机验收**（iOS 装主屏 + 飞行模式读写，PRD §10）与 S1 首启引导（`diag.installed/userAgentIOS` 已在 state 里，只差 UI）
    - 纪念日：底层全就绪（repo/聚合/三视图徽章/E13 闰月回退），只差 DayView 一个区块表单（公历/农历 + 每年重复）
-3. **`core/backup/*`**（json/csv/markdown/import，唯一剩下的 core 模块；2026-09-30 用户拍板延后：「导入导出备份都不要写，只完成记录」）。
-   **开工前的调研结论（本会话已查完，别再查一遍）**：
+3. ~~**`core/backup/*`**~~ → ✅ **v7.5 已实现**（2026-10-01，见 §0i）。实现与 2026-09-30 调研结论的差异：导入改为**合并**（用户拍板，防覆盖丢数据）而非"覆盖恢复"；备份格式 v1 `{app,version,exportedAt,schemaVersion,data:{todos,notes,expenses,anniversaries,categories,settings}}`；settings 白名单 5 key；墓碑不导入。旧调研结论存档：
    - 五步导入顺序照 CORE-API §5.8；`BackupFile.records` 用 `RecordTable`（契约原文 `Record<StoreName, CoreRecord[]>` 是错的，§2 已记）
    - `ValidateCode` **已含** `BAD_BACKUP` / `VERSION_TOO_NEW`（validate.ts 与 CORE-API §2.1 一致；§5.10 文档里写的 `INVALID_DATE` 是旧码，勿被误导）
    - `putSetting` 需加可选参 `{updatedAt?: number}` 保留导入时间戳（interface + 两实现各 2–3 行），否则恢复出的设置 updatedAt 全变"刚刚"，LWW 会拿旧备份覆盖较新的本地设置——与 `PutOptions.keepTimestamps` 同一理由
@@ -380,7 +408,7 @@ lunar chunk（102 KB gzip）是懒加载不计入。预算口径要不要把 ven
 
 ## 6. 环境事实
 
-工作目录 `/Users/wangduanmao/DayCell`；sandbox `workspace-write`。
+工作目录：Mac 侧 `/Users/wangduanmao/DayCell`；云电脑侧 `/home/user/Doubao/chats/38444556790203906/DayCell`（2026-10-01 起云电脑执行）。
 > ✅ **已 `git init`**（2026-09-29，用户批准）。分支 `main`，`.git` 约 740 KB。
 > `.gitignore` 忽略 `node_modules/`(220M)、`.npmcache/`(447M)、`coverage/`、`*.tsbuildinfo`。
 > **`.npmcache` 必须忽略**：沙箱下 `~/.npm` 不可写，装包一律 `--cache ./.npmcache`，
@@ -396,7 +424,7 @@ lunar chunk（102 KB gzip）是懒加载不计入。预算口径要不要把 ven
 `~/.npm` 被沙箱挡 → 装包一律 `npm install --cache ./.npmcache --no-audit --no-fund`。
 Node v24.18.1 / npm 10.9.8 / Python 3.9.6 / macOS（`cat -A` 不可用，用 python 看 repr）。
 **无 Xcode**（排除原生 iOS）、**无浏览器 provider**（视觉只能用户自己看；UI 验证靠 jsdom 冒烟测试 + curl 构建产物）、**`web_search` 不可用**（不要断言未验证的第三方平台事实）。
-**沙箱网络到 github.com 不通**（SSH 22 与 HTTPS 均超时；clash 装着但没代理终端流量）→ CLI 部署路线全部排除，交付方式 = 构建 `dist/` 由用户浏览器拖拽上传（`daycell-dist.zip`）。
+~~沙箱网络到 github.com 不通~~ → ✅ **2026-10-01 起云电脑可直推**：`git push https://x-access-token:<token>@github.com/Yiduanzhi-ops/DayCell.git main`（device flow 换的 token），GitHub Actions 自动部署到 Pages。v7.2(96e70a4)/v7.3(da8c484)/v7.4(3ff2db8)/v7.5 均已推送上线。
 系统日期 **2026-09-30 周三**。
 栈：Vite 8.3.1(Rolldown) / TS 5.9.3（**不能升 7**，typescript-eslint 8.71 peer `<6.1.0`）/ React 19.3 / Zustand 5 / idb 8.0.3 / lunar-typescript 1.8.6 / Vitest 5.0.2 / lightningcss / fake-indexeddb。
 `vite.config.ts` 的 `manualChunks` **必须用函数形式**，Rolldown 不接受对象形式。

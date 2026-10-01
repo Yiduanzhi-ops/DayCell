@@ -67,12 +67,16 @@ export interface AnniversaryRecord extends CoreRecord {
   type: 'anniversary'
   title: string
   /**
-   * isLunar=false → date 是公历 'YYYY-MM-DD'
-   * isLunar=true  → date 是农历日期，**只有 MM-DD 有意义**，年份被忽略
+   * date 的语义随 repeat 变化（v7.5 扩展，公历/农历见 isLunar）：
+   * - none / yearly：'YYYY-MM-DD'。一次性 = 它自己那一天；每年 = 只看 MM-DD
+   * - monthly：'YYYY-MM-DD'，只看日号 DD（每月这一天；不存在的日期自动跳过，如 2 月 31 日）
+   * - weekly：'YYYY-MM-DD'，只看星期几（date 是"参考日期"，匹配每周同星期）
+   * - isLunar=true 时 date 是农历日期，**只有 MM-DD 有意义**，年份被忽略（仅 none/yearly 允许农历）
    */
   date: string
   isLunar: boolean
-  repeat: 'none' | 'yearly'
+  /** v7.5 扩展：weekly（每周）/ monthly（每月）。weekly/monthly 仅公历（设置 UI 约束） */
+  repeat: 'none' | 'yearly' | 'monthly' | 'weekly'
   /**
    * 农历闰月生日。该年没有对应闰月时，按同月号的普通月计（PRD E13）。
    * PRD §6.2 原表未列此字段，实现 E13 时补上——否则「闰六月初一」和「六月初一」无法区分。

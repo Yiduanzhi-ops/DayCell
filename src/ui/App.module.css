@@ -69,8 +69,8 @@
   /* v7.3：上移到底部 tab bar 之上，避免被遮挡 */
   bottom: calc(76px + env(safe-area-inset-bottom));
   transform: translateX(-50%) translateY(14px);
-  background: #1b1b1f;
-  color: #fff;
+  background: var(--toast-bg);
+  color: var(--toast-fg);
   font-size: 12.5px;
   padding: 8px 15px;
   border-radius: 9px;

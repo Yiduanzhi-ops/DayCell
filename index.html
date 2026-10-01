@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
-<meta name="color-scheme" content="light"/>
+<meta name="color-scheme" content="light dark"/>
 <meta name="description" content="人生小格（DayCell）—— 以「一天」为容器的记录本：待办、想法、花费。今天视图写当天，周视图回顾，月视图看密度。作者：以端枳"/>
 <meta name="theme-color" content="#FFFFFF"/>
 <meta name="author" content="以端枳"/>
@@ -14,6 +14,17 @@
 <meta name="apple-mobile-web-app-title" content="人生小格"/>
 <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png"/>
 <title>人生小格·DayCell</title>
+<script>
+  /* v7.5 夜间模式：splash 渲染前同步应用上次选择（手动开关，不跟随系统） */
+  (function () {
+    try {
+      var t = localStorage.getItem('daycell-theme') === 'dark' ? 'dark' : 'light';
+      document.documentElement.dataset.theme = t;
+      var meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', t === 'dark' ? '#141518' : '#FFFFFF');
+    } catch (e) { /* 隐私模式等：保持默认浅色 */ }
+  })();
+</script>
 <style>
   /* 启动页（v7.1）：内联在 HTML 里，JS bundle 下载期间就显示，填补白屏。
      显示时长**固定 1.5s**（用户拍板）——不由应用就绪触发提前退场，到点淡出。
@@ -81,6 +92,13 @@
   @media (prefers-reduced-motion: reduce) {
     .sp-brand, .sp-name, .sp-rule, .sp-author, .sp-logo { animation: none; }
   }
+  /* v7.5 夜间模式：splash 深色变体（data-theme 由 head 内联脚本在 splash 前同步设置） */
+  html[data-theme='dark'] #splash { background: #141518; }
+  html[data-theme='dark'] .sp-brand { color: #F2F3F5; }
+  html[data-theme='dark'] .sp-name { color: #B4BAC4; }
+  html[data-theme='dark'] .sp-rule { background: #7C9BFF; }
+  html[data-theme='dark'] .sp-author { color: #8E95A0; }
+  html[data-theme='dark'] #splash .sp-logo rect { fill: #7C9BFF; }
 </style>
 </head>
 <body>

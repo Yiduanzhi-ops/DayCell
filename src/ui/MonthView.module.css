@@ -52,7 +52,7 @@
 .cell:hover { border-color: var(--line); background: var(--bg-hover); }
 .cell.out { opacity: 0.38; }
 .cell.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; background: var(--accent-soft); }
-.cell.today .cnum { background: var(--accent); color: #fff; }
+.cell.today .cnum { background: var(--accent-strong); color: #fff; }
 
 .ctop { display: flex; align-items: baseline; justify-content: space-between; gap: 3px; }
 .cnum {

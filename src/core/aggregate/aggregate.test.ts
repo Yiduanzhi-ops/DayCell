@@ -515,6 +515,44 @@ describe('纪念日解析（公历 / 农历 / 一次性 / 脏数据）', () => {
     expect((await agg.aggregateDay(k('2026-09-29'))).anniversaries).toEqual([])
     expect((await agg.aggregateDayDetail(k('2026-09-29'))).anniversaries).toEqual([])
   })
+
+  it('weekly：每周同星期几命中（date 只取星期）', async () => {
+    // 2026-10-07 是周三；date 只是参考日期
+    await repos.anniversaries.create({ title: '每周例会', date: '2026-10-07', isLunar: false, repeat: 'weekly' })
+
+    // 9 月视图 42 格覆盖 8/31~10/11：其中的周三都命中
+    const days = await agg.aggregateMonth(k('2026-09-15'))
+    for (const d of ['2026-09-02', '2026-09-09', '2026-09-16', '2026-09-23', '2026-09-30', '2026-10-07']) {
+      expect(days.find((x) => x.date === d)?.anniversaries).toEqual(['每周例会'])
+    }
+    expect(days.find((x) => x.date === '2026-09-08')?.anniversaries ?? []).toEqual([]) // 周二不命中
+
+    // 日视图是任意日查询，不限于网格：10/21（周三）也能取到
+    const detail = await agg.aggregateDayDetail(k('2026-10-21'))
+    expect(detail.anniversaries.map((a) => a.title)).toEqual(['每周例会'])
+    expect(detail.anniversaries[0]).toMatchObject({ repeat: 'weekly', isLunar: false })
+  })
+
+  it('monthly：每月同日号命中，不存在的日期不命中', async () => {
+    await repos.anniversaries.create({ title: '还信用卡', date: '2026-01-15', isLunar: false, repeat: 'monthly' })
+    // 9 月视图 42 格覆盖 8/31~10/11：其中的 15 号命中
+    const days = await agg.aggregateMonth(k('2026-09-15'))
+    expect(days.find((x) => x.date === '2026-09-15')?.anniversaries).toEqual(['还信用卡'])
+    expect(days.find((x) => x.date === '2026-08-31')?.anniversaries ?? []).toEqual([]) // 31 号不命中
+    expect(days.find((x) => x.date === '2026-09-14')?.anniversaries ?? []).toEqual([])
+  })
+
+  it('monthly 31 号：没有 31 号的月份不命中', async () => {
+    await repos.anniversaries.create({ title: '月底', date: '2026-01-31', isLunar: false, repeat: 'monthly' })
+    // 2 月视图（1/26~3/8）：1/31 命中（1 月有 31 号），2/28 不命中（2 月无 31 号）
+    const feb = await agg.aggregateMonth(k('2026-02-15'))
+    expect(feb.find((x) => x.date === '2026-01-31')?.anniversaries).toEqual(['月底'])
+    expect(feb.find((x) => x.date === '2026-02-28')?.anniversaries ?? []).toEqual([])
+    // 3 月视图：3/31 命中、3/30 不命中
+    const mar = await agg.aggregateMonth(k('2026-03-15'))
+    expect(mar.find((x) => x.date === '2026-03-31')?.anniversaries).toEqual(['月底'])
+    expect(mar.find((x) => x.date === '2026-03-30')?.anniversaries ?? []).toEqual([])
+  })
 })
 
 describe('默认分类完整性', () => {

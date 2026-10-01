@@ -73,7 +73,7 @@
   /* 触摸目标（PRD §5.5） */
   min-height: 32px;
 }
-.roll button:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.roll button:hover { background: var(--accent-strong); color: #fff; border-color: var(--accent-strong); }
 .roll .ghostBtn { color: var(--ink-3); border-color: var(--line); }
 .roll .ghostBtn:hover { background: var(--bg-hover); color: var(--ink-2); border-color: var(--line); }
 
