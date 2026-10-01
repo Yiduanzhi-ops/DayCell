@@ -191,4 +191,23 @@ describe('App 冒烟', () => {
     expect(store.getState().annivList).toHaveLength(1)
     expect(store.getState().annivList[0]).toMatchObject({ repeat: 'weekly', isLunar: false })
   })
+
+  it('v7.6 支出/想法创建成功后面板收起，不自动弹新条目（与待办一致）', async () => {
+    await renderApp()
+
+    // 支出：记一笔 → 保存 → 表单消失
+    fireEvent.click(screen.getByRole('button', { name: '记一笔支出' }))
+    fireEvent.change(screen.getByLabelText('做了什么'), { target: { value: '午饭' } })
+    fireEvent.change(screen.getByLabelText('金额（元）'), { target: { value: '12' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await screen.findByText('午饭')
+    await waitFor(() => expect(screen.queryByLabelText('金额（元）')).not.toBeInTheDocument())
+
+    // 想法：添加 → 保存 → 表单消失
+    fireEvent.click(screen.getByRole('button', { name: '添加想法' }))
+    fireEvent.change(screen.getByLabelText('新想法'), { target: { value: '一个念头' } })
+    fireEvent.click(screen.getAllByRole('button', { name: '保存' }).at(-1)!)
+    await screen.findByText('一个念头')
+    await waitFor(() => expect(screen.queryByLabelText('新想法')).not.toBeInTheDocument())
+  })
 })

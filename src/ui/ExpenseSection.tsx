@@ -97,9 +97,7 @@ function ExpenseForm(): JSX.Element {
     }
     const ok = await createExpense(r.value, fallbackCatId, note.trim())
     if (ok) {
-      setAmt('')
-      setNote('')
-      amtRef.current?.focus() // 表单保留，连续记下一笔（US-06）
+      closeForm() // v7.6 修订：创建完表单收起（与待办一致，用户拍板改手动；需要时再点「+ 记一笔」）
     }
   }
 

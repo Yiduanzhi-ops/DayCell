@@ -82,8 +82,7 @@ function NoteForm(): JSX.Element {
   const submit = async (): Promise<void> => {
     const ok = await createNote(v)
     if (ok) {
-      setV('')
-      ref.current?.focus()
+      closeForm() // v7.6 修订：创建完表单收起（与待办一致，用户拍板改手动；需要时再点「+ 添加」）
     }
   }
 

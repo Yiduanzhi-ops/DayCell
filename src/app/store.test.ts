@@ -405,7 +405,7 @@ describe('表单状态机（v6.1 单一入口）', () => {
 })
 
 describe('写操作（repo 校验 → refresh → toast）', () => {
-  it('createTodo 成功：进列表、toast、返回 true（表单保留清空，US-06）', async () => {
+  it('createTodo 成功：进列表、toast、返回 true（表单收起与否是 UI 层行为，见 App.test.tsx）', async () => {
     const { app } = await makeApp()
     const ok = await S(app).createTodo('买牛奶')
     expect(ok).toBe(true)
