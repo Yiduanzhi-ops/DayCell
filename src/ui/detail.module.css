@@ -142,9 +142,12 @@
 .iform input::placeholder, .iform textarea::placeholder { color: var(--ink-3); }
 .iform input:focus, .iform textarea:focus, .iform select:focus { border-color: var(--accent-line); box-shadow: 0 0 0 3px var(--accent-soft); }
 .ifRow { display: flex; gap: 7px; flex-wrap: wrap; }
-.ifCat { flex: 0 0 82px; }
 .ifAmt { flex: 0 0 84px; }
-.ifExpNote { flex: 1; min-width: 100px; }
+.ifExpNote { flex: 1; min-width: 120px; }
+/* v7.6：支出表单去分类，金额前固定 ¥（yenWrap 包裹 input，input 自适应剩余宽度） */
+.yenWrap { display: flex; align-items: center; gap: 2px; flex: 0 0 98px; }
+.yenWrap .ifAmt { flex: 1; min-width: 0; }
+.yen { font-weight: 600; color: var(--ink-2); font-size: 13px; }
 .ifInput { width: 100%; }
 .ifArea { width: 100%; resize: vertical; min-height: 60px; line-height: 1.6; }
 .acts { display: flex; align-items: center; gap: 7px; justify-content: flex-end; }

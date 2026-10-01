@@ -24,7 +24,9 @@ export function TodoSection({ dayWord }: { dayWord: string }): JSX.Element {
   const deleteTodo = useApp((s) => s.deleteTodo)
 
   const todos = detail?.todos ?? []
-  const { done, total } = todoProgress(todos)
+  // v7.6：已完成的自动沉底；未完成保持原序（Array.prototype.sort 稳定）
+  const sorted = [...todos].sort((a, b) => Number(a.done) - Number(b.done))
+  const { done, total } = todoProgress(sorted)
   /** 正在就地编辑的待办 id（v7 / US-13）。同一时刻最多一条 */
   const [editingId, setEditingId] = useState<string | null>(null)
 
@@ -44,8 +46,8 @@ export function TodoSection({ dayWord }: { dayWord: string }): JSX.Element {
         </button>
       </div>
       <div className={styles.tlist}>
-        {todos.length > 0 ? (
-          todos.map((t) => (
+        {sorted.length > 0 ? (
+          sorted.map((t) => (
             <div
               key={t.id}
               className={[

@@ -211,8 +211,8 @@ describe('renderRangeMd', () => {
     ...over,
   })
 
-  it('渲染待办/想法/花费与小计合计', () => {
-    const md = renderRangeMd('人生小格 · 本周记录', [
+  it('渲染待办/想法/支出与小计合计', () => {
+    const md = renderRangeMd('DayCell · 本周记录', [
       day('2026-09-28', {
         todos: [
           { id: '1', type: 'todo', date: k('2026-09-28'), text: '写周报', done: true, createdAt: 1, updatedAt: 1, deleted: false },
@@ -225,7 +225,7 @@ describe('renderRangeMd', () => {
         ],
       }),
     ])
-    expect(md).toContain('# 人生小格 · 本周记录')
+    expect(md).toContain('# DayCell · 本周记录')
     expect(md).toContain('## 9月28日 周一')
     expect(md).toContain('- [x] 写周报')
     expect(md).toContain('- [ ] 跑步')

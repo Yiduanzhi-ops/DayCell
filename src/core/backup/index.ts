@@ -285,7 +285,7 @@ function dateHeading(k: DateKey): string {
 /**
  * 把一段日期的记录渲染成 Markdown（纯函数，无 IO）。
  *
- * 结构：标题 → 日期区间 → 每日小节（待办/想法/花费，空节跳过）→ 每日小计 → 末尾区间合计。
+ * 结构：标题 → 日期区间 → 每日小节（待办/想法/支出，空节跳过）→ 每日小计 → 末尾区间合计。
  */
 export function renderRangeMd(title: string, days: MdDay[]): string {
   if (days.length === 0) return `# ${title}\n\n（该区间没有记录）\n`
@@ -312,7 +312,7 @@ export function renderRangeMd(title: string, days: MdDay[]): string {
       lines.push('')
     }
     if (activeExpenses.length > 0) {
-      lines.push('### 花费', '')
+      lines.push('### 支出', '')
       for (const e of activeExpenses) {
         lines.push(`- ${day.catName(e.catId)} ¥${formatMoney(e.amountCents)}${e.note ? `（${e.note}）` : ''}`)
       }

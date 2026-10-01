@@ -89,7 +89,7 @@ export interface AppState {
   wantFocus: boolean
   /** 已点「忽略」顺延横幅的日期（会话级） */
   rollDismissed: Record<string, true>
-  /** 上次记花费选的分类（S5，会话级） */
+  /** 上次记支出选的分类（S5，会话级）——v7.6 录入不再选分类，字段保留待将来恢复 */
   lastCatId: string | null
 
   // ---- actions ----
@@ -532,12 +532,14 @@ export function createAppStore(
       try {
         const file = await serializeBackup(bundle.store)
         const day = new Date(file.exportedAt).toISOString().slice(0, 10)
+        const filename = `daycell-backup-${day}.json`
         downloadText(
-          `daycell-backup-${day}.json`,
+          filename,
           JSON.stringify(file, null, 2),
           'application/json',
         )
-        get().showToast('已导出备份')
+        // v7.6：明确告知文件名与去向（用户反馈"只给了文本没告诉保存"）
+        get().showToast(`已导出备份：${filename}（文件在浏览器下载列表）`)
         return true
       } catch (e) {
         get().showToast(errMsg(e))
@@ -587,14 +589,15 @@ export function createAppStore(
           expenses: data.expenses.filter((e) => e.date === date),
           catName: (catId: string) => catMap.get(catId) ?? '已删除分类',
         }))
-        const title = kind === 'week' ? '人生小格 · 本周记录' : '人生小格 · 本月记录'
+        const title = kind === 'week' ? 'DayCell · 本周记录' : 'DayCell · 本月记录'
         const md = renderRangeMd(title, days)
+        const filename = `daycell-${kind === 'week' ? '周记录' : '月记录'}-${from}.md`
         downloadText(
-          `daycell-${kind === 'week' ? '周记录' : '月记录'}-${from}.md`,
+          filename,
           md,
           'text/markdown;charset=utf-8',
         )
-        get().showToast(`已导出${kind === 'week' ? '本周' : '本月'} Markdown`)
+        get().showToast(`已导出：${filename}（文件在浏览器下载列表）`)
         return true
       } catch (e) {
         get().showToast(errMsg(e))

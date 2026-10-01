@@ -88,10 +88,10 @@ describe('App 冒烟', () => {
     await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
   })
 
-  it('月格三行：只有花费（无待办）也显示金额；想法以点提示在右下角（v7.1）', async () => {
+  it('月格三行：只有支出（无待办）也显示金额；想法以点提示在右下角（v7.1）', async () => {
     const store = await renderApp()
-    // 只记一笔花费 + 一条想法——复现旧版被 todoTotal gate 住的场景
-    fireEvent.click(screen.getByRole('button', { name: '记一笔花费' }))
+    // 只记一笔支出 + 一条想法——复现旧版被 todoTotal gate 住的场景
+    fireEvent.click(screen.getByRole('button', { name: '记一笔支出' }))
     fireEvent.change(screen.getByLabelText('金额（元）'), { target: { value: '129' } })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     await waitFor(() => expect(store.getState().detail?.summary.costCents).toBe(12900))
@@ -103,7 +103,7 @@ describe('App 冒烟', () => {
     fireEvent.click(screen.getByRole('tab', { name: '月' }))
     await waitFor(() => expect(screen.getAllByRole('gridcell')).toHaveLength(42))
     const cell = screen.getByLabelText(/2026年9月29日/)
-    // 行2：花费独立显示（修复前：无待办的日子花费不可见）
+    // 行2：支出独立显示（修复前：无待办的日子支出不可见）
     expect(cell.textContent).toContain('¥129')
     // 行3 右下角：想法点（i 元素，aria-hidden，条数 1 不带数字）
     const nind = cell.querySelector('[class*="nind"]')
@@ -118,10 +118,41 @@ describe('App 冒烟', () => {
     await renderApp()
     // 顶栏只留品牌；日期在内容区（dhead），不重复
     const header = document.querySelector('header')!
-    expect(header.textContent).toContain('人生小格·DayCell')
+    expect(header.textContent).toContain('DayCell')
     expect(header.textContent).not.toContain('29 日')
     expect(header.textContent).not.toContain('2026 年')
     expect(document.body.textContent).toContain('2026 年 9 月 29 日') // 内容区仍在
+  })
+
+  it('v7.6 支出表单：无分类选择，先写「做了什么」再填带 ¥ 的金额', async () => {
+    await renderApp()
+    fireEvent.click(screen.getByRole('button', { name: '记一笔支出' }))
+    expect(screen.queryByLabelText('分类')).not.toBeInTheDocument() // 分类选择已去掉
+    expect(screen.getByLabelText('做了什么')).toBeInTheDocument() // 备注前置
+    expect(screen.getByLabelText('金额（元）')).toBeInTheDocument()
+    expect(screen.getByText('¥')).toBeInTheDocument() // 金额前固定 ¥
+  })
+
+  it('v7.6 已完成的待办自动沉底，未完成保持原序', async () => {
+    await renderApp()
+    // 先加「甲」，再加「乙」，再勾掉「甲」→ 顺序应变 乙、甲
+    fireEvent.click(screen.getByRole('button', { name: '添加待办' }))
+    let input = screen.getByLabelText('新待办')
+    fireEvent.change(input, { target: { value: '甲' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await screen.findByText('甲')
+
+    fireEvent.click(screen.getByRole('button', { name: '添加待办' }))
+    input = screen.getByLabelText('新待办')
+    fireEvent.change(input, { target: { value: '乙' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await screen.findByText('乙')
+
+    fireEvent.click(screen.getByRole('button', { name: '标记完成：甲' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: '标记未完成：甲' })).toBeInTheDocument())
+
+    const rows = screen.getAllByLabelText(/^编辑待办：/)
+    expect(rows.map((el) => el.getAttribute('aria-label'))).toEqual(['编辑待办：乙', '编辑待办：甲'])
   })
 
   it('v7.5 右上角菜单：项齐全、顺序正确、夜间模式开关生效', async () => {

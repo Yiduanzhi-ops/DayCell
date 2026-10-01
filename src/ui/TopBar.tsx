@@ -1,5 +1,5 @@
 /**
- * 顶栏：品牌（logo + 人生小格·DayCell）/ 前后翻页 / 标题 / 今天按钮 / **右上角菜单**（v7.5）。
+ * 顶栏：品牌（logo + DayCell，v7.6 去「人生小格」前缀）/ 前后翻页 / 标题 / 今天按钮 / **右上角菜单**（v7.5）。
  *
  * 标题内容按视图分叉（原型 renderTitle 的移植）：
  *  - 今天：**空**（v7.5 用户拍板：顶栏不重复显示日期周几，内容区已有完整日期）
@@ -69,7 +69,7 @@ export function TopBar(): JSX.Element {
     <header className={styles.topbar}>
       <div className={styles.brand}>
         <BrandMark />
-        <span>人生小格·DayCell</span>
+        <span>DayCell</span>
       </div>
       <div className={view === 'day' ? `${styles.nav} ${styles.navDay}` : styles.nav}>
         <button onClick={() => shift(-1)} aria-label="上一个" title="上一个">
