@@ -1,5 +1,20 @@
-/* 月视图：星期头 + 42 格网格（原型 .wkhead / .grid / .cell 段移植）。
+/* 月视图：汇总条 + 星期头 + 42 格网格（原型 .wkhead / .grid / .cell 段移植）。
    格子只有指示器没有正文；极窄屏隐藏花费（PRD E22）。 */
+
+/* v7.4：本月消费汇总条——样式对齐周视图 .weekbar（位置在星期头上方） */
+.mbar {
+  flex: 0 0 auto;
+  padding: 10px 16px;
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--ink-2);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.mbar b { font-weight: 600; }
+.mspacer { flex: 1; }
 
 .wkhead {
   display: grid;

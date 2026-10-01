@@ -38,6 +38,12 @@ export function MonthView(): JSX.Element {
 
   return (
     <>
+      {/* v7.4：本月消费汇总条，位置/样式对齐周视图的 weekbar（本周支出） */}
+      <div className={styles.mbar}>
+        <span>{month?.summary.daysWithRecords ?? 0} 天有记录</span>
+        <span className={styles.mspacer} />
+        <span>本月消费 <b>¥{formatMoney(month?.summary.costCents ?? 0)}</b></span>
+      </div>
       <div className={styles.wkhead}>
         {WK_HEAD.map((w, i) => (
           <div key={w} className={i >= 5 ? styles.we : undefined}>{w}</div>

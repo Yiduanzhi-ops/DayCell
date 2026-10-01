@@ -1,7 +1,7 @@
 /**
  * 顶栏：品牌（logo + 人生小格·DayCell）/ 前后翻页 / 标题 / 今天按钮。
  * 标题内容按视图分叉（原型 renderTitle 的移植）：
- *  - 今天：`2026 年 9 月` + `29 日 周二`
+ *  - 今天：`1 日 周二`（v7.4：不显示年月，用户拍板）
  *  - 周：月份或跨月区间 + `28–4 日`
  *  - 月：`2026 年 9 月` + `N 天有记录 · ¥x`（月汇总，US-11）
  * 「今天」按钮只在选中日 ≠ 今天时出现（US-09）。
@@ -12,6 +12,7 @@ import type { JSX } from 'react'
 import { dowOf, formatMoney, fromKey } from '@core'
 import { useApp } from '@/app/context'
 import { ChevronLeft, ChevronRight } from './icons'
+import { BrandMark } from './BrandMark'
 import styles from './TopBar.module.css'
 
 const DOW = ['日', '一', '二', '三', '四', '五', '六'] as const
@@ -29,7 +30,8 @@ export function TopBar(): JSX.Element {
   let title = `${y} 年 ${m} 月`
   let sub = ''
   if (view === 'day') {
-    sub = `${d} 日 周${DOW[dowOf(selected)]}`
+    // v7.4：今天视图顶栏不显示年月（用户拍板：手机上"某年某月"冗余），只留日期
+    title = `${d} 日 周${DOW[dowOf(selected)]}`
   } else if (view === 'week') {
     const a = week?.days[0] ? fromKey(week.days[0].date) : null
     const b = week?.days[6] ? fromKey(week.days[6].date) : null
@@ -44,7 +46,7 @@ export function TopBar(): JSX.Element {
   return (
     <header className={styles.topbar}>
       <div className={styles.brand}>
-        <i className={styles.mark} aria-hidden="true" />
+        <BrandMark />
         <span>人生小格·DayCell</span>
       </div>
       <div className={view === 'day' ? `${styles.nav} ${styles.navDay}` : styles.nav}>

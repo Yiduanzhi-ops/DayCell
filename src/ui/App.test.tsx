@@ -49,9 +49,8 @@ describe('App 冒烟', () => {
     fireEvent.change(input, { target: { value: '买牛奶' } })
     fireEvent.keyDown(input, { key: 'Enter' })
     expect(await screen.findByText('买牛奶')).toBeInTheDocument()
-    // US-06：保存后表单保留并清空，可连续录入
-    await waitFor(() => expect((input as HTMLInputElement).value).toBe(''))
-    expect(screen.getByLabelText('新待办')).toBeInTheDocument()
+    // v7.4：创建完表单收起（不再保留并清空连续录入，用户拍板改手动）
+    await waitFor(() => expect(screen.queryByLabelText('新待办')).not.toBeInTheDocument())
   })
 
   it('点已存待办的文字 → 就地编辑，回车保存（v7 / US-13）', async () => {

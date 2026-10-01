@@ -17,23 +17,8 @@
   align-items: center;
   gap: 7px;
 }
-.mark {
-  width: 17px;
-  height: 17px;
-  border-radius: 4px;
-  background: var(--accent);
-  position: relative;
-  flex: 0 0 auto;
-}
-.mark::after {
-  content: "";
-  position: absolute;
-  inset: 5px 3px auto 3px;
-  height: 2px;
-  background: #fff;
-  border-radius: 1px;
-  box-shadow: 0 4px 0 #fff;
-}
+/* v7.4：logo 由 BrandMark.tsx 内联 SVG 提供（原 CSS 两横线 .mark 已删除） */
+.brand svg { flex: 0 0 auto; display: block; }
 
 .nav { display: flex; align-items: center; gap: 2px; margin-left: 6px; }
 /* v7 / D19：今天视图不翻日，前后箭头只在周/月视图出现（隐藏而不是留一个 no-op 按钮） */

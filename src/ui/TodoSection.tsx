@@ -1,6 +1,6 @@
 /**
  * 待办区块（M4：CRUD + 勾选；US-04 顺延痕迹展示；US-13 点文字就地编辑，v7）。
- * 表单保存后**保留并清空**（US-06 连续录入），Esc / 取消收起。
+ * 表单保存后**收起**（v7.4：原"保留并清空连续录入"改为手动——用户拍板），Esc / 取消收起。
  *
  * 编辑交互（US-13）：点待办文字 → 原位变输入框；回车保存、Esc 取消、
  * 失焦时「有改动即保存、没改动即取消」。IME 组合中的回车是确认候选词，不触发保存。
@@ -95,21 +95,17 @@ function TodoForm(): JSX.Element {
   const createTodo = useApp((s) => s.createTodo)
   const closeForm = useApp((s) => s.closeForm)
   const [v, setV] = useState('')
-  const ref = useRef<HTMLInputElement>(null)
 
   const submit = async (): Promise<void> => {
     const ok = await createTodo(v)
-    if (ok) {
-      setV('') // 表单保留并清空，方便连续录入（US-06）
-      ref.current?.focus()
-    }
+    // v7.4：创建完收起表单（不再保留并聚焦"连续录入"——用户拍板改手动，需要时再点「+ 添加」）
+    if (ok) closeForm()
   }
 
   return (
     <div className={styles.iform}>
       <input
         data-autofocus
-        ref={ref}
         className={styles.ifInput}
         value={v}
         placeholder="要做的事"
