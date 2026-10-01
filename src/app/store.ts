@@ -71,8 +71,6 @@ export interface AppState {
   edit: FormKind | null
   /** 请求聚焦当前表单并 scrollIntoView；DayView 渲染后消费一次 */
   wantFocus: boolean
-  /** 空白日自动展开过、但被用户收起的日期（会话级，PRD D18） */
-  formDismissed: Record<string, true>
   /** 已点「忽略」顺延横幅的日期（会话级） */
   rollDismissed: Record<string, true>
   /** 上次记花费选的分类（S5，会话级） */
@@ -159,7 +157,6 @@ export function createAppStore(
 
     edit: null,
     wantFocus: false,
-    formDismissed: {},
     rollDismissed: {},
     lastCatId: null,
 
@@ -194,15 +191,6 @@ export function createAppStore(
           loading: false,
         }
 
-        // v6.1 补速（PRD D18）：完全空白的一天自动展开待办表单并聚焦。
-        // 前提：① 日详情此刻真的可见（窄屏周/月视图下它是 display:none）
-        //       ② 用户没在这一天主动收起过——否则就成了赶不走的骚扰
-        const s = get()
-        const detailVisible = s.view === 'day' || !narrow()
-        if (detail.summary.isEmpty && !s.edit && !s.formDismissed[s.selected] && detailVisible) {
-          patch.edit = 'todo'
-          patch.wantFocus = true
-        }
         set(patch)
       } catch (e) {
         if (seq !== loadSeq) return
@@ -300,18 +288,16 @@ export function createAppStore(
     openForm(f) {
       const s = get()
       if (s.edit === f) {
-        // 再点一次同一个「+ 添加」= 收起。必须记账：否则空白日会立刻又被自动展开，
-        // 用户根本关不掉这个表单（v6.1 自动展开的副作用，原型实测踩过）
-        set({ edit: null, wantFocus: false, formDismissed: { ...s.formDismissed, [s.selected]: true } })
+        // 再点一次同一个「+ 添加」= 收起
+        set({ edit: null, wantFocus: false })
       } else {
         set({ edit: f, wantFocus: true })
       }
     },
 
     closeForm() {
-      const s = get()
-      if (!s.edit) return
-      set({ edit: null, wantFocus: false, formDismissed: { ...s.formDismissed, [s.selected]: true } })
+      if (!get().edit) return
+      set({ edit: null, wantFocus: false })
     },
 
     consumeFocus() {

@@ -122,7 +122,7 @@ function TodoForm(): JSX.Element {
           if (e.key === 'Enter') { e.preventDefault(); void submit() }
         }}
       />
-      <FormActs tip="回车保存" onCancel={closeForm} onSave={submit} />
+      <FormActs onCancel={closeForm} onSave={submit} />
     </div>
   )
 }

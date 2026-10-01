@@ -146,7 +146,7 @@ function ExpenseForm(): JSX.Element {
           onKeyDown={onKey}
         />
       </div>
-      <FormActs tip="回车保存" onCancel={closeForm} onSave={submit} />
+      <FormActs onCancel={closeForm} onSave={submit} />
     </div>
   )
 }

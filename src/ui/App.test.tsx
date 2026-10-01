@@ -1,7 +1,7 @@
 /**
  * UI 冒烟测试（守"上线的东西能跑"）：
- *  1. 应用挂载 → 默认「今天」视图显示今天（v6 落地页 / v7 并入今天语义）+ 空白日自动展开待办表单（D18）
- *  2. 表单里敲字回车 → 待办出现在列表里（v6.1 单一录入入口全链路）
+ *  1. 应用挂载 → 默认「今天」视图显示今天（v6 落地页 / v7 并入今天语义）；空白日不自动展开表单（v7.2），手动点「+ 添加」才弹出
+ *  2. 点「添加待办」→ 表单里敲字回车 → 待办出现在列表里（v6.1 单一录入入口全链路）
  *  3. 点已存待办的文字 → 就地编辑（v7 / US-13）
  *  4. 切到月视图 → 42 格网格；点「今天」标签 → 回到今天（v7 / D19：切回今天恒复位选中日）
  *
@@ -31,16 +31,20 @@ async function renderApp() {
 }
 
 describe('App 冒烟', () => {
-  it('默认落地今天的日视图，空白日自动展开待办表单', async () => {
+  it('默认落地今天的日视图；空白日不自动展开，手动点「+ 添加」才弹出（v7.2）', async () => {
     await renderApp()
     expect(document.body.textContent).toContain('2026 年 9 月 29 日')
     expect(screen.getByText('今天', { selector: 'span' })).toBeInTheDocument() // 日头的「今天」徽标（v7 后 tab 同名，用 selector 限定）
-    expect(screen.getByLabelText('新待办')).toBeInTheDocument() // D18 自动展开
+    expect(screen.queryByLabelText('新待办')).not.toBeInTheDocument() // 不再自动展开（v7.2）
     expect(screen.getByRole('tab', { name: '今天' })).toBeInTheDocument() // v7：切换器首标签
+
+    fireEvent.click(screen.getByRole('button', { name: '添加待办' }))
+    expect(screen.getByLabelText('新待办')).toBeInTheDocument()
   })
 
-  it('敲字回车 → 待办出现在列表（单一录入入口全链路）', async () => {
+  it('点「添加待办」→ 敲字回车 → 待办出现在列表（单一录入入口全链路）', async () => {
     await renderApp()
+    fireEvent.click(screen.getByRole('button', { name: '添加待办' }))
     const input = screen.getByLabelText('新待办')
     fireEvent.change(input, { target: { value: '买牛奶' } })
     fireEvent.keyDown(input, { key: 'Enter' })
@@ -52,6 +56,7 @@ describe('App 冒烟', () => {
 
   it('点已存待办的文字 → 就地编辑，回车保存（v7 / US-13）', async () => {
     await renderApp()
+    fireEvent.click(screen.getByRole('button', { name: '添加待办' }))
     const input = screen.getByLabelText('新待办')
     fireEvent.change(input, { target: { value: '买牛奶' } })
     fireEvent.keyDown(input, { key: 'Enter' })
@@ -84,8 +89,7 @@ describe('App 冒烟', () => {
 
   it('月格三行：只有花费（无待办）也显示金额；想法以点提示在右下角（v7.1）', async () => {
     const store = await renderApp()
-    // 收掉自动展开的待办表单，只记一笔花费 + 一条想法——复现旧版被 todoTotal gate 住的场景
-    fireEvent.click(screen.getByRole('button', { name: '收起待办表单' }))
+    // 只记一笔花费 + 一条想法——复现旧版被 todoTotal gate 住的场景
     fireEvent.click(screen.getByRole('button', { name: '记一笔花费' }))
     fireEvent.change(screen.getByLabelText('金额（元）'), { target: { value: '129' } })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))

@@ -105,7 +105,7 @@ function NoteForm(): JSX.Element {
           if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void submit() }
         }}
       />
-      <FormActs tip="⌘ / Ctrl + 回车保存" onCancel={closeForm} onSave={submit} />
+      <FormActs onCancel={closeForm} onSave={submit} />
     </div>
   )
 }
@@ -147,7 +147,6 @@ function NoteEdit({ note, onDone }: { note: NoteRecord; onDone: () => void }): J
         }}
       />
       <div className={styles.acts}>
-        <span className={styles.tip}>回车换行 · ⌘ / Ctrl + 回车保存</span>
         <button className={styles.cancel} onClick={() => finish(false)}>取消</button>
         <button className={styles.save} onClick={() => finish(true)}>保存</button>
       </div>

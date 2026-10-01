@@ -7,8 +7,9 @@
  *
  * 两条硬性交互（ADR-0005 v6 / PRD D18）：
  *  1. 「← 返回」只在**从周/月点格子进来**（source != null）时出现，回到来源视图+日期+滚动位置
- *  2. 完全空白的一天自动展开待办表单并聚焦（wantFocus → [data-autofocus]），
- *     且必须 scrollIntoView——表单可能在折叠线以下，不滚过去看起来像"点了没反应"
+ *  2. 表单只在**手动点「+ 添加」**时展开（v7.2 起不再对空白日自动展开），展开后聚焦
+ *     （wantFocus → [data-autofocus]）并 scrollIntoView——表单可能在折叠线以下，不滚过去
+ *     看起来像"点了没反应"
  *
  * 换日过渡（v7）：detail 刷新期间旧内容保持可见（store.refresh 不清 detail），
  * 新数据落地后按 selected 变化重放一次 CSS 入场动画——窄屏整屏滑入、宽屏内容淡入。
@@ -40,7 +41,7 @@ export function DayView(): JSX.Element {
 
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // 表单聚焦（自动展开 / 手动展开共用一条路径）
+  // 表单聚焦（手动展开入口；wantFocus 由 openForm 置位，渲染后消费一次）
   useEffect(() => {
     if (!wantFocus || !edit) return
     const el = scrollRef.current?.querySelector<HTMLElement>('[data-autofocus]')

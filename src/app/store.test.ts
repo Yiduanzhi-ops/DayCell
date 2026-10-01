@@ -6,7 +6,7 @@
  *  - 今天视图 shift() 是 no-op——翻日已删除（v7）
  *  - 手机进日详情必须记来源 {view, date, scrollTop}，返回精确还原
  *  - 周/月翻页绝不 push history；进日详情 push 的条目必须被 back/setView/popstate 正确弹掉
- *  - 空白日自动展开待办表单；用户收起过的那天不再弹
+ *  - 表单只在手动点「+ 添加」时展开（v7.2 起空白日不再自动展开）
  *  - 过期加载不得覆盖新状态（快速切日竞态）
  *
  * history 用 stub 注入 globalThis（Node 无 history 全局，canHistory() 会自然短路——
@@ -327,68 +327,41 @@ describe('手机来源栈（ADR-0005 v6 硬约束）', () => {
   })
 })
 
-describe('空白日自动展开（v6.1 补速，PRD D18）', () => {
-  it('完全空白的一天：自动展开待办表单并请求聚焦', async () => {
+describe('表单展开（v7.2：空白日不再自动展开，手动点「+ 添加」才弹出）', () => {
+  it('完全空白的一天：不自动展开，也不请求聚焦', async () => {
     const { app } = await makeApp()
-    expect(S(app).edit).toBe('todo')
-    expect(S(app).wantFocus).toBe(true)
+    expect(S(app).edit).toBeNull()
+    expect(S(app).wantFocus).toBe(false)
   })
 
-  it('有内容的天不自动展开', async () => {
+  it('有内容的天不展开（与空白日行为一致）', async () => {
     const { app } = await makeApp()
-    S(app).closeForm()
     await S(app).createTodo('买牛奶')
     expect(S(app).detail?.summary.isEmpty).toBe(false)
     expect(S(app).edit).toBeNull()
     expect(S(app).wantFocus).toBe(false)
   })
 
-  it('用户收起过的那天不再弹；进到别的空白日照常弹', async () => {
-    const { app } = await makeApp()
-    expect(S(app).edit).toBe('todo')
-    S(app).closeForm()
-    expect(S(app).formDismissed[TODAY]).toBe(true)
-
-    // v7：日视图不翻日，进其他日子走 selectFromCalendar（宽屏 = 右栏换日）
-    S(app).selectFromCalendar('2026-09-30' as DateKey) // 也是空白日，且没被收起过
-    // ⚠️ 等 detail.date 而不是 selected：selected 是同步换的，
-    //    自动展开发生在 refresh 落地那一刻，等早了会误判
-    await waitFor(() => expect(S(app).detail?.date).toBe('2026-09-30'))
-    expect(S(app).edit).toBe('todo')
-
-    S(app).closeForm()
-    S(app).selectFromCalendar(TODAY) // 回到今天：空白但已收起 → 不弹
-    await waitFor(() => expect(S(app).detail?.date).toBe(TODAY))
-    expect(S(app).edit).toBeNull()
-  })
-
-  it('窄屏周/月视图下日详情不可见：不自动展开', async () => {
-    const { app } = await makeApp({ narrow: true })
-    S(app).setView('week')
-    await waitFor(() => expect(S(app).week).not.toBeNull())
-    expect(S(app).edit).toBeNull()
-    S(app).setView('month')
-    await waitFor(() => expect(S(app).month).not.toBeNull())
-    expect(S(app).edit).toBeNull()
-  })
-
-  it('宽屏周/月视图右栏常驻可见：空白日照常自动展开', async () => {
+  it('换日（点格子）后仍不自动展开；refresh 不打开表单', async () => {
     const { app } = await makeApp({ narrow: false })
-    S(app).setView('week')
-    await waitFor(() => expect(S(app).week).not.toBeNull())
-    expect(S(app).edit).toBe('todo')
+    S(app).selectFromCalendar('2026-09-30' as DateKey)
+    // 等 detail.date 而不是 selected：selected 是同步换的，聚合数据落地那一刻才是关键
+    await waitFor(() => expect(S(app).detail?.date).toBe('2026-09-30'))
+    expect(S(app).edit).toBeNull()
+    expect(S(app).wantFocus).toBe(false)
   })
 
-  it('已有别的表单展开时不抢占（!s.edit 前提）', async () => {
+  it('手动展开后 refresh 不干扰已展开的表单', async () => {
     const { app } = await makeApp()
-    S(app).openForm('cost') // 用户在空白日主动开了记账表单
+    S(app).openForm('cost')
     expect(S(app).edit).toBe('cost')
     await S(app).refresh()
-    expect(S(app).edit).toBe('cost') // 不被自动展开覆盖成 todo
+    expect(S(app).edit).toBe('cost')
   })
 
   it('consumeFocus 消费一次即清空', async () => {
     const { app } = await makeApp()
+    S(app).openForm('todo')
     expect(S(app).wantFocus).toBe(true)
     S(app).consumeFocus()
     expect(S(app).wantFocus).toBe(false)
@@ -396,12 +369,12 @@ describe('空白日自动展开（v6.1 补速，PRD D18）', () => {
 })
 
 describe('表单状态机（v6.1 单一入口）', () => {
-  it('再点同一个「+ 添加」= 收起，并记 formDismissed（否则空白日立刻又弹，用户关不掉）', async () => {
+  it('再点同一个「+ 添加」= 收起', async () => {
     const { app } = await makeApp()
-    expect(S(app).edit).toBe('todo') // 自动展开态
+    S(app).openForm('todo')
+    expect(S(app).edit).toBe('todo')
     S(app).openForm('todo')
     expect(S(app).edit).toBeNull()
-    expect(S(app).formDismissed[TODAY]).toBe(true)
   })
 
   it('切到另一种表单：展开新的并请求聚焦', async () => {
@@ -413,11 +386,11 @@ describe('表单状态机（v6.1 单一入口）', () => {
     expect(S(app).edit).toBe('note')
   })
 
-  it('closeForm 无表单时是 no-op，不误记 formDismissed', async () => {
+  it('closeForm 无表单时是 no-op', async () => {
     const { app } = await makeApp()
     S(app).openForm('cost')
     S(app).closeForm()
-    expect(S(app).formDismissed[TODAY]).toBe(true)
+    expect(S(app).edit).toBeNull()
     S(app).closeForm() // 再关一次不会出错
     expect(S(app).edit).toBeNull()
   })
@@ -631,7 +604,7 @@ describe('toast', () => {
   it('空文案忽略；同文案 seq 递增（让动画能重触发）', async () => {
     const { app } = await makeApp()
     S(app).showToast('')
-    const t0 = S(app).toast // init 期间可能已有 toast（自动展开不产生 toast，应为 null）
+    const t0 = S(app).toast // init 期间不应有 toast（v7.2 起 init 不自动展开表单，恒为 null）
     expect(t0).toBeNull()
     S(app).showToast('已删除')
     const a = S(app).toast
