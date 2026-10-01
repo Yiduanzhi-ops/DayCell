@@ -34,7 +34,7 @@ describe('App 冒烟', () => {
   it('默认落地今天的日视图；空白日不自动展开，手动点「+ 添加」才弹出（v7.2）', async () => {
     await renderApp()
     expect(document.body.textContent).toContain('2026 年 9 月 29 日')
-    expect(screen.getByText('今天', { selector: 'span' })).toBeInTheDocument() // 日头的「今天」徽标（v7 后 tab 同名，用 selector 限定）
+    expect(document.querySelector('[class*="todayMark"]')?.textContent).toBe('今天') // 日头「今天」徽标（v7.3 起 TabBar 里也有「今天」文字，需按类定位）
     expect(screen.queryByLabelText('新待办')).not.toBeInTheDocument() // 不再自动展开（v7.2）
     expect(screen.getByRole('tab', { name: '今天' })).toBeInTheDocument() // v7：切换器首标签
 

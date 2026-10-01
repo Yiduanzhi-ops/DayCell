@@ -1,0 +1,50 @@
+/* 底部视图切换器（v7.3 / D17 修订）。
+   fixed 底部 + safe-area（viewport-fit=cover 已启用）；active 高亮 accent 色 + 顶部指示条。
+   内容区需要预留底部空间：App.module.css 的 .app 加 padding-bottom 与之对应。 */
+
+.bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  display: flex;
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.tab {
+  flex: 1;
+  min-height: 58px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: var(--ink-3);
+  font-size: 11.5px;
+  position: relative;
+  border-radius: 0;
+}
+.tab svg { display: block; }
+.tab span { line-height: 1; }
+/* active：accent 色 + 顶部指示条（"稍微明显一点"的落点） */
+.tab.on { color: var(--accent); font-weight: 650; }
+.tab.on::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 26px;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: var(--accent);
+}
+.tab:active { background: var(--bg-hover); }
+
+@media (min-width: 900px) {
+  /* 桌面端：同样的底部 tab，只是更高、字号略大，保持两端视觉一致 */
+  .tab { min-height: 62px; font-size: 12px; gap: 4px; }
+}

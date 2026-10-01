@@ -8,6 +8,8 @@
   background: var(--bg);
   position: relative;
   overflow: hidden;
+  /* v7.3：底部固定 tab bar（TabBar.module.css）预留空间 + iOS 底部安全区 */
+  padding-bottom: calc(58px + env(safe-area-inset-bottom));
 }
 
 /* PRD E1：IndexedDB 不可用的红色横幅，常驻不可关闭（数据不落盘必须让用户知道） */
@@ -64,7 +66,8 @@
 .toast {
   position: absolute;
   left: 50%;
-  bottom: 26px;
+  /* v7.3：上移到底部 tab bar 之上，避免被遮挡 */
+  bottom: calc(76px + env(safe-area-inset-bottom));
   transform: translateX(-50%) translateY(14px);
   background: #1b1b1f;
   color: #fff;

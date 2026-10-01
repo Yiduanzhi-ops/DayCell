@@ -12,6 +12,7 @@ import type { StoreApi } from 'zustand'
 import type { AppState } from '@/app/store'
 import { AppStoreContext, useApp } from '@/app/context'
 import { TopBar } from './TopBar'
+import { TabBar } from './TabBar'
 import { DayView } from './DayView'
 import { WeekView } from './WeekView'
 import { MonthView } from './MonthView'
@@ -91,6 +92,7 @@ function Shell(): JSX.Element {
           <DayView />
         </aside>
       </div>
+      <TabBar />
       <div
         className={toast ? `${styles.toast} ${styles.on}` : styles.toast}
         role="status"

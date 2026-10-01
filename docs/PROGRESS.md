@@ -1,9 +1,26 @@
 # DayCell 实施进度快照
 
 > **这份文件的用途**：让会话上下文可以安全丢弃。接手时先读这份，再按需读 PRD / CORE-API。
-> 最后更新：2026-10-01 · **v7.2 手机端录入打磨**（见 §0f）；此前 PWA 已接线 + dist 重建（§0e）、v7.1 月格三行 + 启动页（§0d）
+> 最后更新：2026-10-01 · **v7.3 应用名 + 底部切换器**（见 §0g）；此前 v7.2 手机端录入打磨（§0f）、PWA 已接线 + dist 重建（§0e）、v7.1 月格三行 + 启动页（§0d）
 > 当前状态 **全绿**：`tsc -b` 0 错 / `eslint .` 0 错 / **501 测试通过**（14 文件）/ `node smoke.cjs` 218 项断言（只守原型，见 §0c）
 > **已 git 化**（分支 `main`）。core 层 12/13 模块完成，**只剩 `backup/*`**（2026-09-30 用户拍板：延后）。
+
+---
+
+## 0g. ★ v7.3 应用名 + 底部视图切换器（2026-10-01，用户指令）
+
+**需求原话**：「①网站默认名字叫『人生小格·DayCell』②今天/周/月切换器固定在页面下方，稍微明显一点，适配手机端交互风格 ③每个页面上方体现网站名字和 logo」
+
+**落地方式**：
+1. **应用名定稿「人生小格·DayCell」**：`index.html` `<title>`、`vite.config.ts` PWA manifest `name`、顶栏品牌文字三处统一（原「人生小格 DayCell」/ 顶栏只显「DayCell」）；`short_name「人生小格」`、splash 视觉（DayCell + 人生小格）不动。
+2. **底部固定切换器**：新建 `src/ui/TabBar.tsx` + `TabBar.module.css`——fixed bottom + `env(safe-area-inset-bottom)`，三 tab（今天=时钟图标 / 周=四横线 / 月=网格，20px 内联 SVG + 文字竖排），active 高亮 accent 色 + 顶部 3px 指示条（"明显一点"的落点）；桌面端共用同一组件。`App.tsx` 接入 TabBar，`.app` 加 `padding-bottom: calc(58px + safe-area)`，toast 上移避开。TopBar 移除 `.seg` 切换器与 `setView`，品牌名手机端也常显（原 `.brand span{display:none}` 删除，字号 13.5px 防挤占）。快捷键 d/t/w/m 不变（App.tsx 全局）。
+3. **页顶品牌**：TopBar 左端 logo（`.mark`）+「人生小格·DayCell」文字，三视图共用顶栏 → 每个页面上方均可见。
+
+**测试**：501 全绿（App.test.tsx 用例 1 的日头「今天」徽标断言改按类定位——TabBar 的「今天」文字与其同名）。tsc / eslint 0 错，`npm run build` 通过（PWA precache 13 entries）。
+
+**文档落点**：PRD（修订行 v1.2 / **M18 修订** / **D17 修订** / §10 验收清单）；SPEC（版本行 / §3.2 底部切换器 / §3.7 应用名记录 / 功能清单）；本节。
+
+**遗留**：底部 tab bar 与品牌名的真机视觉需真机确认；iOS 底部安全区（`env(safe-area-inset-bottom)`）在真机 PWA 全屏下的表现需真机验收。
 
 ---
 

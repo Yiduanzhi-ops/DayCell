@@ -23,7 +23,7 @@ export default defineConfig({
       // 图标不写 includeAssets：它们已被 workbox.globPatterns 的 *.png 捕获，
       // 两处都写会在 precache 清单里出现重复条目（实测 18 条里 5 条重复）
       manifest: {
-        name: '人生小格 DayCell',
+        name: '人生小格·DayCell',
         short_name: '人生小格', // 主屏图标下的名字，中文用户优先（SPEC §3.7）
         description: '以「一天」为容器的记录本：待办、想法、花费。作者：以端枳。',
         lang: 'zh-CN',

@@ -1,11 +1,12 @@
 /**
- * 顶栏：品牌 / 前后翻页 / 标题 / 今天 / 视图切换器（今天→周→月，常驻不折叠，D17·v7 修订）。
+ * 顶栏：品牌（logo + 人生小格·DayCell）/ 前后翻页 / 标题 / 今天按钮。
  * 标题内容按视图分叉（原型 renderTitle 的移植）：
  *  - 今天：`2026 年 9 月` + `29 日 周二`
  *  - 周：月份或跨月区间 + `28–4 日`
  *  - 月：`2026 年 9 月` + `N 天有记录 · ¥x`（月汇总，US-11）
  * 「今天」按钮只在选中日 ≠ 今天时出现（US-09）。
  * 翻页箭头在今天视图下由 CSS 隐藏——v7 起日视图不翻日（D19），行为层 shift() 也是 no-op。
+ * 视图切换器 v7.3 起移到底部固定 tab bar（TabBar.tsx，D17 修订），顶栏不再承载。
  */
 import type { JSX } from 'react'
 import { dowOf, formatMoney, fromKey } from '@core'
@@ -21,7 +22,6 @@ export function TopBar(): JSX.Element {
   const today = useApp((s) => s.today)
   const month = useApp((s) => s.month)
   const week = useApp((s) => s.week)
-  const setView = useApp((s) => s.setView)
   const shift = useApp((s) => s.shift)
   const gotoToday = useApp((s) => s.gotoToday)
 
@@ -45,7 +45,7 @@ export function TopBar(): JSX.Element {
     <header className={styles.topbar}>
       <div className={styles.brand}>
         <i className={styles.mark} aria-hidden="true" />
-        <span>DayCell</span>
+        <span>人生小格·DayCell</span>
       </div>
       <div className={view === 'day' ? `${styles.nav} ${styles.navDay}` : styles.nav}>
         <button onClick={() => shift(-1)} aria-label="上一个" title="上一个">
@@ -65,26 +65,6 @@ export function TopBar(): JSX.Element {
           今天
         </button>
       )}
-      <div className={styles.seg} role="tablist" aria-label="视图切换">
-        {(
-          [
-            ['day', '今天'],
-            ['week', '周'],
-            ['month', '月'],
-          ] as const
-        ).map(([v, label]) => (
-          <button
-            key={v}
-            role="tab"
-            aria-selected={view === v}
-            className={view === v ? styles.on : undefined}
-            onClick={() => setView(v)}
-            title={v === 'day' ? '快捷键 d / t，回到今天' : `快捷键 ${v[0]}`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
     </header>
   )
 }
