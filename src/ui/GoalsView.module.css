@@ -85,6 +85,31 @@
 }
 .emptyBig { font-size: 40px; display: block; margin-bottom: 10px; color: var(--ink-4); }
 
+/* ---- 已完成的目标沉底组（v7.9 补） ---- */
+.cardDone { opacity: 0.72; }
+.cardDone h2 { color: var(--ink-2); }
+.cardDone .pct { color: var(--ink-2); }
+.cardDoneBtn {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent);
+  background: none;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
+  border-radius: 8px;
+  padding: 3px 9px;
+  cursor: pointer;
+}
+.cardDone .cardDoneBtn { color: var(--ink-2); border-color: var(--line); }
+.groupEmpty {
+  margin-top: 14px;
+  padding: 16px;
+  text-align: center;
+  color: var(--ink-3);
+  font-size: 12.5px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+}
+
 /* ---- 目标详情 ---- */
 .detail {
   max-width: 640px;
@@ -127,6 +152,20 @@
   border-radius: 8px;
   padding: 5px 10px;
   cursor: pointer;
+}
+.doneGoalBtn {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent);
+  background: none;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+  border-radius: 8px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+.doneGoalBtnOn {
+  color: var(--ink-2);
+  border-color: var(--line);
 }
 
 /* 阐述主展示（用户口径：详情页顶部，阶段列表在下方） */

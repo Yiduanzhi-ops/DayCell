@@ -356,12 +356,20 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
       if (a) a.push(s)
       else stageGroups.set(s.goalId, [s])
     }
-    const sorted = [...live].sort((a, b) => a.createdAt - b.createdAt)
+    // 进行中的在前（createdAt 升序）、已完成的沉底（createdAt 降序，最新完成在前），
+    // UI 据此分成「进行中 / 已完成」两组。旧记录 done 缺省 → 归一化 false
+    const sorted = [...live].sort((a, b) => {
+      const ad = a.done ?? false
+      const bd = b.done ?? false
+      if (ad !== bd) return ad ? 1 : -1
+      return a.createdAt - b.createdAt
+    })
     return sorted.map((goal) => {
       const stages = stageGroups.get(goal.id) ?? []
       const cur = stages.find((s) => s.isCurrent) ?? null
       return {
-        goal,
+        // done 归一化：旧记录/旧备份无此字段，UI 一律拿到 boolean
+        goal: { ...goal, done: goal.done ?? false },
         stageCount: stages.length,
         current: cur ? { id: cur.id, title: cur.title, pct: cur.pct } : null,
       }

@@ -309,6 +309,7 @@ function GoalDetail({ goal, stages }: { goal: GoalRecord; stages: StageRecord[] 
   const closeGoal = useApp((s) => s.closeGoal)
   const updateGoal = useApp((s) => s.updateGoal)
   const deleteGoal = useApp((s) => s.deleteGoal)
+  const setGoalDone = useApp((s) => s.setGoalDone)
   const deleteStage = useApp((s) => s.deleteStage)
 
   const [noteEdit, setNoteEdit] = useState(false)
@@ -336,6 +337,13 @@ function GoalDetail({ goal, stages }: { goal: GoalRecord; stages: StageRecord[] 
           ←
         </button>
         <span className={styles.detailTitle}>{goal.title}</span>
+        <button
+          className={goal.done ? `${styles.doneGoalBtn} ${styles.doneGoalBtnOn}` : styles.doneGoalBtn}
+          onClick={() => void setGoalDone(goal.id, !goal.done)}
+          aria-label={goal.done ? '恢复进行中' : '标记完成'}
+        >
+          {goal.done ? '恢复进行中' : '标记完成'}
+        </button>
         <button className={styles.deleteGoal} onClick={removeGoal} aria-label="删除目标" title="删除目标">
           删除
         </button>
@@ -419,56 +427,92 @@ function GoalDetail({ goal, stages }: { goal: GoalRecord; stages: StageRecord[] 
 function GoalList(): JSX.Element {
   const goalList = useApp((s) => s.goalList)
   const openGoal = useApp((s) => s.openGoal)
+  const setGoalDone = useApp((s) => s.setGoalDone)
   const [newOpen, setNewOpen] = useState(false)
+
+  // v7.9 补：进行中的在前（aggregate 已排序），已完成的沉底成组
+  const active = goalList.filter((x) => !x.goal.done)
+  const done = goalList.filter((x) => x.goal.done)
+
+  const renderGroup = (
+    title: string,
+    items: typeof goalList,
+    doneGroup: boolean,
+  ): JSX.Element => (
+    <section key={title}>
+      <div className={styles.listHead}>
+        <span className={styles.listTitle}>
+          {title}（{items.length}）
+        </span>
+        {!doneGroup && (
+          <button className={styles.newGoalBtn} onClick={() => setNewOpen(true)}>
+            ＋ 新建目标
+          </button>
+        )}
+      </div>
+
+      {items.length === 0 && (
+        doneGroup ? (
+          <div className={styles.groupEmpty}>还没有已完成的目标</div>
+        ) : (
+          <div className={styles.empty}>
+            <span className={styles.emptyBig}>◎</span>
+            还没有目标
+            <br />
+            点右上角「＋ 新建目标」创建一个阶段性目标
+          </div>
+        )
+      )}
+
+      {items.map(({ goal, stageCount, current }) => (
+        <div
+          key={goal.id}
+          className={goal.done ? `${styles.card} ${styles.cardDone}` : styles.card}
+          role="button"
+          tabIndex={0}
+          onClick={() => void openGoal(goal.id)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void openGoal(goal.id)
+          }}
+        >
+          <h2>
+            {goal.title}
+            {goal.done && (
+              <span className={`${styles.badge} ${styles.badgeDone}`}>已完成</span>
+            )}
+            {!goal.done && current && (
+              <span className={`${styles.badge} ${styles.badgeCur}`}>
+                当前 · {current.title}
+              </span>
+            )}
+          </h2>
+          <div className={styles.meta}>
+            <span>进度</span>
+            <span className={styles.pct}>
+              {current?.pct !== undefined ? `${current.pct}%` : '—'}
+            </span>
+            <span>· {stageCount} 个阶段</span>
+            <button
+              className={styles.cardDoneBtn}
+              aria-label={goal.done ? `恢复进行中：${goal.title}` : `标记完成：${goal.title}`}
+              onClick={(e) => {
+                e.stopPropagation()
+                void setGoalDone(goal.id, !goal.done)
+              }}
+            >
+              {goal.done ? '恢复进行中' : '标记完成'}
+            </button>
+          </div>
+          {goal.note && <p className={styles.summary}>{goal.note}</p>}
+        </div>
+      ))}
+    </section>
+  )
 
   return (
     <div className={styles.list}>
-      <div className={styles.listHead}>
-        <span className={styles.listTitle}>进行中的目标</span>
-        <button className={styles.newGoalBtn} onClick={() => setNewOpen(true)}>
-          ＋ 新建目标
-        </button>
-      </div>
-
-      {goalList.length === 0 ? (
-        <div className={styles.empty}>
-          <span className={styles.emptyBig}>◎</span>
-          还没有目标
-          <br />
-          点右上角「＋ 新建目标」创建一个阶段性目标
-        </div>
-      ) : (
-        goalList.map(({ goal, stageCount, current }) => (
-          <div
-            key={goal.id}
-            className={styles.card}
-            role="button"
-            tabIndex={0}
-            onClick={() => void openGoal(goal.id)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') void openGoal(goal.id)
-            }}
-          >
-            <h2>
-              {goal.title}
-              {current && (
-                <span className={`${styles.badge} ${styles.badgeCur}`}>
-                  当前 · {current.title}
-                </span>
-              )}
-            </h2>
-            <div className={styles.meta}>
-              <span>进度</span>
-              <span className={styles.pct}>
-                {current?.pct !== undefined ? `${current.pct}%` : '—'}
-              </span>
-              <span>· {stageCount} 个阶段</span>
-            </div>
-            {goal.note && <p className={styles.summary}>{goal.note}</p>}
-          </div>
-        ))
-      )}
-
+      {renderGroup('进行中的目标', active, false)}
+      {done.length > 0 && renderGroup('已完成的目标', done, true)}
       {newOpen && <NewGoalSheet onClose={() => setNewOpen(false)} />}
     </div>
   )

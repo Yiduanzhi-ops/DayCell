@@ -176,6 +176,8 @@ export interface GoalRepo {
   all(): Promise<GoalRecord[]>
   create(input: GoalInput): Promise<GoalRecord>
   update(id: string, patch: Partial<GoalInput>): Promise<GoalRecord>
+  /** 目标整体完成/取消完成（v7.9 补：完成的目标沉底到「已完成」列表） */
+  setDone(id: string, done: boolean): Promise<GoalRecord>
   /** 软删目标，**连带软删其全部阶段**（单事务） */
   softDelete(id: string): Promise<void>
 }
@@ -537,6 +539,7 @@ export function createRepos(deps: RepoDeps): Repos {
         type: 'goal',
         title,
         note,
+        done: false,
         createdAt: ts,
         updatedAt: ts,
         deleted: false,
@@ -549,6 +552,11 @@ export function createRepos(deps: RepoDeps): Repos {
       if (patch.title !== undefined) next.title = unwrap(parseGoalTitle(patch.title))
       if (patch.note !== undefined) next.note = unwrap(parseGoalNote(patch.note))
       return store.put<GoalRecord>('goals', next)
+    },
+
+    async setDone(id, done) {
+      const rec = await mustGet<GoalRecord>('goals', id)
+      return store.put<GoalRecord>('goals', { ...rec, done })
     },
 
     async softDelete(id) {

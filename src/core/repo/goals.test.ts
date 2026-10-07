@@ -59,6 +59,16 @@ describe('goals', () => {
     expect(g2.note).toBe('新阐述')
   })
 
+  it('setDone：目标整体完成/取消完成（v7.9 补）', async () => {
+    const g = await repos.goals.create({ title: '复习考公' })
+    expect(g.done).toBe(false)
+    const done = await repos.goals.setDone(g.id, true)
+    expect(done.done).toBe(true)
+    expect(done.title).toBe('复习考公') // 只改 done，其他不动
+    const undone = await repos.goals.setDone(g.id, false)
+    expect(undone.done).toBe(false)
+  })
+
   it('softDelete：软删并级联软删其全部阶段（单事务）', async () => {
     const g = await repos.goals.create({ title: '复习考公' })
     const s1 = await repos.stages.create({ goalId: g.id, title: '基础学习' })
@@ -193,6 +203,22 @@ describe('aggregate.goals', () => {
 
     const list = await agg.goalSummaries()
     expect(list.map((x) => x.goal.id)).toEqual([g1.id, g2.id])
+  })
+
+  it('goalSummaries：已完成的目标沉底（v7.9 补）', async () => {
+    await repos.goals.create({ title: '进行中 A' })
+    const g2 = await repos.goals.create({ title: '完成 B' })
+    await repos.goals.setDone(g2.id, true)
+    await repos.goals.create({ title: '进行中 C' })
+    clock.set(clock() + 1000)
+    const g4 = await repos.goals.create({ title: '完成 D' })
+    await repos.goals.setDone(g4.id, true)
+
+    const list = await agg.goalSummaries()
+    // 进行中在前（createdAt 升序），已完成沉底（同为 createdAt 升序）
+    expect(list.map((x) => x.goal.title)).toEqual(['进行中 A', '进行中 C', '完成 B', '完成 D'])
+    // 归一化：全部都是 boolean
+    expect(list.every((x) => typeof x.goal.done === 'boolean')).toBe(true)
   })
 
   it('stagesOfGoal：当前置顶，其余 createdAt 升序', async () => {

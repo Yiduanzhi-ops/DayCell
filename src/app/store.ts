@@ -156,6 +156,8 @@ export interface AppState {
   closeGoal(): void
   createGoal(title: string, note: string): Promise<boolean>
   updateGoal(id: string, patch: { title?: string; note?: string }): Promise<boolean>
+  /** 目标整体完成/取消完成（完成的目标沉底到「已完成」列表） */
+  setGoalDone(id: string, done: boolean): Promise<boolean>
   /** 删目标（连带其全部阶段，repo 维护） */
   deleteGoal(id: string): Promise<boolean>
   createStage(input: StageInput): Promise<boolean>
@@ -702,7 +704,8 @@ export function createAppStore(
           get().showToast('目标不存在')
           return
         }
-        set({ goalDetail: { goal, stages } })
+        // done 归一化（旧记录/旧备份无此字段）
+        set({ goalDetail: { goal: { ...goal, done: goal.done ?? false }, stages } })
       } catch (e) {
         get().showToast(errMsg(e))
       }
@@ -731,6 +734,19 @@ export function createAppStore(
         set((s) => (s.goalDetail && s.goalDetail.goal.id === id ? { goalDetail: { ...s.goalDetail, goal } } : s))
         await get().refreshGoals()
         get().showToast('已更新目标')
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async setGoalDone(id, done) {
+      try {
+        const goal = await repos.goals.setDone(id, done)
+        set((s) => (s.goalDetail && s.goalDetail.goal.id === id ? { goalDetail: { ...s.goalDetail, goal } } : s))
+        await get().refreshGoals()
+        get().showToast(done ? '目标已完成' : '已恢复进行中')
         return true
       } catch (e) {
         get().showToast(errMsg(e))

@@ -100,6 +100,9 @@ export interface GoalRecord extends CoreRecord {
   title: string
   /** 目标阐述 / 总结沉淀（可空；详情页顶部主展示区） */
   note: string
+  /** 目标整体是否完成（v7.9 补：完成的目标沉底到「已完成」列表，可回看/取消）。
+   *  旧记录/旧备份无此字段 → 读路径一律按 false 归一化（见 aggregate.goalSummaries / store.openGoal） */
+  done: boolean
 }
 
 export interface StageRecord extends CoreRecord {
