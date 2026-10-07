@@ -1,0 +1,401 @@
+/* 目标模块（v7.9）：底部 tab 第 4 个「目标」。
+   设计令牌沿用全局 tokens（--accent / --ink / --line / --bg …），夜间模式自动适配。
+   视觉与原型 prototype/goals.html 一致（列表卡片 / 阐述主展示 / 阶段行 / 底部弹层）。 */
+
+.list {
+  max-width: 640px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 6px 18px 96px;
+  overflow-y: auto;
+}
+
+.listHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0 2px;
+}
+
+.listTitle {
+  font-size: 13px;
+  color: var(--ink-3);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.newGoalBtn {
+  font-size: 12.5px;
+  font-weight: 650;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 9px;
+  padding: 7px 12px;
+  cursor: pointer;
+}
+
+/* ---- 目标卡片 ---- */
+.card {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-top: 14px;
+  cursor: pointer;
+  transition: border-color 0.12s;
+}
+.card:hover { border-color: color-mix(in srgb, var(--accent) 28%, var(--line)); }
+.card h2 {
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.card .meta {
+  margin-top: 7px;
+  color: var(--ink-2);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.card .pct { font-weight: 650; color: var(--accent); }
+.card .summary {
+  margin-top: 8px;
+  color: var(--ink-3);
+  font-size: 12.5px;
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.empty {
+  margin-top: 60px;
+  text-align: center;
+  color: var(--ink-3);
+  font-size: 13.5px;
+  line-height: 1.8;
+}
+.emptyBig { font-size: 40px; display: block; margin-bottom: 10px; color: var(--ink-4); }
+
+/* ---- 目标详情 ---- */
+.detail {
+  max-width: 640px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 6px 18px 96px;
+  overflow-y: auto;
+}
+
+.detailBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0 4px;
+}
+.back {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  color: var(--ink-2);
+  font-size: 18px;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.back:hover { background: var(--bg-hover); }
+.detailTitle {
+  flex: 1;
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.deleteGoal {
+  font-size: 12.5px;
+  color: #C0392B;
+  background: none;
+  border: 1px solid color-mix(in srgb, #C0392B 35%, var(--line));
+  border-radius: 8px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+/* 阐述主展示（用户口径：详情页顶部，阶段列表在下方） */
+.noteBox {
+  margin-top: 10px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+.noteTag {
+  font-size: 11px;
+  color: var(--ink-3);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.noteTag button {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.noteBox p {
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.noteEmpty { color: var(--ink-3); }
+.noteEdit { margin-top: 4px; }
+.noteEdit textarea {
+  width: 100%;
+  min-height: 120px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.7;
+  resize: vertical;
+  background: var(--bg);
+  outline: none;
+  color: var(--ink);
+}
+.noteEdit textarea:focus { border-color: var(--accent); }
+.noteActions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.noteActions button {
+  padding: 7px 16px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ---- 阶段列表 ---- */
+.stageTitle {
+  margin-top: 22px;
+  font-size: 13px;
+  color: var(--ink-3);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.addStageBtn {
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 650;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+}
+
+.stageRow {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  background: var(--bg);
+  cursor: pointer;
+  transition: border-color 0.12s;
+}
+.stageRow:hover { border-color: color-mix(in srgb, var(--accent) 28%, var(--line)); }
+.stageRow.current {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg));
+}
+.stageRow.done { opacity: 0.62; }
+
+.stageHead { display: flex; align-items: center; gap: 8px; }
+.stageName { font-size: 14.5px; font-weight: 600; flex: 1; }
+
+.badge {
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  border-radius: 99px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+.badgeCur { background: var(--accent); color: #fff; }
+.badgeDone {
+  background: color-mix(in srgb, #2E7D4F 10%, var(--bg));
+  color: #2E7D4F;
+}
+.badgePend { background: var(--bg-hover); color: var(--ink-3); }
+
+.bar {
+  margin-top: 9px;
+  height: 5px;
+  border-radius: 99px;
+  background: var(--line-2);
+  overflow: hidden;
+}
+.bar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 99px;
+}
+
+.stageFoot {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.stageFoot .sp { flex: 1; }
+
+.stageNote {
+  font-size: 12.5px;
+  color: var(--ink-2);
+  line-height: 1.6;
+  margin-top: 7px;
+  word-break: break-word;
+}
+.stageNote b { color: var(--ink-3); font-weight: 600; }
+
+/* 行内操作（点击行展开，与原型一致） */
+.ops {
+  display: none;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+  flex-wrap: wrap;
+}
+.opsOn { display: flex; }
+.ops button {
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+  background: var(--bg);
+  cursor: pointer;
+}
+.ops button.opPrimary { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 28%, var(--line)); }
+.ops button.opDanger { color: #C0392B; border-color: color-mix(in srgb, #C0392B 30%, var(--line)); }
+
+.stageEmpty {
+  margin-top: 14px;
+  padding: 18px;
+  text-align: center;
+  color: var(--ink-3);
+  font-size: 13px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  line-height: 1.7;
+}
+
+/* ---- 底部弹层（与 AnnivSettings 一致） ---- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.34);
+  z-index: 80;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.sheet {
+  background: var(--bg);
+  width: 100%;
+  max-width: 560px;
+  border-radius: 22px 22px 0 0;
+  padding: 10px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+  max-height: 82%;
+  overflow-y: auto;
+}
+.grab {
+  width: 36px;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--line);
+  margin: 4px auto 14px;
+}
+.sheet h3 { font-size: 16px; font-weight: 650; margin-bottom: 16px; }
+
+.field { margin-bottom: 14px; }
+.field label {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-3);
+  font-weight: 600;
+  margin-bottom: 6px;
+  letter-spacing: 0.02em;
+}
+.field input[type='text'],
+.field textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  background: var(--bg);
+  outline: none;
+  color: var(--ink);
+}
+.field input:focus,
+.field textarea:focus { border-color: var(--accent); }
+.field textarea { min-height: 70px; resize: vertical; line-height: 1.7; }
+.hint {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  margin-top: 5px;
+  line-height: 1.6;
+}
+.pctRow { display: flex; align-items: center; gap: 10px; }
+.pctRow input[type='range'] { flex: 1; accent-color: var(--accent); }
+.pctVal {
+  font-size: 16px;
+  font-weight: 650;
+  color: var(--accent);
+  min-width: 44px;
+  text-align: right;
+}
+
+.act { display: flex; gap: 10px; margin-top: 18px; }
+.act button {
+  flex: 1;
+  padding: 11px 0;
+  border-radius: 11px;
+  font-size: 14.5px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.act button:disabled { opacity: 0.5; cursor: default; }
+.btnSoft { background: var(--bg-hover); color: var(--ink-2); border: none; }
+.btnPrimary { background: var(--accent); color: #fff; border: none; }
+.btnGhost {
+  color: var(--ink-2);
+  border: 1px solid var(--line);
+  background: var(--bg);
+  cursor: pointer;
+}

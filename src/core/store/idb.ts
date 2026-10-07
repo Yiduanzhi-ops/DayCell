@@ -22,7 +22,7 @@ import type {
   StoreName,
   TodoRecord,
 } from '../types'
-import { ALL_STORES, SCHEMA_VERSION } from '../types'
+import { ALL_STORES } from '../types'
 import { QuotaExceededError, StorageUnavailableError } from '../errors'
 import { systemClock } from '../clock'
 import {
@@ -45,6 +45,16 @@ export interface IdbDeps {
   /** 注入 navigator.storage.estimate，缺省时用逐条累加估算 */
   estimate?: () => Promise<{ usage?: number; quota?: number }>
 }
+
+/**
+ * IndexedDB 库版本。
+ *
+ * ⚠️ 与 SCHEMA_VERSION **刻意解耦**：库版本只管 object store 集合（物理建库），
+ * schema 版本管记录结构（备份兼容）。v7.9 新增 goals/stages 两个 store，
+ * 库版本升到 2 让**已安装用户**也能触发 upgrade 补建空表；
+ * SCHEMA_VERSION 保持 1，旧备份（无 goals/stages 段）仍可导入。
+ */
+export const DB_VERSION = 2
 
 type Row = Record<string, unknown> & CoreRecord & { date?: DateKey; catId?: string }
 
@@ -210,7 +220,7 @@ function buildStore(
 export async function createIdbStore(deps: IdbDeps): Promise<RecordStore> {
   const now = deps.now ?? systemClock
   const dbName = deps.dbName ?? 'daycell'
-  const version = deps.version ?? SCHEMA_VERSION
+  const version = deps.version ?? DB_VERSION
 
   if (!deps.indexedDB) throw new StorageUnavailableError()
 
@@ -237,7 +247,16 @@ export async function createIdbStore(deps: IdbDeps): Promise<RecordStore> {
 
           database.createObjectStore('settings', { keyPath: 'key' })
         }
-        // 未来版本：if (oldVersion < 2) { ... }
+        // v7.9：新增 goals/stages 两个 store（非日期内容，无需索引）。
+        // 老库（v1）不建新 store 会导致访问时报错；新装用户走 oldVersion<1 分支，
+        // 这里同样补建（IDB 的 upgrade 里重复 createObjectStore 会抛错，所以用 if 分支隔离）
+        if (oldVersion < 2) {
+          for (const name of ['goals', 'stages'] as const) {
+            const s = database.createObjectStore(name, { keyPath: 'id' })
+            s.createIndex('byUpdated', 'updatedAt')
+          }
+        }
+        // 未来版本：if (oldVersion < 3) { ... }
         void transaction
       },
       blocked() {

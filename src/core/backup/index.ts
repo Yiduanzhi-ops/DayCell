@@ -31,10 +31,12 @@ import {
   type CategoryRecord,
   type DateKey,
   type ExpenseRecord,
+  type GoalRecord,
   type NoteRecord,
   type RecordTable,
   type SettingKey,
   type SettingRecord,
+  type StageRecord,
   type StoreName,
   type TodoRecord,
 } from '../types'
@@ -64,6 +66,8 @@ const CONTENT_STORE_TYPES: Record<Exclude<StoreName, 'settings'>, string> = {
   expenses: 'expense',
   anniversaries: 'anniversary',
   categories: 'category',
+  goals: 'goal',
+  stages: 'stage',
 }
 
 /** settings 的合法 key（与 types.ts 的 SettingKey 同步，运行时兜底） */
@@ -84,12 +88,14 @@ export async function serializeBackup(
   store: RecordStore,
   now: Clock = systemClock,
 ): Promise<BackupFile> {
-  const [todos, notes, expenses, anniversaries, categories, settings] = await Promise.all([
+  const [todos, notes, expenses, anniversaries, categories, goals, stages, settings] = await Promise.all([
     store.all<TodoRecord>('todos', { includeDeleted: true }),
     store.all<NoteRecord>('notes', { includeDeleted: true }),
     store.all<ExpenseRecord>('expenses', { includeDeleted: true }),
     store.all<AnniversaryRecord>('anniversaries', { includeDeleted: true }),
     store.all<CategoryRecord>('categories', { includeDeleted: true }),
+    store.all<GoalRecord>('goals', { includeDeleted: true }),
+    store.all<StageRecord>('stages', { includeDeleted: true }),
     store.allSettings(),
   ])
   return {
@@ -97,7 +103,7 @@ export async function serializeBackup(
     version: BACKUP_FORMAT_VERSION,
     exportedAt: now(),
     schemaVersion: SCHEMA_VERSION,
-    data: { todos, notes, expenses, anniversaries, categories, settings },
+    data: { todos, notes, expenses, anniversaries, categories, goals, stages, settings },
   }
 }
 
@@ -168,6 +174,8 @@ export function parseBackup(text: string): BackupFile {
       expenses: parseRecords<ExpenseRecord>(data.expenses, CONTENT_STORE_TYPES.expenses, 'expenses'),
       anniversaries: parseRecords<AnniversaryRecord>(data.anniversaries, CONTENT_STORE_TYPES.anniversaries, 'anniversaries'),
       categories: parseRecords<CategoryRecord>(data.categories, CONTENT_STORE_TYPES.categories, 'categories'),
+      goals: parseRecords<GoalRecord>(data.goals ?? [], CONTENT_STORE_TYPES.goals, 'goals'),
+      stages: parseRecords<StageRecord>(data.stages ?? [], CONTENT_STORE_TYPES.stages, 'stages'),
       settings: parseSettings(data.settings),
     },
   }
@@ -192,13 +200,15 @@ export interface MergeStats {
  */
 export async function mergeBackup(store: RecordStore, file: BackupFile): Promise<MergeStats> {
   // 本地现状：含墓碑，才能拿到"全部已用 id"
-  const [localTodos, localNotes, localExpenses, localAnniv, localCats, localSettings] =
+  const [localTodos, localNotes, localExpenses, localAnniv, localCats, localGoals, localStages, localSettings] =
     await Promise.all([
       store.all<TodoRecord>('todos', { includeDeleted: true }),
       store.all<NoteRecord>('notes', { includeDeleted: true }),
       store.all<ExpenseRecord>('expenses', { includeDeleted: true }),
       store.all<AnniversaryRecord>('anniversaries', { includeDeleted: true }),
       store.all<CategoryRecord>('categories', { includeDeleted: true }),
+      store.all<GoalRecord>('goals', { includeDeleted: true }),
+      store.all<StageRecord>('stages', { includeDeleted: true }),
       store.allSettings(),
     ])
 
@@ -213,6 +223,8 @@ export async function mergeBackup(store: RecordStore, file: BackupFile): Promise
   const newExpenses = pickNew(file.data.expenses, localExpenses)
   const newAnniv = pickNew(file.data.anniversaries, localAnniv)
   const newCats = pickNew(file.data.categories, localCats)
+  const newGoals = pickNew(file.data.goals, localGoals)
+  const newStages = pickNew(file.data.stages, localStages)
 
   const localKeys = new Set<SettingKey>(localSettings.map((s) => s.key))
   const newSettings = file.data.settings.filter((s) => !localKeys.has(s.key))
@@ -222,16 +234,19 @@ export async function mergeBackup(store: RecordStore, file: BackupFile): Promise
     (file.data.notes.length - newNotes.length) +
     (file.data.expenses.length - newExpenses.length) +
     (file.data.anniversaries.length - newAnniv.length) +
-    (file.data.categories.length - newCats.length)
+    (file.data.categories.length - newCats.length) +
+    (file.data.goals.length - newGoals.length) +
+    (file.data.stages.length - newStages.length)
 
   const allEmpty =
     newTodos.length === 0 && newNotes.length === 0 && newExpenses.length === 0 &&
-    newAnniv.length === 0 && newCats.length === 0 && newSettings.length === 0
+    newAnniv.length === 0 && newCats.length === 0 && newGoals.length === 0 &&
+    newStages.length === 0 && newSettings.length === 0
 
   // 一条可合并的都没有 → 无需开事务（也避免"导入了个空备份"误报成功）
   if (allEmpty) {
     return {
-      added: { todos: 0, notes: 0, expenses: 0, anniversaries: 0, categories: 0 },
+      added: { todos: 0, notes: 0, expenses: 0, anniversaries: 0, categories: 0, goals: 0, stages: 0 },
       settingsAdded: 0,
       keptLocal,
     }
@@ -244,6 +259,8 @@ export async function mergeBackup(store: RecordStore, file: BackupFile): Promise
     if (newExpenses.length) await scope.putMany<ExpenseRecord>('expenses', newExpenses, { keepTimestamps: true })
     if (newAnniv.length) await scope.putMany<AnniversaryRecord>('anniversaries', newAnniv, { keepTimestamps: true })
     if (newCats.length) await scope.putMany<CategoryRecord>('categories', newCats, { keepTimestamps: true })
+    if (newGoals.length) await scope.putMany<GoalRecord>('goals', newGoals, { keepTimestamps: true })
+    if (newStages.length) await scope.putMany<StageRecord>('stages', newStages, { keepTimestamps: true })
     // settings 没有 keepTimestamps 选项（key/value 单例），刷新 updatedAt 无副作用
     for (const s of newSettings) await scope.putSetting(s.key, s.value)
   })
@@ -255,6 +272,8 @@ export async function mergeBackup(store: RecordStore, file: BackupFile): Promise
       expenses: newExpenses.length,
       anniversaries: newAnniv.length,
       categories: newCats.length,
+      goals: newGoals.length,
+      stages: newStages.length,
     },
     settingsAdded: newSettings.length,
     keptLocal,

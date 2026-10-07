@@ -40,6 +40,16 @@ function MonthIcon(): JSX.Element {
   )
 }
 
+/** 目标 = 星形（v7.9 阶段性目标 tab，与原型 goals.html 一致） */
+function GoalIcon(): JSX.Element {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 3l2.4 5.2 5.6.8-4 4.1.9 5.7L12 16.4 7.1 19l.9-5.7-4-4.1 5.6-.8z" />
+    </svg>
+  )
+}
+
 export function TabBar(): JSX.Element {
   const view = useApp((s) => s.view)
   const setView = useApp((s) => s.setView)
@@ -48,6 +58,7 @@ export function TabBar(): JSX.Element {
     ['day', '今天', <TodayIcon key="i" />],
     ['week', '周', <WeekIcon key="i" />],
     ['month', '月', <MonthIcon key="i" />],
+    ['goals', '目标', <GoalIcon key="i" />],
   ]
 
   return (
@@ -69,4 +80,4 @@ export function TabBar(): JSX.Element {
   )
 }
 
-type ViewKey = 'day' | 'week' | 'month'
+type ViewKey = 'day' | 'week' | 'month' | 'goals'

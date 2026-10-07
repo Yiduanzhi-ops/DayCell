@@ -18,6 +18,7 @@ import { DayView } from './DayView'
 import { WeekView } from './WeekView'
 import { MonthView } from './MonthView'
 import { AnnivSettings } from './AnnivSettings'
+import { GoalsView } from './GoalsView'
 import styles from './App.module.css'
 
 export function App({ store }: { store: StoreApi<AppState> }): JSX.Element {
@@ -62,6 +63,7 @@ function Shell(): JSX.Element {
         case 'd': case 't': setView('day'); break
         case 'w': setView('week'); break
         case 'm': setView('month'); break
+        case 'g': setView('goals'); break
         case 'Escape':
           if (edit) closeForm()
           else back()
@@ -94,13 +96,20 @@ function Shell(): JSX.Element {
       )}
       <TopBar />
       <div className={styles.main}>
-        <section className={styles.cal} aria-label="日历">
-          {view === 'month' && <MonthView />}
-          {view === 'week' && <WeekView />}
-        </section>
-        <aside className={styles.detail} aria-label="日详情">
-          <DayView />
-        </aside>
+        {/* v7.9：目标视图整屏替换日历 + 详情（无日期语义，不渲染 .cal/.detail） */}
+        {view === 'goals' ? (
+          <GoalsView />
+        ) : (
+          <>
+            <section className={styles.cal} aria-label="日历">
+              {view === 'month' && <MonthView />}
+              {view === 'week' && <WeekView />}
+            </section>
+            <aside className={styles.detail} aria-label="日详情">
+              <DayView />
+            </aside>
+          </>
+        )}
       </div>
       <TabBar />
       <div

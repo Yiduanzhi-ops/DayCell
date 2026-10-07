@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>DayCell · 目标模块原型 v0.1</title>
+<style>
+/* ============ 设计令牌（与主原型一致） ============ */
+:root{
+  --accent:#2E4BA6;
+  --bg:#FFFFFF;
+  --bg-subtle:#FAFAFA;
+  --bg-hover:#F5F5F5;
+  --ink:#1A1A1A;
+  --ink-2:#555555;
+  --ink-3:#767676;
+  --ink-4:#C4C4C4;
+  --line:#EBEBEB;
+  --line-2:#F4F4F4;
+  --accent-soft:color-mix(in srgb, var(--accent) 8%, #fff);
+  --accent-line:color-mix(in srgb, var(--accent) 28%, #fff);
+  --green:#2E7D4F;
+  --green-soft:color-mix(in srgb, #2E7D4F 8%, #fff);
+  --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--font);background:#E9E9EC;color:var(--ink);-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.5}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+input,textarea,select{font:inherit;color:inherit}
+.phone-note{position:fixed;left:50%;transform:translateX(-50%);top:8px;z-index:99;background:#1B1B1F;color:#EDEDF0;
+  padding:5px 14px;border-radius:99px;font-size:12px;box-shadow:0 4px 16px rgba(0,0,0,.25)}
+
+/* ============ 设备框（手机优先） ============ */
+.stage{min-height:100vh;display:flex;justify-content:center;align-items:center;padding:64px 12px}
+.device{width:390px;max-width:390px;height:800px;background:var(--bg);border-radius:38px;border:9px solid #1B1B1F;
+  overflow:hidden;position:relative;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,.3)}
+
+/* ============ 顶栏 ============ */
+.topbar{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:14px 18px 12px;border-bottom:1px solid var(--line)}
+.topbar .back{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:var(--ink-2);font-size:18px}
+.topbar .back:hover{background:var(--bg-hover)}
+.topbar h1{font-size:17px;font-weight:650;letter-spacing:-.01em;flex:1;display:flex;align-items:center;gap:8px}
+.brand-mark{width:18px;height:18px;border-radius:5px;background:var(--accent);position:relative;flex:0 0 auto}
+.brand-mark::after{content:"";position:absolute;inset:6px 4px auto 4px;height:2px;background:#fff;border-radius:1px;box-shadow:0 5px 0 #fff}
+
+/* ============ 内容区 ============ */
+.scroll{flex:1;overflow-y:auto;padding:0 18px 92px}
+.page{display:none}
+.page.on{display:block}
+
+/* ---- 目标列表 ---- */
+.goal-card{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-top:14px;
+  cursor:pointer;transition:border-color .12s}
+.goal-card:hover{border-color:var(--accent-line)}
+.goal-card h2{font-size:16px;font-weight:650;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+.goal-card .meta{margin-top:7px;color:var(--ink-2);font-size:13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.goal-card .pct{font-weight:650;color:var(--accent)}
+.goal-card .summary{margin-top:8px;color:var(--ink-3);font-size:12.5px;line-height:1.55;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.list-title{padding:16px 0 2px;font-size:13px;color:var(--ink-3);font-weight:600;letter-spacing:.02em}
+.empty-hint{margin-top:60px;text-align:center;color:var(--ink-3);font-size:13.5px;line-height:1.8}
+.empty-hint .big{font-size:40px;display:block;margin-bottom:10px;color:var(--ink-4)}
+
+/* ---- 目标详情 ---- */
+.note-box{margin-top:14px;background:var(--bg-subtle);border:1px solid var(--line);border-radius:14px;padding:14px 16px;position:relative}
+.note-box .tag{font-size:11px;color:var(--ink-3);font-weight:600;letter-spacing:.06em;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+.note-box .tag button{color:var(--accent);font-size:12px;font-weight:600}
+.note-box p{font-size:14px;line-height:1.75;color:var(--ink)}
+.note-box .note-edit{display:none;margin-top:4px}
+.note-box .note-edit.on{display:block}
+.note-box textarea{width:100%;min-height:120px;border:1px solid var(--accent-line);border-radius:10px;padding:10px 12px;
+  font-size:14px;line-height:1.7;resize:vertical;background:var(--bg);outline:none}
+.note-box textarea:focus{border-color:var(--accent)}
+.note-actions{margin-top:10px;display:flex;gap:8px;justify-content:flex-end}
+.note-actions button{padding:7px 16px;border-radius:9px;font-size:13px;font-weight:600}
+.btn-ghost{color:var(--ink-2);border:1px solid var(--line);background:var(--bg)}
+.btn-primary{background:var(--accent);color:#fff}
+
+/* ---- 阶段列表 ---- */
+.stage-title{margin-top:22px;font-size:13px;color:var(--ink-3);font-weight:600;letter-spacing:.02em;display:flex;justify-content:space-between;align-items:center}
+.stage-row{border:1px solid var(--line);border-radius:12px;margin-top:10px;padding:12px 14px;background:var(--bg);transition:border-color .12s}
+.stage-row.current{border-color:var(--accent);background:var(--accent-soft)}
+.stage-row.done{opacity:.62}
+.stage-row .head{display:flex;align-items:center;gap:8px}
+.stage-row .name{font-size:14.5px;font-weight:600;flex:1}
+.stage-row .badge{font-size:10.5px;font-weight:650;letter-spacing:.04em;border-radius:99px;padding:2px 8px}
+.badge.cur{background:var(--accent);color:#fff}
+.badge.done{background:var(--green-soft);color:var(--green)}
+.badge.pend{background:var(--bg-hover);color:var(--ink-3)}
+.stage-row .bar{margin-top:9px;height:5px;border-radius:99px;background:var(--line-2);overflow:hidden}
+.stage-row .bar i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.stage-row .foot{margin-top:8px;display:flex;align-items:center;gap:8px;color:var(--ink-3);font-size:12px}
+.stage-row .foot .sp{flex:1}
+.stage-row .ops{display:none;gap:6px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+.stage-row.expanded .ops{display:flex;flex-wrap:wrap}
+.stage-row .ops button{font-size:12px;padding:5px 10px;border-radius:8px;border:1px solid var(--line);color:var(--ink-2);background:var(--bg)}
+.stage-row .ops button.primary-ghost{color:var(--accent);border-color:var(--accent-line)}
+.stage-row .ops button.danger{color:#C0392B;border-color:color-mix(in srgb,#C0392B 30%,#fff)}
+.stage-row .note{font-size:12.5px;color:var(--ink-2);line-height:1.6;margin-top:7px}
+.stage-row .note b{color:var(--ink-3);font-weight:600}
+
+/* ---- 底部 tab ---- */
+.tabbar{position:absolute;left:0;right:0;bottom:0;height:64px;background:rgba(255,255,255,.96);backdrop-filter:blur(10px);
+  border-top:1px solid var(--line);display:flex;z-index:50}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--ink-3);font-size:11px;font-weight:600}
+.tab .ic{width:22px;height:22px;display:grid;place-items:center}
+.tab svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tab.on{color:var(--accent)}
+
+/* ---- 弹层 ---- */
+.overlay{position:absolute;inset:0;background:rgba(0,0,0,.34);z-index:80;display:none;align-items:flex-end;justify-content:center}
+.overlay.on{display:flex}
+.sheet{background:var(--bg);width:100%;border-radius:22px 22px 0 0;padding:10px 18px calc(18px + env(safe-area-inset-bottom,0px));max-height:82%;overflow-y:auto}
+.sheet .grab{width:36px;height:4px;border-radius:99px;background:var(--line);margin:4px auto 14px}
+.sheet h3{font-size:16px;font-weight:650;margin-bottom:16px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;color:var(--ink-3);font-weight:600;margin-bottom:6px;letter-spacing:.02em}
+.field input[type=text],.field textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;background:var(--bg);outline:none}
+.field input:focus,.field textarea:focus{border-color:var(--accent)}
+.field .hint{font-size:11.5px;color:var(--ink-3);margin-top:5px}
+.pct-row{display:flex;align-items:center;gap:10px}
+.pct-row input[type=range]{flex:1;accent-color:var(--accent)}
+.pct-row .val{font-size:16px;font-weight:650;color:var(--accent);min-width:44px;text-align:right}
+.sheet .act{display:flex;gap:10px;margin-top:18px}
+.sheet .act button{flex:1;padding:11px 0;border-radius:11px;font-size:14.5px;font-weight:650}
+.btn-soft{background:var(--bg-hover);color:var(--ink-2)}
+
+/* ---- 状态条演示 ---- */
+.demo-tip{position:absolute;top:0;left:0;right:0;background:#FFF8E1;color:#7A5C00;font-size:11.5px;text-align:center;
+  padding:5px 12px;z-index:60;display:none;line-height:1.5}
+.demo-tip.on{display:block}
+</style>
+</head>
+<body>
+<div class="phone-note">DayCell 目标模块 · 可点击原型（点击任意阶段行展开操作）</div>
+<div class="stage"><div class="device">
+
+  <!-- 演示提示条 -->
+  <div class="demo-tip" id="tip">已设为当前阶段：原来的「当前」自动取消（全库互斥）</div>
+
+  <!-- 顶栏 -->
+  <div class="topbar">
+    <h1 id="topTitle"><span class="brand-mark"></span>目标</h1>
+    <button class="back" id="backBtn" style="display:none" title="返回列表">←</button>
+  </div>
+
+  <!-- ============ 页面 1：目标列表 ============ -->
+  <div class="scroll page on" id="page-list">
+    <div class="list-title">进行中的目标</div>
+
+    <div class="goal-card" data-goal="gk">
+      <h2>复习考公 <span class="badge cur">当前 · 刷题阶段</span></h2>
+      <div class="meta"><span>进度</span><span class="pct">60%</span><span>· 3 个阶段</span></div>
+      <div class="summary">2026 下半年主线目标。每天 2 小时行测 + 申论，重点突破数量关系和申论大作文；已完成基础学习，进入刷题阶段，10 月中旬开始模考冲刺。</div>
+    </div>
+
+    <div class="goal-card" data-goal="bill">
+      <h2>账单管理 <span class="badge cur">当前 · 10 月总结</span></h2>
+      <div class="meta"><span>进度</span><span class="pct">—</span><span>· 3 个阶段</span></div>
+      <div class="summary">每月底用 iCost 数据 + 豆包生成月度消费总结，沉淀在这里。重点：识别非必要消费场景，控制月度支出。</div>
+    </div>
+
+    <div class="empty-hint" id="emptyHint" style="display:none">
+      <span class="big">◎</span>
+      还没有目标<br/>点右下角「＋」新建一个阶段性目标
+    </div>
+  </div>
+
+  <!-- ============ 页面 2：目标详情 ============ -->
+  <div class="scroll page" id="page-detail">
+    <div class="note-box" id="noteBox">
+      <div class="tag">目标阐述 <button onclick="toggleNoteEdit(true)">编辑</button></div>
+      <p id="noteText">2026 下半年主线目标。每天 2 小时行测 + 申论，重点突破数量关系和申论大作文；已完成基础学习，进入刷题阶段，10 月中旬开始模考冲刺。8 月摸底 112 分 → 9 月 128 分，速度仍是大问题。</p>
+      <div class="note-edit" id="noteEdit">
+        <textarea id="noteInput">2026 下半年主线目标。每天 2 小时行测 + 申论，重点突破数量关系和申论大作文；已完成基础学习，进入刷题阶段，10 月中旬开始模考冲刺。8 月摸底 112 分 → 9 月 128 分，速度仍是大问题。</textarea>
+        <div class="note-actions">
+          <button class="btn-ghost" onclick="toggleNoteEdit(false)">取消</button>
+          <button class="btn-primary" onclick="saveNote()">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="stage-title">阶段列表 <button class="btn-primary" style="padding:5px 12px;border-radius:8px;font-size:12px" onclick="openSheet('stage')">＋ 添加阶段</button></div>
+
+    <div class="stage-row current" data-stage="cur" onclick="this.classList.toggle('expanded')">
+      <div class="head"><span class="name">刷题阶段</span><span class="badge cur">当前</span></div>
+      <div class="bar"><i style="width:60%"></i></div>
+      <div class="foot"><span>进度 60%</span><span class="sp"></span><span>进行中</span></div>
+      <div class="note"><b>备注：</b>行测套卷 26 套，资料分析稳定在 80%+；申论大作文 4 篇，偏题 1 次需复盘。</div>
+      <div class="ops">
+        <button onclick="event.stopPropagation();markDone(this)">标记完成</button>
+        <button class="primary-ghost" onclick="event.stopPropagation()">编辑</button>
+        <button class="danger" onclick="event.stopPropagation()">删除</button>
+      </div>
+    </div>
+
+    <div class="stage-row" data-stage="s1" onclick="this.classList.toggle('expanded')">
+      <div class="head"><span class="name">基础学习</span><span class="badge done">已完成</span></div>
+      <div class="bar"><i style="width:100%"></i></div>
+      <div class="foot"><span>进度 100%</span><span class="sp"></span><span>6 月 – 8 月</span></div>
+      <div class="note"><b>备注：</b>数量关系基础课 18 节、申论小题方法论；每周复盘错题本。</div>
+      <div class="ops">
+        <button class="primary-ghost" onclick="event.stopPropagation();setCurrent(this)">设为当前</button>
+        <button onclick="event.stopPropagation()">编辑</button>
+        <button class="danger" onclick="event.stopPropagation()">删除</button>
+      </div>
+    </div>
+
+    <div class="stage-row" data-stage="s2" onclick="this.classList.toggle('expanded')">
+      <div class="head"><span class="name">冲刺模考</span><span class="badge pend">未开始</span></div>
+      <div class="bar"><i style="width:20%"></i></div>
+      <div class="foot"><span>进度 20%</span><span class="sp"></span><span>计划 10 月中旬</span></div>
+      <div class="note"><b>备注：</b>全真模考 12 套，控制涂卡时间。</div>
+      <div class="ops">
+        <button class="primary-ghost" onclick="event.stopPropagation();setCurrent(this)">设为当前</button>
+        <button onclick="event.stopPropagation()">编辑</button>
+        <button class="danger" onclick="event.stopPropagation()">删除</button>
+      </div>
+    </div>
+
+    <div style="height:24px"></div>
+  </div>
+
+  <!-- ============ 底部 tab ============ -->
+  <div class="tabbar">
+    <button class="tab"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/></svg></span>今天</button>
+    <button class="tab"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 11h16M4 16h10"/></svg></span>周</button>
+    <button class="tab"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/><path d="M3.5 9h17M9 3.5V21"/></svg></span>月</button>
+    <button class="tab on"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l2.4 5.2L20 9.2l-4 4.1.9 5.7L12 16.4 7.1 19l.9-5.7-4-4.1 5.6-1z"/></svg></span>目标</button>
+  </div>
+
+  <!-- ============ 弹层：新建目标 ============ -->
+  <div class="overlay" id="ov-goal">
+    <div class="sheet">
+      <div class="grab"></div>
+      <h3>新建目标</h3>
+      <div class="field"><label>目标名称</label><input type="text" placeholder="如：复习考公" value="复习考公"/></div>
+      <div class="field"><label>目标阐述（可选）</label><textarea placeholder="这个阶段想做什么、为什么做、怎么衡量" style="min-height:90px">2026 下半年主线目标。</textarea></div>
+      <div class="act">
+        <button class="btn-soft" onclick="closeSheet('goal')">取消</button>
+        <button class="btn-primary" onclick="closeSheet('goal');showTip('目标已创建，进入详情后添加第一个阶段（自动设为当前）')">创建</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 弹层：添加阶段 ============ -->
+  <div class="overlay" id="ov-stage">
+    <div class="sheet">
+      <div class="grab"></div>
+      <h3>添加阶段</h3>
+      <div class="field"><label>阶段名称</label><input type="text" placeholder="如：刷题阶段"/></div>
+      <div class="field">
+        <label>当前进度</label>
+        <div class="pct-row">
+          <input type="range" min="0" max="100" value="0" id="pctRange" oninput="document.getElementById('pctVal').textContent=this.value+'%'"/>
+          <span class="val" id="pctVal">0%</span>
+        </div>
+      </div>
+      <div class="field"><label>备注（可选）</label><textarea placeholder="这个阶段的具体安排、复盘记录" style="min-height:70px"></textarea></div>
+      <div class="field hint">第一个阶段会自动成为「当前」阶段；之后的新阶段默认为「未开始」，可在列表手动设为当前。</div>
+      <div class="act">
+        <button class="btn-soft" onclick="closeSheet('stage')">取消</button>
+        <button class="btn-primary" onclick="closeSheet('stage')">添加</button>
+      </div>
+    </div>
+  </div>
+
+</div></div>
+
+<script>
+// ---- 页面切换：列表 ↔ 详情 ----
+const pages = { list: document.getElementById('page-list'), detail: document.getElementById('page-detail') };
+const backBtn = document.getElementById('backBtn');
+function showPage(name){
+  pages.list.classList.toggle('on', name==='list');
+  pages.detail.classList.toggle('on', name==='detail');
+  backBtn.style.display = name==='detail' ? 'grid' : 'none';
+  document.getElementById('topTitle').innerHTML = name==='list'
+    ? '<span class="brand-mark"></span>目标'
+    : '<span class="brand-mark"></span>复习考公';
+}
+document.querySelectorAll('.goal-card').forEach(c=>c.addEventListener('click', ()=>showPage('detail')));
+backBtn.addEventListener('click', ()=>showPage('list'));
+
+// ---- 弹层 ----
+function openSheet(k){ document.getElementById('ov-'+k).classList.add('on'); }
+function closeSheet(k){ document.getElementById('ov-'+k).classList.remove('on'); }
+document.querySelectorAll('.overlay').forEach(o=>{
+  o.addEventListener('click', e=>{ if(e.target===o) o.classList.remove('on'); });
+});
+
+// ---- 设为当前（互斥演示）----
+function setCurrent(btn){
+  const row = btn.closest('.stage-row');
+  document.querySelectorAll('.stage-row.current').forEach(r=>{
+    r.classList.remove('current');
+    r.querySelector('.badge.cur')?.remove();
+    const ops = r.querySelector('.ops');
+    ops.insertAdjacentHTML('afterbegin','<button class="primary-ghost" onclick="event.stopPropagation();setCurrent(this)">设为当前</button>');
+  });
+  row.classList.add('current');
+  row.querySelector('.badge')?.remove();
+  row.querySelector('.head').insertAdjacentHTML('beforeend','<span class="badge cur">当前</span>');
+  row.querySelector('.ops button.primary-ghost')?.remove();
+  showTip('已设为当前阶段：原来的「当前」自动取消（全库互斥）');
+}
+
+// ---- 标记完成演示 ----
+function markDone(btn){
+  const row = btn.closest('.stage-row');
+  row.querySelector('.badge.cur')?.remove();
+  row.querySelector('.badge')?.remove();
+  row.querySelector('.head').insertAdjacentHTML('beforeend','<span class="badge done">已完成</span>');
+  row.classList.add('done'); row.classList.remove('current');
+  row.querySelector('.foot span:last-child').textContent = '已完成';
+  const ops = row.querySelector('.ops');
+  ops.insertAdjacentHTML('afterbegin','<button class="primary-ghost" onclick="event.stopPropagation();setCurrent(this)">设为当前</button>');
+  showTip('已标记完成：该阶段退出「当前」，可手动把其他阶段设为当前');
+}
+
+// ---- 阐述编辑 ----
+function toggleNoteEdit(on){
+  document.getElementById('noteText').style.display = on?'none':'block';
+  document.getElementById('noteEdit').classList.toggle('on', on);
+}
+function saveNote(){
+  document.getElementById('noteText').textContent = document.getElementById('noteInput').value;
+  toggleNoteEdit(false);
+}
+
+// ---- 演示提示条 ----
+let tipTimer;
+function showTip(msg){
+  const t = document.getElementById('tip');
+  t.textContent = msg;
+  t.classList.add('on');
+  clearTimeout(tipTimer);
+  tipTimer = setTimeout(()=>t.classList.remove('on'), 2600);
+}
+</script>
+</body>
+</html>

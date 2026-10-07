@@ -42,6 +42,10 @@ export const LIMITS = {
   expenseNote: 200,
   anniversaryTitle: 50,
   categoryName: 12,
+  goalTitle: 50,
+  goalNote: 5000,
+  stageTitle: 50,
+  stageNote: 1000,
   /** 99,999,999 元 = 9,999,999,900 分（PRD E7） */
   maxAmountCents: 9_999_999_900,
 } as const
@@ -149,6 +153,46 @@ export const parseAnniversaryTitle = (raw: string): ParseResult<string> =>
 
 export const parseCategoryName = (raw: string): ParseResult<string> =>
   parseText(raw, { field: '分类名称', max: LIMITS.categoryName })
+
+// ---------------------------------------------------------------------------
+// 目标与阶段（v7.9）
+// ---------------------------------------------------------------------------
+
+export const parseGoalTitle = (raw: string): ParseResult<string> =>
+  parseText(raw, { field: '目标名称', max: LIMITS.goalTitle })
+
+export const parseStageTitle = (raw: string): ParseResult<string> =>
+  parseText(raw, { field: '阶段名称', max: LIMITS.stageTitle })
+
+/** 目标阐述/阶段备注**可以为空**——空串是合法值 */
+export function parseGoalNote(raw: string): ParseResult<string> {
+  const t = raw.replace(/\r\n?/g, '\n').trim()
+  if (t.length > LIMITS.goalNote) {
+    return err('TOO_LONG', `目标阐述最多 ${LIMITS.goalNote} 字，当前 ${t.length} 字`)
+  }
+  return ok(t)
+}
+
+export function parseStageNote(raw: string): ParseResult<string> {
+  const t = raw.replace(/\r\n?/g, '\n').trim()
+  if (t.length > LIMITS.stageNote) {
+    return err('TOO_LONG', `备注最多 ${LIMITS.stageNote} 字，当前 ${t.length} 字`)
+  }
+  return ok(t)
+}
+
+/** 进度百分比：0–100 的整数。空串 → undefined（阶段可不填百分比） */
+export function parsePct(raw: string | undefined | null): ParseResult<number | undefined> {
+  if (raw === undefined || raw === null) return ok(undefined)
+  const t = normalizeNumericInput(raw).trim()
+  if (!t) return ok(undefined)
+  const n = Number(t)
+  if (!Number.isFinite(n)) return err('NOT_A_NUMBER', '进度必须是数字')
+  if (!Number.isInteger(n) || n < 0 || n > 100) {
+    return err('BAD_VALUE', '进度必须是 0–100 的整数')
+  }
+  return ok(n)
+}
 
 // ---------------------------------------------------------------------------
 // 日期

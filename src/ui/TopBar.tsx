@@ -54,6 +54,9 @@ export function TopBar(): JSX.Element {
   if (view === 'day') {
     // v7.5：今天视图顶栏只留品牌——日期与周几由内容区展示，避免重复（用户拍板）
     title = ''
+  } else if (view === 'goals') {
+    // v7.9：目标视图无日期语义
+    title = '目标'
   } else if (view === 'week') {
     const a = week?.days[0] ? fromKey(week.days[0].date) : null
     const b = week?.days[6] ? fromKey(week.days[6].date) : null
@@ -71,7 +74,7 @@ export function TopBar(): JSX.Element {
         <BrandMark />
         <span>DayCell</span>
       </div>
-      <div className={view === 'day' ? `${styles.nav} ${styles.navDay}` : styles.nav}>
+      <div className={view === 'day' || view === 'goals' ? `${styles.nav} ${styles.navDay}` : styles.nav}>
         <button onClick={() => shift(-1)} aria-label="上一个" title="上一个">
           <ChevronLeft />
         </button>
@@ -84,7 +87,7 @@ export function TopBar(): JSX.Element {
         {sub && <small>{sub}</small>}
       </div>
       <div className={styles.spacer} />
-      {selected !== today && (
+      {view !== 'goals' && selected !== today && (
         <button className={styles.todayBtn} onClick={gotoToday}>
           今天
         </button>

@@ -66,7 +66,7 @@ const cloneRecord = <T>(v: T): T =>
 const cloneArr = <T>(rows: T[] | undefined): T[] =>
   Array.isArray(rows) ? rows.map(cloneRecord) : []
 
-/** 空的六表。导入 replace 模式与测试夹具都从这里起步 */
+/** 空的八表。导入 replace 模式与测试夹具都从这里起步 */
 export function emptyTables(): RecordTable {
   return {
     todos: [],
@@ -74,6 +74,8 @@ export function emptyTables(): RecordTable {
     expenses: [],
     anniversaries: [],
     categories: [],
+    goals: [],
+    stages: [],
     settings: [],
   }
 }
@@ -93,6 +95,8 @@ function cloneTables(t: RecordTable | undefined): RecordTable {
     expenses: cloneArr(t.expenses),
     anniversaries: cloneArr(t.anniversaries),
     categories: cloneArr(t.categories),
+    goals: cloneArr(t.goals),
+    stages: cloneArr(t.stages),
     settings: cloneArr(t.settings),
   }
 }

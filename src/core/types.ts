@@ -90,6 +90,33 @@ export interface CategoryRecord extends CoreRecord {
   order: number
 }
 
+/**
+ * v7.9 阶段性目标（用户拍板口径）：
+ * 目标 = 一个阶段性的主题（如「复习考公」），自身只有标题与阐述；
+ * 进度全部体现在其下的阶段（StageRecord）里。不做子阶段、不做每日打卡。
+ */
+export interface GoalRecord extends CoreRecord {
+  type: 'goal'
+  title: string
+  /** 目标阐述 / 总结沉淀（可空；详情页顶部主展示区） */
+  note: string
+}
+
+export interface StageRecord extends CoreRecord {
+  type: 'stage'
+  /** 所属目标。目标删除时连带软删（repo 维护） */
+  goalId: string
+  title: string
+  /** 进度 0–100 整数；不填为 undefined（未开始/无百分比语义，如账单总结阶段） */
+  pct?: number
+  /** 阶段备注（可空） */
+  note: string
+  /** 进行中 / 已完成。与 isCurrent 独立：可 100% 未标完成，也可标完成不填百分比 */
+  done: boolean
+  /** 当前阶段标记：**同一目标内至多一个**（repo setCurrent 维护互斥） */
+  isCurrent: boolean
+}
+
 export interface SettingRecord {
   key: SettingKey
   value: unknown
@@ -103,13 +130,15 @@ export type SettingKey =
   | 'onboarded'
   | 'weekStartsOn'
 
-/** 六个 store（PRD §6.3） */
+/** 八个 store（PRD §6.3，v7.9 加 goals/stages） */
 export type StoreName =
   | 'todos'
   | 'notes'
   | 'expenses'
   | 'anniversaries'
   | 'categories'
+  | 'goals'
+  | 'stages'
   | 'settings'
 
 /** 存放带归属日内容记录的三个 store */
@@ -123,6 +152,8 @@ export const ALL_STORES: readonly StoreName[] = [
   'expenses',
   'anniversaries',
   'categories',
+  'goals',
+  'stages',
   'settings',
 ]
 
@@ -145,5 +176,7 @@ export interface RecordTable {
   expenses: ExpenseRecord[]
   anniversaries: AnniversaryRecord[]
   categories: CategoryRecord[]
+  goals: GoalRecord[]
+  stages: StageRecord[]
   settings: SettingRecord[]
 }

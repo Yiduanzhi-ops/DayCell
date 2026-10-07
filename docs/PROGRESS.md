@@ -1,9 +1,26 @@
 # DayCell 实施进度快照
 
 > **这份文件的用途**：让会话上下文可以安全丢弃。接手时先读这份，再按需读 PRD / CORE-API。
-> 最后更新：2026-10-03 · **v7.8 logo 高清化重制**（见 §0l）；此前 v7.7 logo 上架（§0k）、v7.6 支出改造（§0j）、v7.5 菜单/备份/纪念日/夜间（§0i）、v7.4 录入手动化 + 月汇总条 + 旧「小格」logo（§0h）、v7.3 应用名 + 底部切换器（§0g）、v7.2 手机端录入打磨（§0f）、PWA 已接线 + dist 重建（§0e）、v7.1 月格三行 + 启动页（§0d）
-> 当前状态 **全绿**：`tsc -b` 0 错 / `eslint .` 0 错 / **535 测试通过**（15 文件）/ `node smoke.cjs` 218 项断言（只守原型，见 §0c）
+> 最后更新：2026-10-07 · **v7.9 阶段性目标模块**（见 §0m）；此前 v7.8 logo 高清化重制（§0l）、v7.7 logo 上架（§0k）、v7.6 支出改造（§0j）、v7.5 菜单/备份/纪念日/夜间（§0i）、v7.4 录入手动化 + 月汇总条 + 旧「小格」logo（§0h）、v7.3 应用名 + 底部切换器（§0g）、v7.2 手机端录入打磨（§0f）、PWA 已接线 + dist 重建（§0e）、v7.1 月格三行 + 启动页（§0d）
+> 当前状态 **全绿**：`tsc -b` 0 错 / `eslint .` 0 错 / **559 测试通过**（17 文件）/ `node smoke.cjs` 218 项断言（只守原型，见 §0c）
 > **已 git 化**（分支 `main`）。core 层 **13/13 模块全部完成**（含 `backup/*`，v7.5 补齐）。
+
+---
+
+## 0m. ★ v7.9 阶段性目标模块（2026-10-07，用户指令）
+
+**需求原话（多轮对齐后锁定）**：阶段性目标（复习考公 / 每天多喝水 / 做教案）不适合放每日待办。用户拍板：**不要跟待办/支出联动、不要语义分层、不做每日打卡**；只有目标 + 当前所处阶段 + 阶段百分比 + 备注；**单独一个页面**（不放今天视图），上显示当前阶段、下面是该目标所有阶段，可管理、可回看历史；**去掉子阶段**；入口**放底部 tab 第 4 个「目标」**（不进右上角菜单）；详情页**顶部主展示目标阐述，下方才是阶段列表**。账单总结不单独建模块 = 目标的一种用法（建「账单管理」目标，每月一个阶段，备注放总结文字）。验收原型 `prototype/goals.html`（已交付 present_files，用户"非常好，直接开始写"）。
+
+**实现落点**：
+- **core**：`types.ts` 加 `GoalRecord`（type:'goal'，title + note 阐述）/ `StageRecord`（type:'stage'，goalId + title + pct? + note + done + isCurrent），`ALL_STORES`/`RecordTable` 八表；`validate.ts` 加 LIMITS 4 项 + parseGoalTitle/parseStageTitle/parseGoalNote/parseStageNote/parsePct；`repo` 加 `GoalRepo`（all/create/update/softDelete **级联软删阶段**，单事务）/ `StageRepo`（byGoal/create **第一个阶段自动 isCurrent** /update **pct:null 显式清空** /setCurrent **同目标互斥 + 目标阶段清 done** /setDone/softDelete）；`aggregate` 加 `goalSummaries`（一次取全表分组，createdAt 升序）/ `stagesOfGoal`（当前置顶，其余时间线）；`backup` serialize/parse/merge 三段含 goals/stages（**旧备份无这两段按空表处理**，v7.9 前备份仍可导入）；`idb.ts` 加 **`DB_VERSION = 2`** 与 SCHEMA_VERSION **刻意解耦**（库版本只管 object store 集合，已装用户 upgrade 补建 goals/stages；SCHEMA_VERSION 保持 1 → 旧备份兼容），upgrade `oldVersion < 2` 分支建两个新 store
+- **UI**：`store.ts` `View` 扩为 `'day'|'week'|'month'|'goals'`（goals 视图 refresh 只刷 goalList，不加载日历聚合；shift 对 goals no-op）；`TabBar` 第 4 tab「目标」星形图标（与原型一致）；`App.tsx` goals 视图整屏替换 .cal/.detail（CSS data-view='goals' 单列）；`TopBar` goals 标题「目标」、翻页/今天按钮隐藏；新组件 `GoalsView.tsx` + `GoalsView.module.css`（列表卡片 / 阐述主展示 + 编辑 / 阶段行展开 ops：设为当前·标记完成·编辑·删除 / 新建目标、添加/编辑阶段底部弹层），视觉与原型一致、全部用现有 tokens 自动适配夜间
+- **测试**：`src/core/repo/goals.test.ts` 19 项（CRUD、首阶段自动当前、互斥、pct 边界、级联删、墓碑回看、聚合排序、备份往返/旧备份兼容/合并统计）；`src/ui/GoalsView.test.tsx` 5 项（空状态、新建、详情主展示、互斥、删除回列表）→ 535 → **559**
+
+**验证**：tsc / eslint 0 错；559 测试全绿（17 文件）；build 通过（PWA precache 15 entries）。已提交推送，GitHub Actions 部署后线上验证。
+
+**文档落点**：PRD 修订行 v1.9；本节。
+
+**遗留**：真机过一遍目标 tab 全流程（滑杆、夜间模式下的徽标对比度）；旧备份导入在新版本上确认一次。
 
 ---
 

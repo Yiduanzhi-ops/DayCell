@@ -15,8 +15,10 @@ import type {
   CoreRecord,
   DateKey,
   ExpenseRecord,
+  GoalRecord,
   NoteRecord,
   SettingKey,
+  StageRecord,
   TodoRecord,
 } from '../types'
 import { NotFoundError, ValidationError } from '../errors'
@@ -29,7 +31,11 @@ import {
   parseCategoryName,
   parseDateKey,
   parseExpenseNote,
+  parseGoalNote,
+  parseGoalTitle,
   parseNoteText,
+  parseStageNote,
+  parseStageTitle,
   parseTodoText,
   type ParseResult,
 } from '../validate'
@@ -158,6 +164,43 @@ export interface CategoryRepo {
 }
 
 // ---------------------------------------------------------------------------
+// 目标与阶段（v7.9）
+// ---------------------------------------------------------------------------
+
+export interface GoalInput {
+  title: string
+  note?: string
+}
+
+export interface GoalRepo {
+  all(): Promise<GoalRecord[]>
+  create(input: GoalInput): Promise<GoalRecord>
+  update(id: string, patch: Partial<GoalInput>): Promise<GoalRecord>
+  /** 软删目标，**连带软删其全部阶段**（单事务） */
+  softDelete(id: string): Promise<void>
+}
+
+export interface StageInput {
+  goalId: string
+  title: string
+  /** 0–100 整数；undefined = 不填（无百分比语义） */
+  pct?: number
+  note?: string
+}
+
+export interface StageRepo {
+  byGoal(goalId: string): Promise<StageRecord[]>
+  /** 目标必须存在；**第一个阶段自动成为当前阶段** */
+  create(input: StageInput): Promise<StageRecord>
+  /** pct 传 null 表示显式清空；undefined 表示不改 */
+  update(id: string, patch: Partial<Omit<StageInput, 'goalId' | 'pct'>> & { pct?: number | null }): Promise<StageRecord>
+  /** 设为当前：同目标其他阶段自动取消 current（互斥） */
+  setCurrent(id: string): Promise<StageRecord>
+  setDone(id: string, done: boolean): Promise<StageRecord>
+  softDelete(id: string): Promise<void>
+}
+
+// ---------------------------------------------------------------------------
 // 设置
 // ---------------------------------------------------------------------------
 
@@ -176,6 +219,8 @@ export interface Repos {
   expenses: ExpenseRepo
   anniversaries: AnniversaryRepo
   categories: CategoryRepo
+  goals: GoalRepo
+  stages: StageRepo
   settings: SettingRepo
 }
 
@@ -184,7 +229,7 @@ export function createRepos(deps: RepoDeps): Repos {
   const now = deps.now ?? systemClock
   const idGen = deps.idGen ?? createIdGen()
 
-  type MutableStore = 'todos' | 'notes' | 'expenses' | 'anniversaries' | 'categories'
+  type MutableStore = 'todos' | 'notes' | 'expenses' | 'anniversaries' | 'categories' | 'goals' | 'stages'
 
   /** 取一条活记录；不存在或已是墓碑都算 NotFound（PRD E19：可能已被其他标签页删除） */
   const mustGet = async <T extends CoreRecord>(storeName: MutableStore, id: string): Promise<T> => {
@@ -480,12 +525,132 @@ export function createRepos(deps: RepoDeps): Repos {
     },
   }
 
+  const goals: GoalRepo = {
+    all: () => store.all<GoalRecord>('goals'),
+
+    async create(input) {
+      const title = unwrap(parseGoalTitle(input.title))
+      const note = unwrap(parseGoalNote(input.note ?? ''))
+      const ts = now()
+      return store.put<GoalRecord>('goals', {
+        id: idGen.next(),
+        type: 'goal',
+        title,
+        note,
+        createdAt: ts,
+        updatedAt: ts,
+        deleted: false,
+      })
+    },
+
+    async update(id, patch) {
+      const rec = await mustGet<GoalRecord>('goals', id)
+      const next: GoalRecord = { ...rec }
+      if (patch.title !== undefined) next.title = unwrap(parseGoalTitle(patch.title))
+      if (patch.note !== undefined) next.note = unwrap(parseGoalNote(patch.note))
+      return store.put<GoalRecord>('goals', next)
+    },
+
+    async softDelete(id) {
+      const rec = await mustGet<GoalRecord>('goals', id)
+      // 单事务：目标 + 其全部阶段一起软删（墓碑永不物理删除）
+      await store.tx(async (scope) => {
+        await scope.put<GoalRecord>('goals', { ...rec, deleted: true } as never)
+        const stages = await scope.all<StageRecord>('stages')
+        for (const s of stages) {
+          if (s.goalId === id && !s.deleted) {
+            await scope.put<StageRecord>('stages', { ...s, deleted: true })
+          }
+        }
+      })
+    },
+  }
+
+  /** 0–100 整数校验（repo 最后防线；UI 已用 parsePct 预检） */
+  const assertPct = (pct: number): void => {
+    if (!Number.isInteger(pct) || pct < 0 || pct > 100) {
+      throw new ValidationError('BAD_VALUE', '进度必须是 0–100 的整数')
+    }
+  }
+
+  const stages: StageRepo = {
+    byGoal: (goalId) => {
+      return (async () => {
+        const all = await store.all<StageRecord>('stages')
+        return all.filter((s) => s.goalId === goalId)
+      })()
+    },
+
+    async create(input) {
+      // 目标必须存在且未删——否则会出现"挂在幽灵目标下的阶段"
+      await mustGet<GoalRecord>('goals', input.goalId)
+      const title = unwrap(parseStageTitle(input.title))
+      const note = unwrap(parseStageNote(input.note ?? ''))
+      if (input.pct !== undefined) assertPct(input.pct)
+      const ts = now()
+      // 第一个阶段自动成为当前（用户口径：建完就有"当前"，无需再设）
+      const siblings = await stages.byGoal(input.goalId)
+      const isFirst = siblings.length === 0
+      return store.put<StageRecord>('stages', {
+        id: idGen.next(),
+        type: 'stage',
+        goalId: input.goalId,
+        title,
+        pct: input.pct,
+        note,
+        done: false,
+        isCurrent: isFirst,
+        createdAt: ts,
+        updatedAt: ts,
+        deleted: false,
+      })
+    },
+
+    async update(id, patch) {
+      const rec = await mustGet<StageRecord>('stages', id)
+      const next: StageRecord = { ...rec }
+      if (patch.title !== undefined) next.title = unwrap(parseStageTitle(patch.title))
+      if (patch.note !== undefined) next.note = unwrap(parseStageNote(patch.note))
+      // null = 显式清空；undefined = 不改
+      if (patch.pct !== undefined) {
+        if (patch.pct === null) next.pct = undefined
+        else {
+          assertPct(patch.pct)
+          next.pct = patch.pct
+        }
+      }
+      return store.put<StageRecord>('stages', next)
+    },
+
+    async setCurrent(id) {
+      const rec = await mustGet<StageRecord>('stages', id)
+      // 互斥：同目标所有阶段 current 清掉，再给目标阶段置位（单事务）
+      await store.tx(async (scope) => {
+        const all = await scope.all<StageRecord>('stages')
+        for (const s of all) {
+          if (s.goalId === rec.goalId && s.isCurrent) {
+            await scope.put<StageRecord>('stages', { ...s, isCurrent: false })
+          }
+        }
+        await scope.put<StageRecord>('stages', { ...rec, isCurrent: true, done: false })
+      })
+      return { ...rec, isCurrent: true, done: false }
+    },
+
+    async setDone(id, done) {
+      const rec = await mustGet<StageRecord>('stages', id)
+      return store.put<StageRecord>('stages', { ...rec, done })
+    },
+
+    softDelete: softDelete('stages'),
+  }
+
   const settings: SettingRepo = {
     get: (key, fallback) => store.getSetting(key, fallback),
     set: (key, value) => store.putSetting(key, value),
   }
 
-  return { todos, notes, expenses, anniversaries, categories, settings }
+  return { todos, notes, expenses, anniversaries, categories, goals, stages, settings }
 }
 
 /** 便捷入口：从 store 里读金额时用，避免 UI 层出现 /100（ADR-0003） */

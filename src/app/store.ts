@@ -29,17 +29,21 @@ import {
   weekKeys,
   type AnniversaryInput,
   type AnniversaryRecord,
+  type CategoryRecord,
   type DateKey,
   type DayAggregate,
   type DayDetail,
+  type GoalRecord,
+  type GoalSummary,
   type MonthSummary,
+  type StageInput,
+  type StageRecord,
   type WeekDay,
   type WeekTotal,
-  type CategoryRecord,
 } from '@core'
 import type { CoreBundle } from './bootstrap'
 
-export type View = 'day' | 'week' | 'month'
+export type View = 'day' | 'week' | 'month' | 'goals'
 /** v6.1：内联表单是唯一录入入口，同一时刻最多展开一个 */
 export type FormKind = 'todo' | 'cost' | 'note'
 
@@ -71,6 +75,10 @@ export interface AppState {
   cats: CategoryRecord[]
   /** v7.5：纪念日设置页列表（打开页面时加载，刷新随 CRUD） */
   annivList: AnniversaryRecord[]
+  /** v7.9：目标列表（目标 tab 数据源） */
+  goalList: GoalSummary[]
+  /** v7.9：打开中的目标详情（null = 目标列表页） */
+  goalDetail: { goal: GoalRecord; stages: StageRecord[] } | null
 
   /** IndexedDB 不可用（PRD E1）：数据不持久，UI 顶部红色横幅 */
   degraded: boolean
@@ -139,6 +147,23 @@ export interface AppState {
   createAnniversary(input: AnniversaryInput): Promise<boolean>
   updateAnniversary(id: string, patch: Partial<AnniversaryInput>): Promise<boolean>
   deleteAnniversary(id: string): Promise<boolean>
+
+  // ---- v7.9：阶段目标（底部 tab「目标」） ----
+  /** 目标列表（目标 tab 打开/切换/写操作后刷新） */
+  refreshGoals(): Promise<void>
+  /** 进入目标详情：加载目标 + 其全部阶段 */
+  openGoal(id: string): Promise<void>
+  closeGoal(): void
+  createGoal(title: string, note: string): Promise<boolean>
+  updateGoal(id: string, patch: { title?: string; note?: string }): Promise<boolean>
+  /** 删目标（连带其全部阶段，repo 维护） */
+  deleteGoal(id: string): Promise<boolean>
+  createStage(input: StageInput): Promise<boolean>
+  updateStage(id: string, patch: Partial<Omit<StageInput, 'goalId' | 'pct'>> & { pct?: number | null }): Promise<boolean>
+  /** 设为当前（同目标互斥） */
+  setCurrentStage(id: string): Promise<boolean>
+  setStageDone(id: string, done: boolean): Promise<boolean>
+  deleteStage(id: string): Promise<boolean>
 }
 
 export interface AppStoreOptions {
@@ -214,6 +239,8 @@ export function createAppStore(
     month: null,
     cats: [],
     annivList: [],
+    goalList: [],
+    goalDetail: null,
 
     degraded: bundle.degraded,
     lunarFailed: bundle.lunarFailed,
@@ -243,6 +270,13 @@ export function createAppStore(
       const seq = ++loadSeq
       const { selected, view } = get()
       try {
+        // v7.9 目标视图：不加载日历聚合，只刷目标列表（goalList 是它的唯一数据源）
+        if (view === 'goals') {
+          const goalList = await aggregates.goalSummaries()
+          if (seq !== loadSeq) return
+          set({ goalList, loading: false })
+          return
+        }
         // detail 恒加载（桌面分栏右栏 / 手机日视图都要）；日历数据按当前视图加载
         const [detail, week, monthDays, monthSum] = await Promise.all([
           aggregates.aggregateDayDetail(selected),
@@ -283,6 +317,8 @@ export function createAppStore(
         historyPushed: false,
         edit: null,
         wantFocus: false,
+        // 切回目标 tab 一律回列表（详情页不跨 tab 保持）
+        goalDetail: v === 'goals' ? null : s.goalDetail,
       })
       if (needPop && canHistory()) history.back()
       void get().refresh()
@@ -299,7 +335,8 @@ export function createAppStore(
       const s = get()
       // v7：今天视图不翻日（D19）——补记其他日子走周/月点格子。
       // 顶栏的翻页按钮在日视图下由 CSS 隐藏，这里是行为层的同一事实。
-      if (s.view === 'day') return
+      // v7.9：目标视图无日期语义，翻页同样 no-op。
+      if (s.view === 'day' || s.view === 'goals') return
       const next = s.view === 'week' ? addDays(s.selected, dir * 7) : addMonths(s.selected, dir)
       if (next === s.selected) return
       set({ selected: next, edit: null, wantFocus: false })
@@ -637,6 +674,166 @@ export function createAppStore(
         await get().refresh()
         await get().refreshAnniv()
         get().showToast('已删除纪念日')
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    // ---- v7.9 目标 ----
+
+    async refreshGoals() {
+      try {
+        const goalList = await aggregates.goalSummaries()
+        set({ goalList })
+      } catch (e) {
+        get().showToast(errMsg(e))
+      }
+    },
+
+    async openGoal(id) {
+      try {
+        const [goal, stages] = await Promise.all([
+          repos.goals.all().then((gs) => gs.find((g) => g.id === id) ?? null),
+          aggregates.stagesOfGoal(id),
+        ])
+        if (!goal) {
+          get().showToast('目标不存在')
+          return
+        }
+        set({ goalDetail: { goal, stages } })
+      } catch (e) {
+        get().showToast(errMsg(e))
+      }
+    },
+
+    closeGoal() {
+      set({ goalDetail: null })
+      void get().refreshGoals()
+    },
+
+    async createGoal(title, note) {
+      try {
+        await repos.goals.create({ title, note })
+        await get().refreshGoals()
+        get().showToast('已创建目标')
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async updateGoal(id, patch) {
+      try {
+        const goal = await repos.goals.update(id, patch)
+        set((s) => (s.goalDetail && s.goalDetail.goal.id === id ? { goalDetail: { ...s.goalDetail, goal } } : s))
+        await get().refreshGoals()
+        get().showToast('已更新目标')
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async deleteGoal(id) {
+      try {
+        await repos.goals.softDelete(id)
+        if (get().goalDetail?.goal.id === id) set({ goalDetail: null })
+        await get().refreshGoals()
+        get().showToast('已删除目标')
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async createStage(input) {
+      try {
+        const stage = await repos.stages.create(input)
+        set((s) =>
+          s.goalDetail && s.goalDetail.goal.id === input.goalId
+            ? { goalDetail: { ...s.goalDetail, stages: [...s.goalDetail.stages, stage] } }
+            : s,
+        )
+        await get().refreshGoals()
+        get().showToast('已添加阶段')
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async updateStage(id, patch) {
+      try {
+        const stage = await repos.stages.update(id, patch)
+        set((s) =>
+          s.goalDetail
+            ? { goalDetail: { ...s.goalDetail, stages: s.goalDetail.stages.map((x) => (x.id === id ? stage : x)) } }
+            : s,
+        )
+        await get().refreshGoals()
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async setCurrentStage(id) {
+      try {
+        const stage = await repos.stages.setCurrent(id)
+        set((s) =>
+          s.goalDetail
+            ? {
+                goalDetail: {
+                  ...s.goalDetail,
+                  stages: s.goalDetail.stages.map((x) =>
+                    x.goalId === stage.goalId ? { ...x, isCurrent: x.id === id, done: x.id === id ? false : x.done } : x,
+                  ),
+                },
+              }
+            : s,
+        )
+        await get().refreshGoals()
+        get().showToast('已设为当前阶段')
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async setStageDone(id, done) {
+      try {
+        const stage = await repos.stages.setDone(id, done)
+        set((s) =>
+          s.goalDetail
+            ? { goalDetail: { ...s.goalDetail, stages: s.goalDetail.stages.map((x) => (x.id === id ? stage : x)) } }
+            : s,
+        )
+        await get().refreshGoals()
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async deleteStage(id) {
+      try {
+        await repos.stages.softDelete(id)
+        set((s) =>
+          s.goalDetail
+            ? { goalDetail: { ...s.goalDetail, stages: s.goalDetail.stages.filter((x) => x.id !== id) } }
+            : s,
+        )
+        await get().refreshGoals()
+        get().showToast('已删除阶段')
         return true
       } catch (e) {
         get().showToast(errMsg(e))

@@ -40,7 +40,9 @@ import type {
   AnniversaryRecord,
   DateKey,
   ExpenseRecord,
+  GoalRecord,
   NoteRecord,
+  StageRecord,
   TodoRecord,
 } from '../types'
 
@@ -124,6 +126,15 @@ export interface MonthSummary {
   costCents: number
 }
 
+/** v7.9 目标列表的一行（列表页唯一数据源） */
+export interface GoalSummary {
+  goal: GoalRecord
+  /** 活阶段数（不含墓碑） */
+  stageCount: number
+  /** 当前阶段（无则 null：目标建了但没阶段/当前阶段被删/已完成） */
+  current: { id: string; title: string; pct?: number } | null
+}
+
 export interface ViewOpts {
   weekStartsOn?: WeekStartsOn
 }
@@ -146,6 +157,10 @@ export interface Aggregates {
   aggregateMonth(cursor: DateKey, opts?: ViewOpts): Promise<DayAggregate[]>
   monthSummary(cursor: DateKey): Promise<MonthSummary>
   aggregateDayDetail(date: DateKey): Promise<DayDetail>
+  /** v7.9 目标列表：全部活目标 + 阶段数 + 当前阶段 */
+  goalSummaries(): Promise<GoalSummary[]>
+  /** v7.9 某目标的全部活阶段：当前置顶，其余按 createdAt 升序 */
+  stagesOfGoal(goalId: string): Promise<StageRecord[]>
   /**
    * 清掉分类名缓存。
    *
@@ -324,6 +339,45 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
     return all.filter((r) => annivHitsOn(r, date, lunar))
   }
 
+  // -------------------------------------------------------------------------
+  // 目标与阶段（v7.9）
+  // -------------------------------------------------------------------------
+
+  const goalSummaries = async (): Promise<GoalSummary[]> => {
+    const [goalsList, stagesList] = await Promise.all([
+      repos.goals.all(),
+      store.all<StageRecord>('stages'),
+    ])
+    const live = goalsList.filter((g) => !g.deleted)
+    const stageGroups = new Map<string, StageRecord[]>()
+    for (const s of stagesList) {
+      if (s.deleted) continue
+      const a = stageGroups.get(s.goalId)
+      if (a) a.push(s)
+      else stageGroups.set(s.goalId, [s])
+    }
+    const sorted = [...live].sort((a, b) => a.createdAt - b.createdAt)
+    return sorted.map((goal) => {
+      const stages = stageGroups.get(goal.id) ?? []
+      const cur = stages.find((s) => s.isCurrent) ?? null
+      return {
+        goal,
+        stageCount: stages.length,
+        current: cur ? { id: cur.id, title: cur.title, pct: cur.pct } : null,
+      }
+    })
+  }
+
+  const stagesOfGoal = async (goalId: string): Promise<StageRecord[]> => {
+    const all = await store.all<StageRecord>('stages')
+    const live = all.filter((s) => s.goalId === goalId && !s.deleted)
+    // 当前置顶，其余按 createdAt 升序（列表即时间线）
+    return [...live].sort((a, b) => {
+      if (a.isCurrent !== b.isCurrent) return a.isCurrent ? -1 : 1
+      return a.createdAt - b.createdAt
+    })
+  }
+
   /**
    * 一天的指示器。纯计算，不发查询——所有输入都由调用方一次取好。
    */
@@ -473,6 +527,9 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
         prevDayRollable: yesterday.todos.filter(isRollable).length,
       }
     },
+
+    goalSummaries,
+    stagesOfGoal,
 
     invalidate() {
       names = null
