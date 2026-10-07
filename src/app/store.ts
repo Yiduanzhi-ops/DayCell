@@ -35,6 +35,9 @@ import {
   type DayDetail,
   type GoalRecord,
   type GoalSummary,
+  type HabitDay,
+  type HabitFreq,
+  type HabitRecord,
   type MonthSummary,
   type StageInput,
   type StageRecord,
@@ -79,6 +82,10 @@ export interface AppState {
   goalList: GoalSummary[]
   /** v7.9：打开中的目标详情（null = 目标列表页） */
   goalDetail: { goal: GoalRecord; stages: StageRecord[] } | null
+  /** v8.0：今日习惯（selected 日该做的习惯 + 打卡状态） */
+  habitDay: HabitDay | null
+  /** v8.0：习惯设置页列表（全部活习惯，含暂停的） */
+  habitList: HabitRecord[]
 
   /** IndexedDB 不可用（PRD E1）：数据不持久，UI 顶部红色横幅 */
   degraded: boolean
@@ -91,6 +98,8 @@ export interface AppState {
   theme: 'light' | 'dark'
   /** v7.5：纪念日设置页是否打开（全屏覆盖层） */
   annivOpen: boolean
+  /** v8.0：习惯设置页是否打开（全屏覆盖层，菜单「习惯设置」进入） */
+  habitsOpen: boolean
 
   edit: FormKind | null
   /** 请求聚焦当前表单并 scrollIntoView；DayView 渲染后消费一次 */
@@ -166,6 +175,17 @@ export interface AppState {
   setCurrentStage(id: string): Promise<boolean>
   setStageDone(id: string, done: boolean): Promise<boolean>
   deleteStage(id: string): Promise<boolean>
+
+  // ---- v8.0：习惯（今日视图区块 + 菜单「习惯设置」） ----
+  /** 刷新习惯设置页列表（打开/CRUD 后调用） */
+  refreshHabits(): Promise<void>
+  openHabits(): void
+  closeHabits(): void
+  createHabit(input: { name: string; freq: HabitFreq }): Promise<boolean>
+  updateHabit(id: string, patch: Partial<{ name: string; freq: HabitFreq; paused: boolean }>): Promise<boolean>
+  deleteHabit(id: string): Promise<boolean>
+  /** 打卡/取消（纯勾选）；成功后刷新今日习惯 */
+  toggleHabit(date: DateKey, habitId: string): Promise<void>
 }
 
 export interface AppStoreOptions {
@@ -243,6 +263,8 @@ export function createAppStore(
     annivList: [],
     goalList: [],
     goalDetail: null,
+    habitDay: null,
+    habitList: [],
 
     degraded: bundle.degraded,
     lunarFailed: bundle.lunarFailed,
@@ -251,6 +273,7 @@ export function createAppStore(
 
     theme: readTheme(),
     annivOpen: false,
+    habitsOpen: false,
 
     edit: null,
     wantFocus: false,
@@ -280,11 +303,13 @@ export function createAppStore(
           return
         }
         // detail 恒加载（桌面分栏右栏 / 手机日视图都要）；日历数据按当前视图加载
-        const [detail, week, monthDays, monthSum] = await Promise.all([
+        const [detail, week, monthDays, monthSum, habitDay] = await Promise.all([
           aggregates.aggregateDayDetail(selected),
           view === 'week' ? aggregates.aggregateWeek(selected) : Promise.resolve(null),
           view === 'month' ? aggregates.aggregateMonth(selected) : Promise.resolve(null),
           view === 'month' ? aggregates.monthSummary(selected) : Promise.resolve(null),
+          // v8.0：习惯按选中日显示（今天视图 = 今天该做的习惯）
+          aggregates.habitDay(selected),
         ])
         if (seq !== loadSeq) return // 已有更新的加载在飞，丢弃过期结果
 
@@ -292,6 +317,7 @@ export function createAppStore(
           detail,
           week,
           month: monthDays ? { days: monthDays, summary: monthSum! } : null,
+          habitDay,
           loading: false,
         }
 
@@ -854,6 +880,74 @@ export function createAppStore(
       } catch (e) {
         get().showToast(errMsg(e))
         return false
+      }
+    },
+
+    // ---- v8.0 习惯 ----
+
+    async refreshHabits() {
+      try {
+        const habitList = await repos.habits.all()
+        set({ habitList })
+      } catch (e) {
+        get().showToast(errMsg(e))
+      }
+    },
+
+    openHabits() {
+      set({ habitsOpen: true })
+      void get().refreshHabits()
+    },
+
+    closeHabits() {
+      set({ habitsOpen: false })
+    },
+
+    async createHabit(input) {
+      try {
+        await repos.habits.create(input)
+        await get().refreshHabits()
+        await get().refresh()
+        get().showToast('已新建习惯')
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async updateHabit(id, patch) {
+      try {
+        await repos.habits.update(id, patch)
+        await get().refreshHabits()
+        await get().refresh()
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async deleteHabit(id) {
+      try {
+        await repos.habits.softDelete(id)
+        await get().refreshHabits()
+        await get().refresh()
+        get().showToast('已删除习惯')
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async toggleHabit(date, habitId) {
+      try {
+        const done = await repos.checkins.toggle(date, habitId)
+        await get().refresh()
+        if (done) get().showToast('打卡成功')
+      } catch (e) {
+        get().showToast(errMsg(e))
       }
     },
 

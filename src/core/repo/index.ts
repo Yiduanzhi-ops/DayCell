@@ -12,10 +12,13 @@
 import type {
   AnniversaryRecord,
   CategoryRecord,
+  CheckinRecord,
   CoreRecord,
   DateKey,
   ExpenseRecord,
   GoalRecord,
+  HabitFreq,
+  HabitRecord,
   NoteRecord,
   SettingKey,
   StageRecord,
@@ -33,6 +36,8 @@ import {
   parseExpenseNote,
   parseGoalNote,
   parseGoalTitle,
+  parseHabitFreq,
+  parseHabitName,
   parseNoteText,
   parseStageNote,
   parseStageTitle,
@@ -203,6 +208,32 @@ export interface StageRepo {
 }
 
 // ---------------------------------------------------------------------------
+// 习惯（v8.0）
+// ---------------------------------------------------------------------------
+
+export interface HabitInput {
+  name: string
+  freq: HabitFreq
+}
+
+export interface HabitRepo {
+  /** 全部**活**习惯（含暂停的——设置页要显示；今日过滤在 aggregate） */
+  all(): Promise<HabitRecord[]>
+  create(input: HabitInput): Promise<HabitRecord>
+  /** 可改 name / freq / paused */
+  update(id: string, patch: Partial<HabitInput> & { paused?: boolean }): Promise<HabitRecord>
+  softDelete(id: string): Promise<void>
+}
+
+/** 打卡（v8.0）：date + habitId 唯一；toggle 幂等 */
+export interface CheckinRepo {
+  /** date 上已打卡的 habitId 集合（含墓碑判断后的活记录） */
+  doneOn(date: DateKey): Promise<Set<string>>
+  /** 切换打卡：返回切换后是否已打卡。取消打卡 = 置墓碑（永不物理删除） */
+  toggle(date: DateKey, habitId: string): Promise<boolean>
+}
+
+// ---------------------------------------------------------------------------
 // 设置
 // ---------------------------------------------------------------------------
 
@@ -223,6 +254,8 @@ export interface Repos {
   categories: CategoryRepo
   goals: GoalRepo
   stages: StageRepo
+  habits: HabitRepo
+  checkins: CheckinRepo
   settings: SettingRepo
 }
 
@@ -231,7 +264,7 @@ export function createRepos(deps: RepoDeps): Repos {
   const now = deps.now ?? systemClock
   const idGen = deps.idGen ?? createIdGen()
 
-  type MutableStore = 'todos' | 'notes' | 'expenses' | 'anniversaries' | 'categories' | 'goals' | 'stages'
+  type MutableStore = 'todos' | 'notes' | 'expenses' | 'anniversaries' | 'categories' | 'goals' | 'stages' | 'habits' | 'checkins'
 
   /** 取一条活记录；不存在或已是墓碑都算 NotFound（PRD E19：可能已被其他标签页删除） */
   const mustGet = async <T extends CoreRecord>(storeName: MutableStore, id: string): Promise<T> => {
@@ -653,12 +686,81 @@ export function createRepos(deps: RepoDeps): Repos {
     softDelete: softDelete('stages'),
   }
 
+  const habits: HabitRepo = {
+    all: () => store.all<HabitRecord>('habits'),
+
+    async create(input) {
+      const name = unwrap(parseHabitName(input.name))
+      const freq = unwrap(parseHabitFreq(input.freq))
+      const ts = now()
+      return store.put<HabitRecord>('habits', {
+        id: idGen.next(),
+        type: 'habit',
+        name,
+        freq,
+        paused: false,
+        createdAt: ts,
+        updatedAt: ts,
+        deleted: false,
+      })
+    },
+
+    async update(id, patch) {
+      const rec = await mustGet<HabitRecord>('habits', id)
+      const next: HabitRecord = { ...rec }
+      if (patch.name !== undefined) next.name = unwrap(parseHabitName(patch.name))
+      if (patch.freq !== undefined) next.freq = unwrap(parseHabitFreq(patch.freq))
+      if (patch.paused !== undefined) next.paused = patch.paused
+      return store.put<HabitRecord>('habits', next)
+    },
+
+    softDelete: softDelete('habits'),
+  }
+
+  const checkins: CheckinRepo = {
+    async doneOn(date) {
+      unwrap(parseDateKey(date))
+      // 打卡表很小（每天每习惯一条），全表扫 + 内存过滤即可；
+      // 不走 byDateAll 热路径（那是 todos/notes/expenses 的月/周聚合纪律，见 aggregate 注释）
+      const all = await store.all<CheckinRecord>('checkins', { includeDeleted: true })
+      const out = new Set<string>()
+      for (const c of all) {
+        if (!c.deleted && c.date === date) out.add(c.habitId)
+      }
+      return out
+    },
+
+    async toggle(date, habitId) {
+      unwrap(parseDateKey(date))
+      const all = await store.all<CheckinRecord>('checkins', { includeDeleted: true })
+      const rec = all.find((c) => c.habitId === habitId && c.date === date)
+      if (rec) {
+        // 墓碑复活 = 再打卡；活记录 = 取消打卡（置墓碑，永不物理删除）
+        // 返回"切换后是否已打卡"：rec.deleted=true（墓碑）→ 复活后已打卡 → true
+        const next = { ...rec, deleted: !rec.deleted }
+        await store.put<CheckinRecord>('checkins', next)
+        return rec.deleted
+      }
+      const ts = now()
+      await store.put<CheckinRecord>('checkins', {
+        id: idGen.next(),
+        type: 'checkin',
+        habitId,
+        date,
+        createdAt: ts,
+        updatedAt: ts,
+        deleted: false,
+      })
+      return true
+    },
+  }
+
   const settings: SettingRepo = {
     get: (key, fallback) => store.getSetting(key, fallback),
     set: (key, value) => store.putSetting(key, value),
   }
 
-  return { todos, notes, expenses, anniversaries, categories, goals, stages, settings }
+  return { todos, notes, expenses, anniversaries, categories, goals, stages, habits, checkins, settings }
 }
 
 /** 便捷入口：从 store 里读金额时用，避免 UI 层出现 /100（ADR-0003） */

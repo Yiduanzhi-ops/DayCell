@@ -120,6 +120,30 @@ export interface StageRecord extends CoreRecord {
   isCurrent: boolean
 }
 
+/**
+ * v8.0 习惯（用户拍板口径）：
+ * 习惯 = 每天/每周固定几天**自动出现在「今日习惯」**的轻打卡项，**纯勾选**，不进待办；
+ * 频率用户自定义（每天 / 每周选星期几）；暂停（paused）后不出现在今日；
+ * 打卡记录单独存 CheckinRecord（date + habitId），不产生"昨天的欠账"。
+ */
+export type HabitFreq = { kind: 'daily' } | { kind: 'weekly'; weekdays: number[] }
+
+export interface HabitRecord extends CoreRecord {
+  type: 'habit'
+  name: string
+  freq: HabitFreq
+  /** 暂停：不出现在「今日习惯」（列表仍可见，可恢复） */
+  paused: boolean
+}
+
+/** 打卡记录：date 上某个习惯已勾选。取消打卡 = 置墓碑（永不物理删除） */
+export interface CheckinRecord extends CoreRecord {
+  type: 'checkin'
+  habitId: string
+  /** 打卡日期（定宽 'YYYY-MM-DD'） */
+  date: DateKey
+}
+
 export interface SettingRecord {
   key: SettingKey
   value: unknown
@@ -133,7 +157,7 @@ export type SettingKey =
   | 'onboarded'
   | 'weekStartsOn'
 
-/** 八个 store（PRD §6.3，v7.9 加 goals/stages） */
+/** 十个 store（PRD §6.3，v7.9 加 goals/stages，v8.0 加 habits/checkins） */
 export type StoreName =
   | 'todos'
   | 'notes'
@@ -142,6 +166,8 @@ export type StoreName =
   | 'categories'
   | 'goals'
   | 'stages'
+  | 'habits'
+  | 'checkins'
   | 'settings'
 
 /** 存放带归属日内容记录的三个 store */
@@ -157,6 +183,8 @@ export const ALL_STORES: readonly StoreName[] = [
   'categories',
   'goals',
   'stages',
+  'habits',
+  'checkins',
   'settings',
 ]
 
@@ -181,5 +209,7 @@ export interface RecordTable {
   categories: CategoryRecord[]
   goals: GoalRecord[]
   stages: StageRecord[]
+  habits: HabitRecord[]
+  checkins: CheckinRecord[]
   settings: SettingRecord[]
 }

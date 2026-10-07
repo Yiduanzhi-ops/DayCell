@@ -1,9 +1,26 @@
 # DayCell 实施进度快照
 
 > **这份文件的用途**：让会话上下文可以安全丢弃。接手时先读这份，再按需读 PRD / CORE-API。
-> 最后更新：2026-10-07 · **v7.9 阶段性目标模块**（见 §0m）；此前 v7.8 logo 高清化重制（§0l）、v7.7 logo 上架（§0k）、v7.6 支出改造（§0j）、v7.5 菜单/备份/纪念日/夜间（§0i）、v7.4 录入手动化 + 月汇总条 + 旧「小格」logo（§0h）、v7.3 应用名 + 底部切换器（§0g）、v7.2 手机端录入打磨（§0f）、PWA 已接线 + dist 重建（§0e）、v7.1 月格三行 + 启动页（§0d）
-> 当前状态 **全绿**：`tsc -b` 0 错 / `eslint .` 0 错 / **562 测试通过**（17 文件）/ `node smoke.cjs` 218 项断言（只守原型，见 §0c）
+> 最后更新：2026-10-08 · **v8.0 习惯模块**（见 §0n）；此前 v7.9 阶段性目标模块（§0m）、v7.8 logo 高清化重制（§0l）、v7.7 logo 上架（§0k）、v7.6 支出改造（§0j）、v7.5 菜单/备份/纪念日/夜间（§0i）、v7.4 录入手动化 + 月汇总条 + 旧「小格」logo（§0h）、v7.3 应用名 + 底部切换器（§0g）、v7.2 手机端录入打磨（§0f）、PWA 已接线 + dist 重建（§0e）、v7.1 月格三行 + 启动页（§0d）
+> 当前状态 **全绿**：`tsc -b` 0 错 / `eslint .` 0 错 / **581 测试通过**（19 文件）/ `node smoke.cjs` 218 项断言（只守原型，见 §0c）
 > **已 git 化**（分支 `main`）。core 层 **13/13 模块全部完成**（含 `backup/*`，v7.5 补齐）。
+
+---
+
+## 0n. ★ v8.0 习惯模块（2026-10-08，用户指令）
+
+**需求原话（多轮对齐后锁定）**：每天遵循某些习惯（多喝水等），不想每天建待办。用户拍板：入口放**今天视图区块**（与待办/想法并列，不放 tab、不进菜单当普通项）；**同时把今天视图里的支出（账单/花费）区块去掉**（记账走 iCost）；打卡**纯勾选**（不记量如杯数/公里）；**频率用户自定义**（每天 / 每周选星期几）；先出可点击原型。验收原型 `prototype/habits.html`（已交付 present_files，用户"挺好的，直接开始写吧，写完部署"）。
+
+**实现落点**：
+- **core**：`types.ts` 加 `HabitRecord`（type:'habit'，name + `freq: {kind:'daily'}|{kind:'weekly',weekdays:[0-6]}` + paused）/ `CheckinRecord`（type:'checkin'，habitId + date，**打卡/取消 = 置墓碑，永不物理删除**），`ALL_STORES`/`RecordTable` 十表；`validate.ts` 加 LIMITS.habitName=30 + parseHabitName/parseHabitFreq（weekly 去重排序、1–7 天、0–6 整数）；`repo` 加 `HabitRepo`（all/create/update 含 paused/softDelete）/ `CheckinRepo`（doneOn(date) → Set<habitId>、toggle(date, habitId) 幂等返回新状态，墓碑复活=再打卡）；`aggregate` 加 `habitDay(date)`（只返回**今天该做的**：daily 全出 / weekly 命中星期；暂停的排除；含打卡状态与 doneCount/dueCount；全表扫 habits + doneOn，量小不在月/周热路径）；`backup` serialize/parse/merge 含 habits/checkins（**旧备份无这两段按空表处理**）；`idb.ts` **`DB_VERSION = 3`**（upgrade `oldVersion < 3` 建 habits + checkins(byDate/byUpdated 索引)），SCHEMA_VERSION 保持 1 → 旧备份兼容
+- **UI**：`DayView` **移除 ExpenseSection**（今天视图不再显示/录入支出；历史数据保留，周/月汇总条与备份导出不受影响）+ **新增 `HabitSection`**（待办与想法之间：accent 浅底边框区块、`n/m` 计数、每行圆形勾选即打卡、频率小徽标「每天/每周·二四六」、空状态点进设置）；`store.ts` 加 `habitDay`/`habitList`/`habitsOpen` state + `refreshHabits/openHabits/closeHabits/createHabit/updateHabit/deleteHabit/toggleHabit` actions，`refresh()` 并行加载 `aggregates.habitDay(selected)`（按选中日显示）；`TopBar` 菜单加「习惯设置」（纪念日设置之后、分隔线之前，顺序与 v7.5 拍板一致）；`App.tsx` habitsOpen 渲染全屏覆盖层；新组件 `HabitsView.tsx` + `HabitsView.module.css`（列表：名称 + 频率徽标 + **暂停开关** + 删除；新建底部弹层：名称 + 每天/每周 seg + 星期 chips），视觉与原型一致、全部用现有 tokens 自动适配夜间
+- **测试**：`src/core/repo/habits.test.ts` 14 项（habit CRUD、freq 校验、toggle 幂等/按日隔离/墓碑、habitDay 频率过滤/暂停排除/打卡状态、备份往返/旧备份兼容/跨设备合并）；`src/ui/HabitsView.test.tsx` 5 项（今日区块空状态、新建+勾选计数、每周只在命中日出、暂停/恢复、删除）；App.test 3 项按 v8.0 行为修订（去支出区块断言、菜单顺序含习惯设置、月格造数改走 store action）→ 562 → **581**
+
+**验证**：tsc / eslint 0 错；581 测试全绿（19 文件）；build 通过（PWA precache 15 entries）。已提交推送，GitHub Actions 部署后线上验证。
+
+**文档落点**：PRD 修订行 v2.0；本节。
+
+**遗留**：真机过一遍习惯全流程（每周频率跨周验证、夜间模式下的勾选对比度）；确认 iCost 记账下 DayCell 不再录入支出后的使用习惯。
 
 ---
 

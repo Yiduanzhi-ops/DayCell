@@ -50,11 +50,11 @@ export interface IdbDeps {
  * IndexedDB 库版本。
  *
  * ⚠️ 与 SCHEMA_VERSION **刻意解耦**：库版本只管 object store 集合（物理建库），
- * schema 版本管记录结构（备份兼容）。v7.9 新增 goals/stages 两个 store，
- * 库版本升到 2 让**已安装用户**也能触发 upgrade 补建空表；
- * SCHEMA_VERSION 保持 1，旧备份（无 goals/stages 段）仍可导入。
+ * schema 版本管记录结构（备份兼容）。v7.9 新增 goals/stages 两个 store、
+ * v8.0 新增 habits/checkins 两个 store，库版本逐级升到 3 让**已安装用户**
+ * 也能触发 upgrade 补建空表；SCHEMA_VERSION 保持 1，旧备份仍可导入。
  */
-export const DB_VERSION = 2
+export const DB_VERSION = 3
 
 type Row = Record<string, unknown> & CoreRecord & { date?: DateKey; catId?: string }
 
@@ -256,7 +256,15 @@ export async function createIdbStore(deps: IdbDeps): Promise<RecordStore> {
             s.createIndex('byUpdated', 'updatedAt')
           }
         }
-        // 未来版本：if (oldVersion < 3) { ... }
+        // v8.0：新增 habits / checkins。checkins 按打卡日期建 byDate 索引
+        //（今日习惯聚合按天过滤；表小，实际也可全表扫，索引只是不亏）
+        if (oldVersion < 3) {
+          const habits = database.createObjectStore('habits', { keyPath: 'id' })
+          habits.createIndex('byUpdated', 'updatedAt')
+          const checkins = database.createObjectStore('checkins', { keyPath: 'id' })
+          checkins.createIndex('byDate', 'date')
+          checkins.createIndex('byUpdated', 'updatedAt')
+        }
         void transaction
       },
       blocked() {

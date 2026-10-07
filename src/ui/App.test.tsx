@@ -90,10 +90,8 @@ describe('App 冒烟', () => {
 
   it('月格三行：只有支出（无待办）也显示金额；想法以点提示在右下角（v7.1）', async () => {
     const store = await renderApp()
-    // 只记一笔支出 + 一条想法——复现旧版被 todoTotal gate 住的场景
-    fireEvent.click(screen.getByRole('button', { name: '记一笔支出' }))
-    fireEvent.change(screen.getByLabelText('金额（元）'), { target: { value: '129' } })
-    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    // v8.0 起今天视图不再录入支出（记账走 iCost），改走 store action 造数，验证月格展示
+    await store.getState().createExpense(12900, 'other', '午饭')
     await waitFor(() => expect(store.getState().detail?.summary.costCents).toBe(12900))
     fireEvent.click(screen.getByRole('button', { name: '添加想法' }))
     fireEvent.change(screen.getByLabelText('新想法'), { target: { value: '一个念头' } })
@@ -124,13 +122,14 @@ describe('App 冒烟', () => {
     expect(document.body.textContent).toContain('2026 年 9 月 29 日') // 内容区仍在
   })
 
-  it('v7.6 支出表单：无分类选择，先写「做了什么」再填带 ¥ 的金额', async () => {
+  it('v8.0 今天视图不再显示支出区块（记账走 iCost，历史数据仍进月格）', async () => {
     await renderApp()
-    fireEvent.click(screen.getByRole('button', { name: '记一笔支出' }))
-    expect(screen.queryByLabelText('分类')).not.toBeInTheDocument() // 分类选择已去掉
-    expect(screen.getByLabelText('做了什么')).toBeInTheDocument() // 备注前置
-    expect(screen.getByLabelText('金额（元）')).toBeInTheDocument()
-    expect(screen.getByText('¥')).toBeInTheDocument() // 金额前固定 ¥
+    // 支出录入入口与区块从今天视图移除（用户拍板）
+    expect(screen.queryByRole('button', { name: '记一笔支出' })).not.toBeInTheDocument()
+    expect(screen.queryByText('支出')).not.toBeInTheDocument()
+    // 待办/想法区块仍在
+    expect(screen.getByRole('button', { name: '添加待办' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '添加想法' })).toBeInTheDocument()
   })
 
   it('v7.6 已完成的待办自动沉底，未完成保持原序', async () => {
@@ -155,11 +154,11 @@ describe('App 冒烟', () => {
     expect(rows.map((el) => el.getAttribute('aria-label'))).toEqual(['编辑待办：乙', '编辑待办：甲'])
   })
 
-  it('v7.5 右上角菜单：项齐全、顺序正确、夜间模式开关生效', async () => {
+  it('v7.5/v8.0 右上角菜单：项齐全、顺序正确（含习惯设置）、夜间模式开关生效', async () => {
     await renderApp()
     fireEvent.click(screen.getByRole('button', { name: '菜单' }))
     const items = screen.getAllByRole('menuitem').map((el) => el.textContent)
-    expect(items).toEqual(['导出备份', '导入备份', '一键导出 MD', '纪念日设置', '关于'])
+    expect(items).toEqual(['导出备份', '导入备份', '一键导出 MD', '纪念日设置', '习惯设置', '关于'])
     expect(screen.getByRole('switch')).toBeInTheDocument() // 夜间模式行（最下面，分隔线之后）
     expect(screen.getByText('夜间模式')).toBeInTheDocument()
 
@@ -192,16 +191,8 @@ describe('App 冒烟', () => {
     expect(store.getState().annivList[0]).toMatchObject({ repeat: 'weekly', isLunar: false })
   })
 
-  it('v7.6 支出/想法创建成功后面板收起，不自动弹新条目（与待办一致）', async () => {
+  it('v7.6 想法创建成功后面板收起，不自动弹新条目（支出区块 v8.0 已移除）', async () => {
     await renderApp()
-
-    // 支出：记一笔 → 保存 → 表单消失
-    fireEvent.click(screen.getByRole('button', { name: '记一笔支出' }))
-    fireEvent.change(screen.getByLabelText('做了什么'), { target: { value: '午饭' } })
-    fireEvent.change(screen.getByLabelText('金额（元）'), { target: { value: '12' } })
-    fireEvent.click(screen.getByRole('button', { name: '保存' }))
-    await screen.findByText('午饭')
-    await waitFor(() => expect(screen.queryByLabelText('金额（元）')).not.toBeInTheDocument())
 
     // 想法：添加 → 保存 → 表单消失
     fireEvent.click(screen.getByRole('button', { name: '添加想法' }))

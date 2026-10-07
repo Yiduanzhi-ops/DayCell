@@ -7,7 +7,7 @@
  * `message` 是可以直接展示给用户的中文文案，UI 不得自行拼接错误提示。
  */
 
-import type { DateKey } from './types'
+import type { DateKey, HabitFreq } from './types'
 import { isValidKey } from './date'
 
 export type ValidateCode =
@@ -46,6 +46,7 @@ export const LIMITS = {
   goalNote: 5000,
   stageTitle: 50,
   stageNote: 1000,
+  habitName: 30,
   /** 99,999,999 元 = 9,999,999,900 分（PRD E7） */
   maxAmountCents: 9_999_999_900,
 } as const
@@ -192,6 +193,34 @@ export function parsePct(raw: string | undefined | null): ParseResult<number | u
     return err('BAD_VALUE', '进度必须是 0–100 的整数')
   }
   return ok(n)
+}
+
+// ---------------------------------------------------------------------------
+// 习惯（v8.0）
+// ---------------------------------------------------------------------------
+
+export const parseHabitName = (raw: string): ParseResult<string> =>
+  parseText(raw, { field: '习惯名称', max: LIMITS.habitName })
+
+/**
+ * 习惯频率校验：`{ kind:'daily' }` 或 `{ kind:'weekly', weekdays:[0-6] }`。
+ * weekly 必须选 1–7 天、每项是 0–6 的整数、去重（0 = 周日，与 dowOf 一致）。
+ */
+export function parseHabitFreq(raw: unknown): ParseResult<HabitFreq> {
+  if (!raw || typeof raw !== 'object') return err('BAD_VALUE', '习惯频率不正确')
+  const f = raw as { kind?: unknown; weekdays?: unknown }
+  if (f.kind === 'daily') return ok({ kind: 'daily' })
+  if (f.kind === 'weekly') {
+    if (!Array.isArray(f.weekdays) || f.weekdays.length < 1 || f.weekdays.length > 7) {
+      return err('BAD_VALUE', '每周至少选一天')
+    }
+    const days = f.weekdays.map((d) => Number(d))
+    if (!days.every((d) => Number.isInteger(d) && d >= 0 && d <= 6)) {
+      return err('BAD_VALUE', '星期几必须是 0–6')
+    }
+    return ok({ kind: 'weekly', weekdays: [...new Set(days)].sort() })
+  }
+  return err('BAD_VALUE', '习惯频率不正确')
 }
 
 // ---------------------------------------------------------------------------

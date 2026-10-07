@@ -1,0 +1,90 @@
+/* 今日习惯区块（v8.0）：accent 浅底边框，与待办/想法区块视觉区分 */
+.sect { margin-top: 16px; }
+
+.sectH {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.sectH h3 {
+  font-size: 13px;
+  color: var(--ink-3, #767676);
+  font-weight: 700;
+  letter-spacing: .06em;
+  margin: 0;
+}
+.count {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--accent, #2E4BA6);
+  font-variant-numeric: tabular-nums;
+}
+.line { flex: 1; }
+.manage {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent, #2E4BA6);
+  background: none;
+  border: none;
+  padding: 2px 0 2px 8px;
+  cursor: pointer;
+}
+
+.box {
+  border: 1px solid color-mix(in srgb, var(--accent, #2E4BA6) 26%, var(--line, #EBEBEB));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent, #2E4BA6) 7%, var(--bg, #fff));
+  padding: 2px 14px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 0;
+  border-bottom: 1px dashed color-mix(in srgb, var(--accent, #2E4BA6) 16%, transparent);
+}
+.row:last-child { border-bottom: none; }
+
+.check {
+  width: 22px;
+  height: 22px;
+  border-radius: 99px;
+  border: 2px solid var(--ink-4, #C4C4C4);
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.check svg { width: 12px; height: 12px; opacity: 0; }
+.checkOn { background: var(--accent, #2E4BA6); border-color: var(--accent, #2E4BA6); }
+.checkOn svg { opacity: 1; }
+
+.name { flex: 1; font-size: 14px; font-weight: 600; }
+.row.on .name { color: var(--ink-3, #767676); }
+.freq {
+  font-size: 10.5px;
+  color: var(--ink-3, #767676);
+  background: var(--bg, #fff);
+  border: 1px solid var(--line, #EBEBEB);
+  border-radius: 99px;
+  padding: 2px 8px;
+  letter-spacing: .02em;
+}
+.row.on .freq { opacity: .55; }
+
+.empty {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-size: 13px;
+  color: var(--ink-3, #767676);
+  background: color-mix(in srgb, var(--accent, #2E4BA6) 7%, var(--bg, #fff));
+  border: 1px dashed color-mix(in srgb, var(--accent, #2E4BA6) 30%, var(--line, #EBEBEB));
+  border-radius: 14px;
+  padding: 14px;
+  cursor: pointer;
+}

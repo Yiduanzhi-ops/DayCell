@@ -1,5 +1,8 @@
 /**
- * 日视图（v7：并入「今天」语义）：日头 + 顺延横幅 + 待办/花费/想法三区块。
+ * 日视图（v7：并入「今天」语义）：日头 + 顺延横幅 + 待办/想法两区块 + 今日习惯（v8.0）。
+ *
+ * v8.0：**支出区块从今天视图移除**（用户拍板：记账走 iCost，DayCell 不再录入/展示每日花费；
+ * 历史支出数据保留，周/月汇总条不受影响，备份导出照常含 expenses 段）。
  *
  * 今天标签恒显示今天；其他日子的日详情只能从周/月点格子进入（手机全屏 + 返回条，
  * 桌面右栏）。**不再提供翻日**（D19）——左右滑动翻日已删除：它既是低频路径，
@@ -20,8 +23,8 @@ import type { JSX } from 'react'
 import { dowOf, fromKey, lunarFullText } from '@core'
 import { useApp } from '@/app/context'
 import { TodoSection } from './TodoSection'
-import { ExpenseSection } from './ExpenseSection'
 import { NoteSection } from './NoteSection'
+import { HabitSection } from './HabitSection'
 import styles from './DayView.module.css'
 
 const DOW = ['日', '一', '二', '三', '四', '五', '六'] as const
@@ -127,7 +130,7 @@ export function DayView(): JSX.Element {
         )}
 
         <TodoSection dayWord={dayWord} />
-        <ExpenseSection dayWord={dayWord} />
+        <HabitSection />
         <NoteSection dayWord={dayWord} />
 
         {detail.summary.isEmpty && !edit && (

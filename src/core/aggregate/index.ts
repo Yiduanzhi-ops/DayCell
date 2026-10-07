@@ -41,6 +41,8 @@ import type {
   DateKey,
   ExpenseRecord,
   GoalRecord,
+  HabitFreq,
+  HabitRecord,
   NoteRecord,
   StageRecord,
   TodoRecord,
@@ -135,6 +137,23 @@ export interface GoalSummary {
   current: { id: string; title: string; pct?: number } | null
 }
 
+/** v8.0 今日习惯的一行（纯勾选打卡项，不进待办） */
+export interface HabitDayItem {
+  id: string
+  name: string
+  freq: HabitFreq
+  /** date 上是否已打卡 */
+  done: boolean
+}
+
+/** v8.0 「今日习惯」区块数据源：只含今天该做的（每天全部 / 每周命中星期），暂停的排除 */
+export interface HabitDay {
+  date: DateKey
+  items: HabitDayItem[]
+  doneCount: number
+  dueCount: number
+}
+
 export interface ViewOpts {
   weekStartsOn?: WeekStartsOn
 }
@@ -161,6 +180,8 @@ export interface Aggregates {
   goalSummaries(): Promise<GoalSummary[]>
   /** v7.9 某目标的全部活阶段：当前置顶，其余按 createdAt 升序 */
   stagesOfGoal(goalId: string): Promise<StageRecord[]>
+  /** v8.0 今日习惯：date 上该做的习惯 + 打卡状态 */
+  habitDay(date: DateKey): Promise<HabitDay>
   /**
    * 清掉分类名缓存。
    *
@@ -538,6 +559,31 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
 
     goalSummaries,
     stagesOfGoal,
+
+    // -----------------------------------------------------------------------
+    // 习惯（v8.0）：date 上「今天该做的习惯」+ 打卡状态
+    // -----------------------------------------------------------------------
+
+    async habitDay(date) {
+      const [habits, done] = await Promise.all([
+        store.all<HabitRecord>('habits'),
+        repos.checkins.doneOn(date),
+      ])
+      const dow = dowOf(date)
+      const items: HabitDayItem[] = []
+      for (const h of habits) {
+        if (h.deleted || h.paused) continue // 暂停的习惯不出现在今日（设置页仍可见）
+        const due = h.freq.kind === 'daily' || h.freq.weekdays.includes(dow)
+        if (!due) continue // 每周模式：今天不在选中星期 → 不出现
+        items.push({ id: h.id, name: h.name, freq: h.freq, done: done.has(h.id) })
+      }
+      return {
+        date,
+        items,
+        doneCount: items.filter((x) => x.done).length,
+        dueCount: items.length,
+      }
+    },
 
     invalidate() {
       names = null
