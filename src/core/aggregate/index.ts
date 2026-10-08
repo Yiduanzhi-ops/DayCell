@@ -129,11 +129,13 @@ export interface MonthSummary {
   costCents: number
 }
 
-/** v7.9 目标列表的一行（列表页唯一数据源） */
+/** v7.9 目标列表的一行（列表页唯一数据源）；v8.7 加 subtaskCount（子任务数） */
 export interface GoalSummary {
   goal: GoalRecord
   /** 活阶段数（不含墓碑） */
   stageCount: number
+  /** 活子任务数（不含墓碑，v8.7） */
+  subtaskCount: number
   /** 当前阶段（无则 null：目标建了但没阶段/当前阶段被删/已完成） */
   current: { id: string; title: string; pct?: number } | null
 }
@@ -368,9 +370,10 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
   // -------------------------------------------------------------------------
 
   const goalSummaries = async (): Promise<GoalSummary[]> => {
-    const [goalsList, stagesList] = await Promise.all([
+    const [goalsList, stagesList, subtasksList] = await Promise.all([
       repos.goals.all(),
       store.all<StageRecord>('stages'),
+      store.all<SubtaskRecord>('subtasks'),
     ])
     const live = goalsList.filter((g) => !g.deleted)
     const stageGroups = new Map<string, StageRecord[]>()
@@ -379,6 +382,12 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
       const a = stageGroups.get(s.goalId)
       if (a) a.push(s)
       else stageGroups.set(s.goalId, [s])
+    }
+    // v8.7：子任务计数（活记录，不含墓碑）
+    const subtaskGroups = new Map<string, number>()
+    for (const t of subtasksList) {
+      if (t.deleted) continue
+      subtaskGroups.set(t.goalId, (subtaskGroups.get(t.goalId) ?? 0) + 1)
     }
     // 进行中的在前（createdAt 升序）、已完成的沉底（createdAt 降序，最新完成在前），
     // UI 据此分成「进行中 / 已完成」两组。旧记录 done 缺省 → 归一化 false
@@ -395,6 +404,7 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
         // done 归一化：旧记录/旧备份无此字段，UI 一律拿到 boolean
         goal: { ...goal, done: goal.done ?? false },
         stageCount: stages.length,
+        subtaskCount: subtaskGroups.get(goal.id) ?? 0,
         current: cur ? { id: cur.id, title: cur.title, pct: cur.pct } : null,
       }
     })

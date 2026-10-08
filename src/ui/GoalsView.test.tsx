@@ -2,7 +2,7 @@
  * v7.9 目标模块 UI 冒烟测试（守"用户验收过的原型交互能跑"）：
  *  1. 底部 tab 第 4 个「目标」→ 空状态 + 新建入口
  *  2. 新建目标 → 列表卡片出现（标题 + 「当前」徽标随阶段）
- *  3. 打开详情 → 顶部主展示目标阐述，下方阶段列表
+ *  3. 打开详情 → 顶部主展示目标阐述，下方默认子任务列表（v8.7），可切「阶段」
  *  4. 添加第一个阶段 → 自动「当前」；第二个阶段「未开始」
  *  5. 点行展开 → 设为当前：原当前自动取消（互斥）
  *  6. 删除目标 → 连带阶段消失，回列表
@@ -52,7 +52,7 @@ describe('目标模块（v7.9）', () => {
 
     expect(await screen.findByText('复习考公')).toBeInTheDocument()
     expect(screen.getByText('2026 下半年主线')).toBeInTheDocument()
-    expect(screen.getByText(/0 个阶段/)).toBeInTheDocument()
+    expect(screen.getByText(/0 个子任务 · 0 个阶段/)).toBeInTheDocument()
   })
 
   it('详情页：阐述在顶部主展示，阶段列表在下方；首个阶段自动「当前」', async () => {
@@ -74,6 +74,8 @@ describe('目标模块（v7.9）', () => {
     await waitFor(() => expect(screen.getByText('目标阐述')).toBeInTheDocument())
     // 阐述在主展示区
     expect(screen.getByText('每天 2 小时行测，重点数量关系')).toBeInTheDocument()
+    // v8.7 默认子任务视图 → 切到阶段再断言阶段列表
+    fireEvent.click(screen.getByRole('tab', { name: '阶段' }))
     expect(screen.getByText('阶段列表')).toBeInTheDocument()
 
     // 添加第一个阶段 → 自动「当前」
@@ -102,6 +104,9 @@ describe('目标模块（v7.9）', () => {
     await screen.findByText('复习考公')
 
     fireEvent.click(screen.getByText('复习考公'))
+    // v8.7 默认子任务视图 → 切到阶段
+    await waitFor(() => screen.getByRole('tab', { name: '阶段' }))
+    fireEvent.click(screen.getByRole('tab', { name: '阶段' }))
     await waitFor(() => screen.getByText('阶段列表'))
     // 两个阶段
     for (const name of ['基础学习', '刷题阶段']) {
@@ -154,6 +159,9 @@ describe('目标模块（v7.9）', () => {
     await screen.findByText('复习考公')
 
     fireEvent.click(screen.getByText('复习考公'))
+    // v8.7 默认子任务视图 → 切到阶段
+    await waitFor(() => screen.getByRole('tab', { name: '阶段' }))
+    fireEvent.click(screen.getByRole('tab', { name: '阶段' }))
     await waitFor(() => screen.getByText('阶段列表'))
     fireEvent.click(screen.getByRole('button', { name: '＋ 添加阶段' }))
     fireEvent.change(screen.getByPlaceholderText('如：刷题阶段'), { target: { value: '基础学习' } })
@@ -167,7 +175,7 @@ describe('目标模块（v7.9）', () => {
 
   // ---- v8.5 子任务双视图 ----
 
-  it('双视图：默认「阶段」，切到「子任务」显示空态与添加按钮', async () => {
+  it('双视图：默认「子任务」（v8.7），切到「阶段」显示阶段列表', async () => {
     await renderApp()
     fireEvent.click(screen.getByRole('tab', { name: '目标' }))
     await waitFor(() => screen.getByText(/进行中的目标/))
@@ -178,14 +186,13 @@ describe('目标模块（v7.9）', () => {
     await screen.findByText('复习考公')
 
     fireEvent.click(screen.getByText('复习考公'))
-    // 默认阶段视图
-    await waitFor(() => screen.getByText('阶段列表'))
-    expect(screen.queryByText(/还没有子任务/)).not.toBeInTheDocument()
-
-    // 切到子任务视图
-    fireEvent.click(screen.getByRole('tab', { name: '子任务' }))
+    // 默认子任务视图
     await waitFor(() => screen.getByText(/还没有子任务/))
     expect(screen.getByRole('button', { name: '＋ 添加子任务' })).toBeInTheDocument()
+
+    // 切到阶段视图
+    fireEvent.click(screen.getByRole('tab', { name: '阶段' }))
+    await waitFor(() => screen.getByText('阶段列表'))
   })
 
   it('子任务：添加 → 勾选沉底 → 点文字就地编辑 → 删除', async () => {
@@ -199,8 +206,7 @@ describe('目标模块（v7.9）', () => {
     await screen.findByText('复习考公')
 
     fireEvent.click(screen.getByText('复习考公'))
-    await waitFor(() => screen.getByText('阶段列表'))
-    fireEvent.click(screen.getByRole('tab', { name: '子任务' }))
+    // v8.7 默认子任务视图
     await waitFor(() => screen.getByText(/还没有子任务/))
 
     // 添加两条

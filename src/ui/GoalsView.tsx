@@ -2,9 +2,9 @@
  * 目标模块（v7.9；v8.5 加「阶段 | 子任务」双视图）：底部 tab 第 4 个「目标」。
  *
  * 交互（以 prototype/goals.html 为验收标准，用户已拍板）：
- *  - 列表页 = 全部目标：标题 + 「当前 · xx」徽标 + 进度 + 阶段数 + 阐述 2 行截断
+ *  - 列表页 = 全部目标：标题 + 「当前 · xx」徽标 + 进度 + 子任务数 + 阶段数（子任务在前）+ 阐述 2 行截断（v8.7）
  *  - 详情页 = **顶部主展示目标阐述**（大段可编辑文本），**下方才是列表**
- *  - v8.5 双视图：阐述下方、列表上方有「阶段 | 子任务」切换按钮；
+ *  - v8.5 双视图：阐述下方、列表上方有「子任务 | 阶段」切换按钮（v8.6 换序）；**v8.7 默认打开子任务视图**；
  *    阶段是时间维度（现状不变），子任务是执行维度（标题 + 完成勾选 + 删除 + 点文字就地编辑），
  *    两者并存不替代、各自进度独立（目标卡片进度不受子任务影响）
  *  - 阶段 = 名称 + 百分比滑杆 + 备注 + 进行中/已完成 + 「当前」（同目标互斥）
@@ -450,7 +450,7 @@ function GoalDetail({
   const [stageSheet, setStageSheet] = useState<null | 'new' | StageRecord>(null)
   const [subtaskSheet, setSubtaskSheet] = useState(false)
   // v8.5 双视图：阶段（时间维度）| 子任务（执行维度），各自进度独立
-  const [viewMode, setViewMode] = useState<'stages' | 'subtasks'>('stages')
+  const [viewMode, setViewMode] = useState<'stages' | 'subtasks'>('subtasks') // v8.7 默认子任务视图
 
   const saveNote = async (): Promise<void> => {
     const ok = await updateGoal(goal.id, { note: noteDraft.trim() })
@@ -659,7 +659,7 @@ function GoalList(): JSX.Element {
         )
       )}
 
-      {items.map(({ goal, stageCount, current }) => (
+      {items.map(({ goal, stageCount, subtaskCount, current }) => (
         <div
           key={goal.id}
           className={goal.done ? `${styles.card} ${styles.cardDone}` : styles.card}
@@ -686,7 +686,7 @@ function GoalList(): JSX.Element {
             <span className={styles.pct}>
               {current?.pct !== undefined ? `${current.pct}%` : '—'}
             </span>
-            <span>· {stageCount} 个阶段</span>
+            <span>· {subtaskCount} 个子任务 · {stageCount} 个阶段</span>
             <button
               className={styles.cardDoneBtn}
               aria-label={goal.done ? `恢复进行中：${goal.title}` : `标记完成：${goal.title}`}

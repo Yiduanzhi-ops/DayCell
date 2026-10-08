@@ -37,15 +37,15 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v8.6')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v8.7')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v8.6')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v8.7')).not.toBeInTheDocument()
   })
 
   it('列表倒序：第一条是最新版本 v8.4，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v8.6')
+    expect(vers[0].textContent).toBe('v8.7')
     expect(screen.getByText('目标详情支持「阶段 | 子任务」双视图：子任务可勾选完成、点文字就地编辑、删除')).toBeInTheDocument()
   })
 

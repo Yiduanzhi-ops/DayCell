@@ -177,20 +177,24 @@ describe('stages', () => {
 // ---------------------------------------------------------------------------
 
 describe('aggregate.goals', () => {
-  it('goalSummaries：阶段数 + 当前阶段；无阶段目标 current 为 null', async () => {
+  it('goalSummaries：阶段数 + 子任务数（v8.7）+ 当前阶段；无阶段目标 current 为 null', async () => {
     const g1 = await repos.goals.create({ title: '复习考公', note: '主线' })
     await repos.stages.create({ goalId: g1.id, title: '基础学习', pct: 100 })
     await repos.stages.create({ goalId: g1.id, title: '刷题阶段', pct: 60 })
+    await repos.subtasks.create({ goalId: g1.id, title: '子任务 A' })
+    await repos.subtasks.create({ goalId: g1.id, title: '子任务 B' })
     const g2 = await repos.goals.create({ title: '刚建的', note: '' })
 
     const list = await agg.goalSummaries()
     expect(list).toHaveLength(2)
     const a = list.find((x) => x.goal.id === g1.id)!
     expect(a.stageCount).toBe(2)
+    expect(a.subtaskCount).toBe(2)
     expect(a.current?.title).toBe('基础学习') // 第一个是当前
     expect(a.current?.pct).toBe(100)
     const b = list.find((x) => x.goal.id === g2.id)!
     expect(b.stageCount).toBe(0)
+    expect(b.subtaskCount).toBe(0)
     expect(b.current).toBeNull()
   })
 
