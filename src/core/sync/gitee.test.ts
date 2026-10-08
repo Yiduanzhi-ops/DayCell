@@ -84,6 +84,10 @@ describe('createGiteeClient', () => {
     const [postUrl, postInit] = f.mock.calls[1] as unknown as [string, RequestInit]
     expect(postUrl).toBe(FILE_URL)
     expect(postInit.method).toBe('POST')
+    const h = postInit.headers as Record<string, string>
+    expect(h.Authorization).toBe('token tok_abc')
+    // Gitee 严格校验 JSON 写请求的 Content-Type（缺失 → 406，实测踩坑）
+    expect(h['Content-Type']).toBe('application/json')
     const body = JSON.parse(String(postInit.body)) as Record<string, string>
     expect(body.sha).toBe('s1') // 更新必须带原 sha
     expect(body.branch).toBe('master')

@@ -73,7 +73,11 @@ export function createGiteeClient(cfg: GiteeConfig, deps: GiteeDeps = {}): SyncT
   const owner = encodeURIComponent(cfg.owner.trim())
   const repo = encodeURIComponent(cfg.repo.trim())
   const fileUrl = `https://gitee.com/api/v5/repos/${owner}/${repo}/contents/${SYNC_FILE_PATH}`
-  const headers = { Authorization: `token ${cfg.token.trim()}` }
+  const headers = {
+    Authorization: `token ${cfg.token.trim()}`,
+    // Gitee API 对 JSON 写请求严格要求该头；缺失会返回 406 Not Acceptable（实测踩坑）
+    'Content-Type': 'application/json',
+  }
 
   /** 读文件元信息 → { sha, content } | null（404 = 文件不存在） */
   const fetchMeta = async (): Promise<{ sha: string; content: string | null } | null> => {
