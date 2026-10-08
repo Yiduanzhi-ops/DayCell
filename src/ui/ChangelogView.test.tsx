@@ -55,4 +55,11 @@ describe('ChangelogView（版本更新）', () => {
     expect(screen.getByText('新增「目标」模块：阶段性目标 + 阶段列表 + 阐述总结，底部 tab 进入')).toBeInTheDocument()
     expect(screen.getByText('新增右上角菜单：备份导出 / 合并导入 / 一键导出 MD / 纪念日设置 / 夜间模式')).toBeInTheDocument()
   })
+
+  it('早期版本（v6 三视图、v5 双视图、v0–v1 定位）要点存在', async () => {
+    await openChangelog()
+    expect(screen.getByText('三视图上线：默认「今天」落地页，可切换周 / 月')).toBeInTheDocument()
+    expect(screen.getByText('月 / 周双视图定型：月看密度、周看内容')).toBeInTheDocument()
+    expect(screen.getByText('定下核心定位：以「一天」为容器，记录待办 / 想法 / 花费')).toBeInTheDocument()
+  })
 })
