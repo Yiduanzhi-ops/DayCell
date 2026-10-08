@@ -5,7 +5,7 @@
  */
 import { useEffect, useRef } from 'react'
 import type { JSX } from 'react'
-import { dowOf, formatMoney, formatMoneyShort, fromKey, isSameMonth } from '@core'
+import { dowOf, fromKey, isSameMonth } from '@core'
 import type { WeekDay } from '@core'
 import { useApp } from '@/app/context'
 import { Check } from './icons'
@@ -57,8 +57,6 @@ export function WeekView(): JSX.Element {
         </span>
         <i className={styles.vr} />
         <span>{total?.daysWithNotes ?? 0} 天有想法</span>
-        <span className={styles.spacer} />
-        <span>本周支出 <b>¥{formatMoney(total?.costCents ?? 0)}</b></span>
       </div>
       <div className={styles.wrap} ref={scrollRef}>
         {days.map((d) => {
@@ -73,7 +71,7 @@ export function WeekView(): JSX.Element {
               key={d.date}
               role="button"
               tabIndex={0}
-              aria-label={`${m}月${dd}日 周${DOW[dowOf(d.date)]}${sub ? ' ' + sub : ''}${d.todoTotal ? ` 待办${d.todoDone}/${d.todoTotal}` : ''}${d.costCents ? ` 支出${formatMoney(d.costCents)}元` : ''}`}
+              aria-label={`${m}月${dd}日 周${DOW[dowOf(d.date)]}${sub ? ' ' + sub : ''}${d.todoTotal ? ` 待办${d.todoDone}/${d.todoTotal}` : ''}`}
               className={[styles.wrow, isSel ? styles.sel : '', isToday ? styles.today : '', out ? styles.out : ''].filter(Boolean).join(' ')}
               onClick={() => selectFromCalendar(d.date, scrollRef.current?.scrollTop ?? 0)}
               onKeyDown={(e) => {
@@ -88,11 +86,9 @@ export function WeekView(): JSX.Element {
                 <span className={styles.wdow}>周{DOW[dowOf(d.date)]}</span>
               </div>
               <div className={styles.wright}>
-                {(sub || d.costCents > 0) && (
+                {sub && (
                   <div className={styles.wtop}>
-                    <span className={d.label.emphasis && sub ? styles.fest : styles.wlun}>{sub}</span>
-                    <span className={styles.wspacer} />
-                    {d.costCents > 0 && <span className={styles.wcost}>¥{formatMoney(d.costCents)}</span>}
+                    <span className={d.label.emphasis ? styles.fest : styles.wlun}>{sub}</span>
                   </div>
                 )}
                 {d.anniversaries.length > 0 && (
@@ -123,11 +119,6 @@ export function WeekView(): JSX.Element {
                 {d.notePreview.map((n) => (
                   <div key={n.id} className={styles.wnote}>{n.text}</div>
                 ))}
-                {d.byCat.length > 1 && (
-                  <div className={styles.wcats}>
-                    {d.byCat.map((c) => `${c.name} ${formatMoneyShort(c.cents)}`).join(' · ')}
-                  </div>
-                )}
                 {d.isEmpty && <div className={styles.wempty}>空白的一天</div>}
               </div>
             </div>

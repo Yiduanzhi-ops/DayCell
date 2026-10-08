@@ -8,17 +8,18 @@
  * 「今天」按钮只在选中日 ≠ 今天时出现（US-09）。
  * 翻页箭头在今天视图下由 CSS 隐藏——v7 起日视图不翻日（D19），行为层 shift() 也是 no-op。
  *
- * ## v7.5 右上角菜单（手机端同位置）——菜单项顺序（用户拍板，v8.3 加「分享与手册」）：
+ * ## v7.5 右上角菜单（手机端同位置）——菜单项顺序（用户拍板，v8.3 加「分享与手册」、v8.4 加「版本更新」并移除「关于」占位）：
  * 导出备份 → 导入备份 → 一键导出 MD（点开弹本周/本月）→ 纪念日设置
  * → 习惯设置（v8.0）→ 同步设置（v8.1）→ 分隔线
- * → 分享与手册（v8.3）→ 夜间模式（手动开关，最下面）→ 关于（占位，暂不实现）
+ * → 分享与手册（v8.3）→ 版本更新（v8.4）→ 夜间模式（手动开关，最下面）
+ * 菜单按钮（v8.4 起）：浅色圆角按钮 + 三横汉堡图标（原先的省略号太小不显眼）。
  * 导入走隐藏 <input type=file>；MD 二级菜单返回上级。
  */
 import { useRef, useState } from 'react'
 import type { JSX } from 'react'
 import { formatMoney, fromKey } from '@core'
 import { useApp } from '@/app/context'
-import { ChevronLeft, ChevronRight, Ellipsis } from './icons'
+import { ChevronLeft, ChevronRight, MenuIcon } from './icons'
 import { BrandMark } from './BrandMark'
 import styles from './TopBar.module.css'
 
@@ -38,11 +39,10 @@ export function TopBar(): JSX.Element {
   const openHabits = useApp((s) => s.openHabits)
   const openSync = useApp((s) => s.openSync)
   const openShare = useApp((s) => s.openShare)
+  const openChangelog = useApp((s) => s.openChangelog)
   const exportBackup = useApp((s) => s.exportBackup)
   const importBackup = useApp((s) => s.importBackup)
   const exportMd = useApp((s) => s.exportMd)
-  const showToast = useApp((s) => s.showToast)
-
   const [menuOpen, setMenuOpen] = useState(false)
   const [mdOpen, setMdOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -103,7 +103,7 @@ export function TopBar(): JSX.Element {
         aria-expanded={menuOpen}
         title="菜单"
       >
-        <Ellipsis />
+        <MenuIcon />
       </button>
 
       {menuOpen && (
@@ -181,14 +181,14 @@ export function TopBar(): JSX.Element {
                   </button>
                 </div>
                 <button
-                  className={`${styles.mi} ${styles.about}`}
+                  className={styles.mi}
                   role="menuitem"
                   onClick={() => {
                     closeMenu()
-                    showToast('关于页即将上线')
+                    openChangelog()
                   }}
                 >
-                  关于
+                  版本更新
                 </button>
               </>
             ) : (

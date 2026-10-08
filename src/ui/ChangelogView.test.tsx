@@ -1,0 +1,58 @@
+/**
+ * ui/ChangelogView 测试（v8.4 版本更新页）：
+ *  - 从菜单进入、返回关闭
+ *  - 页首显示当前版本号
+ *  - 列表倒序（第一条是最新版本 v8.4）
+ *  - 每版至少一条要点、不含空的过期占位
+ */
+
+// @vitest-environment jsdom
+import { describe, it, expect, afterEach } from 'vitest'
+import '@testing-library/jest-dom/vitest'
+import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { createMemoryStore, type DateKey } from '@core'
+import { initCore } from '@/app/bootstrap'
+import { createAppStore } from '@/app/store'
+import { App } from './App'
+
+afterEach(cleanup)
+
+const TODAY = '2026-10-08' as DateKey
+
+async function renderApp() {
+  localStorage.clear()
+  const bundle = await initCore({ store: createMemoryStore(), skipLunar: true })
+  const store = createAppStore(bundle, { today: TODAY, isNarrow: () => false })
+  await store.getState().init()
+  render(<App store={store} />)
+  return store
+}
+
+async function openChangelog() {
+  await renderApp()
+  fireEvent.click(screen.getByRole('button', { name: '菜单' }))
+  fireEvent.click(screen.getByRole('menuitem', { name: '版本更新' }))
+}
+
+describe('ChangelogView（版本更新）', () => {
+  it('从菜单进入版本更新页，返回后关闭', async () => {
+    await openChangelog()
+    expect(screen.getByText('当前版本 v8.4')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
+    expect(screen.queryByText('当前版本 v8.4')).not.toBeInTheDocument()
+  })
+
+  it('列表倒序：第一条是最新版本 v8.4，且最新版要点可见', async () => {
+    await openChangelog()
+    const vers = screen.getAllByText(/^v\d+\.\d+$/)
+    expect(vers[0].textContent).toBe('v8.4')
+    expect(screen.getByText('新增「版本更新」页，每版要点倒序展示')).toBeInTheDocument()
+  })
+
+  it('历史版本（v8.2 同步、v7.9 目标、v7.5 菜单）要点存在', async () => {
+    await openChangelog()
+    expect(screen.getByText('跨设备同步改走 Gitee 私有仓库：配置一次自动同步，同步即异地备份')).toBeInTheDocument()
+    expect(screen.getByText('新增「目标」模块：阶段性目标 + 阶段列表 + 阐述总结，底部 tab 进入')).toBeInTheDocument()
+    expect(screen.getByText('新增右上角菜单：备份导出 / 合并导入 / 一键导出 MD / 纪念日设置 / 夜间模式')).toBeInTheDocument()
+  })
+})

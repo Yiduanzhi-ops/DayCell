@@ -50,16 +50,19 @@
 
 /* ---- v7.5：右上角菜单 ---- */
 
+/* v8.4：菜单按钮改为「浅色圆角按钮 + 三横汉堡图标」，原先 30px 省略号太小不显眼 */
 .menuBtn {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
+  width: 42px;
+  height: 36px;
+  border-radius: 10px;
   display: grid;
   place-items: center;
-  color: var(--ink-2);
+  color: var(--ink);
+  background: var(--bg-card);
+  border: 1px solid var(--line);
   flex: 0 0 auto;
 }
-.menuBtn:hover { background: var(--bg-hover); color: var(--ink); }
+.menuBtn:hover { background: var(--bg-hover); border-color: var(--ink-3, var(--line)); color: var(--ink); }
 
 /* 点击外部关闭的透明遮罩（手机端也要，点页面空白即收起） */
 .mask {

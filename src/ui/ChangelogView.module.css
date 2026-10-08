@@ -1,0 +1,109 @@
+/* 版本更新页（v8.4）：全屏覆盖层，手机/桌面同构，风格对齐 ShareView/SyncSettings */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: var(--bg);
+  display: flex;
+  justify-content: center;
+}
+
+.page {
+  width: 100%;
+  max-width: 560px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.back {
+  font-size: 13.5px;
+  color: var(--ink-2);
+  padding: 6px 10px;
+  border-radius: 8px;
+  min-height: 34px;
+}
+.back:hover { background: var(--bg-hover); color: var(--ink); }
+
+.h1 { flex: 1; font-size: 16px; font-weight: 650; text-align: center; }
+.headSpacer { width: 48px; }
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 18px 48px;
+}
+
+.current {
+  display: flex;
+  justify-content: center;
+  margin: 4px 0 18px;
+}
+
+.currentBadge {
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--accent);
+  background: var(--accent-weak, rgba(79, 124, 255, 0.08));
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 14px;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.item {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.itemHead {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.ver {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.date {
+  font-size: 11.5px;
+  color: var(--ink-2);
+}
+
+.items {
+  margin: 0;
+  padding: 0 0 0 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.items li {
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.55;
+}

@@ -11,7 +11,7 @@
  */
 import { useEffect, useRef } from 'react'
 import type { JSX } from 'react'
-import { formatMoney, formatMoneyShort, fromKey, isSameMonth } from '@core'
+import { fromKey, isSameMonth } from '@core'
 import { useApp } from '@/app/context'
 import styles from './MonthView.module.css'
 
@@ -38,11 +38,9 @@ export function MonthView(): JSX.Element {
 
   return (
     <>
-      {/* v7.4：本月消费汇总条，位置/样式对齐周视图的 weekbar（本周支出） */}
+      {/* v8.4：移除「本月消费」汇总条（用户拍板：周/月视图不再显示支出相关文字） */}
       <div className={styles.mbar}>
         <span>{month?.summary.daysWithRecords ?? 0} 天有记录</span>
-        <span className={styles.mspacer} />
-        <span>本月消费 <b>¥{formatMoney(month?.summary.costCents ?? 0)}</b></span>
       </div>
       <div className={styles.wkhead}>
         {WK_HEAD.map((w, i) => (
@@ -59,11 +57,9 @@ export function MonthView(): JSX.Element {
             const aria = `${fromKey(d.date).y}年${fromKey(d.date).m}月${dd}日`
               + (d.label.text ? ` ${d.label.text}` : '')
               + (d.todoTotal ? ` 待办${d.todoDone}/${d.todoTotal}` : '')
-              + (d.costCents ? ` 支出${formatMoney(d.costCents)}元` : '')
               + (d.noteCount ? ` ${d.noteCount}条想法` : '')
-            // 行2：纪念日徽章优先，花费次之（徽章很矮，两者挤一行会回到 v7 前的拥挤）
+            // 行2：纪念日徽章（v8.4 起月格不再显示支出金额）
             const showAnni = d.anniversaries.length > 0
-            const showCost = !out && !showAnni && d.costCents > 0
             // 行3：有待办或有想法才渲染；想法点靠 margin-left:auto 恒在右下角
             const showRow3 = !out && (d.todoTotal > 0 || d.noteCount > 0)
             return (
@@ -94,9 +90,6 @@ export function MonthView(): JSX.Element {
                 </div>
                 {showAnni && (
                   <span className={styles.anniBadge}>◷ {d.anniversaries[0]}</span>
-                )}
-                {showCost && (
-                  <div className={styles.costRow}>¥{formatMoneyShort(d.costCents)}</div>
                 )}
                 {showRow3 && (
                   <div className={styles.crow3}>

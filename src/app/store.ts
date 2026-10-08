@@ -108,6 +108,8 @@ export interface AppState {
   syncOpen: boolean
   /** v8.3：分享与手册页是否打开（全屏覆盖层，菜单「分享与手册」进入） */
   shareOpen: boolean
+  /** v8.4：版本更新页是否打开（全屏覆盖层，菜单「版本更新」进入） */
+  changelogOpen: boolean
   /** v8.1：同步引擎最近状态（设置页展示；null = 未创建引擎） */
   syncStatus: SyncStatus | null
   /** v8.1：当前已保存的同步配置（打开设置页时读入） */
@@ -210,6 +212,10 @@ export interface AppState {
   // ---- v8.3：分享与手册 ----
   openShare(): void
   closeShare(): void
+
+  // ---- v8.4：版本更新 ----
+  openChangelog(): void
+  closeChangelog(): void
 }
 
 export interface AppStoreOptions {
@@ -305,6 +311,7 @@ export function createAppStore(
     habitsOpen: false,
     syncOpen: false,
     shareOpen: false,
+    changelogOpen: false,
     syncStatus: syncEngine?.status() ?? null,
     syncConfig: null,
 
@@ -1031,6 +1038,15 @@ export function createAppStore(
 
     closeShare() {
       set({ shareOpen: false })
+    },
+
+    // ---- v8.4：版本更新 ----
+    openChangelog() {
+      set({ changelogOpen: true })
+    },
+
+    closeChangelog() {
+      set({ changelogOpen: false })
     },
 
     showToast(msg) {

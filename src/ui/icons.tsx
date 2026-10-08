@@ -32,13 +32,13 @@ export function Check({ size = 10 }: { size?: number }): JSX.Element {
   )
 }
 
-/** v7.5：顶栏右上角菜单按钮（⋯） */
-export function Ellipsis(): JSX.Element {
+/** v8.4：顶栏右上角菜单按钮（三横/汉堡） */
+export function MenuIcon(): JSX.Element {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <circle cx="5" cy="12" r="1.9" />
-      <circle cx="12" cy="12" r="1.9" />
-      <circle cx="19" cy="12" r="1.9" />
+      <rect x="3" y="5" width="18" height="2.2" rx="1.1" />
+      <rect x="3" y="10.9" width="18" height="2.2" rx="1.1" />
+      <rect x="3" y="16.8" width="18" height="2.2" rx="1.1" />
     </svg>
   )
 }
