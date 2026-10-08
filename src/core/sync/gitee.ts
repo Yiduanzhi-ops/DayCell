@@ -65,6 +65,32 @@ const b64decode = (b64: string): string => {
 const toError = (e: unknown): GiteeError =>
   e instanceof GiteeError ? e : new GiteeError('无法连接同步服务器，请检查网络', e)
 
+/** 探测仓库是否可见：区分「仓库不存在/令牌无权限」与「文件尚未创建」。
+ *  返回 null = 仓库可见；返回 GiteeError = 不可见/令牌无效（带准确原因） */
+async function probeRepo(
+  fetchImpl: (input: string, init?: RequestInit) => Promise<Response>,
+  fileUrl: string,
+  headers: Record<string, string>,
+  toErr: (e: unknown) => GiteeError,
+): Promise<GiteeError | null> {
+  const repoUrl = fileUrl.replace(/\/contents\/[^/]+$/, '')
+  let res: Response
+  try {
+    res = await fetchImpl(repoUrl, { method: 'GET', headers })
+  } catch (e) {
+    return toErr(e)
+  }
+  if (res.status === 401) return new GiteeError('令牌无效或已失效，请重新生成私人令牌', undefined)
+  if (res.status === 404 || res.status === 406) {
+    return new GiteeError(
+      '仓库不可见：请检查 Gitee 用户名/仓库名是否准确，且私人令牌已勾选 projects 作用域',
+      undefined,
+    )
+  }
+  if (!res.ok) return new GiteeError(`同步失败（HTTP ${res.status}），请检查令牌与仓库权限`, undefined)
+  return null
+}
+
 export function createGiteeClient(cfg: GiteeConfig, deps: GiteeDeps = {}): SyncTransport {
   assertGiteeConfig(cfg)
   const fetchImpl = deps.fetchImpl ?? globalThis.fetch
@@ -87,7 +113,13 @@ export function createGiteeClient(cfg: GiteeConfig, deps: GiteeDeps = {}): SyncT
     } catch (e) {
       throw toError(e)
     }
-    if (res.status === 404) return null
+    if (res.status === 404) {
+      // Gitee 对私有仓库"无权限/仓库不可见"也返回 404（掩盖存在性），与"文件尚不存在"混淆。
+      // 探测仓库元信息区分两种 404，报准确原因，避免走到 POST 后才暴露 406。
+      const probe = await probeRepo(fetchImpl, fileUrl, headers, toError)
+      if (probe) throw probe
+      return null // 仓库可见且令牌有效 → 404 确实是"文件还没创建"
+    }
     if (!res.ok) throw new GiteeError(`同步失败（HTTP ${res.status}），请检查令牌与仓库权限`, undefined)
     const json = (await res.json()) as { sha?: string; content?: string }
     if (typeof json.sha !== 'string') return null
@@ -108,9 +140,10 @@ export function createGiteeClient(cfg: GiteeConfig, deps: GiteeDeps = {}): SyncT
       branch: SYNC_BRANCH,
       ...(meta ? { sha: meta.sha } : {}),
     })
+    // Gitee：创建用 POST；**更新必须用 PUT（带原 sha）**，POST 带 sha 会报「文件名已存在」400（实测踩坑）
     let res: Response
     try {
-      res = await fetchImpl(fileUrl, { method: 'POST', headers, body })
+      res = await fetchImpl(fileUrl, { method: meta ? 'PUT' : 'POST', headers, body })
     } catch (e) {
       throw toError(e)
     }

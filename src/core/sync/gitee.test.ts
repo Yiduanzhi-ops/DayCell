@@ -41,13 +41,34 @@ describe('assertGiteeConfig', () => {
 })
 
 describe('createGiteeClient', () => {
-  it('fetchFile：仓库无文件（404）→ null', async () => {
-    const f = vi.fn(async () => json({ message: 'not found' }, 404))
+  it('fetchFile：仓库可见但文件未创建（404 + 仓库探测 200）→ null', async () => {
+    const f = vi
+      .fn()
+      .mockResolvedValueOnce(json({ message: 'not found' }, 404)) // contents 404
+      .mockResolvedValueOnce(json({ id: 1, default_branch: 'master' })) // 仓库探测 200
     const c = createGiteeClient(CFG, { fetchImpl: asFetch(f) })
     await expect(c.fetchFile()).resolves.toBeNull()
     const [url, init] = f.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe(`${FILE_URL}?ref=master`)
     expect((init.headers as Record<string, string>).Authorization).toBe('token tok_abc')
+  })
+
+  it('fetchFile：仓库不可见（404 + 仓库探测也 404）→ 抛准确原因而非当文件不存在', async () => {
+    const f = vi
+      .fn()
+      .mockResolvedValueOnce(json({ message: 'not found' }, 404)) // contents 404
+      .mockResolvedValueOnce(json({ message: 'Not Found Project' }, 404)) // 仓库探测 404
+    const c = createGiteeClient(CFG, { fetchImpl: asFetch(f) })
+    await expect(c.fetchFile()).rejects.toThrow('仓库不可见')
+  })
+
+  it('fetchFile：令牌无效（仓库探测 401）→ 提示重新生成令牌', async () => {
+    const f = vi
+      .fn()
+      .mockResolvedValueOnce(json({ message: 'not found' }, 404)) // contents 404
+      .mockResolvedValueOnce(json({ message: 'auth fail' }, 401)) // 仓库探测 401
+    const c = createGiteeClient(CFG, { fetchImpl: asFetch(f) })
+    await expect(c.fetchFile()).rejects.toThrow('令牌无效')
   })
 
   it('fetchFile：有文件 → UTF-8 解码返回正文（含中文）', async () => {
@@ -73,7 +94,7 @@ describe('createGiteeClient', () => {
     await expect(c.fetchFile()).rejects.toThrow('无法连接同步服务器')
   })
 
-  it('putFile：已有文件 → POST 带 sha 更新（先查后写，共 2 次请求）', async () => {
+  it('putFile：已有文件 → PUT 带 sha 更新（先查后写，共 2 次请求）', async () => {
     const f = vi
       .fn()
       .mockResolvedValueOnce(json({ sha: 's1', content: b64('old') })) // 查询
@@ -81,29 +102,32 @@ describe('createGiteeClient', () => {
     const c = createGiteeClient(CFG, { fetchImpl: asFetch(f) })
     await c.putFile('{"v":2}')
     expect(f).toHaveBeenCalledTimes(2)
-    const [postUrl, postInit] = f.mock.calls[1] as unknown as [string, RequestInit]
-    expect(postUrl).toBe(FILE_URL)
-    expect(postInit.method).toBe('POST')
-    const h = postInit.headers as Record<string, string>
+    const [putUrl, putInit] = f.mock.calls[1] as unknown as [string, RequestInit]
+    expect(putUrl).toBe(FILE_URL)
+    // Gitee 更新必须 PUT（POST 带 sha 会报「文件名已存在」400，实测踩坑）
+    expect(putInit.method).toBe('PUT')
+    const h = putInit.headers as Record<string, string>
     expect(h.Authorization).toBe('token tok_abc')
     // Gitee 严格校验 JSON 写请求的 Content-Type（缺失 → 406，实测踩坑）
     expect(h['Content-Type']).toBe('application/json')
-    const body = JSON.parse(String(postInit.body)) as Record<string, string>
+    const body = JSON.parse(String(putInit.body)) as Record<string, string>
     expect(body.sha).toBe('s1') // 更新必须带原 sha
     expect(body.branch).toBe('master')
     expect(body.message).toBe('sync')
     expect(body.content).toBe(b64('{"v":2}'))
   })
 
-  it('putFile：无文件（404）→ POST 创建（不带 sha）', async () => {
+  it('putFile：无文件（404 + 仓库探测 200）→ POST 创建（不带 sha）', async () => {
     const f = vi
       .fn()
-      .mockResolvedValueOnce(json({ message: 'not found' }, 404)) // 查询
+      .mockResolvedValueOnce(json({ message: 'not found' }, 404)) // contents 404
+      .mockResolvedValueOnce(json({ id: 1, default_branch: 'master' })) // 仓库探测 200
       .mockResolvedValueOnce(json({ content: { sha: 's1' } }, 201)) // 创建
     const c = createGiteeClient(CFG, { fetchImpl: asFetch(f) })
     await c.putFile('{"v":1}')
-    expect(f).toHaveBeenCalledTimes(2)
-    const [, postInit] = f.mock.calls[1] as unknown as [string, RequestInit]
+    expect(f).toHaveBeenCalledTimes(3)
+    const [, postInit] = f.mock.calls[2] as unknown as [string, RequestInit]
+    expect(postInit.method).toBe('POST')
     const body = JSON.parse(String(postInit.body)) as Record<string, string>
     expect(body.sha).toBeUndefined()
     expect(body.content).toBe(b64('{"v":1}'))
