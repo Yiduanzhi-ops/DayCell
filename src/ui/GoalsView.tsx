@@ -530,19 +530,19 @@ function GoalDetail({
       <div className={styles.seg} role="tablist" aria-label="目标视图">
         <button
           role="tab"
-          aria-selected={viewMode === 'stages'}
-          className={viewMode === 'stages' ? `${styles.segBtn} ${styles.segOn}` : styles.segBtn}
-          onClick={() => setViewMode('stages')}
-        >
-          阶段
-        </button>
-        <button
-          role="tab"
           aria-selected={viewMode === 'subtasks'}
           className={viewMode === 'subtasks' ? `${styles.segBtn} ${styles.segOn}` : styles.segBtn}
           onClick={() => setViewMode('subtasks')}
         >
           子任务
+        </button>
+        <button
+          role="tab"
+          aria-selected={viewMode === 'stages'}
+          className={viewMode === 'stages' ? `${styles.segBtn} ${styles.segOn}` : styles.segBtn}
+          onClick={() => setViewMode('stages')}
+        >
+          阶段
         </button>
       </div>
 

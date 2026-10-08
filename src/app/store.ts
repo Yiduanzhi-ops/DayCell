@@ -108,7 +108,7 @@ export interface AppState {
   habitsOpen: boolean
   /** v8.1：同步设置页是否打开（全屏覆盖层，菜单「同步设置」进入） */
   syncOpen: boolean
-  /** v8.3：分享与手册页是否打开（全屏覆盖层，菜单「分享与手册」进入） */
+  /** v8.3：使用手册页是否打开（全屏覆盖层，菜单「使用手册」进入；v8.6 更名） */
   shareOpen: boolean
   /** v8.4：版本更新页是否打开（全屏覆盖层，菜单「版本更新」进入） */
   changelogOpen: boolean
@@ -216,7 +216,7 @@ export interface AppState {
   /** 手动「立即同步」（pull + push） */
   syncNow(): Promise<boolean>
 
-  // ---- v8.3：分享与手册 ----
+  // ---- v8.3：分享与手册（v8.6 更名「使用手册」） ----
   openShare(): void
   closeShare(): void
 
@@ -1107,7 +1107,7 @@ export function createAppStore(
       }
     },
 
-    // ---- v8.3：分享与手册 ----
+    // ---- v8.3：分享与手册（v8.6 更名「使用手册」） ----
     openShare() {
       set({ shareOpen: true })
     },

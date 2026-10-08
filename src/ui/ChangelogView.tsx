@@ -8,10 +8,20 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.5'
+const CURRENT_VERSION = 'v8.6'
+export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.6',
+    date: '2026-10-08',
+    items: [
+      '菜单按钮去掉外围框，更简洁',
+      '目标详情切换改为「子任务 | 阶段」',
+      '「分享与手册」更名「使用手册」：新增 GitHub 仓库链接、反馈入口、一键生成分享图（含二维码与卖点）',
+    ],
+  },
   {
     version: 'v8.5',
     date: '2026-10-08',

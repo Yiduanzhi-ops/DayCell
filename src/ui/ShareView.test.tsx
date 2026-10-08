@@ -1,9 +1,10 @@
 /**
- * ui/ShareView 测试（v8.3 分享与手册页）：
+ * ui/ShareView 测试（v8.3 分享与手册页；v8.6 更名「使用手册」）：
  *  - 从菜单进入、返回关闭
  *  - 品牌 + 网址 + 复制链接按钮（写入剪贴板）
  *  - 分平台「添加到主屏幕」指引齐全
  *  - 三步上手 + 多设备同步提示
+ *  - v8.6：GitHub 仓库 / 问题反馈入口 + 一键生成分享图按钮
  */
 
 // @vitest-environment jsdom
@@ -31,10 +32,10 @@ async function renderApp() {
 async function openShare() {
   await renderApp()
   fireEvent.click(screen.getByRole('button', { name: '菜单' }))
-  fireEvent.click(screen.getByRole('menuitem', { name: '分享与手册' }))
+  fireEvent.click(screen.getByRole('menuitem', { name: '使用手册' }))
 }
 
-describe('ShareView（分享与手册）', () => {
+describe('ShareView（使用手册）', () => {
   it('从菜单进入分享页，返回后关闭', async () => {
     await openShare()
     // 顶栏品牌与页内应用名都叫 DayCell，故用 getAllByText 断言存在
@@ -68,5 +69,26 @@ describe('ShareView（分享与手册）', () => {
     await openShare()
     expect(screen.getByText('三步上手')).toBeInTheDocument()
     expect(screen.getByText('多设备同步')).toBeInTheDocument()
+  })
+
+  it('v8.6：GitHub 仓库链接、问题反馈入口、生成分享图按钮、数据安全提示', async () => {
+    await openShare()
+    expect(screen.getByRole('button', { name: /GitHub 仓库/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /问题反馈/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '一键生成分享图' })).toBeInTheDocument()
+    expect(screen.getByText(/数据安全：你的数据只存在自己的浏览器里/)).toBeInTheDocument()
+  })
+
+  it('v8.6：生成分享图在无 canvas 环境优雅降级（不崩溃）', async () => {
+    const getContext = vi.fn(() => null)
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(getContext as never)
+    try {
+      await openShare()
+      fireEvent.click(screen.getByRole('button', { name: '一键生成分享图' }))
+      // 降级 toast 出现、页面不崩
+      expect(await screen.findByText('当前环境不支持生成分享图')).toBeInTheDocument()
+    } finally {
+      vi.restoreAllMocks()
+    }
   })
 })
