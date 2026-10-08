@@ -43,8 +43,12 @@ import {
   type StageRecord,
   type WeekDay,
   type WeekTotal,
+  type SyncEngine,
+  type SyncStatus,
+  type WebDavConfig,
 } from '@core'
 import type { CoreBundle } from './bootstrap'
+import { readSyncConfig, writeSyncConfig } from './sync'
 
 export type View = 'day' | 'week' | 'month' | 'goals'
 /** v6.1：内联表单是唯一录入入口，同一时刻最多展开一个 */
@@ -100,6 +104,12 @@ export interface AppState {
   annivOpen: boolean
   /** v8.0：习惯设置页是否打开（全屏覆盖层，菜单「习惯设置」进入） */
   habitsOpen: boolean
+  /** v8.1：同步设置页是否打开（全屏覆盖层，菜单「同步设置」进入） */
+  syncOpen: boolean
+  /** v8.1：同步引擎最近状态（设置页展示；null = 未创建引擎） */
+  syncStatus: SyncStatus | null
+  /** v8.1：当前已保存的同步配置（打开设置页时读入） */
+  syncConfig: WebDavConfig | null
 
   edit: FormKind | null
   /** 请求聚焦当前表单并 scrollIntoView；DayView 渲染后消费一次 */
@@ -186,6 +196,14 @@ export interface AppState {
   deleteHabit(id: string): Promise<boolean>
   /** 打卡/取消（纯勾选）；成功后刷新今日习惯 */
   toggleHabit(date: DateKey, habitId: string): Promise<void>
+
+  // ---- v8.1：坚果云同步 ----
+  openSync(): void
+  closeSync(): void
+  /** 保存同步配置（localStorage + 引擎重建 + 立即同步一次） */
+  saveSyncConfig(cfg: WebDavConfig): Promise<boolean>
+  /** 手动「立即同步」（pull + push） */
+  syncNow(): Promise<boolean>
 }
 
 export interface AppStoreOptions {
@@ -193,6 +211,10 @@ export interface AppStoreOptions {
   today?: DateKey
   /** 窄屏判定（< 900px）。缺省用 matchMedia；测试注入固定值 */
   isNarrow?: () => boolean
+  /** v8.1：同步引擎（main.tsx 创建后传入；测试可不传） */
+  sync?: SyncEngine | null
+  /** v8.1：engine.onStatus 的注入点（engine 先于 store 创建，经闭包 sink 接上） */
+  onSyncStatus?: (fn: (s: SyncStatus) => void) => void
 }
 
 /** 断点与 CSS 一致（ADR-0005：布局归 CSS 媒体查询，这里只用于**导航行为**分叉） */
@@ -242,13 +264,14 @@ export function createAppStore(
 ): StoreApi<AppState> {
   const { repos, aggregates } = bundle
   const narrow = opts.isNarrow ?? defaultIsNarrow
+  const syncEngine = opts.sync ?? null
   /** 并发保护：快速翻页时旧响应不得覆盖新状态 */
   let loadSeq = 0
   let toastSeq = 0
 
   const canHistory = (): boolean => typeof globalThis.history?.pushState === 'function'
 
-  return createStore<AppState>()((set, get) => ({
+  const api = createStore<AppState>()((set, get) => ({
     today: opts.today ?? todayKey(),
     view: 'day',
     selected: opts.today ?? todayKey(),
@@ -274,6 +297,9 @@ export function createAppStore(
     theme: readTheme(),
     annivOpen: false,
     habitsOpen: false,
+    syncOpen: false,
+    syncStatus: syncEngine?.status() ?? null,
+    syncConfig: null,
 
     edit: null,
     wantFocus: false,
@@ -951,6 +977,46 @@ export function createAppStore(
       }
     },
 
+    // ---- v8.1：坚果云同步 ----
+
+    openSync() {
+      set({ syncOpen: true, syncConfig: readSyncConfig() })
+    },
+
+    closeSync() {
+      set({ syncOpen: false })
+    },
+
+    async saveSyncConfig(cfg) {
+      writeSyncConfig(cfg)
+      syncEngine?.configure(cfg)
+      set({ syncConfig: cfg })
+      get().showToast('已保存同步设置')
+      if (syncEngine?.configured) {
+        // 保存后立即同步一次，让用户马上看到效果（失败时状态页已显示原因）
+        await get().syncNow()
+      } else {
+        get().showToast('当前环境不支持网络同步')
+      }
+      return true
+    },
+
+    async syncNow() {
+      if (!syncEngine?.configured) {
+        get().showToast('请先填写同步设置')
+        return false
+      }
+      try {
+        await syncEngine.sync()
+        get().showToast('同步完成')
+        return true
+      } catch (e) {
+        // 引擎已把错误记入 status；这里把中文原因 toast 出来
+        get().showToast(syncEngine.status().lastError ?? errMsg(e))
+        return false
+      }
+    },
+
     showToast(msg) {
       if (!msg) return
       set({ toast: { msg, seq: ++toastSeq } })
@@ -960,4 +1026,8 @@ export function createAppStore(
       set({ toast: null })
     },
   }))
+
+  // v8.1：engine 先于 store 创建，status 回调经闭包 sink 接进来
+  opts.onSyncStatus?.((s) => api.setState({ syncStatus: s }))
+  return api
 }

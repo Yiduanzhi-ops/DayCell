@@ -11,6 +11,7 @@ export type ErrorCode =
   | 'MIGRATION_FAILED'
   | 'LUNAR_UNAVAILABLE'
   | 'BACKUP_CORRUPT'
+  | 'WEBDAV_FAILED'
   | 'NOT_FOUND'
   | 'TX_ABORTED'
   | 'CONFLICT'
@@ -65,6 +66,14 @@ export class LunarUnavailableError extends DayCellError {
 export class BackupCorruptError extends DayCellError {
   readonly code = 'BACKUP_CORRUPT' as const
   constructor(message = '备份文件无法识别，现有数据未改动', cause?: unknown) {
+    super(message, cause)
+  }
+}
+
+/** WebDAV 同步失败（网络/鉴权/服务端错误）→ v8.1 坚果云同步 */
+export class WebDavError extends DayCellError {
+  readonly code = 'WEBDAV_FAILED' as const
+  constructor(message = '同步失败，请检查网络与同步设置', cause?: unknown) {
     super(message, cause)
   }
 }

@@ -32,6 +32,7 @@
 | `core/aggregate` | 日 / 周 / 月三级汇总，供视图直接消费 |
 | `core/migrate` | 版本迁移（纯函数） |
 | `core/backup` | 导出 Markdown / CSV / JSON，导入与校验 |
+| `core/sync` | 云同步：WebDAV 客户端 / id 级 LWW 合并 / 同步引擎（v8.1，ADR-0009） |
 | `core/validate` | 纯校验函数（金额、文本长度、日期）。**38 个测试** |
 | `core/clock` | **唯一**允许调用 `Date.now()` 的地方（铁律 3 的落地手段） |
 | `core/errors` | `DayCellError` 及其子类（见 §2.2） |

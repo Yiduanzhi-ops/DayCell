@@ -20,6 +20,7 @@ import { MonthView } from './MonthView'
 import { AnnivSettings } from './AnnivSettings'
 import { GoalsView } from './GoalsView'
 import { HabitsView } from './HabitsView'
+import { SyncSettings } from './SyncSettings'
 import styles from './App.module.css'
 
 export function App({ store }: { store: StoreApi<AppState> }): JSX.Element {
@@ -44,6 +45,7 @@ function Shell(): JSX.Element {
   const theme = useApp((s) => s.theme)
   const annivOpen = useApp((s) => s.annivOpen)
   const habitsOpen = useApp((s) => s.habitsOpen)
+  const syncOpen = useApp((s) => s.syncOpen)
 
   // v7.5 夜间模式：store 里 setTheme 已同步 localStorage 与 <html>；这里兜底保证
   // 挂载时（含 localStorage 被别的标签页改过）状态一致
@@ -123,6 +125,7 @@ function Shell(): JSX.Element {
       </div>
       {annivOpen && <AnnivSettings />}
       {habitsOpen && <HabitsView />}
+      {syncOpen && <SyncSettings />}
     </div>
   )
 }

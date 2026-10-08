@@ -35,6 +35,7 @@ export function TopBar(): JSX.Element {
   const setTheme = useApp((s) => s.setTheme)
   const openAnniv = useApp((s) => s.openAnniv)
   const openHabits = useApp((s) => s.openHabits)
+  const openSync = useApp((s) => s.openSync)
   const exportBackup = useApp((s) => s.exportBackup)
   const importBackup = useApp((s) => s.importBackup)
   const exportMd = useApp((s) => s.exportMd)
@@ -144,6 +145,16 @@ export function TopBar(): JSX.Element {
                   }}
                 >
                   习惯设置
+                </button>
+                <button
+                  className={styles.mi}
+                  role="menuitem"
+                  onClick={() => {
+                    closeMenu()
+                    openSync()
+                  }}
+                >
+                  同步设置
                 </button>
                 <div className={styles.sep} />
                 <div className={styles.themeRow}>

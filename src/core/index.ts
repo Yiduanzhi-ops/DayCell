@@ -44,6 +44,11 @@ export * from './aggregate/index'
 // ---- 备份（导出 / 合并导入 / Markdown，PRD M14/M15） ----
 export * from './backup/index'
 
+// ---- 云同步（WebDAV / 坚果云，v8.1） ----
+export * from './sync/webdav'
+export * from './sync/merge'
+export * from './sync/engine'
+
 // ---- 迁移与环境探测 ----
 export * from './migrate/index'
 export * from './diagnose'

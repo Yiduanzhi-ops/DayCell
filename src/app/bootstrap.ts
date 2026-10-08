@@ -38,6 +38,12 @@ export interface InitCoreOptions {
   store?: RecordStore
   /** 测试用：跳过农历库动态加载（按失败处理，走公历降级路径） */
   skipLunar?: boolean
+  /**
+   * v8.1：在 store.init() 之后、createRepos/createAggregates **之前**包装 store，
+   * 让 repo 全部写操作都经过包装层（云同步的"写后触发推送"挂在这里）。
+   * 包装后的 store 成为 bundle.store / repos / aggregates 共同使用的实例。
+   */
+  wrapStore?: (s: RecordStore) => RecordStore
 }
 
 export async function initCore(opts: InitCoreOptions = {}): Promise<CoreBundle> {
@@ -69,6 +75,7 @@ export async function initCore(opts: InitCoreOptions = {}): Promise<CoreBundle> 
     store ??= createMemoryStore()
   }
   await store.init()
+  if (opts.wrapStore) store = opts.wrapStore(store)
 
   const repos = createRepos({ store })
   // 幂等：已有分类时不动。首次启动播种 8 个默认分类（PRD D12）

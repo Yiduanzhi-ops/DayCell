@@ -1,9 +1,31 @@
 # DayCell 实施进度快照
 
 > **这份文件的用途**：让会话上下文可以安全丢弃。接手时先读这份，再按需读 PRD / CORE-API。
-> 最后更新：2026-10-08 · **v8.0 习惯模块**（见 §0n）；此前 v7.9 阶段性目标模块（§0m）、v7.8 logo 高清化重制（§0l）、v7.7 logo 上架（§0k）、v7.6 支出改造（§0j）、v7.5 菜单/备份/纪念日/夜间（§0i）、v7.4 录入手动化 + 月汇总条 + 旧「小格」logo（§0h）、v7.3 应用名 + 底部切换器（§0g）、v7.2 手机端录入打磨（§0f）、PWA 已接线 + dist 重建（§0e）、v7.1 月格三行 + 启动页（§0d）
-> 当前状态 **全绿**：`tsc -b` 0 错 / `eslint .` 0 错 / **581 测试通过**（19 文件）/ `node smoke.cjs` 218 项断言（只守原型，见 §0c）
-> **已 git 化**（分支 `main`）。core 层 **13/13 模块全部完成**（含 `backup/*`，v7.5 补齐）。
+> 最后更新：2026-10-08 · **v8.1 坚果云同步**（见 §0o）；此前 v8.0 习惯模块（§0n）、v7.9 阶段性目标模块（§0m）、v7.8 logo 高清化重制（§0l）、v7.7 logo 上架（§0k）、v7.6 支出改造（§0j）、v7.5 菜单/备份/纪念日/夜间（§0i）、v7.4 录入手动化 + 月汇总条 + 旧「小格」logo（§0h）、v7.3 应用名 + 底部切换器（§0g）、v7.2 手机端录入打磨（§0f）、PWA 已接线 + dist 重建（§0e）、v7.1 月格三行 + 启动页（§0d）
+> 当前状态 **全绿**：`tsc -b` 0 错 / `eslint .` 0 错 / **609 测试通过**（21 文件）/ `node smoke.cjs` 218 项断言（只守原型，见 §0c）
+> **已 git 化**（分支 `main`）。core 层 **14/14 模块全部完成**（含 `backup/*`，v7.5 补齐；`sync/*`，v8.1 新增）。
+
+---
+
+## 0o. ★ v8.1 坚果云 WebDAV 同步（2026-10-08，用户指令）
+
+**需求原话（多轮对齐后锁定）**：电脑端与手机端数据不同步不方便。用户拍板选型：**坚果云 WebDAV**（对比 GitHub 私有仓库 + PAT——用户本地直连 GitHub 超时、手机网络更不可控，弃；BaaS——要注册第三方/免费额度/数据在别人手里，弃）。目标效果：电脑记的待办/习惯/目标，手机打开自动就有；数据在坚果云留一份 = **顺带解决"单机单点"丢失风险**；发给别人用各自填自己坚果云账号即互不干扰（**应用密码绝不外传**）。**部署不变**：仍 GitHub Pages，坚果云只是数据通道。
+
+**实现落点**：
+- **core**（新增 `sync/` 三件套，isolation.test.ts 自动扫描、无 DOM 依赖）：
+  - `webdav.ts`：极简 WebDAV 客户端（GET 404→null / PUT 覆盖；Basic Auth `user:pass`；非 2xx 抛 `WebDavError`；**fetch 注入**，测试 mock）；`assertWebDavConfig` 校验非空 + URL 合法
+  - `merge.ts`：**同步合并 ≠ 备份导入**（备份=本地优先，同步=**id 级 last-write-wins**，PRD §6.3 直接应用）；同 id 取 updatedAt 较新者（墓碑参与比较=删除同步过去；远端独有墓碑跳过；本地独有含墓碑保留）；settings 按 key 同样 LWW
+  - `engine.ts`：pull（GET→parse→merge→**单事务 keepTimestamps 写回**，只写有变化的表、settings 只写 value 变化的 key——否则 updatedAt 全变"刚刚"会反向覆盖）/ push（serialize→PUT 含墓碑）/ sync（先拉后推）；**防抖 4s 推送**；**merging 标志防循环**（拉取写库触发的推送直接跳过）；状态机 idle/syncing/error + lastSyncAt/lastError，失败记入 status 不打断用户
+- **app**：`sync.ts` 配置读写 **localStorage**（`daycell-sync`，**刻意不进 IndexedDB/不进备份文件**——密码不随备份到处走，丢失只影响自动同步，数据在本地库+云端可恢复）；`wrapStoreForSync` **逐方法 bind 包装 store**（不用 ...spread，防丢 this），**put/putMany/putSetting 写后触发 schedulePush**——bootstrap `initCore` 新增 `wrapStore` 参数，在 store.init() 后、createRepos 前应用 → **repo 全部写操作一处包装全覆盖**
+- **UI**：菜单加「同步设置」（习惯设置后、分隔线前）；`SyncSettings.tsx` 全屏覆盖层（仿 AnnivSettings）：WebDAV 地址/账号/应用密码 + 保存并立即同步 + 立即同步按钮 + 状态区（未配置/同步中/出错/上次同步时间/错误原因）+ 说明文案（应用密码在坚果云官网生成、手机电脑填同一份）
+- **生命周期**：main.tsx 创建引擎（先于 store，onStatus 经闭包 sink 接到 store）→ 有配置则 configure → 首帧渲染**后**后台 pull（失败静默，不占首屏关键路径）；写操作自动防抖推送
+- **测试**：`core/sync/sync.test.ts` 23 项（webdav 状态码/鉴权/校验、merge LWW/墓碑/独立新增、engine 404/合并/损坏回滚/墓碑上传/防抖一次/错误状态/先拉后推）；`app/sync.test.ts` 2 项（写后触发防抖推送、**防循环：pull 合并写库不产生额外 PUT**）；App.test 菜单顺序含同步设置 → 581 → **609**
+
+**验证**：tsc / eslint 0 错；609 测试全绿（21 文件）；build 通过（PWA precache 15 entries）；dist bundle 核验含「同步设置/WebDAV 地址/坚果云」。
+
+**文档落点**：SPEC 修订行 v8.1；ADR-0009；CORE-API §1.1 模块表加 `sync`；本节。
+
+**遗留（等用户真机）**：用户注册坚果云 + 生成应用密码后真机验证两设备互通；确认同步文件 URL 的目录权限（坚果云 WebDAV 需在 dav.jianguoyun.com/dav/ 下）；「每周自动备份」旧提案被同步覆盖，用户未拍板是否保留独立定时备份。
 
 ---
 
