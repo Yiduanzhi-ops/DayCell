@@ -106,6 +106,8 @@ export interface AppState {
   habitsOpen: boolean
   /** v8.1：同步设置页是否打开（全屏覆盖层，菜单「同步设置」进入） */
   syncOpen: boolean
+  /** v8.3：分享与手册页是否打开（全屏覆盖层，菜单「分享与手册」进入） */
+  shareOpen: boolean
   /** v8.1：同步引擎最近状态（设置页展示；null = 未创建引擎） */
   syncStatus: SyncStatus | null
   /** v8.1：当前已保存的同步配置（打开设置页时读入） */
@@ -204,6 +206,10 @@ export interface AppState {
   saveSyncConfig(cfg: GiteeConfig): Promise<boolean>
   /** 手动「立即同步」（pull + push） */
   syncNow(): Promise<boolean>
+
+  // ---- v8.3：分享与手册 ----
+  openShare(): void
+  closeShare(): void
 }
 
 export interface AppStoreOptions {
@@ -298,6 +304,7 @@ export function createAppStore(
     annivOpen: false,
     habitsOpen: false,
     syncOpen: false,
+    shareOpen: false,
     syncStatus: syncEngine?.status() ?? null,
     syncConfig: null,
 
@@ -1015,6 +1022,15 @@ export function createAppStore(
         get().showToast(syncEngine.status().lastError ?? errMsg(e))
         return false
       }
+    },
+
+    // ---- v8.3：分享与手册 ----
+    openShare() {
+      set({ shareOpen: true })
+    },
+
+    closeShare() {
+      set({ shareOpen: false })
     },
 
     showToast(msg) {

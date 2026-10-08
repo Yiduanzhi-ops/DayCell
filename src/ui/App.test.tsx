@@ -154,11 +154,11 @@ describe('App 冒烟', () => {
     expect(rows.map((el) => el.getAttribute('aria-label'))).toEqual(['编辑待办：乙', '编辑待办：甲'])
   })
 
-  it('v7.5/v8.0/v8.1 右上角菜单：项齐全、顺序正确（含习惯/同步设置）、夜间模式开关生效', async () => {
+  it('v7.5/v8.0/v8.1/v8.3 右上角菜单：项齐全、顺序正确（含习惯/同步设置/分享与手册）、夜间模式开关生效', async () => {
     await renderApp()
     fireEvent.click(screen.getByRole('button', { name: '菜单' }))
     const items = screen.getAllByRole('menuitem').map((el) => el.textContent)
-    expect(items).toEqual(['导出备份', '导入备份', '一键导出 MD', '纪念日设置', '习惯设置', '同步设置', '关于'])
+    expect(items).toEqual(['导出备份', '导入备份', '一键导出 MD', '纪念日设置', '习惯设置', '同步设置', '分享与手册', '关于'])
     expect(screen.getByRole('switch')).toBeInTheDocument() // 夜间模式行（最下面，分隔线之后）
     expect(screen.getByText('夜间模式')).toBeInTheDocument()
 

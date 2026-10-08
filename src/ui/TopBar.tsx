@@ -8,9 +8,10 @@
  * 「今天」按钮只在选中日 ≠ 今天时出现（US-09）。
  * 翻页箭头在今天视图下由 CSS 隐藏——v7 起日视图不翻日（D19），行为层 shift() 也是 no-op。
  *
- * ## v7.5 右上角菜单（手机端同位置）——菜单项顺序（用户拍板）：
+ * ## v7.5 右上角菜单（手机端同位置）——菜单项顺序（用户拍板，v8.3 加「分享与手册」）：
  * 导出备份 → 导入备份 → 一键导出 MD（点开弹本周/本月）→ 纪念日设置
- * → 分隔线 → 夜间模式（手动开关，最下面）→ 关于（占位，暂不实现）
+ * → 习惯设置（v8.0）→ 同步设置（v8.1）→ 分隔线
+ * → 分享与手册（v8.3）→ 夜间模式（手动开关，最下面）→ 关于（占位，暂不实现）
  * 导入走隐藏 <input type=file>；MD 二级菜单返回上级。
  */
 import { useRef, useState } from 'react'
@@ -36,6 +37,7 @@ export function TopBar(): JSX.Element {
   const openAnniv = useApp((s) => s.openAnniv)
   const openHabits = useApp((s) => s.openHabits)
   const openSync = useApp((s) => s.openSync)
+  const openShare = useApp((s) => s.openShare)
   const exportBackup = useApp((s) => s.exportBackup)
   const importBackup = useApp((s) => s.importBackup)
   const exportMd = useApp((s) => s.exportMd)
@@ -157,6 +159,16 @@ export function TopBar(): JSX.Element {
                   同步设置
                 </button>
                 <div className={styles.sep} />
+                <button
+                  className={styles.mi}
+                  role="menuitem"
+                  onClick={() => {
+                    closeMenu()
+                    openShare()
+                  }}
+                >
+                  分享与手册
+                </button>
                 <div className={styles.themeRow}>
                   <span>夜间模式</span>
                   <button
