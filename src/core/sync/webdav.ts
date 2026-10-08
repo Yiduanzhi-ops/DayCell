@@ -1,18 +1,24 @@
 /**
  * core/sync/webdav —— 极简 WebDAV 客户端（v8.1 坚果云同步）。
  *
+ * ⚠️ **2026-10-08 实测：坚果云 WebDAV 不返回 CORS 许可头，浏览器会拦截所有跨域请求，
+ * 纯网页应用无法直连坚果云**（ADR-0009 已修订，现行通道是 gitee.ts）。
+ * 本文件保留为传输层实现之一（对支持 CORS 的 WebDAV 服务仍可用），
+ * 引擎通过 SyncTransport 接口接入，不感知具体实现。
+ *
  * 只实现同步需要的两个动词：
  *  - `GET`：下载云端文件（404 = 文件还不存在 → 返回 null）
- *  - `PUT`：整体覆盖云端文件（坚果云 WebDAV 语义，个人全量 JSON 足够）
+ *  - `PUT`：整体覆盖云端文件（WebDAV 语义，个人全量 JSON 足够）
  *
  * 设计约束：
  *  - **纯 core：禁 React/DOM**（isolation.test.ts 守护）；fetch 由调用方注入
  *    （浏览器给 globalThis.fetch，测试给 mock），顶层不碰全局
- *  - 鉴权用 Basic Auth（user:pass → base64），坚果云"应用密码"正是为此设计
+ *  - 鉴权用 Basic Auth（user:pass → base64），WebDAV"应用密码"正是为此设计
  *  - 任何非 2xx（除 GET 404）抛 WebDavError，携带状态码，UI 层转成中文提示
  */
 
 import { WebDavError } from '../errors'
+import type { SyncTransport } from './transport'
 
 export interface WebDavConfig {
   /** 云端文件完整 URL，如 https://dav.jianguoyun.com/dav/daycell-sync.json */
@@ -23,7 +29,7 @@ export interface WebDavConfig {
   pass: string
 }
 
-export interface WebDavClient {
+export interface WebDavClient extends SyncTransport {
   /** GET。文件不存在（404）→ null；其余错误抛 WebDavError */
   fetchFile(): Promise<string | null>
   /** PUT 整体覆盖。非 2xx 抛 WebDavError */

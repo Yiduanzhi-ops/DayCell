@@ -46,6 +46,8 @@ export * from './backup/index'
 
 // ---- 云同步（WebDAV / 坚果云，v8.1） ----
 export * from './sync/webdav'
+export * from './sync/gitee'
+export * from './sync/transport'
 export * from './sync/merge'
 export * from './sync/engine'
 

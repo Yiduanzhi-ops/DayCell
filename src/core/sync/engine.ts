@@ -1,7 +1,7 @@
 /**
- * core/sync/engine —— 同步引擎（v8.1 坚果云同步）。
+ * core/sync/engine —— 同步引擎（v8.1 云同步；v8.2 传输层抽离为 SyncTransport）。
  *
- * 模型：WebDAV 是"拉取"而非"推送"，所以自动同步只做两件事：
+ * 模型：同步通道是"拉取"而非"推送"，所以自动同步只做两件事：
  *  - **打开网页时 pull 一次**（启动后台拉取，失败静默）
  *  - **本地数据变更后防抖 push**（写库经 wrapStoreForSync 触发 schedulePush）
  * 手动「立即同步」= pull + push（sync），补自动覆盖不到的盲区。
@@ -30,7 +30,7 @@ import type {
   TodoRecord,
 } from '../types'
 import type { RecordStore } from '../store/types'
-import { createWebDavClient, type WebDavClient, type WebDavConfig } from './webdav'
+import type { SyncTransport } from './transport'
 import { mergeTables } from './merge'
 
 export type SyncState = 'idle' | 'syncing' | 'error'
@@ -52,11 +52,11 @@ export interface SyncStats {
 }
 
 export interface SyncEngine {
-  /** 是否已配置（configure 传入过合法配置） */
+  /** 是否已配置（setTransport 传入过传输层） */
   readonly configured: boolean
   status(): SyncStatus
-  /** 设置/更换同步配置；null = 停用同步 */
-  configure(cfg: WebDavConfig | null): void
+  /** 设置/更换传输层；null = 停用同步（配置与传输构造由 app 层负责） */
+  setTransport(t: SyncTransport | null): void
   /** 拉取云端 → 合并写本地（单事务；写库期间不触发推送） */
   pull(): Promise<SyncStats>
   /** 本地全量推送到云端 */
@@ -76,8 +76,8 @@ export interface SyncEngineDeps {
   clock?: Clock
   /** 状态变化回调（UI 层注入，刷新设置页显示） */
   onStatus?: (s: SyncStatus) => void
-  /** 网络实现注入点（测试用 mock；缺省 globalThis.fetch） */
-  fetchImpl?: (input: string, init?: RequestInit) => Promise<Response>
+  /** 传输层注入点（app 层构造：Gitee / WebDAV；测试给 mock） */
+  transport?: SyncTransport | null
 }
 
 const DEFAULT_PUSH_DELAY = 4000
@@ -88,8 +88,8 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
   const clock = deps.clock ?? systemClock
   const notify = deps.onStatus ?? ((): void => {})
 
-  let client: WebDavClient | null = null
-  let configured = false
+  let transport: SyncTransport | null = deps.transport ?? null
+  let configured = transport !== null
   let merging = false
   let status: SyncStatus = { state: 'idle', lastSyncAt: null, lastError: null, lastErrorAt: null }
   let pushTimer: ReturnType<typeof setTimeout> | null = null
@@ -162,8 +162,8 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
 
   const pull = (): Promise<SyncStats> =>
     withError(async () => {
-      if (!client) return { pulled: false, pushed: false }
-      const text = await client.fetchFile()
+      if (!transport) return { pulled: false, pushed: false }
+      const text = await transport.fetchFile()
       if (text === null) return { pulled: false, pushed: false } // 云端还没有文件
       const remote = parseBackup(text).data
       const local = await loadLocal()
@@ -174,9 +174,9 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
 
   const push = (): Promise<SyncStats> =>
     withError(async () => {
-      if (!client) return { pulled: false, pushed: false }
+      if (!transport) return { pulled: false, pushed: false }
       const file = await serializeBackup(deps.store)
-      await client.putFile(JSON.stringify(file))
+      await transport.putFile(JSON.stringify(file))
       return { pulled: false, pushed: true }
     })
 
@@ -201,17 +201,17 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
       return merging
     },
     status: () => status,
-    configure(cfg) {
+    setTransport(t) {
       clearTimer()
-      client = cfg ? createWebDavClient(cfg, { fetchImpl: deps.fetchImpl }) : null
-      configured = cfg !== null
-      if (!cfg) setStatus({ state: 'idle' })
+      transport = t
+      configured = t !== null
+      if (!t) setStatus({ state: 'idle' })
     },
     pull,
     push,
     sync,
     schedulePush(delayMs = DEFAULT_PUSH_DELAY) {
-      if (!client || merging) return // 未配置，或正处于拉取合并写库中
+      if (!transport || merging) return // 未配置，或正处于拉取合并写库中
       clearTimer()
       pushTimer = setTimeout(() => {
         pushTimer = null

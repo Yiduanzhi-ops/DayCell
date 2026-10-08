@@ -6,10 +6,11 @@
  *  2. 农历库经 loadLunar **动态 import**，失败按 E4 降级为 null，不阻塞也不炸
  *  3. 首帧渲染的是日视图（今天）——aggregateDayDetail 只查 [昨天, 今天] 两天
  *
- * v8.1 云同步（坚果云 WebDAV）：
+ * v8.1/v8.2 云同步（v8.2 现行通道：Gitee 私有仓库文件——坚果云 WebDAV 不支持浏览器
+ * CORS、LeanCloud 已停服，均实测不可用，见 ADR-0009）：
  *  - initCore 传 wrapStore：让 repo 全部写操作都经过包装层，写后触发防抖推送
  *  - 引擎先于 store 创建，status 回调经闭包 sink 接到 store（设置页展示）
- *  - 有配置则 configure；首帧渲染**之后**后台 pull 一次（失败静默，不打扰）
+ *  - 有配置则 buildTransport 并 setTransport；首帧渲染**之后**后台 pull 一次（失败静默，不打扰）
  *
  * 启动页（#splash，v7.1）在 index.html 里自管生命周期：**固定显示 1.5s** 后淡出，
  * 与本文件的挂载时机无关（用户拍板要完整展示 branding）。应用通常在 1.5s 内已就绪，
@@ -19,7 +20,7 @@ import { createRoot } from 'react-dom/client'
 import { createSyncEngine, today, type SyncEngine, type SyncStatus } from '@core'
 import { initCore } from '@/app/bootstrap'
 import { createAppStore } from '@/app/store'
-import { readSyncConfig, wrapStoreForSync } from '@/app/sync'
+import { buildTransport, readSyncConfig, wrapStoreForSync } from '@/app/sync'
 import { App } from '@/ui/App'
 import '@/ui/tokens.css'
 
@@ -38,7 +39,7 @@ async function main(): Promise<void> {
   })
 
   const cfg = readSyncConfig()
-  if (cfg) syncEngine.configure(cfg)
+  if (cfg) syncEngine.setTransport(buildTransport(cfg))
 
   const store = createAppStore(bundle, {
     today: today(),

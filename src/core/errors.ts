@@ -12,6 +12,7 @@ export type ErrorCode =
   | 'LUNAR_UNAVAILABLE'
   | 'BACKUP_CORRUPT'
   | 'WEBDAV_FAILED'
+  | 'GITEE_FAILED'
   | 'NOT_FOUND'
   | 'TX_ABORTED'
   | 'CONFLICT'
@@ -73,6 +74,14 @@ export class BackupCorruptError extends DayCellError {
 /** WebDAV 同步失败（网络/鉴权/服务端错误）→ v8.1 坚果云同步 */
 export class WebDavError extends DayCellError {
   readonly code = 'WEBDAV_FAILED' as const
+  constructor(message = '同步失败，请检查网络与同步设置', cause?: unknown) {
+    super(message, cause)
+  }
+}
+
+/** Gitee 云同步失败（网络/鉴权/服务端错误）→ v8.2 同步通道（ADR-0009 修订） */
+export class GiteeError extends DayCellError {
+  readonly code = 'GITEE_FAILED' as const
   constructor(message = '同步失败，请检查网络与同步设置', cause?: unknown) {
     super(message, cause)
   }

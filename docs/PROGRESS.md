@@ -1,9 +1,33 @@
 # DayCell 实施进度快照
 
 > **这份文件的用途**：让会话上下文可以安全丢弃。接手时先读这份，再按需读 PRD / CORE-API。
-> 最后更新：2026-10-08 · **v8.1 坚果云同步**（见 §0o）；此前 v8.0 习惯模块（§0n）、v7.9 阶段性目标模块（§0m）、v7.8 logo 高清化重制（§0l）、v7.7 logo 上架（§0k）、v7.6 支出改造（§0j）、v7.5 菜单/备份/纪念日/夜间（§0i）、v7.4 录入手动化 + 月汇总条 + 旧「小格」logo（§0h）、v7.3 应用名 + 底部切换器（§0g）、v7.2 手机端录入打磨（§0f）、PWA 已接线 + dist 重建（§0e）、v7.1 月格三行 + 启动页（§0d）
-> 当前状态 **全绿**：`tsc -b` 0 错 / `eslint .` 0 错 / **609 测试通过**（21 文件）/ `node smoke.cjs` 218 项断言（只守原型，见 §0c）
-> **已 git 化**（分支 `main`）。core 层 **14/14 模块全部完成**（含 `backup/*`，v7.5 补齐；`sync/*`，v8.1 新增）。
+> 最后更新：2026-10-08 · **v8.2 Gitee 云同步**（见 §0p）；此前 v8.1 坚果云同步（§0o）、v8.0 习惯模块（§0n）、v7.9 阶段性目标模块（§0m）、v7.8 logo 高清化重制（§0l）、v7.7 logo 上架（§0k）、v7.6 支出改造（§0j）、v7.5 菜单/备份/纪念日/夜间（§0i）、v7.4 录入手动化 + 月汇总条 + 旧「小格」logo（§0h）、v7.3 应用名 + 底部切换器（§0g）、v7.2 手机端录入打磨（§0f）、PWA 已接线 + dist 重建（§0e）、v7.1 月格三行 + 启动页（§0d）
+> 当前状态 **全绿**：`tsc -b` 0 错 / `eslint .` 0 错 / **622 测试通过**（22 文件）/ build 通过（PWA precache 15 entries）
+> **已 git 化**（分支 `main`）。core 层 **14/14 模块全部完成**（含 `backup/*`，v7.5 补齐；`sync/*`，v8.2 现行 Gitee 通道）。
+
+---
+
+## 0p. ★ v8.2 同步通道重构：坚果云 / LeanCloud 均废弃，现行 Gitee 私有仓库（2026-10-08，用户指令）
+
+**背景（通道两次死亡，均实测确认）**：
+1. **坚果云 WebDAV（v8.1 已上线）不可行**：用户配置后报「同步出错：无法连接同步服务器」。实测 `dav.jianguoyun.com` 带 `Origin` 头请求——**响应无 `Access-Control-Allow-Origin`**，浏览器拦截所有跨域读写。Obsidian/Joplin 能用是桌面 App 不受 CORS 约束；纯网页无法直连。用户质询后诚实复盘（把桌面 App 方案套到浏览器环境、推荐前未实测 CORS），用户接受换通道。
+2. **LeanCloud（v8.2 初实现）停服**：官方公告 docs.leancloud.cn/sdk/announcements/sunset-announcement——**2026-01-12 起停止新用户注册、停止创建新应用**，进入一年停服善后期。新用户无法注册，通道不可用。用户确认后废弃。
+3. **Gitee 开放 API（现行）**：实测 `gitee.com/api/v5` 国内可达（0.27s），**完全支持浏览器跨域**（`Access-Control-Allow-Origin: *`；`Access-Control-Allow-Methods: GET/POST/PUT/DELETE...`；预检放行 `content-type, authorization`）。免费、注册门槛低。
+
+**实现落点**：
+- **core/sync 通道抽象**（v8.2 的关键设计，通道死亡后零引擎改动）：
+  - 新增 `transport.ts`：`SyncTransport` 接口（`fetchFile(): Promise<string|null>` / `putFile(text)`）——**引擎只依赖这个形状**
+  - `engine.ts`：deps 改 `transport`，`configure(cfg)` → **`setTransport(t: SyncTransport|null)`**；其余（pull/push/sync/防抖/merging/状态机）原样不变，35 项 engine 测试仅把 fetch mock 换成 transport mock，**断言全部原样通过** → 证明抽象无回归
+  - 新增 `gitee.ts`：`GiteeConfig={owner,repo,token}`；数据存私有仓库固定文件 `daycell-sync.json`（master 分支）；读 GET /contents（404→null、content base64 **UTF-8 安全解码**）；写先 GET 取 sha → POST（有 sha 更新 / 无 sha 创建，Gitee 创建更新统一 POST）；鉴权 `Authorization: token <令牌>`；网络/非 2xx 归一 `GiteeError`
+  - `errors.ts`：`LEANCLOUD_FAILED/LeanCloudError` **移除**，加 `GITEE_FAILED/GiteeError`
+  - `webdav.ts` 保留（`extends SyncTransport`），文件头注明 CORS 不可行
+- **app/UI**：`app/sync.ts` 配置改 `GiteeConfig`（localStorage `daycell-sync`），`buildTransport(cfg)=createGiteeClient(cfg)`；`SyncSettings.tsx` 改三字段 **Gitee 用户名 / 仓库名 / 私人令牌** + 指引文案（注册 gitee.com → 建**私有仓库**（master 分支）→ 设置 → 私人令牌，作用域勾「projects」；手机电脑填同一份）
+- **测试**：新增 `gitee.test.ts` 11 项（配置校验 / 404→null / UTF-8 中文往返 / 401 / 网络错误归一 / 创建 vs 更新带 sha / 写失败）；删除 `leancloud.test.ts`；engine/app 测试 transport mock → **622 全绿（22 文件）**
+- **验证**：tsc / eslint 0 错；622 全绿；build 通过（precache 15 entries / 1948.20 KiB）；bundle 核验含「Gitee 用户名 / 私人令牌 / daycell-sync.json / gitee.com/api/v5」
+
+**文档落点**：SPEC 修订行 v8.2；ADR-0009 重写为通道演进结论；CORE-API §1.1 `core/sync` 行更新；本节。
+
+**遗留（等用户真机）**：用户注册 Gitee + 建私有仓库 + 生成令牌后真机验证两设备互通；如仓库默认分支不是 master（Gitee 新建仓库默认即 master，一般无此问题）需加 branch 配置。
 
 ---
 

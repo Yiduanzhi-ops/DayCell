@@ -45,10 +45,10 @@ import {
   type WeekTotal,
   type SyncEngine,
   type SyncStatus,
-  type WebDavConfig,
+  type GiteeConfig,
 } from '@core'
 import type { CoreBundle } from './bootstrap'
-import { readSyncConfig, writeSyncConfig } from './sync'
+import { buildTransport, readSyncConfig, writeSyncConfig } from './sync'
 
 export type View = 'day' | 'week' | 'month' | 'goals'
 /** v6.1：内联表单是唯一录入入口，同一时刻最多展开一个 */
@@ -109,7 +109,7 @@ export interface AppState {
   /** v8.1：同步引擎最近状态（设置页展示；null = 未创建引擎） */
   syncStatus: SyncStatus | null
   /** v8.1：当前已保存的同步配置（打开设置页时读入） */
-  syncConfig: WebDavConfig | null
+  syncConfig: GiteeConfig | null
 
   edit: FormKind | null
   /** 请求聚焦当前表单并 scrollIntoView；DayView 渲染后消费一次 */
@@ -201,7 +201,7 @@ export interface AppState {
   openSync(): void
   closeSync(): void
   /** 保存同步配置（localStorage + 引擎重建 + 立即同步一次） */
-  saveSyncConfig(cfg: WebDavConfig): Promise<boolean>
+  saveSyncConfig(cfg: GiteeConfig): Promise<boolean>
   /** 手动「立即同步」（pull + push） */
   syncNow(): Promise<boolean>
 }
@@ -989,7 +989,7 @@ export function createAppStore(
 
     async saveSyncConfig(cfg) {
       writeSyncConfig(cfg)
-      syncEngine?.configure(cfg)
+      syncEngine?.setTransport(buildTransport(cfg))
       set({ syncConfig: cfg })
       get().showToast('已保存同步设置')
       if (syncEngine?.configured) {

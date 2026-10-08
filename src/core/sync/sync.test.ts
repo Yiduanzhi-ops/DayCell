@@ -10,6 +10,7 @@ import { parseBackup, serializeBackup } from '../backup'
 import { createWebDavClient, assertWebDavConfig, type WebDavConfig } from './webdav'
 import { mergeByUpdated, mergeSettings, mergeTables } from './merge'
 import { createSyncEngine, type SyncEngine } from './engine'
+import type { SyncTransport } from './transport'
 import { WebDavError } from '../errors'
 import type { DateKey, RecordTable, SettingRecord, TodoRecord } from '../types'
 
@@ -176,39 +177,42 @@ describe('mergeTables', () => {
 })
 
 // ---------------------------------------------------------------------------
-// engine.ts（memory store + mock fetch + 固定时钟）
+// engine.ts（memory store + mock transport + 固定时钟）
 // ---------------------------------------------------------------------------
 
 const T0 = 1_000_000_000_000
 
-async function makeEngine(remote: string | null = null, remoteStatus = 200, putStatus = 201) {
+/** 构造 fake transport：fetchFile 返回给定远端内容（404→null），putFile 记录调用 */
+async function makeEngine(remote: string | null = null, fetchStatus = 200, putStatus = 201) {
   const store = createMemoryStore({ now: () => T0 })
   await store.init()
   const putCalls: string[] = []
-  const fetchImpl = vi.fn(async (_url: string, init?: RequestInit) => {
-    if (init?.method === 'PUT') {
-      putCalls.push(String(init.body))
-      return new Response('', { status: putStatus })
-    }
-    if (remoteStatus === 404) return new Response('', { status: 404 })
-    return new Response(remote ?? 'null', { status: remoteStatus })
-  }) as unknown as (input: string, init?: RequestInit) => Promise<Response>
+  const transport: SyncTransport = {
+    fetchFile: vi.fn(async () => {
+      if (fetchStatus === 404) return null
+      if (fetchStatus !== 200) throw new Error(`HTTP ${fetchStatus}`)
+      return remote
+    }),
+    putFile: vi.fn(async (text: string) => {
+      putCalls.push(text)
+      if (putStatus >= 400) throw new Error(`HTTP ${putStatus}`)
+    }),
+  }
   const statuses: Array<ReturnType<SyncEngine['status']>> = []
   const engine = createSyncEngine({
     store,
-    fetchImpl,
+    transport,
     clock: () => T0,
     onStatus: (s) => statuses.push(s),
   })
-  engine.configure(CFG)
-  return { store, engine, putCalls, statuses }
+  return { store, engine, transport, putCalls, statuses }
 }
 
 describe('createSyncEngine', () => {
-  it('未配置时 pull/push 均为 no-op（configure(null)）', async () => {
+  it('未配置时 pull/push 均为 no-op（未 setTransport）', async () => {
     const store = createMemoryStore()
     await store.init()
-    const engine = createSyncEngine({ store, fetchImpl: vi.fn() })
+    const engine = createSyncEngine({ store })
     await expect(engine.pull()).resolves.toEqual({ pulled: false, pushed: false })
     expect(engine.configured).toBe(false)
   })

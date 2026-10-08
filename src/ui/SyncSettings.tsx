@@ -1,9 +1,14 @@
 /**
- * 同步设置页（v8.1，坚果云 WebDAV）——全屏覆盖层，手机/桌面同构。
+ * 同步设置页（v8.2，Gitee 仓库文件同步）——全屏覆盖层，手机/桌面同构。
  *
- * 表单：WebDAV 地址 / 账号（坚果云邮箱）/ 应用密码（坚果云官网生成，非登录密码）。
+ * 通道为什么是 Gitee（ADR-0009 修订）：
+ *  1. 坚果云 WebDAV —— 服务端不返回 CORS 许可头，浏览器会拦截网页里的所有跨域读写，不可行
+ *  2. LeanCloud 数据存储 —— 官方支持 CORS，但 2026-01-12 起停止注册/建应用、进入停服善后期，不可用
+ *  3. Gitee 开放 API（现行）—— 实测支持浏览器跨域，国内访问稳定，免费；数据存在你自己的私有仓库
+ *
+ * 表单三字段：Gitee 用户名 / 仓库名 / 私人令牌。
  * 配置只存**本机浏览器**（localStorage），不进 IndexedDB、不进备份文件；
- * 数据本体在本地库 + 坚果云云端，配置丢了重填即可。
+ * 数据本体在本地库 + Gitee 私有仓库云端，配置丢了重填即可。
  *
  * 交互：
  *  - 保存：写配置 → 重建引擎 → 立即同步一次（toast 结果）
@@ -12,7 +17,7 @@
  */
 import { useState } from 'react'
 import type { JSX } from 'react'
-import type { WebDavConfig } from '@core'
+import type { GiteeConfig } from '@core'
 import { useApp } from '@/app/context'
 import styles from './SyncSettings.module.css'
 
@@ -26,20 +31,20 @@ export function SyncSettings(): JSX.Element {
   const saveSyncConfig = useApp((s) => s.saveSyncConfig)
   const syncNow = useApp((s) => s.syncNow)
 
-  const [url, setUrl] = useState(syncConfig?.url ?? '')
-  const [user, setUser] = useState(syncConfig?.user ?? '')
-  const [pass, setPass] = useState(syncConfig?.pass ?? '')
+  const [owner, setOwner] = useState(syncConfig?.owner ?? '')
+  const [repo, setRepo] = useState(syncConfig?.repo ?? '')
+  const [token, setToken] = useState(syncConfig?.token ?? '')
   const [saving, setSaving] = useState(false)
   const [syncing, setSyncing] = useState(false)
 
   const configured = syncConfig !== null
   const busy = saving || syncing
-  const complete = url.trim() !== '' && user.trim() !== '' && pass.trim() !== ''
+  const complete = owner.trim() !== '' && repo.trim() !== '' && token.trim() !== ''
 
   const onSave = async (): Promise<void> => {
     if (!complete || busy) return
     setSaving(true)
-    const cfg: WebDavConfig = { url: url.trim(), user: user.trim(), pass: pass.trim() }
+    const cfg: GiteeConfig = { owner: owner.trim(), repo: repo.trim(), token: token.trim() }
     try {
       await saveSyncConfig(cfg)
     } finally {
@@ -70,57 +75,56 @@ export function SyncSettings(): JSX.Element {
 
         <div className={styles.body}>
           <p className={styles.hint}>
-            通过坚果云 WebDAV 让电脑端与手机端数据互通：打开网页自动拉取，改动后自动推送。
-            配置只保存在本机浏览器，数据本体在本地与坚果云云端各有一份。
+            通过 Gitee 私有仓库让电脑端与手机端数据互通：打开网页自动拉取，改动后自动推送。
+            配置只保存在本机浏览器，数据本体在本地与 Gitee 私有仓库各有一份。
           </p>
 
           <label className={styles.field}>
-            <span className={styles.fieldLabel}>WebDAV 地址</span>
+            <span className={styles.fieldLabel}>Gitee 用户名</span>
             <input
               className={styles.input}
-              type="url"
-              inputMode="url"
+              type="text"
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              placeholder="https://dav.jianguoyun.com/dav/daycell.json"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
+              placeholder="如 yiduanzhi"
+              value={owner}
+              onChange={(e) => setOwner(e.target.value)}
             />
           </label>
 
           <label className={styles.field}>
-            <span className={styles.fieldLabel}>账号（坚果云邮箱）</span>
+            <span className={styles.fieldLabel}>仓库名</span>
             <input
               className={styles.input}
-              type="email"
-              inputMode="email"
+              type="text"
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              placeholder="you@example.com"
-              value={user}
-              onChange={(e) => setUser(e.target.value)}
+              placeholder="私有仓库名，如 daycell-sync"
+              value={repo}
+              onChange={(e) => setRepo(e.target.value)}
             />
           </label>
 
           <label className={styles.field}>
-            <span className={styles.fieldLabel}>应用密码</span>
+            <span className={styles.fieldLabel}>私人令牌</span>
             <input
               className={styles.input}
               type="password"
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              placeholder="坚果云官网生成的专用密码"
-              value={pass}
-              onChange={(e) => setPass(e.target.value)}
+              placeholder="Gitee → 设置 → 私人令牌"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
             />
           </label>
 
           <p className={styles.tip}>
-            应用密码在坚果云官网「账户信息 → 安全选项」生成（不是登录密码）。
-            手机与电脑填同一份配置即可互相同步。
+            注册 gitee.com（免费）→ 新建一个<strong>私有仓库</strong>（默认分支保持 master）→
+            「设置 → 私人令牌」生成令牌，作用域勾「projects」即可。
+            手机与电脑填同一份配置即可互相同步。同步文件固定为仓库内 daycell-sync.json。
           </p>
 
           <div className={styles.actions}>

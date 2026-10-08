@@ -1,18 +1,17 @@
 /**
- * app/sync 集成测试（v8.1）：
+ * app/sync 集成测试（v8.1/v8.2）：
  *  - wrapStoreForSync：写库后触发引擎防抖推送
  *  - 防循环：pull 合并写库期间（merging=true）触发的推送被引擎拦截，
- *    不产生额外 PUT——否则 拉取→写库→推送→另一端拉取 无限循环
+ *    不产生额外推送——否则 拉取→写库→推送→另一端拉取 无限循环
  *
  * node 环境（无 DOM）：localStorage 用 typeof 守卫，本测试不触碰它。
  */
 
 import { describe, expect, it, vi } from 'vitest'
 import { createMemoryStore } from '@core/store/memory'
-import { createSyncEngine, type SyncEngine, type WebDavConfig } from '@core'
+import { createSyncEngine, type SyncEngine, type SyncTransport } from '@core'
 import { wrapStoreForSync } from './sync'
 
-const CFG: WebDavConfig = { url: 'https://dav.example.com/dav/daycell.json', user: 'u', pass: 'p' }
 const T0 = 1_000_000_000_000
 
 const rec = (id: string, updatedAt: number): { id: string; type: string; updatedAt: number; deleted: boolean } => ({
@@ -35,6 +34,14 @@ const remoteWith = (todoUpdatedAt: number): string =>
     },
   })
 
+/** fake transport：fetchFile 返回远端内容，putFile 记数 */
+const fakeTransport = (remote: string | null, putCalls: string[]): SyncTransport => ({
+  fetchFile: vi.fn(async () => remote),
+  putFile: vi.fn(async (text: string) => {
+    putCalls.push(text)
+  }),
+})
+
 describe('wrapStoreForSync', () => {
   it('写库后触发防抖推送（一次变更只推一次）', async () => {
     vi.useFakeTimers()
@@ -42,18 +49,10 @@ describe('wrapStoreForSync', () => {
       const store = createMemoryStore({ now: () => T0 })
       await store.init()
       const putCalls: string[] = []
-      const fetchImpl = vi.fn(async (_u: string, init?: RequestInit) => {
-        if (init?.method === 'PUT') {
-          putCalls.push('x')
-          return new Response('', { status: 201 })
-        }
-        return new Response('null', { status: 404 })
-      }) as unknown as (input: string, init?: RequestInit) => Promise<Response>
 
       let engine: SyncEngine | null = null
       const wrapped = wrapStoreForSync(store, () => engine)
-      engine = createSyncEngine({ store: wrapped, fetchImpl, clock: () => T0 })
-      engine.configure(CFG)
+      engine = createSyncEngine({ store: wrapped, clock: () => T0, transport: fakeTransport(null, putCalls) })
 
       await wrapped.put('todos', rec('a', 100) as never, { keepTimestamps: true })
       await wrapped.put('todos', rec('b', 100) as never, { keepTimestamps: true })
@@ -70,18 +69,14 @@ describe('wrapStoreForSync', () => {
     const store = createMemoryStore({ now: () => T0 })
     await store.init()
     const putCalls: string[] = []
-    const fetchImpl = vi.fn(async (_u: string, init?: RequestInit) => {
-      if (init?.method === 'PUT') {
-        putCalls.push('x')
-        return new Response('', { status: 201 })
-      }
-      return new Response(remoteWith(999), { status: 200 })
-    }) as unknown as (input: string, init?: RequestInit) => Promise<Response>
 
     let engine: SyncEngine | null = null
     const wrapped = wrapStoreForSync(store, () => engine)
-    engine = createSyncEngine({ store: wrapped, fetchImpl, clock: () => T0 })
-    engine.configure(CFG)
+    engine = createSyncEngine({
+      store: wrapped,
+      clock: () => T0,
+      transport: fakeTransport(remoteWith(999), putCalls),
+    })
 
     // 本地已有同 id 但更旧的记录
     await wrapped.put('todos', rec('a', 100) as never, { keepTimestamps: true })
