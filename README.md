@@ -1,0 +1,83 @@
+<p align="center">
+  <img src="assets/logo.svg" width="96" height="96" alt="DayCell logo" />
+</p>
+
+<h1 align="center">DayCell · 人生小格</h1>
+
+<p align="center">以「一天」为格子的个人记录本：待办、想法、习惯、目标，一天一页。<br/>纯前端 PWA，手机电脑都能装，数据存在你自己的浏览器里。</p>
+
+<p align="center">
+  <a href="https://yiduanzhi-ops.github.io/DayCell/"><b>在线使用 →</b></a>
+</p>
+
+---
+
+## 功能特性
+
+| 模块 | 说明 |
+|---|---|
+| 📋 **待办** | 今天视图直接写；完成勾选自动沉底；点文字就地编辑 |
+| 💡 **想法** | 随手记，多行输入，就地编辑 |
+| 🔁 **习惯** | 纯勾选打卡，频率自定义（每天 / 每周选星期几），暂停开关 |
+| 🎯 **目标** | 底部第 4 个 tab：目标 + 阐述，详情页「子任务 \| 阶段」双视图，进度百分比、备注、完成沉底 |
+| 📅 **三视图** | 今天（默认落地页）/ 周（竖排）/ 月（密度视图），农历 · 节气 · 节日 |
+| 💝 **纪念日** | 每周 / 每月 / 每年（公历或农历）/ 仅一次，自定义名字 |
+| 🌙 **夜间模式** | 手动开关，一键切换 |
+| 💾 **备份与导出** | 整库 JSON 备份（**合并式导入**，防丢数据）、一键导出 MD（本周 / 本月） |
+| 🔄 **多端同步** | 手机 ↔ 电脑自动互相同步（Gitee 私有仓库，无后端） |
+| 📱 **App 体验** | PWA 可安装 + 离线可用；「使用手册」页有一键生成分享图（含网址二维码） |
+
+## 快速开始
+
+```bash
+npm install      # 安装依赖
+npm run dev      # 本地开发
+npm test         # 跑测试（vitest）
+npm run build    # 构建到 dist/
+```
+
+### 部署到 GitHub Pages
+
+项目已配置 GitHub Actions：push 到 `main` 分支后自动构建并发布到 Pages（约 1–2 分钟生效）。
+
+1. Fork 本仓库（或直接 Clone 到自己名下）
+2. 仓库 Settings → Pages → Source 选择 **GitHub Actions**
+3. 之后每次 `git push origin main` 自动部署
+
+## 数据与同步
+
+- **数据存哪**：浏览器本地（IndexedDB 为主 + localStorage 兜底），无后端、无账号。
+- **多端同步**：右上角菜单 → 同步设置，填你自己的 **Gitee 私有仓库**（用户名 / 仓库名 / 私人令牌）即可——数据只经你自己的 Gitee 仓库中转，DayCell 本身不碰你的数据。
+- **跨设备安全提示**：换设备 / 清缓存前先「导出备份」；配好同步后，同步即异地备份。
+
+> 坚果云 WebDAV（浏览器 CORS 不支持）与 LeanCloud（已停服）均实测不可行，见 [`docs/adr/0009`](docs/adr/0009-sync-transport.md)。
+
+## 文档
+
+| 文档 | 内容 |
+|---|---|
+| [`docs/PRD.md`](docs/PRD.md) | 产品需求文档（做什么、验收标准，修订记录为版本轨迹） |
+| [`SPEC.md`](SPEC.md) | 决策日志（为什么这么定，append-only） |
+| [`docs/CORE-API.md`](docs/CORE-API.md) | core 层接口契约（UI 与 core 的边界） |
+| [`docs/adr/`](docs/adr/README.md) | 架构决策记录 |
+| [`docs/PROGRESS.md`](docs/PROGRESS.md) | 迭代进度快照 |
+
+## 版本历史
+
+| 版本 | 要点 |
+|---|---|
+| **v8.6** | 使用手册（GitHub 链接 / Issues / 一键生成分享图含二维码卖点）；菜单按钮去框；目标切换「子任务 \| 阶段」 |
+| **v8.5** | 目标详情「阶段 \| 子任务」双视图，子任务进度独立 |
+| **v8.4** | 版本更新页；汉堡菜单按钮；周/月视图移除支出展示 |
+| **v8.3** | 分享与手册页（添加到主屏幕指引、三步上手） |
+| **v8.2** | 同步重构 → Gitee 私有仓库（自动拉取 + 变更推送） |
+| **v8.0** | 习惯模块；今天视图移除支出（记账走 iCost） |
+| **v7.9** | 阶段性目标模块（底部 tab） |
+| **v7.5** | 右上角菜单：备份 / 导入 / 导出 MD / 纪念日 / 夜间模式 |
+| **v7** | 三视图（今天 / 周 / 月）、就地编辑、启动页 |
+
+完整逐版要点见应用内「版本更新」页与 [`SPEC.md`](SPEC.md)。
+
+## 反馈
+
+遇到问题或想要新功能？去 [GitHub Issues](https://github.com/Yiduanzhi-ops/DayCell/issues) 提 issue。

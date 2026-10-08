@@ -4,10 +4,11 @@
 
 | 文档 | 角色 | 状态 | 何时读 |
 |---|---|---|---|
+| [`../README.md`](../README.md) | **GitHub 首页 README**——项目简介、功能特性、部署与同步说明 | 持续维护 | 想快速了解项目是什么 |
 | [`../SPEC.md`](../SPEC.md) | **决策日志**——记录每次改了什么、为什么改，含完整变更轨迹 | 持续维护 | 想知道"当初为什么这么定" |
-| [`PRD.md`](PRD.md) | **需求定稿**——v0 要做成什么样，含验收标准 | v1.0 待评审 | 开发前、验收时 |
-| [`CORE-API.md`](CORE-API.md) | **接口契约**——core 层暴露给 UI 的唯一边界 | v1.0 待评审 | 写 core 或 UI 代码时 |
-| [`adr/`](adr/README.md) | **架构决策记录**——8 条错了代价很大的决策 | 持续追加 | 想推翻某个技术选择时 |
+| [`PRD.md`](PRD.md) | **需求定稿**——做什么、做到什么程度算做完，修订记录为唯一权威版本轨迹（当前 v2.5 / v8.6） | 持续维护 | 开发前、验收时 |
+| [`CORE-API.md`](CORE-API.md) | **接口契约**——core 层暴露给 UI 的唯一边界 | 持续维护 | 写 core 或 UI 代码时 |
+| [`adr/`](adr/README.md) | **架构决策记录**——9 条错了代价很大的决策 | 持续追加 | 想推翻某个技术选择时 |
 
 ## 三者的分工（重要）
 
@@ -30,7 +31,7 @@ adr/         →  怎么做的关键选择（可单独推翻，不改 PRD）
 | `SPEC.md` §6 | 技术栈曾写 Tailwind / dayjs / 手写 manifest | 已回写，理由见 ADR-0007 / 0008 / 0002 |
 | `SPEC.md` 整体 | 读起来像 changelog，同一主题的新旧决策并存 | **有意保留**——它的价值就是变更轨迹。定稿信息一律查 PRD |
 | `prototype/` + `smoke.cjs` | 都是**过渡产物**：真 UI 落地后应一并删除。⚠️ **真 UI 自 v7 起已领先原型**（原型停在 v6.1：仍有翻日/滑动，无就地编辑），smoke.cjs 只守原型、不再代表真 UI 行为 | ⚠️ 但 `src/prototype-parity.test.ts` **依赖 `prototype/index.html` 存在**（用 `import.meta.glob ?raw` 读它），删原型时必须连这个测试一起删 |
-| `docs/PROGRESS.md` | 会话交接快照（     213 行），非需求文档 | 上下文被压缩后**先读这份**。它不进 PRD > CORE-API > adr > SPEC 的优先级链 |
+| `docs/PROGRESS.md` | 会话交接快照（     676 行），非需求文档 | 上下文被压缩后**先读这份**。它不进 PRD > CORE-API > adr > SPEC 的优先级链 |
 
 ## 尚未编写
 
@@ -45,11 +46,13 @@ adr/         →  怎么做的关键选择（可单独推翻，不改 PRD）
 
 ```
 DayCell/
-├── SPEC.md                    决策日志（     356 行）
+├── README.md                  GitHub 首页 README（     83 行）
+├── SPEC.md                    决策日志（     425 行）
 ├── docs/
 │   ├── README.md              本文件
-│   ├── PRD.md                 产品需求文档 v1.0（     564 行）
-│   ├── CORE-API.md            core 层接口契约 v1.0（     723 行）
+│   ├── PRD.md                 产品需求文档（修订记录 v2.5 / v8.6，     612 行）
+│   ├── CORE-API.md            core 层接口契约（     799 行）
+│   ├── PROGRESS.md            迭代进度快照（     676 行）
 │   └── adr/
 │       ├── README.md          ADR 索引与约定
 │       ├── 0001-local-storage-indexeddb.md
@@ -59,7 +62,8 @@ DayCell/
 │       ├── 0005-responsive-sheet-layout.md
 │       ├── 0006-core-no-react-no-dom.md
 │       ├── 0007-css-modules-not-tailwind.md
-│       └── 0008-date-module-not-dayjs.md
+│       ├── 0008-date-module-not-dayjs.md
+│       └── 0009-webdav-sync.md  同步通道演进 → Gitee 私有仓库（BYOB）
 └── prototype/
     └── index.html             可点击原型 v6.1（`node smoke.cjs` 218 项断言通过）
                                ⚠️ 纯静态单文件，**不需要服务器**，直接 open 即可
