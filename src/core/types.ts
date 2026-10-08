@@ -121,6 +121,21 @@ export interface StageRecord extends CoreRecord {
 }
 
 /**
+ * v8.5 子任务（用户拍板口径）：
+ * 子任务 = 目标的**执行维度**清单（与阶段的时间维度**并存不替代**）；
+ * 详情页「阶段 | 子任务」双视图切换，各自进度独立；
+ * 子任务字段最轻：标题 + 完成勾选 + 删除 + 点文字就地编辑；无备注、无日期。
+ */
+export interface SubtaskRecord extends CoreRecord {
+  type: 'subtask'
+  /** 所属目标。目标删除时连带软删（repo 维护） */
+  goalId: string
+  title: string
+  /** 完成勾选（用户拍板：子任务要有完成勾选） */
+  done: boolean
+}
+
+/**
  * v8.0 习惯（用户拍板口径）：
  * 习惯 = 每天/每周固定几天**自动出现在「今日习惯」**的轻打卡项，**纯勾选**，不进待办；
  * 频率用户自定义（每天 / 每周选星期几）；暂停（paused）后不出现在今日；
@@ -166,6 +181,7 @@ export type StoreName =
   | 'categories'
   | 'goals'
   | 'stages'
+  | 'subtasks'
   | 'habits'
   | 'checkins'
   | 'settings'
@@ -183,6 +199,7 @@ export const ALL_STORES: readonly StoreName[] = [
   'categories',
   'goals',
   'stages',
+  'subtasks',
   'habits',
   'checkins',
   'settings',
@@ -209,6 +226,7 @@ export interface RecordTable {
   categories: CategoryRecord[]
   goals: GoalRecord[]
   stages: StageRecord[]
+  subtasks: SubtaskRecord[]
   habits: HabitRecord[]
   checkins: CheckinRecord[]
   settings: SettingRecord[]

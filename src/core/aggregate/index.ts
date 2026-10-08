@@ -45,6 +45,7 @@ import type {
   HabitRecord,
   NoteRecord,
   StageRecord,
+  SubtaskRecord,
   TodoRecord,
 } from '../types'
 
@@ -180,6 +181,8 @@ export interface Aggregates {
   goalSummaries(): Promise<GoalSummary[]>
   /** v7.9 某目标的全部活阶段：当前置顶，其余按 createdAt 升序 */
   stagesOfGoal(goalId: string): Promise<StageRecord[]>
+  /** v8.5 某目标的全部活子任务：未完成在前、完成后沉底，各组按 createdAt 升序 */
+  subtasksOfGoal(goalId: string): Promise<SubtaskRecord[]>
   /** v8.0 今日习惯：date 上该做的习惯 + 打卡状态 */
   habitDay(date: DateKey): Promise<HabitDay>
   /**
@@ -407,6 +410,16 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
     })
   }
 
+  const subtasksOfGoal = async (goalId: string): Promise<SubtaskRecord[]> => {
+    const all = await store.all<SubtaskRecord>('subtasks')
+    const live = all.filter((s) => s.goalId === goalId && !s.deleted)
+    // 未完成在前、完成后沉底，各组内按 createdAt 升序
+    return [...live].sort((a, b) => {
+      if (a.done !== b.done) return a.done ? 1 : -1
+      return a.createdAt - b.createdAt
+    })
+  }
+
   /**
    * 一天的指示器。纯计算，不发查询——所有输入都由调用方一次取好。
    */
@@ -559,6 +572,7 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
 
     goalSummaries,
     stagesOfGoal,
+    subtasksOfGoal,
 
     // -----------------------------------------------------------------------
     // 习惯（v8.0）：date 上「今天该做的习惯」+ 打卡状态

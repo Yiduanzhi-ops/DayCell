@@ -53,6 +53,7 @@ export function mergeTables(local: RecordTable, remote: RecordTable): RecordTabl
     categories: mergeByUpdated(local.categories, remote.categories),
     goals: mergeByUpdated(local.goals, remote.goals),
     stages: mergeByUpdated(local.stages, remote.stages),
+    subtasks: mergeByUpdated(local.subtasks, remote.subtasks),
     habits: mergeByUpdated(local.habits, remote.habits),
     checkins: mergeByUpdated(local.checkins, remote.checkins),
     settings: mergeSettings(local.settings, remote.settings),

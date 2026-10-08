@@ -40,6 +40,7 @@ import {
   type SettingRecord,
   type StageRecord,
   type StoreName,
+  type SubtaskRecord,
   type TodoRecord,
 } from '../types'
 import { BackupCorruptError } from '../errors'
@@ -70,6 +71,7 @@ const CONTENT_STORE_TYPES: Record<Exclude<StoreName, 'settings'>, string> = {
   categories: 'category',
   goals: 'goal',
   stages: 'stage',
+  subtasks: 'subtask',
   habits: 'habit',
   checkins: 'checkin',
 }
@@ -92,7 +94,7 @@ export async function serializeBackup(
   store: RecordStore,
   now: Clock = systemClock,
 ): Promise<BackupFile> {
-  const [todos, notes, expenses, anniversaries, categories, goals, stages, habits, checkins, settings] = await Promise.all([
+  const [todos, notes, expenses, anniversaries, categories, goals, stages, subtasks, habits, checkins, settings] = await Promise.all([
     store.all<TodoRecord>('todos', { includeDeleted: true }),
     store.all<NoteRecord>('notes', { includeDeleted: true }),
     store.all<ExpenseRecord>('expenses', { includeDeleted: true }),
@@ -100,6 +102,7 @@ export async function serializeBackup(
     store.all<CategoryRecord>('categories', { includeDeleted: true }),
     store.all<GoalRecord>('goals', { includeDeleted: true }),
     store.all<StageRecord>('stages', { includeDeleted: true }),
+    store.all<SubtaskRecord>('subtasks', { includeDeleted: true }),
     store.all<HabitRecord>('habits', { includeDeleted: true }),
     store.all<CheckinRecord>('checkins', { includeDeleted: true }),
     store.allSettings(),
@@ -109,7 +112,7 @@ export async function serializeBackup(
     version: BACKUP_FORMAT_VERSION,
     exportedAt: now(),
     schemaVersion: SCHEMA_VERSION,
-    data: { todos, notes, expenses, anniversaries, categories, goals, stages, habits, checkins, settings },
+    data: { todos, notes, expenses, anniversaries, categories, goals, stages, subtasks, habits, checkins, settings },
   }
 }
 
@@ -182,6 +185,7 @@ export function parseBackup(text: string): BackupFile {
       categories: parseRecords<CategoryRecord>(data.categories, CONTENT_STORE_TYPES.categories, 'categories'),
       goals: parseRecords<GoalRecord>(data.goals ?? [], CONTENT_STORE_TYPES.goals, 'goals'),
       stages: parseRecords<StageRecord>(data.stages ?? [], CONTENT_STORE_TYPES.stages, 'stages'),
+      subtasks: parseRecords<SubtaskRecord>(data.subtasks ?? [], CONTENT_STORE_TYPES.subtasks, 'subtasks'),
       habits: parseRecords<HabitRecord>(data.habits ?? [], CONTENT_STORE_TYPES.habits, 'habits'),
       checkins: parseRecords<CheckinRecord>(data.checkins ?? [], CONTENT_STORE_TYPES.checkins, 'checkins'),
       settings: parseSettings(data.settings),
@@ -208,7 +212,7 @@ export interface MergeStats {
  */
 export async function mergeBackup(store: RecordStore, file: BackupFile): Promise<MergeStats> {
   // 本地现状：含墓碑，才能拿到"全部已用 id"
-  const [localTodos, localNotes, localExpenses, localAnniv, localCats, localGoals, localStages, localHabits, localCheckins, localSettings] =
+  const [localTodos, localNotes, localExpenses, localAnniv, localCats, localGoals, localStages, localSubtasks, localHabits, localCheckins, localSettings] =
     await Promise.all([
       store.all<TodoRecord>('todos', { includeDeleted: true }),
       store.all<NoteRecord>('notes', { includeDeleted: true }),
@@ -217,6 +221,7 @@ export async function mergeBackup(store: RecordStore, file: BackupFile): Promise
       store.all<CategoryRecord>('categories', { includeDeleted: true }),
       store.all<GoalRecord>('goals', { includeDeleted: true }),
       store.all<StageRecord>('stages', { includeDeleted: true }),
+      store.all<SubtaskRecord>('subtasks', { includeDeleted: true }),
       store.all<HabitRecord>('habits', { includeDeleted: true }),
       store.all<CheckinRecord>('checkins', { includeDeleted: true }),
       store.allSettings(),
@@ -235,6 +240,7 @@ export async function mergeBackup(store: RecordStore, file: BackupFile): Promise
   const newCats = pickNew(file.data.categories, localCats)
   const newGoals = pickNew(file.data.goals, localGoals)
   const newStages = pickNew(file.data.stages, localStages)
+  const newSubtasks = pickNew(file.data.subtasks, localSubtasks)
   const newHabits = pickNew(file.data.habits, localHabits)
   const newCheckins = pickNew(file.data.checkins, localCheckins)
 
@@ -249,19 +255,21 @@ export async function mergeBackup(store: RecordStore, file: BackupFile): Promise
     (file.data.categories.length - newCats.length) +
     (file.data.goals.length - newGoals.length) +
     (file.data.stages.length - newStages.length) +
+    (file.data.subtasks.length - newSubtasks.length) +
     (file.data.habits.length - newHabits.length) +
     (file.data.checkins.length - newCheckins.length)
 
   const allEmpty =
     newTodos.length === 0 && newNotes.length === 0 && newExpenses.length === 0 &&
     newAnniv.length === 0 && newCats.length === 0 && newGoals.length === 0 &&
-    newStages.length === 0 && newHabits.length === 0 && newCheckins.length === 0 &&
+    newStages.length === 0 && newSubtasks.length === 0 && newHabits.length === 0 &&
+    newCheckins.length === 0 &&
     newSettings.length === 0
 
   // 一条可合并的都没有 → 无需开事务（也避免"导入了个空备份"误报成功）
   if (allEmpty) {
     return {
-      added: { todos: 0, notes: 0, expenses: 0, anniversaries: 0, categories: 0, goals: 0, stages: 0, habits: 0, checkins: 0 },
+      added: { todos: 0, notes: 0, expenses: 0, anniversaries: 0, categories: 0, goals: 0, stages: 0, subtasks: 0, habits: 0, checkins: 0 },
       settingsAdded: 0,
       keptLocal,
     }
@@ -276,6 +284,7 @@ export async function mergeBackup(store: RecordStore, file: BackupFile): Promise
     if (newCats.length) await scope.putMany<CategoryRecord>('categories', newCats, { keepTimestamps: true })
     if (newGoals.length) await scope.putMany<GoalRecord>('goals', newGoals, { keepTimestamps: true })
     if (newStages.length) await scope.putMany<StageRecord>('stages', newStages, { keepTimestamps: true })
+    if (newSubtasks.length) await scope.putMany<SubtaskRecord>('subtasks', newSubtasks, { keepTimestamps: true })
     if (newHabits.length) await scope.putMany<HabitRecord>('habits', newHabits, { keepTimestamps: true })
     if (newCheckins.length) await scope.putMany<CheckinRecord>('checkins', newCheckins, { keepTimestamps: true })
     // settings 没有 keepTimestamps 选项（key/value 单例），刷新 updatedAt 无副作用
@@ -291,6 +300,7 @@ export async function mergeBackup(store: RecordStore, file: BackupFile): Promise
       categories: newCats.length,
       goals: newGoals.length,
       stages: newStages.length,
+      subtasks: newSubtasks.length,
       habits: newHabits.length,
       checkins: newCheckins.length,
     },

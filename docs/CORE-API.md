@@ -125,8 +125,10 @@ class TxAbortedError          extends DayCellError { readonly code = 'TX_ABORTED
 /** 所有内容记录的联合类型 */
 type DatedRecord = TodoRecord | NoteRecord | ExpenseRecord;
 
-/** 六个 store 的名字；settings 的主键是 key 而非 id */
-type StoreName = 'todos' | 'notes' | 'expenses' | 'anniversaries' | 'categories' | 'settings';
+/** 十个 store 的名字（v7.9 加 goals/stages、v8.0 加 habits/checkins、v8.5 加 subtasks）；
+ * settings 的主键是 key 而非 id */
+type StoreName = 'todos' | 'notes' | 'expenses' | 'anniversaries' | 'categories'
+  | 'goals' | 'stages' | 'subtasks' | 'habits' | 'checkins' | 'settings';
 
 interface CoreRecord { id: string; createdAt: number; updatedAt: number; deleted: boolean }
 ```

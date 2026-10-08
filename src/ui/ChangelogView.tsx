@@ -8,10 +8,18 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.4'
+const CURRENT_VERSION = 'v8.5'
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.5',
+    date: '2026-10-08',
+    items: [
+      '目标详情支持「阶段 | 子任务」双视图：子任务可勾选完成、点文字就地编辑、删除',
+      '子任务进度独立统计，不影响目标卡片进度',
+    ],
+  },
   {
     version: 'v8.4',
     date: '2026-10-08',

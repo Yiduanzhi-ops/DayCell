@@ -318,3 +318,80 @@ describe('backup goals/stages', () => {
     }
   })
 })
+
+// ---------------------------------------------------------------------------
+// 子任务（v8.5）
+// ---------------------------------------------------------------------------
+
+describe('subtasks', () => {
+  it('create：标题 trim、初始未完成；目标必须存在（幽灵目标报 NotFound）', async () => {
+    const g = await repos.goals.create({ title: '复习考公' })
+    const st = await repos.subtasks.create({ goalId: g.id, title: '  做完教案第 3 章  ' })
+    expect(st.title).toBe('做完教案第 3 章')
+    expect(st.done).toBe(false)
+    expect(st.type).toBe('subtask')
+    expect(st.deleted).toBe(false)
+    await expect(repos.subtasks.create({ goalId: 'ghost', title: 'x' })).rejects.toThrow(NotFoundError)
+  })
+
+  it('标题超长拒绝（LIMITS.subtaskTitle=50）', async () => {
+    const g = await repos.goals.create({ title: '目标' })
+    await expect(repos.subtasks.create({ goalId: g.id, title: 'x'.repeat(51) })).rejects.toThrow(ValidationError)
+  })
+
+  it('update：只改标题；setDone：勾选/取消', async () => {
+    const g = await repos.goals.create({ title: '目标' })
+    const st = await repos.subtasks.create({ goalId: g.id, title: '旧标题' })
+    const st2 = await repos.subtasks.update(st.id, { title: '新标题' })
+    expect(st2.title).toBe('新标题')
+    expect(st2.done).toBe(false)
+    const done = await repos.subtasks.setDone(st.id, true)
+    expect(done.done).toBe(true)
+    const undone = await repos.subtasks.setDone(st.id, false)
+    expect(undone.done).toBe(false)
+  })
+
+  it('byGoal：只返回该目标的活子任务（软删的不算）', async () => {
+    const g1 = await repos.goals.create({ title: 'A' })
+    const g2 = await repos.goals.create({ title: 'B' })
+    await repos.subtasks.create({ goalId: g1.id, title: 'a1' })
+    const b1 = await repos.subtasks.create({ goalId: g2.id, title: 'b1' })
+    await repos.subtasks.create({ goalId: g2.id, title: 'b2' })
+    const g1list = await repos.subtasks.byGoal(g1.id)
+    expect(g1list.map((x) => x.title)).toEqual(['a1'])
+    await repos.subtasks.softDelete(b1.id)
+    const g2list = await repos.subtasks.byGoal(g2.id)
+    expect(g2list.map((x) => x.title)).toEqual(['b2'])
+  })
+
+  it('目标软删 → 连带软删其全部子任务（单事务，墓碑保留）', async () => {
+    const g = await repos.goals.create({ title: '目标' })
+    const st1 = await repos.subtasks.create({ goalId: g.id, title: 's1' })
+    const st2 = await repos.subtasks.create({ goalId: g.id, title: 's2' })
+    await repos.goals.softDelete(g.id)
+    const list = await repos.subtasks.byGoal(g.id)
+    expect(list).toHaveLength(0)
+    const all = await store.all('subtasks', { includeDeleted: true })
+    expect(all.filter((s) => s.id === st1.id || s.id === st2.id).every((s) => s.deleted)).toBe(true)
+  })
+
+  it('aggregate.subtasksOfGoal：未完成在前、完成后沉底，各组按 createdAt 升序', async () => {
+    const g = await repos.goals.create({ title: '目标' })
+    await repos.subtasks.create({ goalId: g.id, title: 'a' })
+    const b = await repos.subtasks.create({ goalId: g.id, title: 'b' })
+    await repos.subtasks.create({ goalId: g.id, title: 'c' })
+    await repos.subtasks.setDone(b.id, true)
+    const list = await agg.subtasksOfGoal(g.id)
+    expect(list.map((x) => x.title)).toEqual(['a', 'c', 'b'])
+  })
+
+  it('merge 的 added 统计含 subtasks 键（契约：RecordTable 八表对齐）', async () => {
+    const g = await repos.goals.create({ title: 'x' })
+    await repos.subtasks.create({ goalId: g.id, title: 's' })
+    const file = await serializeBackup(store)
+    await store.clearAll()
+    await store.init()
+    const stats = await mergeBackup(store, file)
+    expect(stats.added.subtasks).toBe(1)
+  })
+})

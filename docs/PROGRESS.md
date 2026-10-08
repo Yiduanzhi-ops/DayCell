@@ -1,10 +1,36 @@
 # DayCell 实施进度快照
 
 > **这份文件的用途**：让会话上下文可以安全丢弃。接手时先读这份，再按需读 PRD / CORE-API。
-> 最后更新：2026-10-08 · **v8.4 版本更新页 + 汉堡菜单按钮 + 周/月去支出**（见 §0r）；此前 v8.3 分享与手册页（§0q）、v8.2 Gitee 同步（§0p）、v8.1 坚果云同步（§0o）、v8.0 习惯模块（§0n）、v7.9 阶段性目标模块（§0m）、v7.8 logo 高清化重制（§0l）、v7.7 logo 上架（§0k）、v7.6 支出改造（§0j）、v7.5 菜单/备份/纪念日/夜间（§0i）、v7.4 录入手动化 + 月汇总条 + 旧「小格」logo（§0h）、v7.3 应用名 + 底部切换器（§0g）、v7.2 手机端录入打磨（§0f）、PWA 已接线 + dist 重建（§0e）、v7.1 月格三行 + 启动页（§0d）
-> 当前状态 **全绿**：`tsc -b` 0 错 / `eslint .` 0 错 / **631 测试通过**（24 文件）/ build 通过（PWA precache 15 entries / 1957.98 KiB）
+> 最后更新：2026-10-08 · **v8.5 目标详情「阶段 | 子任务」双视图**（见 §0s）；此前 v8.4 版本更新页 + 汉堡菜单按钮 + 周/月去支出（§0r）、v8.3 分享与手册页（§0q）、v8.2 Gitee 同步（§0p）、v8.1 坚果云同步（§0o）、v8.0 习惯模块（§0n）、v7.9 阶段性目标模块（§0m）、v7.8 logo 高清化重制（§0l）、v7.7 logo 上架（§0k）、v7.6 支出改造（§0j）、v7.5 菜单/备份/纪念日/夜间（§0i）、v7.4 录入手动化 + 月汇总条 + 旧「小格」logo（§0h）、v7.3 应用名 + 底部切换器（§0g）、v7.2 手机端录入打磨（§0f）、PWA 已接线 + dist 重建（§0e）、v7.1 月格三行 + 启动页（§0d）
+> 当前状态 **全绿**：`tsc -b` 0 错 / `eslint .` 0 错 / **640 测试通过**（24 文件）/ build 通过（PWA precache 15 entries / 1965.35 KiB）
 > **已 git 化**（分支 `main`）。core 层 **14/14 模块全部完成**（含 `backup/*`，v7.5 补齐；`sync/*`，v8.2 现行 Gitee 通道）。
 
+---
+
+## 0s. ★ v8.5 目标详情「阶段 | 子任务」双视图（2026-10-08，用户指令）
+
+**需求演变**：用户原提目标模块只按阶段划分、想加子任务维度 → 我方提出「阶段是时间维度、子任务是执行维度，并存不替代、双视图切换」方案 → 用户拍板：**子任务要有完成勾选**；我方补推荐（切换按钮放阐述下方列表上方、字段=标题+勾选+删除+点文字就地编辑、进度独立）→ 用户确认"开始吧"。
+
+**实现落点**（core 层 + UI 层全部完成，v8.5）：
+- **core 层**：
+  - `types.ts`：新增 `SubtaskRecord`（type:'subtask'，goalId，title，done）；RecordTable/StoreName/ALL_STORES 三处加 subtasks。
+  - `validate.ts`：`LIMITS.subtaskTitle=50` + `parseSubtaskTitle`。
+  - `repo/index.ts`：`SubtaskInput`/`SubtaskRepo`（byGoal / create / update{title} / setDone / softDelete）；create 校验目标存在（幽灵目标 NotFound）；**goals.softDelete 单事务连带软删该目标全部阶段+子任务**。
+  - `aggregate/index.ts`：`subtasksOfGoal`（未完成在前、完成后沉底，各组内 createdAt 升序）。
+  - `backup/index.ts`：CONTENT_STORE_TYPES 加 subtasks；serialize/parse/merge 四处（parse 用 `data.subtasks ?? []` 兼容旧备份）；MergeStats.added 加 subtasks。
+  - `migrate/index.ts`：emptyTables/cloneTables 补 subtasks（旧库迁移 missing 检测按 ALL_STORES 自动补空表）。
+  - `sync/engine.ts`：loadLocal 加 subtasks、writeMerged tables 加 'subtasks'；`sync/merge.ts`：mergeTables 加 subtasks（id 级 LWW 同其他表）。
+  - `store/idb.ts`：**DB_VERSION 3 → 4**，`oldVersion < 4` 分支补建 subtasks store（已装用户 upgrade 自动补空表；这是全量测试抓出的真 bug——没建表真机访问会报 No objectStore）。
+- **UI 层**：
+  - `store.ts`：goalDetail 加 `subtasks`；openGoal 三段加载（goal/stages/subtasks）；四个 action：createSubtask / updateSubtask / setSubtaskDone / deleteSubtask（仿阶段 action：repo 调用 + 详情原地更新 + refreshGoals + toast，update/setDone 无 toast）。
+  - `GoalsView.tsx`：GoalDetail 接收 subtasks；`viewMode: 'stages'|'subtasks'` 双视图；阐述下方、列表上方加 segment 切换按钮（阶段 | 子任务，role=tab）；阶段视图现状不变；子任务视图 = 标题「子任务」+「已完成 x/n」独立进度 +「＋ 添加子任务」+ SubtaskRow 列表；新增 `SubtaskSheet`（单字段弹层）与 `SubtaskRow`（勾选 + 点文字就地编辑 + 删除，完成沉底由 core 排序保证）；空态文案。
+  - `GoalsView.module.css`：seg/segBtn/segOn/subProgress/subtaskRow/subtaskDone/subCheck/subCheckOn/subTitle/subInput/subDel（沿用 stageRow/ops 命名风格与现有变量色）。
+- **测试**：core `goals.test.ts` 追加 7 项子任务用例（create trim/幽灵目标/超长 51 拒绝/update 只改标题/setDone 勾选取消/byGoal 过滤软删/目标软删连带墓碑/aggregate 排序/merge added.subtasks）→ 28 项全绿；UI `GoalsView.test.tsx` 追加 2 项（默认阶段视图切子任务空态、添加→勾选沉底→就地编辑→删除）→ 8 项全绿；`ChangelogView.test.tsx` 断言更新 v8.5 → 631 + 9 = **640 全绿**（24 文件）。
+- **验证**：tsc / eslint 0 错；640 全绿；build 通过（PWA precache 15 entries / 1965.35 KiB）；Changelog 头部 v8.5 条目。
+
+**文档落点**：SPEC 头部链 v8.5 + 新增 §3.8 目标模块（双视图定稿）；本节。
+
+---
 ---
 
 ## 0r. ★ v8.4 版本更新页 + 汉堡菜单按钮 + 周/月视图去支出（2026-10-08，用户指令）

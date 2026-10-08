@@ -153,6 +153,7 @@ describe('mergeTables', () => {
       categories: [],
       goals: [],
       stages: [],
+      subtasks: [],
       habits: [],
       checkins: [],
       settings: [{ key: 'accentColor', value: 'red', updatedAt: 100 }],
@@ -165,6 +166,7 @@ describe('mergeTables', () => {
       categories: [],
       goals: [],
       stages: [],
+      subtasks: [],
       habits: [],
       checkins: [],
       settings: [{ key: 'accentColor', value: 'blue', updatedAt: 200 }],
@@ -237,7 +239,7 @@ describe('createSyncEngine', () => {
         schemaVersion: 1,
         data: {
           todos: [rec('a', 'todo', 999), rec('b', 'todo', 888)],
-          notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], habits: [], checkins: [],
+          notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], subtasks: [], habits: [], checkins: [],
           settings: [],
         },
       }),
@@ -303,7 +305,7 @@ describe('createSyncEngine', () => {
         schemaVersion: 1,
         data: {
           todos: [rec('a', 'todo', 999)],
-          notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], habits: [], checkins: [],
+          notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], subtasks: [], habits: [], checkins: [],
           settings: [],
         },
       }),
@@ -322,7 +324,7 @@ describe('createSyncEngine', () => {
         schemaVersion: 1,
         data: {
           todos: [],
-          notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], habits: [], checkins: [],
+          notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], subtasks: [], habits: [], checkins: [],
           settings: [],
         },
       }),

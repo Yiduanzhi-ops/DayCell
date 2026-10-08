@@ -22,6 +22,7 @@ import type {
   NoteRecord,
   SettingKey,
   StageRecord,
+  SubtaskRecord,
   TodoRecord,
 } from '../types'
 import { NotFoundError, ValidationError } from '../errors'
@@ -41,6 +42,7 @@ import {
   parseNoteText,
   parseStageNote,
   parseStageTitle,
+  parseSubtaskTitle,
   parseTodoText,
   type ParseResult,
 } from '../validate'
@@ -208,6 +210,25 @@ export interface StageRepo {
 }
 
 // ---------------------------------------------------------------------------
+// 子任务（v8.5）
+// ---------------------------------------------------------------------------
+
+export interface SubtaskInput {
+  goalId: string
+  title: string
+}
+
+export interface SubtaskRepo {
+  byGoal(goalId: string): Promise<SubtaskRecord[]>
+  /** 目标必须存在 */
+  create(input: SubtaskInput): Promise<SubtaskRecord>
+  /** 只支持改标题（字段最轻：无备注无日期） */
+  update(id: string, patch: { title: string }): Promise<SubtaskRecord>
+  setDone(id: string, done: boolean): Promise<SubtaskRecord>
+  softDelete(id: string): Promise<void>
+}
+
+// ---------------------------------------------------------------------------
 // 习惯（v8.0）
 // ---------------------------------------------------------------------------
 
@@ -254,6 +275,7 @@ export interface Repos {
   categories: CategoryRepo
   goals: GoalRepo
   stages: StageRepo
+  subtasks: SubtaskRepo
   habits: HabitRepo
   checkins: CheckinRepo
   settings: SettingRepo
@@ -264,7 +286,7 @@ export function createRepos(deps: RepoDeps): Repos {
   const now = deps.now ?? systemClock
   const idGen = deps.idGen ?? createIdGen()
 
-  type MutableStore = 'todos' | 'notes' | 'expenses' | 'anniversaries' | 'categories' | 'goals' | 'stages' | 'habits' | 'checkins'
+  type MutableStore = 'todos' | 'notes' | 'expenses' | 'anniversaries' | 'categories' | 'goals' | 'stages' | 'subtasks' | 'habits' | 'checkins'
 
   /** 取一条活记录；不存在或已是墓碑都算 NotFound（PRD E19：可能已被其他标签页删除） */
   const mustGet = async <T extends CoreRecord>(storeName: MutableStore, id: string): Promise<T> => {
@@ -594,13 +616,19 @@ export function createRepos(deps: RepoDeps): Repos {
 
     async softDelete(id) {
       const rec = await mustGet<GoalRecord>('goals', id)
-      // 单事务：目标 + 其全部阶段一起软删（墓碑永不物理删除）
+      // 单事务：目标 + 其全部阶段 + 其全部子任务一起软删（墓碑永不物理删除）
       await store.tx(async (scope) => {
         await scope.put<GoalRecord>('goals', { ...rec, deleted: true } as never)
         const stages = await scope.all<StageRecord>('stages')
         for (const s of stages) {
           if (s.goalId === id && !s.deleted) {
             await scope.put<StageRecord>('stages', { ...s, deleted: true })
+          }
+        }
+        const subtasks = await scope.all<SubtaskRecord>('subtasks')
+        for (const st of subtasks) {
+          if (st.goalId === id && !st.deleted) {
+            await scope.put<SubtaskRecord>('subtasks', { ...st, deleted: true })
           }
         }
       })
@@ -686,6 +714,46 @@ export function createRepos(deps: RepoDeps): Repos {
     softDelete: softDelete('stages'),
   }
 
+  const subtasks: SubtaskRepo = {
+    byGoal: (goalId) => {
+      return (async () => {
+        const all = await store.all<SubtaskRecord>('subtasks')
+        return all.filter((s) => s.goalId === goalId)
+      })()
+    },
+
+    async create(input) {
+      // 目标必须存在且未删——否则会出现"挂在幽灵目标下的子任务"
+      await mustGet<GoalRecord>('goals', input.goalId)
+      const title = unwrap(parseSubtaskTitle(input.title))
+      const ts = now()
+      return store.put<SubtaskRecord>('subtasks', {
+        id: idGen.next(),
+        type: 'subtask',
+        goalId: input.goalId,
+        title,
+        done: false,
+        createdAt: ts,
+        updatedAt: ts,
+        deleted: false,
+      })
+    },
+
+    async update(id, patch) {
+      const rec = await mustGet<SubtaskRecord>('subtasks', id)
+      const next: SubtaskRecord = { ...rec }
+      if (patch.title !== undefined) next.title = unwrap(parseSubtaskTitle(patch.title))
+      return store.put<SubtaskRecord>('subtasks', next)
+    },
+
+    async setDone(id, done) {
+      const rec = await mustGet<SubtaskRecord>('subtasks', id)
+      return store.put<SubtaskRecord>('subtasks', { ...rec, done })
+    },
+
+    softDelete: softDelete('subtasks'),
+  }
+
   const habits: HabitRepo = {
     all: () => store.all<HabitRecord>('habits'),
 
@@ -760,7 +828,7 @@ export function createRepos(deps: RepoDeps): Repos {
     set: (key, value) => store.putSetting(key, value),
   }
 
-  return { todos, notes, expenses, anniversaries, categories, goals, stages, habits, checkins, settings }
+  return { todos, notes, expenses, anniversaries, categories, goals, stages, subtasks, habits, checkins, settings }
 }
 
 /** 便捷入口：从 store 里读金额时用，避免 UI 层出现 /100（ADR-0003） */

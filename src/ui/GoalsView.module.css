@@ -438,3 +438,110 @@
   background: var(--bg);
   cursor: pointer;
 }
+
+/* ---- v8.5 阶段 | 子任务 双视图 ---- */
+.seg {
+  display: flex;
+  gap: 6px;
+  margin-top: 18px;
+  padding: 3px;
+  background: color-mix(in srgb, var(--ink-1) 6%, var(--bg));
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.segBtn {
+  flex: 1;
+  padding: 8px 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.segBtn.segOn {
+  background: var(--bg);
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+}
+
+.subProgress {
+  font-size: 12px;
+  color: var(--ink-3);
+  font-weight: 500;
+}
+
+/* 子任务行 */
+.subtaskRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  margin-top: 10px;
+  padding: 10px 12px;
+}
+.subtaskRow.subtaskDone {
+  opacity: 0.55;
+}
+.subtaskRow.subtaskDone .subTitle {
+  text-decoration: line-through;
+}
+.subCheck {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.6px solid var(--ink-3);
+  background: transparent;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+.subCheck.subCheckOn {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.subTitle {
+  flex: 1;
+  font-size: 14px;
+  color: var(--ink-1);
+  line-height: 1.4;
+  word-break: break-word;
+  cursor: text;
+  min-width: 0;
+}
+.subInput {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  padding: 4px 6px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--ink-1);
+  outline: none;
+}
+.subDel {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.subDel:hover {
+  color: #C0392B;
+  background: color-mix(in srgb, #C0392B 10%, transparent);
+}

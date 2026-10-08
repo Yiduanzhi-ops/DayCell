@@ -164,4 +164,75 @@ describe('目标模块（v7.9）', () => {
     // 删除 = 级联事务 + 列表刷新，异步链较长
     await waitFor(() => expect(screen.getByText(/还没有目标/)).toBeInTheDocument(), { timeout: 5000 })
   })
+
+  // ---- v8.5 子任务双视图 ----
+
+  it('双视图：默认「阶段」，切到「子任务」显示空态与添加按钮', async () => {
+    await renderApp()
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => screen.getByText(/进行中的目标/))
+
+    fireEvent.click(screen.getByRole('button', { name: '＋ 新建目标' }))
+    fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
+    await screen.findByText('复习考公')
+
+    fireEvent.click(screen.getByText('复习考公'))
+    // 默认阶段视图
+    await waitFor(() => screen.getByText('阶段列表'))
+    expect(screen.queryByText(/还没有子任务/)).not.toBeInTheDocument()
+
+    // 切到子任务视图
+    fireEvent.click(screen.getByRole('tab', { name: '子任务' }))
+    await waitFor(() => screen.getByText(/还没有子任务/))
+    expect(screen.getByRole('button', { name: '＋ 添加子任务' })).toBeInTheDocument()
+  })
+
+  it('子任务：添加 → 勾选沉底 → 点文字就地编辑 → 删除', async () => {
+    await renderApp()
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => screen.getByText(/进行中的目标/))
+
+    fireEvent.click(screen.getByRole('button', { name: '＋ 新建目标' }))
+    fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
+    await screen.findByText('复习考公')
+
+    fireEvent.click(screen.getByText('复习考公'))
+    await waitFor(() => screen.getByText('阶段列表'))
+    fireEvent.click(screen.getByRole('tab', { name: '子任务' }))
+    await waitFor(() => screen.getByText(/还没有子任务/))
+
+    // 添加两条
+    fireEvent.click(screen.getByRole('button', { name: '＋ 添加子任务' }))
+    fireEvent.change(screen.getByPlaceholderText('如：做完教案第 3 章'), { target: { value: '做完教案' } })
+    fireEvent.click(screen.getByRole('button', { name: '添加' }))
+    await waitFor(() => screen.getByText('做完教案'))
+
+    fireEvent.click(screen.getByRole('button', { name: '＋ 添加子任务' }))
+    fireEvent.change(screen.getByPlaceholderText('如：做完教案第 3 章'), { target: { value: '刷一套题' } })
+    fireEvent.click(screen.getByRole('button', { name: '添加' }))
+    await screen.findByText('刷一套题')
+
+    // 进度文案出现
+    expect(screen.getByText('已完成 0/2')).toBeInTheDocument()
+
+    // 勾选「刷一套题」→ 沉底（「做完教案」在前）
+    fireEvent.click(screen.getByRole('checkbox', { name: '标记完成：刷一套题' }))
+    await waitFor(() => expect(screen.getByText('已完成 1/2')).toBeInTheDocument())
+    const rows = screen.getAllByRole('checkbox')
+    expect(rows[0]).toHaveAttribute('aria-label', '标记完成：做完教案')
+    expect(rows[1]).toHaveAttribute('aria-label', '取消完成：刷一套题')
+
+    // 点文字就地编辑
+    fireEvent.click(screen.getByText('做完教案'))
+    const input = screen.getByDisplayValue('做完教案')
+    fireEvent.change(input, { target: { value: '做完教案 v2' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() => screen.getByText('做完教案 v2'))
+
+    // 删除
+    fireEvent.click(screen.getByRole('button', { name: '删除子任务：刷一套题' }))
+    await waitFor(() => expect(screen.queryByText('刷一套题')).not.toBeInTheDocument())
+  })
 })

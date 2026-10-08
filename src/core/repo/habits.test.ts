@@ -162,7 +162,7 @@ describe('备份含 habits/checkins；旧备份兼容', () => {
       version: 1,
       exportedAt: 1_700_000_000_000,
       schemaVersion: 1,
-      data: { todos: [], notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], settings: [] },
+      data: { todos: [], notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], subtasks: [], settings: [] },
     })
     const parsed = parseBackup(legacy)
     expect(parsed.data.habits).toEqual([])

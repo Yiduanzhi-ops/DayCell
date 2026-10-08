@@ -46,6 +46,7 @@ export const LIMITS = {
   goalNote: 5000,
   stageTitle: 50,
   stageNote: 1000,
+  subtaskTitle: 50,
   habitName: 30,
   /** 99,999,999 元 = 9,999,999,900 分（PRD E7） */
   maxAmountCents: 9_999_999_900,
@@ -164,6 +165,9 @@ export const parseGoalTitle = (raw: string): ParseResult<string> =>
 
 export const parseStageTitle = (raw: string): ParseResult<string> =>
   parseText(raw, { field: '阶段名称', max: LIMITS.stageTitle })
+
+export const parseSubtaskTitle = (raw: string): ParseResult<string> =>
+  parseText(raw, { field: '子任务', max: LIMITS.subtaskTitle })
 
 /** 目标阐述/阶段备注**可以为空**——空串是合法值 */
 export function parseGoalNote(raw: string): ParseResult<string> {

@@ -1,15 +1,18 @@
 /**
- * 目标模块（v7.9）：底部 tab 第 4 个「目标」。
+ * 目标模块（v7.9；v8.5 加「阶段 | 子任务」双视图）：底部 tab 第 4 个「目标」。
  *
  * 交互（以 prototype/goals.html 为验收标准，用户已拍板）：
  *  - 列表页 = 全部目标：标题 + 「当前 · xx」徽标 + 进度 + 阶段数 + 阐述 2 行截断
- *  - 详情页 = **顶部主展示目标阐述**（大段可编辑文本），**下方才是阶段列表**
+ *  - 详情页 = **顶部主展示目标阐述**（大段可编辑文本），**下方才是列表**
+ *  - v8.5 双视图：阐述下方、列表上方有「阶段 | 子任务」切换按钮；
+ *    阶段是时间维度（现状不变），子任务是执行维度（标题 + 完成勾选 + 删除 + 点文字就地编辑），
+ *    两者并存不替代、各自进度独立（目标卡片进度不受子任务影响）
  *  - 阶段 = 名称 + 百分比滑杆 + 备注 + 进行中/已完成 + 「当前」（同目标互斥）
  *  - 无子阶段、无每日打卡、不与待办/支出联动；账单总结 = 目标的一种用法（用户拍板）
  */
 import { useState } from 'react'
 import type { JSX, ReactNode } from 'react'
-import type { GoalRecord, StageInput, StageRecord } from '@core'
+import type { GoalRecord, StageInput, StageRecord, SubtaskRecord } from '@core'
 import { useApp } from '@/app/context'
 import styles from './GoalsView.module.css'
 
@@ -185,6 +188,50 @@ function StageSheet({
 }
 
 // ---------------------------------------------------------------------------
+// 子任务弹层（v8.5：单字段，最轻——只有标题）
+// ---------------------------------------------------------------------------
+
+function SubtaskSheet({ goalId, onClose }: { goalId: string; onClose: () => void }): JSX.Element {
+  const createSubtask = useApp((s) => s.createSubtask)
+  const [title, setTitle] = useState('')
+
+  const submit = async (): Promise<void> => {
+    const t = title.trim()
+    if (!t) return
+    const ok = await createSubtask({ goalId, title: t })
+    if (ok) onClose()
+  }
+
+  return (
+    <Sheet title="添加子任务" onCancel={onClose}>
+      <div className={styles.field}>
+        <label>子任务</label>
+        <input
+          type="text"
+          placeholder="如：做完教案第 3 章"
+          value={title}
+          maxLength={50}
+          autoFocus
+          onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              void submit()
+            }
+          }}
+        />
+      </div>
+      <div className={styles.act}>
+        <button className={styles.btnSoft} onClick={onClose}>取消</button>
+        <button className={styles.btnPrimary} disabled={!title.trim()} onClick={() => void submit()}>
+          添加
+        </button>
+      </div>
+    </Sheet>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // 阶段行
 // ---------------------------------------------------------------------------
 
@@ -302,19 +349,108 @@ function StageRow({
 }
 
 // ---------------------------------------------------------------------------
+// 子任务行（v8.5）：勾选 + 点文字就地编辑 + 删除；完成后沉底（aggregate 排序）
+// ---------------------------------------------------------------------------
+
+function SubtaskRow({
+  subtask,
+  onDelete,
+}: {
+  subtask: SubtaskRecord
+  onDelete: (s: SubtaskRecord) => void
+}): JSX.Element {
+  const setSubtaskDone = useApp((s) => s.setSubtaskDone)
+  const updateSubtask = useApp((s) => s.updateSubtask)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(subtask.title)
+
+  const save = async (): Promise<void> => {
+    const t = draft.trim()
+    if (t && t !== subtask.title) await updateSubtask(subtask.id, { title: t })
+    setEditing(false)
+  }
+
+  return (
+    <div className={[styles.subtaskRow, subtask.done ? styles.subtaskDone : ''].join(' ')}>
+      <button
+        className={subtask.done ? `${styles.subCheck} ${styles.subCheckOn}` : styles.subCheck}
+        role="checkbox"
+        aria-checked={subtask.done}
+        aria-label={subtask.done ? `取消完成：${subtask.title}` : `标记完成：${subtask.title}`}
+        onClick={() => void setSubtaskDone(subtask.id, !subtask.done)}
+      >
+        {subtask.done && (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" aria-hidden="true">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        )}
+      </button>
+      {editing ? (
+        <input
+          className={styles.subInput}
+          value={draft}
+          maxLength={50}
+          autoFocus
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={() => void save()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void save()
+            if (e.key === 'Escape') {
+              setDraft(subtask.title)
+              setEditing(false)
+            }
+          }}
+        />
+      ) : (
+        <span
+          className={styles.subTitle}
+          title="点击编辑"
+          onClick={() => {
+            setDraft(subtask.title)
+            setEditing(true)
+          }}
+        >
+          {subtask.title}
+        </span>
+      )}
+      <button
+        className={styles.subDel}
+        aria-label={`删除子任务：${subtask.title}`}
+        title="删除"
+        onClick={() => onDelete(subtask)}
+      >
+        ✕
+      </button>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // 目标详情页：阐述为主展示，阶段列表在下方
 // ---------------------------------------------------------------------------
 
-function GoalDetail({ goal, stages }: { goal: GoalRecord; stages: StageRecord[] }): JSX.Element {
+function GoalDetail({
+  goal,
+  stages,
+  subtasks,
+}: {
+  goal: GoalRecord
+  stages: StageRecord[]
+  subtasks: SubtaskRecord[]
+}): JSX.Element {
   const closeGoal = useApp((s) => s.closeGoal)
   const updateGoal = useApp((s) => s.updateGoal)
   const deleteGoal = useApp((s) => s.deleteGoal)
   const setGoalDone = useApp((s) => s.setGoalDone)
   const deleteStage = useApp((s) => s.deleteStage)
+  const deleteSubtask = useApp((s) => s.deleteSubtask)
 
   const [noteEdit, setNoteEdit] = useState(false)
   const [noteDraft, setNoteDraft] = useState(goal.note)
   const [stageSheet, setStageSheet] = useState<null | 'new' | StageRecord>(null)
+  const [subtaskSheet, setSubtaskSheet] = useState(false)
+  // v8.5 双视图：阶段（时间维度）| 子任务（执行维度），各自进度独立
+  const [viewMode, setViewMode] = useState<'stages' | 'subtasks'>('stages')
 
   const saveNote = async (): Promise<void> => {
     const ok = await updateGoal(goal.id, { note: noteDraft.trim() })
@@ -322,13 +458,19 @@ function GoalDetail({ goal, stages }: { goal: GoalRecord; stages: StageRecord[] 
   }
 
   const removeGoal = (): void => {
-    // 连带删除全部阶段由 repo 单事务保证（用户口径：删除目标 = 删除它的一切）
+    // 连带删除全部阶段/子任务由 repo 单事务保证（用户口径：删除目标 = 删除它的一切）
     void deleteGoal(goal.id)
   }
 
   const removeStage = (s: StageRecord): void => {
     void deleteStage(s.id)
   }
+
+  const removeSubtask = (st: SubtaskRecord): void => {
+    void deleteSubtask(st.id)
+  }
+
+  const doneSubtaskCount = subtasks.filter((x) => x.done).length
 
   return (
     <div className={styles.detail}>
@@ -384,30 +526,80 @@ function GoalDetail({ goal, stages }: { goal: GoalRecord; stages: StageRecord[] 
         )}
       </div>
 
-      {/* 阶段列表：阐述之下 */}
-      <div className={styles.stageTitle}>
-        阶段列表
+      {/* v8.5 双视图切换：阐述之下、列表上方 */}
+      <div className={styles.seg} role="tablist" aria-label="目标视图">
         <button
-          className={styles.addStageBtn}
-          onClick={() => setStageSheet('new')}
+          role="tab"
+          aria-selected={viewMode === 'stages'}
+          className={viewMode === 'stages' ? `${styles.segBtn} ${styles.segOn}` : styles.segBtn}
+          onClick={() => setViewMode('stages')}
         >
-          ＋ 添加阶段
+          阶段
+        </button>
+        <button
+          role="tab"
+          aria-selected={viewMode === 'subtasks'}
+          className={viewMode === 'subtasks' ? `${styles.segBtn} ${styles.segOn}` : styles.segBtn}
+          onClick={() => setViewMode('subtasks')}
+        >
+          子任务
         </button>
       </div>
 
-      {stages.length === 0 ? (
-        <div className={styles.stageEmpty}>
-          还没有阶段。添加第一个阶段（自动设为「当前」），再按阶段推进。
-        </div>
+      {viewMode === 'stages' ? (
+        <>
+          {/* 阶段列表（时间维度，现状不变） */}
+          <div className={styles.stageTitle}>
+            阶段列表
+            <button
+              className={styles.addStageBtn}
+              onClick={() => setStageSheet('new')}
+            >
+              ＋ 添加阶段
+            </button>
+          </div>
+
+          {stages.length === 0 ? (
+            <div className={styles.stageEmpty}>
+              还没有阶段。添加第一个阶段（自动设为「当前」），再按阶段推进。
+            </div>
+          ) : (
+            stages.map((s) => (
+              <StageRow
+                key={s.id}
+                stage={s}
+                onEdit={(rec) => setStageSheet(rec)}
+                onDelete={removeStage}
+              />
+            ))
+          )}
+        </>
       ) : (
-        stages.map((s) => (
-          <StageRow
-            key={s.id}
-            stage={s}
-            onEdit={(rec) => setStageSheet(rec)}
-            onDelete={removeStage}
-          />
-        ))
+        <>
+          {/* 子任务列表（执行维度，v8.5） */}
+          <div className={styles.stageTitle}>
+            <span>子任务</span>
+            {subtasks.length > 0 && (
+              <span className={styles.subProgress}>已完成 {doneSubtaskCount}/{subtasks.length}</span>
+            )}
+            <button
+              className={styles.addStageBtn}
+              onClick={() => setSubtaskSheet(true)}
+            >
+              ＋ 添加子任务
+            </button>
+          </div>
+
+          {subtasks.length === 0 ? (
+            <div className={styles.stageEmpty}>
+              还没有子任务。把要做的事拆成一条条子任务，逐条勾选完成。
+            </div>
+          ) : (
+            subtasks.map((st) => (
+              <SubtaskRow key={st.id} subtask={st} onDelete={removeSubtask} />
+            ))
+          )}
+        </>
       )}
 
       {stageSheet !== null && (
@@ -415,6 +607,9 @@ function GoalDetail({ goal, stages }: { goal: GoalRecord; stages: StageRecord[] 
           editing={stageSheet === 'new' ? null : stageSheet}
           onClose={() => setStageSheet(null)}
         />
+      )}
+      {subtaskSheet && (
+        <SubtaskSheet goalId={goal.id} onClose={() => setSubtaskSheet(false)} />
       )}
     </div>
   )
@@ -525,7 +720,7 @@ function GoalList(): JSX.Element {
 export function GoalsView(): JSX.Element {
   const goalDetail = useApp((s) => s.goalDetail)
   return goalDetail ? (
-    <GoalDetail goal={goalDetail.goal} stages={goalDetail.stages} />
+    <GoalDetail goal={goalDetail.goal} stages={goalDetail.stages} subtasks={goalDetail.subtasks} />
   ) : (
     <GoalList />
   )

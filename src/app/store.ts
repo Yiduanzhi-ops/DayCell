@@ -41,6 +41,8 @@ import {
   type MonthSummary,
   type StageInput,
   type StageRecord,
+  type SubtaskInput,
+  type SubtaskRecord,
   type WeekDay,
   type WeekTotal,
   type SyncEngine,
@@ -84,8 +86,8 @@ export interface AppState {
   annivList: AnniversaryRecord[]
   /** v7.9：目标列表（目标 tab 数据源） */
   goalList: GoalSummary[]
-  /** v7.9：打开中的目标详情（null = 目标列表页） */
-  goalDetail: { goal: GoalRecord; stages: StageRecord[] } | null
+  /** v7.9：打开中的目标详情（null = 目标列表页）。v8.5 加 subtasks（阶段/子任务双视图） */
+  goalDetail: { goal: GoalRecord; stages: StageRecord[]; subtasks: SubtaskRecord[] } | null
   /** v8.0：今日习惯（selected 日该做的习惯 + 打卡状态） */
   habitDay: HabitDay | null
   /** v8.0：习惯设置页列表（全部活习惯，含暂停的） */
@@ -189,6 +191,11 @@ export interface AppState {
   setCurrentStage(id: string): Promise<boolean>
   setStageDone(id: string, done: boolean): Promise<boolean>
   deleteStage(id: string): Promise<boolean>
+  // ---- v8.5：子任务（阶段/子任务双视图） ----
+  createSubtask(input: SubtaskInput): Promise<boolean>
+  updateSubtask(id: string, patch: { title: string }): Promise<boolean>
+  setSubtaskDone(id: string, done: boolean): Promise<boolean>
+  deleteSubtask(id: string): Promise<boolean>
 
   // ---- v8.0：习惯（今日视图区块 + 菜单「习惯设置」） ----
   /** 刷新习惯设置页列表（打开/CRUD 后调用） */
@@ -762,16 +769,17 @@ export function createAppStore(
 
     async openGoal(id) {
       try {
-        const [goal, stages] = await Promise.all([
+        const [goal, stages, subtasks] = await Promise.all([
           repos.goals.all().then((gs) => gs.find((g) => g.id === id) ?? null),
           aggregates.stagesOfGoal(id),
+          aggregates.subtasksOfGoal(id),
         ])
         if (!goal) {
           get().showToast('目标不存在')
           return
         }
         // done 归一化（旧记录/旧备份无此字段）
-        set({ goalDetail: { goal: { ...goal, done: goal.done ?? false }, stages } })
+        set({ goalDetail: { goal: { ...goal, done: goal.done ?? false }, stages, subtasks } })
       } catch (e) {
         get().showToast(errMsg(e))
       }
@@ -916,6 +924,74 @@ export function createAppStore(
         )
         await get().refreshGoals()
         get().showToast('已删除阶段')
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    // ---- v8.5 子任务 ----
+
+    async createSubtask(input) {
+      try {
+        const subtask = await repos.subtasks.create(input)
+        set((s) =>
+          s.goalDetail && s.goalDetail.goal.id === input.goalId
+            ? { goalDetail: { ...s.goalDetail, subtasks: [...s.goalDetail.subtasks, subtask] } }
+            : s,
+        )
+        await get().refreshGoals()
+        get().showToast('已添加子任务')
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async updateSubtask(id, patch) {
+      try {
+        const subtask = await repos.subtasks.update(id, patch)
+        set((s) =>
+          s.goalDetail
+            ? { goalDetail: { ...s.goalDetail, subtasks: s.goalDetail.subtasks.map((x) => (x.id === id ? subtask : x)) } }
+            : s,
+        )
+        await get().refreshGoals()
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async setSubtaskDone(id, done) {
+      try {
+        const subtask = await repos.subtasks.setDone(id, done)
+        set((s) =>
+          s.goalDetail
+            ? { goalDetail: { ...s.goalDetail, subtasks: s.goalDetail.subtasks.map((x) => (x.id === id ? subtask : x)) } }
+            : s,
+        )
+        await get().refreshGoals()
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async deleteSubtask(id) {
+      try {
+        await repos.subtasks.softDelete(id)
+        set((s) =>
+          s.goalDetail
+            ? { goalDetail: { ...s.goalDetail, subtasks: s.goalDetail.subtasks.filter((x) => x.id !== id) } }
+            : s,
+        )
+        await get().refreshGoals()
+        get().showToast('已删除子任务')
         return true
       } catch (e) {
         get().showToast(errMsg(e))
