@@ -103,6 +103,7 @@ describe('App 冒烟', () => {
     const cell = screen.getByLabelText(/2026年9月29日/)
     // v8.4：支出数据仍在（历史兼容），但月格不再渲染金额行
     expect(cell.textContent).not.toContain('¥')
+    expect(cell.textContent).not.toContain('129')
     // 行3 右下角：想法点（i 元素，aria-hidden，条数 1 不带数字）
     const nind = cell.querySelector('[class*="nind"]')
     expect(nind).not.toBeNull()

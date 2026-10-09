@@ -1,7 +1,7 @@
 /* 月视图：汇总条 + 星期头 + 42 格网格（原型 .wkhead / .grid / .cell 段移植）。
-   格子只有指示器没有正文；极窄屏隐藏花费（PRD E22）。 */
+   格子只有指示器没有正文；极窄屏隐藏花费（PRD E22，v8.x 起产品不含花费，样式已移除）。 */
 
-/* v7.4：本月消费汇总条——样式对齐周视图 .weekbar（位置在星期头上方） */
+/* v7.4：本月汇总条——产品不含花费后仅保留「X 天有记录」 */
 .mbar {
   flex: 0 0 auto;
   padding: 10px 16px;
@@ -13,8 +13,6 @@
   gap: 12px;
   align-items: center;
 }
-.mbar b { font-weight: 600; }
-.mspacer { flex: 1; }
 
 .wkhead {
   display: grid;
@@ -39,6 +37,7 @@
 }
 
 .cell {
+  position: relative; /* 纪念日徽章向下溢出的定位锚点 */
   border: 1px solid var(--line-2);
   border-radius: 7px;
   padding: 5px 6px 6px;
@@ -70,29 +69,23 @@
 .fest { font-size: 9.5px; color: var(--accent); font-weight: 650; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .extra { font-style: normal; color: var(--ink-3); font-weight: 400; }
 
+/* 纪念日徽章（v8.x 手机端展示不全修复）：
+   单行省略 → 从格子底部向下溢出，名称完整显示在下一行格子的空白区。
+   不参与流布局（不撑高格子、不破坏 42 格等高）；z-index 高于格子背景。 */
 .anniBadge {
+  position: absolute;
+  top: 100%;
+  left: 6px;
+  margin-top: 2px;
   font-size: 9.5px;
   color: var(--accent);
   background: var(--accent-soft);
   border: 1px solid var(--accent-line);
   padding: 0 5px;
   border-radius: 4px;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* 行2：花费独立行（v7.1）。ink-2 + 600 字重 + tabular-nums，
-   是格子里仅次于日期数字的第二醒目元素；左对齐（右下角留给想法点） */
-.costRow {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-height: 15px;
+  overflow: visible;
+  z-index: 20;
 }
 
 /* 行3：待办进度（左）+ 想法点（右下角）。margin-top:auto 把这行钉在格子底部 */
@@ -120,13 +113,8 @@
   .cell { padding: 4px 5px 5px; gap: 2px; }
   .cnum { font-size: 12.5px; }
   .clun, .fest { font-size: 9px; }
-  .costRow { font-size: 10px; min-height: 13px; }
   .crow3 { min-height: 12px; gap: 3px; }
   .prog, .allDone { font-size: 9px; }
   .nind i { width: 4px; height: 4px; }
-}
-
-/* 极窄屏（<320px，PRD E22）：隐藏花费，只留进度与想法点 */
-@media (max-width: 319.98px) {
-  .costRow { display: none; }
+  .anniBadge { font-size: 9px; left: 5px; }
 }

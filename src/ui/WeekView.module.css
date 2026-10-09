@@ -14,7 +14,6 @@
 }
 .weekbar b { font-weight: 600; }
 .weekbar .vr { width: 1px; height: 12px; background: var(--line); }
-.weekbar .spacer { flex: 1; }
 
 .wrap {
   flex: 1 1 auto;
@@ -51,8 +50,6 @@
 .wtop { display: flex; align-items: baseline; gap: 8px; }
 .wlun { font-size: 11px; color: var(--ink-3); }
 .fest { font-size: 11px; color: var(--accent); font-weight: 600; }
-.wspacer { flex: 1; }
-.wcost { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
 
 .wanni { display: flex; gap: 6px; flex-wrap: wrap; }
 .anniBadge {
@@ -92,7 +89,6 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.wcats { font-size: 10.5px; color: var(--ink-3); }
 .wempty { font-size: 11.5px; color: var(--ink-3); font-style: italic; }
 
 .wrow.today .wdate b { color: var(--accent); font-weight: 650; }
