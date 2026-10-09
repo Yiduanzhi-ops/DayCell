@@ -46,7 +46,7 @@ describe('ChangelogView（版本更新）', () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
     expect(vers[0].textContent).toBe('v8.8')
-    expect(screen.getByText('月视图纪念日名称在手机窄屏改向下溢出展示完整（不截断、不撑高格子）')).toBeInTheDocument()
+    expect(screen.getByText('月视图纪念日名称在手机窄屏下留在格内、一行放不下自动顺延到第二行（不漂移不截断）')).toBeInTheDocument()
   })
 
   it('历史版本（v8.2 同步、v7.9 目标、v7.5 菜单）要点存在', async () => {

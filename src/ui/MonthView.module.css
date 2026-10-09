@@ -37,7 +37,6 @@
 }
 
 .cell {
-  position: relative; /* 纪念日徽章向下溢出的定位锚点 */
   border: 1px solid var(--line-2);
   border-radius: 7px;
   padding: 5px 6px 6px;
@@ -69,23 +68,20 @@
 .fest { font-size: 9.5px; color: var(--accent); font-weight: 650; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .extra { font-style: normal; color: var(--ink-3); font-weight: 400; }
 
-/* 纪念日徽章（v8.x 手机端展示不全修复）：
-   单行省略 → 从格子底部向下溢出，名称完整显示在下一行格子的空白区。
-   不参与流布局（不撑高格子、不破坏 42 格等高）；z-index 高于格子背景。 */
+/* 纪念日徽章（v8.8 手机端展示不全修复，用户拍板）：
+   留在格子内（流内元素），一行放不下自动顺延到第二行，不漂移、不截断。
+   上限 2 行（-webkit-line-clamp），极长名称第 2 行末尾省略。 */
 .anniBadge {
-  position: absolute;
-  top: 100%;
-  left: 6px;
-  margin-top: 2px;
   font-size: 9.5px;
   color: var(--accent);
   background: var(--accent-soft);
   border: 1px solid var(--accent-line);
   padding: 0 5px;
   border-radius: 4px;
-  white-space: nowrap;
-  overflow: visible;
-  z-index: 20;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* 行3：待办进度（左）+ 想法点（右下角）。margin-top:auto 把这行钉在格子底部 */
@@ -116,5 +112,5 @@
   .crow3 { min-height: 12px; gap: 3px; }
   .prog, .allDone { font-size: 9px; }
   .nind i { width: 4px; height: 4px; }
-  .anniBadge { font-size: 9px; left: 5px; }
+  .anniBadge { font-size: 9px; }
 }
