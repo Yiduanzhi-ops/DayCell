@@ -69,8 +69,8 @@
 .extra { font-style: normal; color: var(--ink-3); font-weight: 400; }
 
 /* 纪念日徽章（v8.8 手机端展示不全修复，用户拍板）：
-   留在格子内（流内元素），一行放不下自动顺延到第二行，不漂移、不截断。
-   上限 2 行（-webkit-line-clamp），极长名称第 2 行末尾省略。 */
+   留在格子内（流内元素），一行放不下自然换行，最多 3 行（-webkit-line-clamp: 3），
+   不漂移、不截半行；极长名称第 3 行末尾省略。 */
 .anniBadge {
   font-size: 9.5px;
   color: var(--accent);
@@ -79,7 +79,7 @@
   padding: 0 5px;
   border-radius: 4px;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }

@@ -59,7 +59,7 @@ export function MonthView(): JSX.Element {
               + (d.todoTotal ? ` 待办${d.todoDone}/${d.todoTotal}` : '')
               + (d.noteCount ? ` ${d.noteCount}条想法` : '')
             // 行2：纪念日徽章（v8.4 起月格不再显示支出金额；
-            // v8.8 修复手机窄屏截断：徽章留在格内，一行放不下顺延到第二行，不漂移）
+            // v8.8 修复手机窄屏截断：徽章留在格内，一行放不下自然换行，最多 3 行，不漂移）
             const showAnni = d.anniversaries.length > 0
             // 行3：有待办或有想法才渲染；想法点靠 margin-left:auto 恒在右下角
             const showRow3 = !out && (d.todoTotal > 0 || d.noteCount > 0)
