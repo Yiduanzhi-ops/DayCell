@@ -71,6 +71,7 @@ function drawLogo(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: n
 
 export function ShareView(): JSX.Element {
   const closeShare = useApp((s) => s.closeShare)
+  const openOnboarding = useApp((s) => s.openOnboarding)
   const showToast = useApp((s) => s.showToast)
   const [copied, setCopied] = useState(false)
   const [generating, setGenerating] = useState(false)
@@ -263,6 +264,12 @@ export function ShareView(): JSX.Element {
             <li>底部 tab 切「习惯」「目标」：每日打卡、阶段性目标单独管理</li>
             <li>右上角菜单：备份 / 导出 / 夜间模式 / 同步设置都在这里</li>
           </ol>
+
+          <h2 className={styles.h2}>首次使用引导</h2>
+          <button className={styles.posterBtn} onClick={openOnboarding}>
+            重新观看引导
+          </button>
+          <p className={styles.note}>想再看一遍 DayCell 的功能总览？随时回到这里重看，不影响使用。</p>
 
           <h2 className={styles.h2}>多设备同步</h2>
           <p className={styles.note}>

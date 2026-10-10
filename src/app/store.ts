@@ -134,6 +134,8 @@ export interface AppState {
   shareOpen: boolean
   /** v8.4：版本更新页是否打开（全屏覆盖层，菜单「版本更新」进入） */
   changelogOpen: boolean
+  /** v8.22：首次使用引导是否打开（仅首次启动自动弹出；可从使用手册重看） */
+  onboardingOpen: boolean
   /** v8.1：同步引擎最近状态（设置页展示；null = 未创建引擎） */
   syncStatus: SyncStatus | null
   /** v8.1：当前已保存的同步配置（打开设置页时读入） */
@@ -253,6 +255,11 @@ export interface AppState {
   // ---- v8.4：版本更新 ----
   openChangelog(): void
   closeChangelog(): void
+
+  // ---- v8.22：首次使用引导 ----
+  openOnboarding(): void
+  /** 关闭引导并写入本地标记（跳过 / 开始使用都会走到这里，之后不再自动弹出） */
+  closeOnboarding(): void
 }
 
 export interface AppStoreOptions {
@@ -280,6 +287,13 @@ const errMsg = (e: unknown): string =>
 // ---------------------------------------------------------------------------
 
 const THEME_KEY = 'daycell-theme'
+
+/** v8.22：首次引导标记（仅首次自动弹出；关闭/跳过即写入，之后可从使用手册重看） */
+const ONBOARDING_KEY = 'daycell-onboarding-v1'
+
+/** 是否已看过首次引导（本地标记，多端各自独立——引导属于设备级 UI，不参与数据同步） */
+export const readOnboardingSeen = (): boolean =>
+  typeof localStorage !== 'undefined' && localStorage.getItem(ONBOARDING_KEY) === '1'
 
 export const readTheme = (): 'light' | 'dark' => {
   if (typeof localStorage !== 'undefined' && localStorage.getItem(THEME_KEY) === 'dark') return 'dark'
@@ -353,6 +367,7 @@ export function createAppStore(
     syncOpen: false,
     shareOpen: false,
     changelogOpen: false,
+    onboardingOpen: false,
     syncStatus: syncEngine?.status() ?? null,
     syncConfig: null,
 
@@ -1258,6 +1273,16 @@ export function createAppStore(
 
     closeChangelog() {
       set({ changelogOpen: false })
+    },
+
+    // ---- v8.22：首次使用引导 ----
+    openOnboarding() {
+      set({ onboardingOpen: true })
+    },
+
+    closeOnboarding() {
+      if (typeof localStorage !== 'undefined') localStorage.setItem(ONBOARDING_KEY, '1')
+      set({ onboardingOpen: false })
     },
 
     showToast(msg) {

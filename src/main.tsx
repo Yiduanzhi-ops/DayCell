@@ -19,7 +19,7 @@
 import { createRoot } from 'react-dom/client'
 import { createSyncEngine, today, type SyncEngine, type SyncStatus } from '@core'
 import { initCore } from '@/app/bootstrap'
-import { createAppStore } from '@/app/store'
+import { createAppStore, readOnboardingSeen } from '@/app/store'
 import { buildTransport, readSyncConfig, wrapStoreForSync } from '@/app/sync'
 import { App } from '@/ui/App'
 import '@/ui/tokens.css'
@@ -49,6 +49,11 @@ async function main(): Promise<void> {
     },
   })
   await store.getState().init()
+
+  // v8.22：首次使用引导——未看过本地标记则在首帧渲染前打开（仅首次自动出现；
+  // 关闭/跳过写入标记，之后可从使用手册重看）。检测放 main 而非 App 组件内，
+  // 让组件测试不受"自动弹出"影响。
+  if (!readOnboardingSeen()) store.getState().openOnboarding()
 
   const el = document.getElementById('root')
   if (!el) throw new Error('#root 不存在')

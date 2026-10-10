@@ -1,0 +1,248 @@
+/* 首次使用引导（v8.22 onboarding）：全屏覆盖层，手机/桌面同构。
+ * 视觉对齐产品令牌（tokens.css）：极简黑白灰 + 单一强调色，夜间模式自动适配。
+ */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: var(--bg);
+  display: flex;
+  justify-content: center;
+}
+
+.page {
+  width: 100%;
+  max-width: 420px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 18px 20px;
+}
+
+.top {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+}
+
+.skip {
+  font-size: 13px;
+  color: var(--ink-3);
+  padding: 10px 6px;
+  min-height: 44px;
+}
+.skip:active { color: var(--ink); }
+
+.body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  animation: fadeUp 0.5s ease both;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+.illu {
+  height: 132px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 0 12px;
+}
+
+.illuSvg {
+  width: 212px;
+  height: 124px;
+  display: block;
+}
+
+.logo {
+  width: 104px;
+  height: 104px;
+  border-radius: 26px;
+  object-fit: cover;
+  box-shadow: 0 10px 24px rgba(20, 24, 40, 0.18), 0 2px 6px rgba(20, 24, 40, 0.08);
+}
+
+.title {
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: var(--ink);
+  text-align: center;
+}
+
+.sub {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  line-height: 1.5;
+  margin-top: 6px;
+  text-align: center;
+}
+
+/* 首屏亮点网格（两列小卡，单行）+ 提示条 */
+.grid {
+  display: flex;
+  flex-direction: column;
+  margin-top: 18px;
+}
+
+.hlRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.gc {
+  background: var(--bg-subtle);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 9px 10px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.gcIcon {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gc b {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--ink);
+}
+
+.tipWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 16px;
+  background: var(--accent-soft);
+  border: 1px dashed var(--accent-line);
+  border-radius: 11px;
+  padding: 9px 10px;
+  font-size: 11px;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.plus {
+  flex: 0 0 15px;
+  width: 15px;
+  height: 15px;
+  border-radius: 5px;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 其余屏要点（白底圆角卡片，单行） */
+.pts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.pt {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  background: var(--bg-subtle);
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.ptIcon {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.foot {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 16px;
+}
+
+.track {
+  display: flex;
+  justify-content: center;
+  gap: 7px;
+}
+
+.seg {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--ink-4);
+  width: 14px;
+  padding: 0;
+  transition: all 0.35s;
+}
+
+.segOn {
+  background: var(--accent);
+  width: 26px;
+}
+
+.next {
+  height: 50px;
+  border-radius: 16px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 15.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  box-shadow: 0 6px 16px rgba(23, 24, 28, 0.18);
+}
+
+.nextAcc {
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  box-shadow: 0 8px 20px rgba(47, 91, 255, 0.32);
+}
+
+.prev {
+  height: 38px;
+  color: var(--ink-3);
+  font-size: 13px;
+}

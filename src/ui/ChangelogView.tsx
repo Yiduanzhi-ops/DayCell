@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.21'
+const CURRENT_VERSION = 'v8.22'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.22',
+    date: '2026-10-10',
+    items: [
+      '新增首次使用引导：首次打开自动弹出 6 屏功能总览（总览 / 今日视图 / 周月视图 / 目标 / 纪念日 / 数据安全），含品牌 logo、亮点速览与「添加到主屏幕」提示',
+      '引导仅出现一次：跳过或看完即记录，不再打扰；想再看可从右上角菜单「使用手册 → 重新观看引导」随时重看',
+    ],
+  },
   {
     version: 'v8.21',
     date: '2026-10-10',
