@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.16'
+const CURRENT_VERSION = 'v8.17'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.17',
+    date: '2026-10-10',
+    items: [
+      '修复日视图滑动翻页落地白屏（真根因）：过渡目标位移计算错误，松手后滑到屏幕外再复位',
+      '左滑滑向第 3 页（-66.6667%）、右滑滑向第 1 页（0%），全程内容在屏内，不再闪白',
+    ],
+  },
   {
     version: 'v8.16',
     date: '2026-10-10',

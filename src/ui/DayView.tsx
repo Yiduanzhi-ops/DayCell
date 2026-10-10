@@ -176,9 +176,11 @@ export function DayView(): JSX.Element {
           settle()
           return
         }
+        // 过渡目标位移：translateX(百分比) 相对轨道自身宽（300% = 3 屏）→ 显示第3段需 -2 屏 = -66.6667%，
+        // 显示第1段需 0。⚠️ 曾误写 -133.3333%/66.6667%（= ±4/2 屏），滑到屏幕外 → 落地全白（v8.17 修复）。
         // 左滑：轨道向左一屏（右页进入）；右滑：向右一屏（左页进入）
         el.style.transition = `transform ${DUR}ms cubic-bezier(0.22, 1, 0.36, 1)`
-        el.style.transform = dx < 0 ? 'translateX(-133.3333%)' : 'translateX(66.6667%)'
+        el.style.transform = dx < 0 ? 'translateX(-66.6667%)' : 'translateX(0%)'
         const finish = (ev: TransitionEvent): void => {
           if (ev.target !== el) return
           el.removeEventListener('transitionend', finish)

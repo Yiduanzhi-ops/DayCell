@@ -102,6 +102,31 @@ describe('App 冒烟', () => {
     await new Promise((r) => setTimeout(r, 400))
   })
 
+  it('v8.17 轨道过渡位移防回归：左滑滑向第3页(-66.6667%)、右滑滑向第1页(0%)，不滑出屏幕外', async () => {
+    // 曾误写 -133.3333%/66.6667%（translateX 百分比相对轨道自身宽 300%=3 屏 → ±4/2 屏），
+    // 松手后滑到屏幕外 → 落地全白零点几秒直到重排复位。本测试在 transitionEnd 前断言过渡目标。
+    await renderApp()
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
+    const scroller = screen.getByTestId('day-scroll')
+
+    // 左滑超阈值 → 松手后（预取命中缓存微任务）过渡目标 = -66.6667%（显示右页，仍在屏内）
+    fireEvent.touchStart(scroller, { touches: [{ clientX: 260, clientY: 150 }] })
+    fireEvent.touchMove(scroller, { touches: [{ clientX: 140, clientY: 158 }] })
+    fireEvent.touchEnd(scroller)
+    await waitFor(() => expect(scroller.style.transform).toBe('translateX(-66.6667%)'))
+    fireEvent.transitionEnd(scroller)
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 30 日'))
+    await new Promise((r) => setTimeout(r, 400))
+
+    // 右滑超阈值 → 过渡目标 = translateX(0%)（显示左页，仍在屏内）
+    fireEvent.touchStart(scroller, { touches: [{ clientX: 140, clientY: 150 }] })
+    fireEvent.touchMove(scroller, { touches: [{ clientX: 260, clientY: 158 }] })
+    fireEvent.touchEnd(scroller)
+    await waitFor(() => expect(scroller.style.transform).toBe('translateX(0%)'))
+    fireEvent.transitionEnd(scroller)
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
+  })
+
   it('点「添加待办」→ 敲字回车 → 待办出现在列表（单一录入入口全链路）', async () => {
     await renderApp()
     fireEvent.click(screen.getByRole('button', { name: '添加待办' }))

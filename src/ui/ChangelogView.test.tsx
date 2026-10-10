@@ -37,16 +37,16 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v8.16')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v8.17')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v8.16')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v8.17')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v8.16，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v8.17，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v8.16')
-    expect(screen.getByText('修复日视图滑动翻页落地白屏：松手后先等目标日数据就绪再滑过去，不再闪骨架')).toBeInTheDocument()
+    expect(vers[0].textContent).toBe('v8.17')
+    expect(screen.getByText('修复日视图滑动翻页落地白屏（真根因）：过渡目标位移计算错误，松手后滑到屏幕外再复位')).toBeInTheDocument()
   })
 
   it('历史版本（v8.2 同步、v7.9 目标、v7.5 菜单）要点存在', async () => {
