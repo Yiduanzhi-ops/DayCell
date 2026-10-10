@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.17'
+const CURRENT_VERSION = 'v8.18'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.18',
+    date: '2026-10-10',
+    items: [
+      '修复滑动途中侧页内容与落地不一致（松手跳变）：相邻日预取改为每次都重新聚合，侧页永远最新',
+      '侧页摘要与落地对齐：待办/想法不再截断显示、补农历与纪念日，途中看到的内容和松手后一致',
+    ],
+  },
   {
     version: 'v8.17',
     date: '2026-10-10',

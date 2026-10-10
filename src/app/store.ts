@@ -390,7 +390,9 @@ export function createAppStore(
         ])
         if (seq !== loadSeq) return // 已有更新的加载在飞，丢弃过期结果
 
-        // v8.12：selected 的 detail 同步写入 dayCache（轨道三页缓存数据源）
+        // v8.12：selected 的 detail 同步写入 dayCache（轨道三页缓存数据源）。
+        // v8.18：保留旧条目（相邻日由 prefetchDay 每次滑动重新聚合，永远最新；
+        // 曾尝试"刷新清空只留 selected"，会抹掉并发 prefetch 结果 → 侧页闪骨架，已回退）。
         const cache = new Map(get().dayCache)
         cache.set(selected, dayDetail)
 
@@ -465,10 +467,11 @@ export function createAppStore(
     },
 
     async prefetchDay(k) {
-      if (get().dayCache.has(k)) return
+      // v8.18：总是重新聚合（去掉 v8.12 的"命中缓存即返回"）——缓存可能陈旧（用户在其它
+      // 视图/设备改过数据），滑动途中侧页显示旧数据、松手刷成最新 → 内容跳变。
+      // 本地聚合 ~20ms，touchstart/翻页时后台执行，滑动途中即就绪；每次滑动聚合 1~2 次无感。
+      // 无清空竞态：refresh 只写 selected，prefetch 写相邻日，各自 key 互不覆盖。
       const d = await aggregates.aggregateDayDetail(k)
-      // 结果写入时若该 key 已有更新版本（refresh 权威），不覆盖
-      if (get().dayCache.has(k)) return
       set({ dayCache: new Map(get().dayCache).set(k, d) })
     },
 

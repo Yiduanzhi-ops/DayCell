@@ -319,19 +319,33 @@ function DayFull(): JSX.Element {
 }
 
 /** 两侧页：相邻日的只读摘要（滑动途中预览），无交互；数据未就绪显示轻骨架 */
+/** 两侧页：相邻日的只读摘要（滑动途中预览），无交互；数据未就绪显示轻骨架。
+ *  v8.18：与落地内容对齐——待办/想法不再截断（全部显示，侧页可滚动）、
+ *  补农历/纪念日副标题，途中看到的内容与松手后一致，减少"跳变"感。 */
 function DaySide({ date }: { date: DateKey }): JSX.Element {
   const detail = useApp((s) => s.dayCache.get(date))
   const today = useApp((s) => s.today)
   const { y, m, d } = fromKey(date)
   const isToday = date === today
+  const lunarText = detail ? lunarFullText(detail.lunar) : ''
+  const lunarEmphasis = !!(detail?.lunar?.festival || detail?.lunar?.solarTerm)
 
   return (
     <div className={styles.pageInner}>
       <div className={styles.dhead}>
         <div className={styles.dtitle}>
           {y} 年 {m} 月 {d} 日
+          <span className={styles.dow}>周{DOW[dowOf(date)]}</span>
           {isToday && <span className={styles.todayMark}>今天</span>}
         </div>
+        {detail && (lunarText || detail.anniversaries.length > 0) && (
+          <div className={styles.dsub}>
+            {lunarText && <span className={lunarEmphasis ? styles.fest : undefined}>{lunarText}</span>}
+            {detail.anniversaries.map((a) => (
+              <span key={a.id} className={styles.anniBadge}>◷ {a.title}</span>
+            ))}
+          </div>
+        )}
       </div>
       {!detail ? (
         <div className={styles.skels}><div className={styles.skel} /><div className={styles.skel} /><div className={styles.skel} /></div>
@@ -342,7 +356,6 @@ function DaySide({ date }: { date: DateKey }): JSX.Element {
               <div className={styles.sideTitle}>待办</div>
               {detail.todos
                 .filter((t) => !t.done)
-                .slice(0, 4)
                 .map((t) => (
                   <div key={t.id} className={styles.sideItem}><span className={styles.sideDot} />{t.text}</div>
                 ))}
@@ -351,7 +364,7 @@ function DaySide({ date }: { date: DateKey }): JSX.Element {
           {detail.notes.length > 0 && (
             <div className={styles.sideBlock}>
               <div className={styles.sideTitle}>想法</div>
-              {detail.notes.slice(0, 3).map((n) => (
+              {detail.notes.map((n) => (
                 <div key={n.id} className={styles.sideItem}>
                   <span className={styles.sideDot} />
                   {n.text.length > 44 ? `${n.text.slice(0, 44)}…` : n.text}
