@@ -5,8 +5,14 @@
  * 历史支出数据保留，周/月汇总条不受影响，备份导出照常含 expenses 段）。
  *
  * 今天标签恒显示今天；其他日子的日详情只能从周/月点格子进入（手机全屏 + 返回条，
- * 桌面右栏）。**不再提供翻日**（D19）——左右滑动翻日已删除：它既是低频路径，
- * 也正是「左右切换不丝滑」的来源（手势与纵向滚动打架 + 每翻一天整页硬切）。
+ * 桌面右栏）。
+ *
+ * v8.12（滑动翻日重做，用户要求"滑的途中同时看到两边数据"）：日视图改为**三页轨道**——
+ * 轨道同时渲染 前一天 / 当前 / 后一天 三页（各占一屏宽），相邻页藏在屏幕外；
+ * 触摸跟手 = 整条轨道平移，**滑动途中能看到两边的真实内容**（原生日历手感）；
+ * 松手超阈值滑到目标页 → 重排三页 + 无感复位；不足回弹。
+ * 相邻日 detail 由 store.prefetchDay 预取进 dayCache（内存缓存，IndexedDB 本地读，
+ * 未就绪的页显示轻骨架，数据落地自动填充）。桌面无手势时轨道静止 = 单页外观。
  *
  * 两条硬性交互（ADR-0005 v6 / PRD D18）：
  *  1. 「← 返回」只在**从周/月点格子进来**（source != null）时出现，回到来源视图+日期+滚动位置
@@ -14,13 +20,14 @@
  *     （wantFocus → [data-autofocus]）并 scrollIntoView——表单可能在折叠线以下，不滚过去
  *     看起来像"点了没反应"
  *
- * 换日过渡（v7）：detail 刷新期间旧内容保持可见（store.refresh 不清 detail），
- * 新数据落地后按 selected 变化重放一次 CSS 入场动画——窄屏整屏滑入、宽屏内容淡入。
- * 动画是渐进增强：jsdom / 无 Web Animations 环境静默跳过，prefers-reduced-motion 尊重系统设置。
+ * 换日过渡（v7/v8.12）：点格子/返回/今天这类非滑动换日，重排后播放入场动画
+ * （窄屏轻滑入、宽屏淡入，Web Animations 渐进增强；jsdom / reduced-motion 静默跳过）；
+ * 滑动翻页的动画完全由手势流程接管（滑出 → shiftDay → 无动画复位）。
  */
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { JSX } from 'react'
-import { dowOf, fromKey, lunarFullText } from '@core'
+import { addDays, dowOf, fromKey, lunarFullText } from '@core'
+import type { DateKey } from '@core'
 import { useApp } from '@/app/context'
 import { TodoSection } from './TodoSection'
 import { NoteSection } from './NoteSection'
@@ -29,86 +36,94 @@ import styles from './DayView.module.css'
 
 const DOW = ['日', '一', '二', '三', '四', '五', '六'] as const
 
+/** v8.12 轨道：中间页相对轨道起点的位移。轨道宽 300%（3 屏），translateX 百分比相对轨道自身宽 */
+const BASE = 'translateX(-33.3333%)'
+
 export function DayView(): JSX.Element {
-  const detail = useApp((s) => s.detail)
   const selected = useApp((s) => s.selected)
-  const today = useApp((s) => s.today)
   const source = useApp((s) => s.source)
   const back = useApp((s) => s.back)
-  const rollDismissed = useApp((s) => s.rollDismissed)
-  const rollOver = useApp((s) => s.rollOver)
-  const dismissRoll = useApp((s) => s.dismissRoll)
   const edit = useApp((s) => s.edit)
   const wantFocus = useApp((s) => s.wantFocus)
   const consumeFocus = useApp((s) => s.consumeFocus)
   const shiftDay = useApp((s) => s.shiftDay)
+  const prefetchDay = useApp((s) => s.prefetchDay)
 
-  const scrollRef = useRef<HTMLDivElement>(null)
-  // v8.11 触摸滑动翻日：swipeBusy=过渡动画进行中忽略新手势；swipeAnim=本次 selected 变化由滑动引起（跳过入场动画）
-  const swipeBusy = useRef(false)
-  const swipeAnim = useRef(false)
+  const [pages, setPages] = useState<[DateKey, DateKey, DateKey]>(() => [
+    addDays(selected, -1),
+    selected,
+    addDays(selected, 1),
+  ])
+  const trackRef = useRef<HTMLDivElement>(null)
+  const firstRender = useRef(true)
+  const swipeBusy = useRef(false) // 轨道过渡动画中，忽略新手势
+  const swipeAnim = useRef(false) // 本次 selected 变化由滑动引起：重排无动画复位
+  const selectedRef = useRef(selected)
+  selectedRef.current = selected
 
   // 表单聚焦（手动展开入口；wantFocus 由 openForm 置位，渲染后消费一次）
   useEffect(() => {
     if (!wantFocus || !edit) return
-    const el = scrollRef.current?.querySelector<HTMLElement>('[data-autofocus]')
+    const el = trackRef.current?.querySelector<HTMLElement>('[data-autofocus]')
     el?.focus()
     el?.scrollIntoView?.({ block: 'nearest' })
     consumeFocus()
   }, [wantFocus, edit, consumeFocus])
 
-  // 换日过渡：selected 变化（点格子进详情 / 桌面右栏换日 / 返回今天）时重放入场动画。
-  // 首次挂载不播——落地页直接出现，不该有位移。滑动翻页（swipeAnim）也跳过——动画由手势流程接管。
-  const firstRender = useRef(true)
+  // 挂载 / selected 变化：重排三页 + 预取相邻日 + 复位轨道。
+  // 滑动翻页（swipeAnim）走无动画复位（内容在过渡时已停在目标页）；其他换日播入场动画。
   useEffect(() => {
-    if (swipeAnim.current) return
-    if (firstRender.current) {
+    const el = trackRef.current
+    if (!el) return
+    const prev = addDays(selected, -1)
+    const next = addDays(selected, 1)
+    setPages([prev, selected, next])
+    void prefetchDay(prev)
+    void prefetchDay(next)
+    if (firstRender.current || swipeAnim.current) {
       firstRender.current = false
+      swipeAnim.current = false
+      el.style.transition = 'none'
+      el.style.transform = BASE
       return
     }
-    const el = scrollRef.current
-    if (!el || typeof el.animate !== 'function') return
-    if (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      return
+    el.style.transition = 'none'
+    el.style.transform = BASE
+    if (typeof el.animate === 'function' && !(typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+      void el.animate(
+        [
+          { transform: 'translateX(calc(-33.3333% + 24px))', opacity: 0.35 },
+          { transform: BASE, opacity: 1 },
+        ],
+        { duration: 180, easing: 'cubic-bezier(0.25, 0.8, 0.35, 1)' },
+      )
     }
-    const narrow =
-      typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 899.98px)').matches
-    // 窄屏：日详情是全屏页面，整屏滑入（原生 App 的推页手感）；宽屏：右栏内容轻淡入
-    const from = narrow ? 56 : 14
-    void el.animate(
-      [
-        { opacity: 0.35, transform: `translateX(${from}px)` },
-        { opacity: 1, transform: 'none' },
-      ],
-      { duration: narrow ? 220 : 160, easing: 'cubic-bezier(0.25, 0.8, 0.35, 1)' },
-    )
-  }, [selected])
+  }, [selected, prefetchDay])
 
-  // v8.11 触摸滑动翻日（所有日视图生效）：整屏跟手 → 松手两阶段滑入/回弹。
-  // 用原生监听：touchmove 需要 passive:false 才能 preventDefault（React 合成触摸事件为 passive）。
+  // v8.12 触摸滑动：整条轨道跟手平移（途中可见两侧真实内容）→ 松手超阈值滑到目标页。
+  // 原生监听：touchmove 需要 passive:false 才能 preventDefault（React 合成触摸事件为 passive）。
   useEffect(() => {
-    const el = scrollRef.current
+    const el = trackRef.current
     if (!el) return
     const THRESHOLD = 70
-    const DUR = 250
+    const DUR = 260
     let startX = 0
     let startY = 0
     let startT = 0
     let dx = 0
     let dy = 0
     let tracking = false
-    let finishTimer = 0
 
-    const cleanupInline = (): void => {
+    const cleanup = (): void => {
       el.style.transition = ''
       el.style.transform = ''
     }
 
     const settle = (): void => {
-      // 位移不足 → 回弹回原位
+      // 位移不足 → 回弹回中间页
       el.style.transition = 'transform 180ms cubic-bezier(0.22, 1, 0.36, 1)'
-      el.style.transform = 'translateX(0px)'
-      window.setTimeout(cleanupInline, 200)
+      el.style.transform = BASE
+      window.setTimeout(cleanup, 200)
     }
 
     const onStart = (e: TouchEvent): void => {
@@ -120,7 +135,9 @@ export function DayView(): JSX.Element {
       dx = 0
       dy = 0
       tracking = true
-      el.style.transition = 'none'
+      // 手指按下即预取两侧（命中缓存立即返回），滑动途中两侧页就绪
+      void prefetchDay(addDays(selectedRef.current, -1))
+      void prefetchDay(addDays(selectedRef.current, 1))
     }
 
     const onMove = (e: TouchEvent): void => {
@@ -134,7 +151,7 @@ export function DayView(): JSX.Element {
         return
       }
       if (Math.abs(dx) > 6) e.preventDefault()
-      el.style.transform = `translateX(${dx}px)`
+      el.style.transform = `translateX(calc(-33.3333% + ${dx}px))`
     }
 
     const onEnd = (): void => {
@@ -148,26 +165,16 @@ export function DayView(): JSX.Element {
       }
       const dir = dx < 0 ? 1 : -1
       swipeBusy.current = true
-      swipeAnim.current = true
-      // 阶段一：当前页跟手位置滑出屏幕
+      // 左滑：轨道向左一屏（右页进入）；右滑：向右一屏（左页进入）
       el.style.transition = `transform ${DUR}ms cubic-bezier(0.22, 1, 0.36, 1)`
-      el.style.transform = dx < 0 ? 'translateX(-100%)' : 'translateX(100%)'
+      el.style.transform = dx < 0 ? 'translateX(-133.3333%)' : 'translateX(66.6667%)'
       const finish = (ev: TransitionEvent): void => {
         if (ev.target !== el) return
         el.removeEventListener('transitionend', finish)
+        swipeBusy.current = false
+        swipeAnim.current = true
         shiftDay(dir)
-        // 阶段二：新内容从反向起点滑入
-        el.style.transition = 'none'
-        el.style.transform = dx < 0 ? 'translateX(100%)' : 'translateX(-100%)'
-        void el.offsetWidth // 强制 reflow，让上面的无过渡定位生效
-        el.style.transition = `transform ${DUR}ms cubic-bezier(0.22, 1, 0.36, 1)`
-        el.style.transform = 'translateX(0px)'
-        window.clearTimeout(finishTimer)
-        finishTimer = window.setTimeout(() => {
-          cleanupInline()
-          swipeBusy.current = false
-          swipeAnim.current = false
-        }, DUR + 60)
+        // selected 变化 → 上面的重排 effect 负责 setPages + 无动画复位（视觉无跳变）
       }
       el.addEventListener('transitionend', finish, { once: true })
     }
@@ -187,20 +194,8 @@ export function DayView(): JSX.Element {
       el.removeEventListener('touchmove', onMove)
       el.removeEventListener('touchend', onEnd)
       el.removeEventListener('touchcancel', onCancel)
-      window.clearTimeout(finishTimer)
     }
-  }, [shiftDay])
-
-  if (!detail) {
-    return <div className={styles.dscroll} ref={scrollRef} data-testid="day-scroll"><div className={styles.empty}>加载中…</div></div>
-  }
-
-  const { y, m, d } = fromKey(selected)
-  const isToday = selected === today
-  const lunarText = lunarFullText(detail.lunar)
-  const lunarEmphasis = !!(detail.lunar?.festival || detail.lunar?.solarTerm)
-  const showRoll = detail.prevDayRollable > 0 && !rollDismissed[selected]
-  const dayWord = isToday ? '今天' : ''
+  }, [shiftDay, prefetchDay])
 
   return (
     <>
@@ -212,50 +207,142 @@ export function DayView(): JSX.Element {
           </button>
         </div>
       )}
-      <div className={styles.dscroll} ref={scrollRef} data-testid="day-scroll">
-        <div className={styles.dhead}>
-          <div className={styles.dtitle}>
-            {y} 年 {m} 月 {d} 日
-            <span className={styles.dow}>周{DOW[dowOf(selected)]}</span>
-            {isToday && <span className={styles.todayMark}>今天</span>}
+      <div className={styles.trackWrap}>
+        <div className={styles.track} ref={trackRef} data-testid="day-scroll">
+          <div className={styles.tpage}>
+            <DaySide date={pages[0]} />
           </div>
-          {(lunarText || detail.anniversaries.length > 0) && (
-            <div className={styles.dsub}>
-              {lunarText && (
-                <span className={lunarEmphasis ? styles.fest : undefined}>{lunarText}</span>
-              )}
-              {detail.anniversaries.map((a) => (
-                <span key={a.id} className={styles.anniBadge}>◷ {a.title}</span>
-              ))}
-            </div>
-          )}
+          <div className={styles.tpage}>
+            <DayFull />
+          </div>
+          <div className={styles.tpage}>
+            <DaySide date={pages[2]} />
+          </div>
         </div>
+      </div>
+    </>
+  )
+}
 
-        {showRoll && (
-          <div className={styles.roll}>
-            <span className={styles.rollText}>
-              前一天还有 <b>{detail.prevDayRollable}</b> 件没做完
-            </span>
-            <button onClick={() => void rollOver()}>顺延</button>
-            <button className={styles.ghostBtn} onClick={dismissRoll}>忽略</button>
-          </div>
-        )}
+/** 中间页：当前选中日的完整视图（可交互：待办勾选/编辑、想法、习惯、顺延横幅、空态） */
+function DayFull(): JSX.Element {
+  const detail = useApp((s) => s.detail)
+  const selected = useApp((s) => s.selected)
+  const today = useApp((s) => s.today)
+  const rollDismissed = useApp((s) => s.rollDismissed)
+  const rollOver = useApp((s) => s.rollOver)
+  const dismissRoll = useApp((s) => s.dismissRoll)
+  const edit = useApp((s) => s.edit)
 
-        <TodoSection dayWord={dayWord} />
-        <HabitSection />
-        <NoteSection dayWord={dayWord} />
+  if (!detail) {
+    return (
+      <div className={styles.pageInner}>
+        <div className={styles.skels}><div className={styles.skel} /><div className={styles.skel} /><div className={styles.skel} /></div>
+      </div>
+    )
+  }
 
-        {detail.summary.isEmpty && !edit && (
-          <div className={styles.empty}>
-            <div className={styles.big}>○</div>
-            {isToday ? (
-              <>今天还什么都没有<br />点各区块右上角的「+ 添加」开始记录</>
-            ) : (
-              <>这一天还什么都没有<br />点各区块右上角的「+ 添加」补记</>
+  const { y, m, d } = fromKey(selected)
+  const isToday = selected === today
+  const lunarText = lunarFullText(detail.lunar)
+  const lunarEmphasis = !!(detail.lunar?.festival || detail.lunar?.solarTerm)
+  const showRoll = detail.prevDayRollable > 0 && !rollDismissed[selected]
+  const dayWord = isToday ? '今天' : ''
+
+  return (
+    <div className={styles.pageInner}>
+      <div className={styles.dhead}>
+        <div className={styles.dtitle}>
+          {y} 年 {m} 月 {d} 日
+          <span className={styles.dow}>周{DOW[dowOf(selected)]}</span>
+          {isToday && <span className={styles.todayMark}>今天</span>}
+        </div>
+        {(lunarText || detail.anniversaries.length > 0) && (
+          <div className={styles.dsub}>
+            {lunarText && (
+              <span className={lunarEmphasis ? styles.fest : undefined}>{lunarText}</span>
             )}
+            {detail.anniversaries.map((a) => (
+              <span key={a.id} className={styles.anniBadge}>◷ {a.title}</span>
+            ))}
           </div>
         )}
       </div>
-    </>
+
+      {showRoll && (
+        <div className={styles.roll}>
+          <span className={styles.rollText}>
+            前一天还有 <b>{detail.prevDayRollable}</b> 件没做完
+          </span>
+          <button onClick={() => void rollOver()}>顺延</button>
+          <button className={styles.ghostBtn} onClick={dismissRoll}>忽略</button>
+        </div>
+      )}
+
+      <TodoSection dayWord={dayWord} />
+      <HabitSection />
+      <NoteSection dayWord={dayWord} />
+
+      {detail.summary.isEmpty && !edit && (
+        <div className={styles.empty}>
+          <div className={styles.big}>○</div>
+          {isToday ? (
+            <>今天还什么都没有<br />点各区块右上角的「+ 添加」开始记录</>
+          ) : (
+            <>这一天还什么都没有<br />点各区块右上角的「+ 添加」补记</>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** 两侧页：相邻日的只读摘要（滑动途中预览），无交互；数据未就绪显示轻骨架 */
+function DaySide({ date }: { date: DateKey }): JSX.Element {
+  const detail = useApp((s) => s.dayCache.get(date))
+  const today = useApp((s) => s.today)
+  const { y, m, d } = fromKey(date)
+  const isToday = date === today
+
+  return (
+    <div className={styles.pageInner}>
+      <div className={styles.dhead}>
+        <div className={styles.dtitle}>
+          {y} 年 {m} 月 {d} 日
+          {isToday && <span className={styles.todayMark}>今天</span>}
+        </div>
+      </div>
+      {!detail ? (
+        <div className={styles.skels}><div className={styles.skel} /><div className={styles.skel} /><div className={styles.skel} /></div>
+      ) : (
+        <>
+          {detail.todos.filter((t) => !t.done).length > 0 && (
+            <div className={styles.sideBlock}>
+              <div className={styles.sideTitle}>待办</div>
+              {detail.todos
+                .filter((t) => !t.done)
+                .slice(0, 4)
+                .map((t) => (
+                  <div key={t.id} className={styles.sideItem}><span className={styles.sideDot} />{t.text}</div>
+                ))}
+            </div>
+          )}
+          {detail.notes.length > 0 && (
+            <div className={styles.sideBlock}>
+              <div className={styles.sideTitle}>想法</div>
+              {detail.notes.slice(0, 3).map((n) => (
+                <div key={n.id} className={styles.sideItem}>
+                  <span className={styles.sideDot} />
+                  {n.text.length > 44 ? `${n.text.slice(0, 44)}…` : n.text}
+                </div>
+              ))}
+            </div>
+          )}
+          {detail.summary.isEmpty && (
+            <div className={styles.empty}>○ 这一天还什么都没有</div>
+          )}
+        </>
+      )}
+    </div>
   )
 }

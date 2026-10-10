@@ -80,6 +80,9 @@ export interface AppState {
   restoreScrollTo: number | null
 
   detail: DayDetail | null
+  /** v8.12 日视图滑动翻页：相邻日 detail 内存缓存（key=DateKey；滑动轨道三页同屏渲染的数据源）。
+   * 只存内存不持久化；selected 的条目由 refresh 权威写入，相邻条目由 prefetchDay 填充。 */
+  dayCache: ReadonlyMap<DateKey, DayDetail>
   week: { days: WeekDay[]; total: WeekTotal } | null
   month: { days: DayAggregate[]; summary: MonthSummary } | null
   cats: CategoryRecord[]
@@ -135,6 +138,8 @@ export interface AppState {
   shift(dir: 1 | -1): void
   /** v8.11 日视图滑动翻页：±1 天（D19 修订——日视图现在可翻日，顶栏按钮仍隐藏，仅触摸手势） */
   shiftDay(dir: 1 | -1): void
+  /** v8.12 日视图滑动翻页：预取某日 detail 入 dayCache（命中直接返回；未命中聚合写入）。手势/换日预取相邻日用 */
+  prefetchDay(k: DateKey): Promise<void>
   /** 点周/月的格子。窄屏跳进日视图并记来源；宽屏只切换右栏 */
   selectFromCalendar(k: DateKey, scrollTop?: number): void
   /** 返回来源视图。没有来源时返回 false（Esc 等路径靠它判断有没有事发生） */
@@ -302,6 +307,7 @@ export function createAppStore(
     restoreScrollTo: null,
 
     detail: null,
+    dayCache: new Map(),
     week: null,
     month: null,
     cats: [],
@@ -353,7 +359,7 @@ export function createAppStore(
           return
         }
         // detail 恒加载（桌面分栏右栏 / 手机日视图都要）；日历数据按当前视图加载
-        const [detail, week, monthDays, monthSum, habitDay] = await Promise.all([
+        const [dayDetail, week, monthDays, monthSum, habitDay] = await Promise.all([
           aggregates.aggregateDayDetail(selected),
           view === 'week' ? aggregates.aggregateWeek(selected) : Promise.resolve(null),
           view === 'month' ? aggregates.aggregateMonth(selected) : Promise.resolve(null),
@@ -363,8 +369,13 @@ export function createAppStore(
         ])
         if (seq !== loadSeq) return // 已有更新的加载在飞，丢弃过期结果
 
+        // v8.12：selected 的 detail 同步写入 dayCache（轨道三页缓存数据源）
+        const cache = new Map(get().dayCache)
+        cache.set(selected, dayDetail)
+
         const patch: Partial<AppState> = {
-          detail,
+          detail: dayDetail,
+          dayCache: cache,
           week,
           month: monthDays ? { days: monthDays, summary: monthSum! } : null,
           habitDay,
@@ -428,6 +439,14 @@ export function createAppStore(
       if (next === s.selected) return
       set({ selected: next, edit: null, wantFocus: false })
       void get().refresh()
+    },
+
+    async prefetchDay(k) {
+      if (get().dayCache.has(k)) return
+      const d = await aggregates.aggregateDayDetail(k)
+      // 结果写入时若该 key 已有更新版本（refresh 权威），不覆盖
+      if (get().dayCache.has(k)) return
+      set({ dayCache: new Map(get().dayCache).set(k, d) })
     },
 
     selectFromCalendar(k, scrollTop = 0) {

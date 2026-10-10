@@ -74,6 +74,34 @@ describe('App 冒烟', () => {
     expect(screen.getByLabelText('新待办')).toBeInTheDocument()
   })
 
+  it('v8.12 三页轨道：滑动途中相邻日内容同时可见（预取落地自动填充，不再白屏）', async () => {
+    const store = await renderApp()
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
+    // 造数据：今天一条 + 明天一条（明天通过 shiftDay 写入后翻回今天）
+    await store.getState().createTodo('今天的事')
+    await store.getState().shiftDay(1)
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 30 日'))
+    await store.getState().createTodo('明天的事')
+    await store.getState().shiftDay(-1)
+    await waitFor(() => expect(document.body.textContent).toContain('今天的事'))
+
+    // 轨道三页同屏：昨天（侧页，空态）、今天（中间）、明天（侧页，预取到待办摘要）
+    expect(document.body.textContent).toContain('2026 年 9 月 28 日')
+    expect(document.body.textContent).toContain('2026 年 9 月 30 日')
+    await waitFor(() => expect(document.body.textContent).toContain('明天的事'))
+
+    // 手势跟手途中，三页内容依然全部在 DOM（不是"滑过去再加载"）
+    const scroller = screen.getByTestId('day-scroll')
+    fireEvent.touchStart(scroller, { touches: [{ clientX: 260, clientY: 150 }] })
+    fireEvent.touchMove(scroller, { touches: [{ clientX: 140, clientY: 158 }] })
+    expect(document.body.textContent).toContain('明天的事')
+    expect(document.body.textContent).toContain('今天的事')
+    fireEvent.touchEnd(scroller)
+    fireEvent.transitionEnd(scroller)
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 30 日'))
+    await new Promise((r) => setTimeout(r, 400))
+  })
+
   it('点「添加待办」→ 敲字回车 → 待办出现在列表（单一录入入口全链路）', async () => {
     await renderApp()
     fireEvent.click(screen.getByRole('button', { name: '添加待办' }))

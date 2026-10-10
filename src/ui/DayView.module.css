@@ -1,4 +1,4 @@
-/* 日视图骨架：返回条 / 滚动容器 / 日头 / 顺延横幅 / 大空状态。
+/* 日视图骨架：返回条 / 三页轨道（v8.12）/ 日头 / 顺延横幅 / 侧页摘要 / 骨架 / 大空状态。
    区块与表单的样式在 detail.module.css（三个 Section 组件共用）。 */
 
 /* 返回条：只在从周/月点进来时渲染（source != null，见 DayView.tsx）。
@@ -28,13 +28,34 @@
 .backBtn:hover { border-color: var(--accent-line); color: var(--accent); }
 .backSrc { font-size: 11.5px; color: var(--ink-3); }
 
-.dscroll {
+/* v8.12 三页轨道：轨道宽 300%（3 屏），translateX 控制显示哪一页；
+   跟手平移途中两侧页可见。溢出裁剪，每页独立纵向滚动。 */
+.trackWrap {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
-  /* v8.11 滑动翻日：允许垂直滚动、禁止浏览器默认横向手势（横向由 JS 接管） */
+  position: relative;
+  overflow: hidden;
+  display: flex;
+}
+.track {
+  flex: 1 1 auto;
+  display: flex;
+  width: 300%;
+  min-height: 0;
+  will-change: transform;
+  /* 允许垂直滚动、禁止浏览器默认横向手势（横向由 JS 接管） */
   touch-action: pan-y;
+}
+.tpage {
+  flex: 0 0 33.3333%;
+  width: 33.3333%;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+.pageInner {
   padding: 14px 16px 28px;
   display: flex;
   flex-direction: column;
@@ -48,6 +69,45 @@
 .dsub { font-size: 12px; color: var(--ink-3); margin-top: 3px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .dsub .fest { color: var(--accent); font-weight: 500; }
 .anniBadge { color: var(--accent); background: var(--accent-soft); padding: 2px 8px; border-radius: 5px; font-size: 11px; }
+
+/* 侧页摘要（滑动途中预览相邻日） */
+.sideBlock {
+  background: var(--bg-subtle);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 9px 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.sideTitle { font-size: 11px; color: var(--ink-3); font-weight: 600; }
+.sideItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  line-height: 1.45;
+}
+.sideDot {
+  flex: 0 0 auto;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--ink-4);
+  margin-top: 6px;
+}
+
+/* 轻骨架：数据未就绪时占位（预取落地后自动填充） */
+.skels { display: flex; flex-direction: column; gap: 10px; }
+.skel {
+  height: 14px;
+  border-radius: 6px;
+  background: var(--line);
+  opacity: 0.45;
+  animation: skelPulse 1.2s ease-in-out infinite;
+}
+@keyframes skelPulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.55; } }
 
 /* 顺延横幅（US-04 / E10：只有真有可顺延项才出现） */
 .roll {
@@ -84,5 +144,5 @@
 .empty .big { font-size: 22px; margin-bottom: 6px; color: var(--ink-4); } /* ink-4 仅限装饰，○ 是图形 */
 
 @media (max-width: 899.98px) {
-  .dscroll { padding: 12px 13px 28px; }
+  .pageInner { padding: 12px 13px 28px; }
 }

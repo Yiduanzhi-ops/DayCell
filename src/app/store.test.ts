@@ -155,6 +155,21 @@ describe('视图与日期不变量（US-09 / D17 / D19·v7）', () => {
     expect(spy.mock.calls.length).toBe(callsAfterView)
   })
 
+  it('prefetchDay（v8.12 轨道预取）：未命中聚合写入 dayCache；命中不重复聚合；selected 由 refresh 权威写入', async () => {
+    const { app, bundle } = await makeApp()
+    const spy = vi.spyOn(bundle.aggregates, 'aggregateDayDetail')
+    // 未命中：聚合并写入缓存
+    await S(app).prefetchDay('2026-09-28' as DateKey)
+    expect(S(app).dayCache.get('2026-09-28' as DateKey)?.date).toBe('2026-09-28')
+    // 命中：不再聚合
+    const calls = spy.mock.calls.length
+    await S(app).prefetchDay('2026-09-28' as DateKey)
+    expect(spy.mock.calls.length).toBe(calls)
+    // selected 的条目由 refresh 写入（翻日后 dayCache 有目标日）
+    S(app).shiftDay(1)
+    await waitFor(() => expect(S(app).dayCache.get('2026-09-30' as DateKey)?.date).toBe('2026-09-30'))
+  })
+
   it('周视图翻页不丢当前视图', async () => {
     const { app } = await makeApp()
     S(app).setView('week')

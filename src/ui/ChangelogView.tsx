@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.11'
+const CURRENT_VERSION = 'v8.12'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.12',
+    date: '2026-10-10',
+    items: [
+      '日视图滑动翻页重做：三页轨道，滑动途中能同时看到前后两天的真实内容（不再白屏）',
+      '相邻日数据预取缓存：手指按下即预加载左右两天，未就绪显示轻骨架，落地自动填充',
+    ],
+  },
   {
     version: 'v8.11',
     date: '2026-10-10',
