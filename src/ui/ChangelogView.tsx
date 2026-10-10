@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.14'
+const CURRENT_VERSION = 'v8.15'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.15',
+    date: '2026-10-10',
+    items: [
+      '修复今日视图空白：v8.14 修复时误删轨道 flex 容器，三页从横排变垂直堆叠、今天页落到第二屏',
+      '轨道恢复 display:flex（横排三页，整屏显示今天，滑动仍可见相邻日）',
+    ],
+  },
   {
     version: 'v8.14',
     date: '2026-10-10',
