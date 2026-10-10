@@ -8,11 +8,20 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.13'
+const CURRENT_VERSION = 'v8.14'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.14',
+    date: '2026-10-10',
+    items: [
+      '修复今天视图布局错乱：三页轨道宽度被压缩导致昨天/今天/明天同时挤在一屏',
+      '轨道固定为 3 屏宽，今天视图恢复整屏显示（滑动途中仍可见相邻两天）',
+      '修复从想法列表进日视图时返回按钮文案错误显示「月视图」',
+    ],
+  },
   {
     version: 'v8.13',
     date: '2026-10-10',

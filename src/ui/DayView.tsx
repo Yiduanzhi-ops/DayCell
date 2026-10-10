@@ -203,7 +203,9 @@ export function DayView(): JSX.Element {
         <div className={styles.daybar}>
           <button className={styles.backBtn} onClick={() => back()}>
             ← 返回
-            <span className={styles.backSrc}>{source.view === 'week' ? '周视图' : '月视图'}</span>
+            <span className={styles.backSrc}>
+              {source.view === 'week' ? '周视图' : source.view === 'month' ? '月视图' : '想法列表'}
+            </span>
           </button>
         </div>
       )}
