@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.15'
+const CURRENT_VERSION = 'v8.16'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.16',
+    date: '2026-10-10',
+    items: [
+      '修复日视图滑动翻页落地白屏：松手后先等目标日数据就绪再滑过去，不再闪骨架',
+      '中间页与待办/想法区块数据源改为缓存优先，翻页落地即显示目标日真实内容（不再闪旧日期）',
+    ],
+  },
   {
     version: 'v8.15',
     date: '2026-10-10',

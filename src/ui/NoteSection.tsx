@@ -19,12 +19,15 @@ const hhmm = (ms: number): string => {
 }
 
 export function NoteSection({ dayWord }: { dayWord: string }): JSX.Element {
+  // v8.15：缓存优先（同 TodoSection：翻页落地瞬间 store.detail 仍是旧日期，直接用会错位闪旧）
+  const selected = useApp((s) => s.selected)
+  const cached = useApp((s) => s.dayCache.get(selected))
   const detail = useApp((s) => s.detail)
   const edit = useApp((s) => s.edit)
   const openForm = useApp((s) => s.openForm)
   const deleteNote = useApp((s) => s.deleteNote)
 
-  const notes = detail?.notes ?? []
+  const notes = (cached ?? detail)?.notes ?? []
   /** 正在就地编辑的想法 id（v7 / US-13）。同一时刻最多一条 */
   const [editingId, setEditingId] = useState<string | null>(null)
 

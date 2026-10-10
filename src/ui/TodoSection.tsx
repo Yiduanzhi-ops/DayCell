@@ -17,13 +17,17 @@ import styles from './detail.module.css'
 const md = (k: string): string => `${Number(k.slice(5, 7))}/${Number(k.slice(8, 10))}`
 
 export function TodoSection({ dayWord }: { dayWord: string }): JSX.Element {
+  // v8.15：缓存优先（dayCache.get(selected) 恒为目标日完整 detail），兜底 store.detail——
+  // 翻页落地重排瞬间 store.detail 仍是旧日期（refresh 异步），直接读会内容错位闪旧。
+  const selected = useApp((s) => s.selected)
+  const cached = useApp((s) => s.dayCache.get(selected))
   const detail = useApp((s) => s.detail)
   const edit = useApp((s) => s.edit)
   const openForm = useApp((s) => s.openForm)
   const toggleTodo = useApp((s) => s.toggleTodo)
   const deleteTodo = useApp((s) => s.deleteTodo)
 
-  const todos = detail?.todos ?? []
+  const todos = (cached ?? detail)?.todos ?? []
   // v7.6：已完成的自动沉底；未完成保持原序（Array.prototype.sort 稳定）
   const sorted = [...todos].sort((a, b) => Number(a.done) - Number(b.done))
   const { done, total } = todoProgress(sorted)

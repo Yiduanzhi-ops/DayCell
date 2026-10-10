@@ -165,18 +165,30 @@ export function DayView(): JSX.Element {
       }
       const dir = dx < 0 ? 1 : -1
       swipeBusy.current = true
-      // 左滑：轨道向左一屏（右页进入）；右滑：向右一屏（左页进入）
-      el.style.transition = `transform ${DUR}ms cubic-bezier(0.22, 1, 0.36, 1)`
-      el.style.transform = dx < 0 ? 'translateX(-133.3333%)' : 'translateX(66.6667%)'
-      const finish = (ev: TransitionEvent): void => {
-        if (ev.target !== el) return
-        el.removeEventListener('transitionend', finish)
-        swipeBusy.current = false
-        swipeAnim.current = true
-        shiftDay(dir)
-        // selected 变化 → 上面的重排 effect 负责 setPages + 无动画复位（视觉无跳变）
-      }
-      el.addEventListener('transitionend', finish, { once: true })
+      // v8.15：先等目标页预取就绪再播过渡（touchstart 已预取过 → 命中缓存微秒返回；
+      // 快速滑动时若未完成则短暂等待，避免滑到目标页仍是骨架白屏）。prefetch 期间忽略新手势（swipeBusy）。
+      const target = addDays(selectedRef.current, dir)
+      void prefetchDay(target).then(() => {
+        if (!swipeBusy.current) return // 已被 touchcancel/新会话打断
+        if (selectedRef.current !== addDays(target, -dir)) {
+          // 等待期间 selected 被其他路径改变（如 Esc 返回）→ 放弃本次过渡，回弹
+          swipeBusy.current = false
+          settle()
+          return
+        }
+        // 左滑：轨道向左一屏（右页进入）；右滑：向右一屏（左页进入）
+        el.style.transition = `transform ${DUR}ms cubic-bezier(0.22, 1, 0.36, 1)`
+        el.style.transform = dx < 0 ? 'translateX(-133.3333%)' : 'translateX(66.6667%)'
+        const finish = (ev: TransitionEvent): void => {
+          if (ev.target !== el) return
+          el.removeEventListener('transitionend', finish)
+          swipeBusy.current = false
+          swipeAnim.current = true
+          shiftDay(dir)
+          // selected 变化 → 上面的重排 effect 负责 setPages + 无动画复位（视觉无跳变）
+        }
+        el.addEventListener('transitionend', finish, { once: true })
+      })
     }
 
     const onCancel = (): void => {
@@ -226,17 +238,22 @@ export function DayView(): JSX.Element {
   )
 }
 
-/** 中间页：当前选中日的完整视图（可交互：待办勾选/编辑、想法、习惯、顺延横幅、空态） */
+/** 中间页：当前选中日的完整视图（可交互：待办勾选/编辑、想法、习惯、顺延横幅、空态）。
+ *  数据源 = dayCache.get(selected)（滑动预取/refresh 写入，恒为 selected 当日的完整 detail）兜底 store.detail。
+ *  v8.15：翻页落地重排瞬间 store.detail 仍是旧日期的（refresh 异步），直接用会标题/内容错位或闪骨架，
+ *  缓存优先保证落地即显示目标日真实内容；refresh 完成后 cache.set(selected, 新 detail) 无缝接管。 */
 function DayFull(): JSX.Element {
-  const detail = useApp((s) => s.detail)
   const selected = useApp((s) => s.selected)
+  const cached = useApp((s) => s.dayCache.get(selected))
+  const detail = useApp((s) => s.detail)
   const today = useApp((s) => s.today)
   const rollDismissed = useApp((s) => s.rollDismissed)
   const rollOver = useApp((s) => s.rollOver)
   const dismissRoll = useApp((s) => s.dismissRoll)
   const edit = useApp((s) => s.edit)
 
-  if (!detail) {
+  const effective = cached ?? detail
+  if (!effective) {
     return (
       <div className={styles.pageInner}>
         <div className={styles.skels}><div className={styles.skel} /><div className={styles.skel} /><div className={styles.skel} /></div>
@@ -246,9 +263,9 @@ function DayFull(): JSX.Element {
 
   const { y, m, d } = fromKey(selected)
   const isToday = selected === today
-  const lunarText = lunarFullText(detail.lunar)
-  const lunarEmphasis = !!(detail.lunar?.festival || detail.lunar?.solarTerm)
-  const showRoll = detail.prevDayRollable > 0 && !rollDismissed[selected]
+  const lunarText = lunarFullText(effective.lunar)
+  const lunarEmphasis = !!(effective.lunar?.festival || effective.lunar?.solarTerm)
+  const showRoll = effective.prevDayRollable > 0 && !rollDismissed[selected]
   const dayWord = isToday ? '今天' : ''
 
   return (
@@ -259,12 +276,12 @@ function DayFull(): JSX.Element {
           <span className={styles.dow}>周{DOW[dowOf(selected)]}</span>
           {isToday && <span className={styles.todayMark}>今天</span>}
         </div>
-        {(lunarText || detail.anniversaries.length > 0) && (
+        {(lunarText || effective.anniversaries.length > 0) && (
           <div className={styles.dsub}>
             {lunarText && (
               <span className={lunarEmphasis ? styles.fest : undefined}>{lunarText}</span>
             )}
-            {detail.anniversaries.map((a) => (
+            {effective.anniversaries.map((a) => (
               <span key={a.id} className={styles.anniBadge}>◷ {a.title}</span>
             ))}
           </div>
@@ -274,7 +291,7 @@ function DayFull(): JSX.Element {
       {showRoll && (
         <div className={styles.roll}>
           <span className={styles.rollText}>
-            前一天还有 <b>{detail.prevDayRollable}</b> 件没做完
+            前一天还有 <b>{effective.prevDayRollable}</b> 件没做完
           </span>
           <button onClick={() => void rollOver()}>顺延</button>
           <button className={styles.ghostBtn} onClick={dismissRoll}>忽略</button>
@@ -285,7 +302,7 @@ function DayFull(): JSX.Element {
       <HabitSection />
       <NoteSection dayWord={dayWord} />
 
-      {detail.summary.isEmpty && !edit && (
+      {effective.summary.isEmpty && !edit && (
         <div className={styles.empty}>
           <div className={styles.big}>○</div>
           {isToday ? (
