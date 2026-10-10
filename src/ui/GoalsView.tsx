@@ -363,11 +363,21 @@ function SubtaskRow({
   const updateSubtask = useApp((s) => s.updateSubtask)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(subtask.title)
+  // v8.9：描述就地编辑（方案 A，常驻显示在标题下方）
+  const [descEditing, setDescEditing] = useState(false)
+  const [descDraft, setDescDraft] = useState(subtask.desc ?? '')
 
   const save = async (): Promise<void> => {
     const t = draft.trim()
     if (t && t !== subtask.title) await updateSubtask(subtask.id, { title: t })
     setEditing(false)
+  }
+
+  const saveDesc = async (): Promise<void> => {
+    const d = descDraft.trim()
+    const orig = subtask.desc ?? ''
+    if (d !== orig) await updateSubtask(subtask.id, { desc: d })
+    setDescEditing(false)
   }
 
   return (
@@ -385,34 +395,65 @@ function SubtaskRow({
           </svg>
         )}
       </button>
-      {editing ? (
-        <input
-          className={styles.subInput}
-          value={draft}
-          maxLength={50}
-          autoFocus
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={() => void save()}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') void save()
-            if (e.key === 'Escape') {
+      <div className={styles.subBody}>
+        {editing ? (
+          <input
+            className={styles.subInput}
+            value={draft}
+            maxLength={50}
+            autoFocus
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={() => void save()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void save()
+              if (e.key === 'Escape') {
+                setDraft(subtask.title)
+                setEditing(false)
+              }
+            }}
+          />
+        ) : (
+          <span
+            className={styles.subTitle}
+            title="点击编辑"
+            onClick={() => {
               setDraft(subtask.title)
-              setEditing(false)
-            }
-          }}
-        />
-      ) : (
-        <span
-          className={styles.subTitle}
-          title="点击编辑"
-          onClick={() => {
-            setDraft(subtask.title)
-            setEditing(true)
-          }}
-        >
-          {subtask.title}
-        </span>
-      )}
+              setEditing(true)
+            }}
+          >
+            {subtask.title}
+          </span>
+        )}
+        {descEditing ? (
+          <textarea
+            className={styles.subDescInput}
+            value={descDraft}
+            maxLength={500}
+            rows={2}
+            placeholder="子任务描述"
+            autoFocus
+            onChange={(e) => setDescDraft(e.target.value)}
+            onBlur={() => void saveDesc()}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setDescDraft(subtask.desc ?? '')
+                setDescEditing(false)
+              }
+            }}
+          />
+        ) : (
+          <div
+            className={[styles.subDesc, !subtask.desc ? styles.subDescEmpty : ''].join(' ')}
+            title="点击编辑描述"
+            onClick={() => {
+              setDescDraft(subtask.desc ?? '')
+              setDescEditing(true)
+            }}
+          >
+            {subtask.desc || '＋ 添加描述'}
+          </div>
+        )}
+      </div>
       <button
         className={styles.subDel}
         aria-label={`删除子任务：${subtask.title}`}

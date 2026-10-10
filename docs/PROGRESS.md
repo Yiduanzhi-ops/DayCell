@@ -1,8 +1,8 @@
 # DayCell 实施进度快照
 
 > **这份文件的用途**：让会话上下文可以安全丢弃。接手时先读这份，再按需读 PRD / CORE-API。
-> 最后更新：2026-10-09 · **v8.8 月视图纪念日徽章溢出 + 花费展示彻底移除**（见 §0w）；此前 v8.7 目标卡片子任务计数 + 详情默认子任务视图（§0v）；此前 v8.6 使用手册 + 分享图生成（§0t）、v8.5 目标详情双视图（§0s）、此前 v8.4 版本更新页 + 汉堡菜单按钮 + 周/月去支出（§0r）、v8.3 分享与手册页（§0q）、v8.2 Gitee 同步（§0p）、v8.1 坚果云同步（§0o）、v8.0 习惯模块（§0n）、v7.9 阶段性目标模块（§0m）、v7.8 logo 高清化重制（§0l）、v7.7 logo 上架（§0k）、v7.6 支出改造（§0j）、v7.5 菜单/备份/纪念日/夜间（§0i）、v7.4 录入手动化 + 月汇总条 + 旧「小格」logo（§0h）、v7.3 应用名 + 底部切换器（§0g）、v7.2 手机端录入打磨（§0f）、PWA 已接线 + dist 重建（§0e）、v7.1 月格三行 + 启动页（§0d）
-> 当前状态 **全绿**：`tsc -b` 0 错 / `eslint .` 0 错 / **643 测试通过**（24 文件）/ build 通过（PWA precache 16 entries / 1996.63 KiB，qrcode 独立懒加载 chunk）
+> 最后更新：2026-10-10 · **v8.9 子任务描述**（见 §0x）；此前 v8.8 月视图纪念日徽章格内三行 + 花费展示彻底移除（§0w）；此前 v8.7 目标卡片子任务计数 + 详情默认子任务视图（§0v）；此前 v8.6 使用手册 + 分享图生成（§0t）、v8.5 目标详情双视图（§0s）、此前 v8.4 版本更新页 + 汉堡菜单按钮 + 周/月去支出（§0r）、v8.3 分享与手册页（§0q）、v8.2 Gitee 同步（§0p）、v8.1 坚果云同步（§0o）、v8.0 习惯模块（§0n）、v7.9 阶段性目标模块（§0m）、v7.8 logo 高清化重制（§0l）、v7.7 logo 上架（§0k）、v7.6 支出改造（§0j）、v7.5 菜单/备份/纪念日/夜间（§0i）、v7.4 录入手动化 + 月汇总条 + 旧「小格」logo（§0h）、v7.3 应用名 + 底部切换器（§0g）、v7.2 手机端录入打磨（§0f）、PWA 已接线 + dist 重建（§0e）、v7.1 月格三行 + 启动页（§0d）
+> 当前状态 **全绿**：`tsc -b` 0 错 / `eslint .` 0 错 / **647 测试通过**（24 文件）/ build 通过（PWA precache 16 entries / 1996.63 KiB，qrcode 独立懒加载 chunk）
 > **已 git 化**（分支 `main`）。core 层 **14/14 模块全部完成**（含 `backup/*`，v7.5 补齐；`sync/*`，v8.2 现行 Gitee 通道）。
 
 ---
@@ -36,6 +36,25 @@
 - **验证**：tsc / eslint 0 错；643 全绿；build 16 precache entries（1996.63 KiB）。
 
 **文档落点**：PRD 修订 v2.6；README 版本历史 v8.7；本节。
+
+---
+
+## 0x. ★ v8.9 子任务描述（2026-10-10，用户指令）
+
+**需求**：子任务目前只有标题（无备注无日期），用户要求「可以编辑子任务下属的具体内容，并展示在子任务下方」。讨论后拍板**方案 A**：描述**常驻显示**在子任务标题下方（小号灰字、可多行、完成时随标题淡化）；编辑方式为**就地编辑**（无描述时显示「＋ 添加描述」占位，点进去变多行 textarea，失焦保存，Escape 取消）。
+
+**实现落点**：
+- **core 层**（`src/core/types.ts` / `validate.ts` / `repo/index.ts`）：
+  - `SubtaskRecord` 加可选字段 `desc?: string`（空/缺省 = 无描述，**旧数据天然兼容，无需升库版本**）；注释更新（v8.9 新增）。
+  - `LIMITS.subtaskDesc = 500`；新增 `parseSubtaskDesc`（**可空**——空串合法；多行保留 `\r\n`→`\n`；超长拒绝 TOO_LONG 含实际字数）。
+  - `SubtaskInput` 加 `desc?`；`SubtaskRepo.update` patch 扩展为 `{ title?: string; desc?: string }`。
+  - create：desc 缺省/空串不写入字段；update：**用 `'desc' in patch` 判断**——调用方显式传 `{ desc: '' }` 或 `{ desc: undefined }` 表示清空（删字段），不传键则保留原值（修复了「清空传 undefined 被 `!== undefined` 跳过、旧 desc 残留」的 bug——测试首轮失败定位）。
+- **app 层**（`src/app/store.ts`）：`updateSubtask` patch 类型同步扩展为 `{ title?: string; desc?: string }`。
+- **UI 层**（`src/ui/GoalsView.tsx` + `.module.css`）：`SubtaskRow` 行内包一层 `.subBody`（标题在上、描述在下）；无描述显示「＋ 添加描述」占位（`subDescEmpty` 淡化），点击就地编辑为 `textarea`（maxLength 500、rows 2、失焦保存、Escape 取消还原）；有描述常驻显示（小号灰字 `pre-wrap` 多行），完成态随行级 opacity 淡化。标题编辑交互不变。
+- **测试**：validate.test 新增 `parseSubtaskDesc`（空串/多行/上限）；goals.test 新增 create 带 desc、update 改/清空/缺省兼容、超长拒绝 2 项；GoalsView.test 新增 desc 全链路（占位 → 就地编辑保存 → 常驻显示 → Escape 取消 → 清空回占位）→ **643 + 4 = 647 全绿**（24 文件）。
+- **验证**：tsc / eslint 0 错；647 全绿；build 16 precache entries。
+
+**文档落点**：SPEC 头部链 v8.9；本节；PRD v2.8；README v8.9。
 
 ---
 

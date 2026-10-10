@@ -355,6 +355,32 @@ describe('subtasks', () => {
     expect(undone.done).toBe(false)
   })
 
+  it('v8.9 desc：create 可带描述；update 可改/清空描述；缺省兼容', async () => {
+    const g = await repos.goals.create({ title: '目标' })
+    // create 带 desc
+    const st = await repos.subtasks.create({ goalId: g.id, title: '子任务', desc: '  具体做法：\n每天 30 分钟  ' })
+    expect(st.desc).toBe('具体做法：\n每天 30 分钟')
+    // update 改 desc（多行保留）
+    const st2 = await repos.subtasks.update(st.id, { desc: '新描述\n第二行' })
+    expect(st2.desc).toBe('新描述\n第二行')
+    // 标题与描述可同时保留
+    expect(st2.title).toBe('子任务')
+    // 清空 desc → 删除字段（无描述）
+    const st3 = await repos.subtasks.update(st.id, { desc: '   ' })
+    expect(st3.desc).toBeUndefined()
+    // 缺省创建 → 无 desc 字段（旧数据兼容形态）
+    const plain = await repos.subtasks.create({ goalId: g.id, title: '无描述' })
+    expect(plain.desc).toBeUndefined()
+    expect('desc' in plain).toBe(false)
+  })
+
+  it('v8.9 desc 超长拒绝（LIMITS.subtaskDesc=500）', async () => {
+    const g = await repos.goals.create({ title: '目标' })
+    await expect(repos.subtasks.create({ goalId: g.id, title: 'x', desc: 'x'.repeat(501) })).rejects.toThrow(ValidationError)
+    const st = await repos.subtasks.create({ goalId: g.id, title: 'x' })
+    await expect(repos.subtasks.update(st.id, { desc: 'x'.repeat(501) })).rejects.toThrow(ValidationError)
+  })
+
   it('byGoal：只返回该目标的活子任务（软删的不算）', async () => {
     const g1 = await repos.goals.create({ title: 'A' })
     const g2 = await repos.goals.create({ title: 'B' })

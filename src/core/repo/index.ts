@@ -43,6 +43,7 @@ import {
   parseStageNote,
   parseStageTitle,
   parseSubtaskTitle,
+  parseSubtaskDesc,
   parseTodoText,
   type ParseResult,
 } from '../validate'
@@ -216,14 +217,16 @@ export interface StageRepo {
 export interface SubtaskInput {
   goalId: string
   title: string
+  /** v8.9 可选：子任务具体内容（空/缺省 = 无描述） */
+  desc?: string
 }
 
 export interface SubtaskRepo {
   byGoal(goalId: string): Promise<SubtaskRecord[]>
   /** 目标必须存在 */
   create(input: SubtaskInput): Promise<SubtaskRecord>
-  /** 只支持改标题（字段最轻：无备注无日期） */
-  update(id: string, patch: { title: string }): Promise<SubtaskRecord>
+  /** v8.9 起支持改标题与描述（字段轻，无日期备注） */
+  update(id: string, patch: { title?: string; desc?: string }): Promise<SubtaskRecord>
   setDone(id: string, done: boolean): Promise<SubtaskRecord>
   softDelete(id: string): Promise<void>
 }
@@ -726,6 +729,8 @@ export function createRepos(deps: RepoDeps): Repos {
       // 目标必须存在且未删——否则会出现"挂在幽灵目标下的子任务"
       await mustGet<GoalRecord>('goals', input.goalId)
       const title = unwrap(parseSubtaskTitle(input.title))
+      // v8.9 desc 可选：空/缺省不写入字段（旧数据兼容）
+      const desc = input.desc === undefined ? undefined : unwrap(parseSubtaskDesc(input.desc)) || undefined
       const ts = now()
       return store.put<SubtaskRecord>('subtasks', {
         id: idGen.next(),
@@ -733,6 +738,7 @@ export function createRepos(deps: RepoDeps): Repos {
         goalId: input.goalId,
         title,
         done: false,
+        ...(desc !== undefined ? { desc } : {}),
         createdAt: ts,
         updatedAt: ts,
         deleted: false,
@@ -743,6 +749,13 @@ export function createRepos(deps: RepoDeps): Repos {
       const rec = await mustGet<SubtaskRecord>('subtasks', id)
       const next: SubtaskRecord = { ...rec }
       if (patch.title !== undefined) next.title = unwrap(parseSubtaskTitle(patch.title))
+      // 用 'desc' in patch 判断：调用方显式传 {desc: ''} 表示清空（值可能是空串），
+      // 传 undefined 也会清理；不传键则保留原值
+      if ('desc' in patch) {
+        const desc = unwrap(parseSubtaskDesc(patch.desc ?? '')) || undefined
+        if (desc === undefined) delete next.desc
+        else next.desc = desc
+      }
       return store.put<SubtaskRecord>('subtasks', next)
     },
 

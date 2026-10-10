@@ -508,7 +508,7 @@
   background: var(--accent);
 }
 .subTitle {
-  flex: 1;
+  flex: none;
   font-size: 14px;
   color: var(--ink-1);
   line-height: 1.4;
@@ -517,8 +517,10 @@
   min-width: 0;
 }
 .subInput {
-  flex: 1;
+  flex: none;
+  width: 100%;
   min-width: 0;
+  box-sizing: border-box;
   font-size: 14px;
   padding: 4px 6px;
   border: 1px solid var(--accent);
@@ -526,6 +528,41 @@
   background: var(--bg);
   color: var(--ink-1);
   outline: none;
+}
+/* v8.9：子任务描述（方案 A——常驻显示在标题下方） */
+.subBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.subDesc {
+  font-size: 11px;
+  color: var(--ink-3);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  cursor: text;
+  padding: 1px 0;
+  min-width: 0;
+}
+.subDescEmpty {
+  opacity: 0.6;
+}
+.subDescInput {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 4px 6px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--ink-1);
+  outline: none;
+  resize: vertical;
 }
 .subDel {
   flex: none;

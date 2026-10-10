@@ -193,7 +193,7 @@ export interface AppState {
   deleteStage(id: string): Promise<boolean>
   // ---- v8.5：子任务（阶段/子任务双视图） ----
   createSubtask(input: SubtaskInput): Promise<boolean>
-  updateSubtask(id: string, patch: { title: string }): Promise<boolean>
+  updateSubtask(id: string, patch: { title?: string; desc?: string }): Promise<boolean>
   setSubtaskDone(id: string, done: boolean): Promise<boolean>
   deleteSubtask(id: string): Promise<boolean>
 

@@ -8,11 +8,18 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.8'
+const CURRENT_VERSION = 'v8.9'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.9',
+    date: '2026-10-10',
+    items: [
+      '子任务支持「描述」：点描述区域（或「＋ 添加描述」）就地编辑，内容常驻显示在子任务标题下方（最多 500 字，多行），完成时随标题一起淡化',
+    ],
+  },
   {
     version: 'v8.8',
     date: '2026-10-09',

@@ -47,6 +47,7 @@ export const LIMITS = {
   stageTitle: 50,
   stageNote: 1000,
   subtaskTitle: 50,
+  subtaskDesc: 500,
   habitName: 30,
   /** 99,999,999 元 = 9,999,999,900 分（PRD E7） */
   maxAmountCents: 9_999_999_900,
@@ -168,6 +169,15 @@ export const parseStageTitle = (raw: string): ParseResult<string> =>
 
 export const parseSubtaskTitle = (raw: string): ParseResult<string> =>
   parseText(raw, { field: '子任务', max: LIMITS.subtaskTitle })
+
+/** 子任务描述（v8.9）**可以为空**——空串是合法值，多行保留；超长拒绝 */
+export function parseSubtaskDesc(raw: string): ParseResult<string> {
+  const t = raw.replace(/\r\n?/g, '\n').trim()
+  if (t.length > LIMITS.subtaskDesc) {
+    return err('TOO_LONG', `子任务描述最多 ${LIMITS.subtaskDesc} 字，当前 ${t.length} 字`)
+  }
+  return ok(t)
+}
 
 /** 目标阐述/阶段备注**可以为空**——空串是合法值 */
 export function parseGoalNote(raw: string): ParseResult<string> {

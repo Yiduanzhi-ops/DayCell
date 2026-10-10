@@ -124,7 +124,8 @@ export interface StageRecord extends CoreRecord {
  * v8.5 子任务（用户拍板口径）：
  * 子任务 = 目标的**执行维度**清单（与阶段的时间维度**并存不替代**）；
  * 详情页「阶段 | 子任务」双视图切换，各自进度独立；
- * 子任务字段最轻：标题 + 完成勾选 + 删除 + 点文字就地编辑；无备注、无日期。
+ * 子任务字段最轻：标题 + 完成勾选 + 删除 + 点文字就地编辑；
+ * v8.9 新增 desc（可选）：子任务下的具体内容/说明，常驻显示在标题下方（用户拍板方案 A），无描述不显示。
  */
 export interface SubtaskRecord extends CoreRecord {
   type: 'subtask'
@@ -133,6 +134,8 @@ export interface SubtaskRecord extends CoreRecord {
   title: string
   /** 完成勾选（用户拍板：子任务要有完成勾选） */
   done: boolean
+  /** v8.9 子任务具体内容（可选；空/缺省 = 无描述，旧数据天然兼容） */
+  desc?: string
 }
 
 /**

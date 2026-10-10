@@ -10,7 +10,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from 'vitest'
 import '@testing-library/jest-dom/vitest'
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react'
 import { createMemoryStore, type DateKey } from '@core'
 import { initCore } from '@/app/bootstrap'
 import { createAppStore } from '@/app/store'
@@ -240,5 +240,53 @@ describe('目标模块（v7.9）', () => {
     // 删除
     fireEvent.click(screen.getByRole('button', { name: '删除子任务：刷一套题' }))
     await waitFor(() => expect(screen.queryByText('刷一套题')).not.toBeInTheDocument())
+  })
+
+  it('子任务描述 v8.9：无描述显占位 → 就地编辑 → 常驻显示在标题下方 → Escape 取消', async () => {
+    await renderApp()
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => screen.getByText(/进行中的目标/))
+
+    fireEvent.click(screen.getByRole('button', { name: '＋ 新建目标' }))
+    fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
+    await screen.findByText('复习考公')
+
+    fireEvent.click(screen.getByText('复习考公'))
+    await waitFor(() => screen.getByText(/还没有子任务/))
+    fireEvent.click(screen.getByRole('button', { name: '＋ 添加子任务' }))
+    fireEvent.change(screen.getByPlaceholderText('如：做完教案第 3 章'), { target: { value: '做题' } })
+    fireEvent.click(screen.getByRole('button', { name: '添加' }))
+    await waitFor(() => screen.getByText('做题'))
+
+    // 无描述 → 显示占位
+    expect(screen.getByText(/添加描述/)).toBeInTheDocument()
+
+    // 点占位 → textarea 就地编辑（多行）→ blur 保存 → 常驻显示在标题下方
+    fireEvent.click(screen.getByText('＋ 添加描述'))
+    const ta = screen.getByPlaceholderText('子任务描述')
+    fireEvent.change(ta, { target: { value: '每天 30 分钟\n先做 3 题' } })
+    fireEvent.blur(ta)
+    await waitFor(() => screen.getByText(/每天 30 分钟/))
+    expect(screen.getByText(/先做 3 题/)).toBeInTheDocument()
+    // 标题仍在
+    expect(screen.getByText('做题')).toBeInTheDocument()
+
+    // 再点描述 → 改内容 → Escape 取消不保存
+    fireEvent.click(screen.getByText(/每天 30 分钟/))
+    const ta2 = screen.getByPlaceholderText('子任务描述')
+    fireEvent.change(ta2, { target: { value: '改掉的内容' } })
+    fireEvent.keyDown(ta2, { key: 'Escape' })
+    await waitFor(() => screen.getByText(/每天 30 分钟/))
+    expect(screen.queryByText('改掉的内容')).not.toBeInTheDocument()
+
+    // 描述清空 → 回到占位
+    fireEvent.click(screen.getByText(/每天 30 分钟/))
+    const ta3 = screen.getByPlaceholderText('子任务描述')
+    fireEvent.change(ta3, { target: { value: '' } })
+    await act(async () => {
+      fireEvent.blur(ta3)
+    })
+    await waitFor(() => screen.getByText(/添加描述/))
   })
 })
