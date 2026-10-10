@@ -33,6 +33,8 @@
   min-height: 0;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
+  /* v8.11 滑动翻日：允许垂直滚动、禁止浏览器默认横向手势（横向由 JS 接管） */
+  touch-action: pan-y;
   padding: 14px 16px 28px;
   display: flex;
   flex-direction: column;

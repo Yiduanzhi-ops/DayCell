@@ -347,6 +347,41 @@ describe('目标模块（v7.9）', () => {
     expect(screen.queryByText('40%')).not.toBeInTheDocument()
   })
 
+  it('子任务进度 v8.10.1 回归：填完百分比后点描述框不关闭编辑态，可继续输入文字', async () => {
+    await renderApp()
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => screen.getByText(/进行中的目标/))
+
+    fireEvent.click(screen.getByRole('button', { name: '＋ 新建目标' }))
+    fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
+    await screen.findByText('复习考公')
+
+    fireEvent.click(screen.getByText('复习考公'))
+    await waitFor(() => screen.getByText(/还没有子任务/))
+    fireEvent.click(screen.getByRole('button', { name: '＋ 添加子任务' }))
+    fireEvent.change(screen.getByPlaceholderText('如：做完教案第 3 章'), { target: { value: '做题' } })
+    fireEvent.click(screen.getByRole('button', { name: '添加' }))
+    await waitFor(() => screen.getByText('做题'))
+
+    // 进入编辑态，输入百分比
+    fireEvent.click(screen.getByText('＋ 添加进度'))
+    const pct = screen.getByPlaceholderText('0-100')
+    fireEvent.change(pct, { target: { value: '40' } })
+    // 焦点从百分比框移到描述框（relatedTarget 指向描述框）→ 编辑态必须保持
+    const note = screen.getByPlaceholderText('进度描述')
+    fireEvent.blur(pct, { relatedTarget: note })
+    expect(screen.getByPlaceholderText('进度描述')).toBeInTheDocument()
+    // 描述框仍可输入文字
+    fireEvent.change(note, { target: { value: '做到一半' } })
+    // 焦点离开编辑区 → 保存并退出编辑态
+    await act(async () => {
+      fireEvent.blur(note)
+    })
+    await waitFor(() => screen.getByText('40%'))
+    expect(screen.getByText('做到一半')).toBeInTheDocument()
+  })
+
   it('目标当前进度 v8.10：详情页与阐述同级（阐述上、进度下）→ 编辑保存 → 只填百分比也可', async () => {
     await renderApp()
     fireEvent.click(screen.getByRole('tab', { name: '目标' }))

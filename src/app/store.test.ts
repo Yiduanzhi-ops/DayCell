@@ -138,6 +138,23 @@ describe('视图与日期不变量（US-09 / D17 / D19·v7）', () => {
     expect(spy).not.toHaveBeenCalled() // 连刷新都没触发，不是"翻了又翻回来"
   })
 
+  it('日视图 shiftDay ±1 天（v8.11 滑动翻页，D19 修订）；非日视图 no-op', async () => {
+    const { app, bundle } = await makeApp()
+    const spy = vi.spyOn(bundle.aggregates, 'aggregateDayDetail')
+    S(app).shiftDay(1)
+    await waitFor(() => expect(S(app).selected).toBe('2026-09-30'))
+    S(app).shiftDay(-1)
+    await waitFor(() => expect(S(app).selected).toBe(TODAY))
+    // 非日视图 no-op：selected 不动，也不触发刷新
+    S(app).setView('week')
+    await new Promise((r) => setTimeout(r, 10))
+    const callsAfterView = spy.mock.calls.length
+    S(app).shiftDay(1)
+    expect(S(app).selected).toBe(TODAY)
+    await new Promise((r) => setTimeout(r, 10))
+    expect(spy.mock.calls.length).toBe(callsAfterView)
+  })
+
   it('周视图翻页不丢当前视图', async () => {
     const { app } = await makeApp()
     S(app).setView('week')

@@ -475,7 +475,14 @@ function SubtaskRow({
         )}
         {/* v8.10 当前进度：与描述同级，描述在上、进度在下（C 形态：文本 + 百分比） */}
         {progEditing ? (
-          <div className={styles.subProgEdit}>
+          // 容器级失焦保存（v8.10.1 修复）：焦点在编辑区内移动（百分比→描述）不保存，
+          // 焦点完全离开编辑区才保存——避免点描述时百分比框失焦把整个编辑态关掉
+          <div
+            className={styles.subProgEdit}
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) void saveProgress()
+            }}
+          >
             <input
               className={styles.subPctInput}
               type="text"
@@ -485,7 +492,6 @@ function SubtaskRow({
               maxLength={3}
               autoFocus
               onChange={(e) => setProgPctDraft(e.target.value)}
-              onBlur={() => void saveProgress()}
             />
             <textarea
               className={styles.subProgNoteInput}
@@ -494,7 +500,6 @@ function SubtaskRow({
               rows={2}
               placeholder="进度描述"
               onChange={(e) => setProgNoteDraft(e.target.value)}
-              onBlur={() => void saveProgress()}
               onKeyDown={(e) => {
                 if (e.key === 'Escape') {
                   setProgPctDraft(subtask.progress?.pct !== undefined ? String(subtask.progress.pct) : '')

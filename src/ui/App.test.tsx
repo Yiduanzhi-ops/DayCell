@@ -33,6 +33,36 @@ async function renderApp() {
 }
 
 describe('App 冒烟', () => {
+  it('日视图滑动翻页 v8.11：左滑到明天、右滑回今天、短滑回弹不翻（手势跟手 + 两阶段滑入）', async () => {
+    await renderApp()
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
+    const scroller = screen.getByTestId('day-scroll')
+
+    // 左滑（dx = -120）→ 阶段一滑出 → transitionEnd → 切到明天 + 阶段二滑入
+    fireEvent.touchStart(scroller, { touches: [{ clientX: 260, clientY: 150 }] })
+    fireEvent.touchMove(scroller, { touches: [{ clientX: 140, clientY: 158 }] })
+    fireEvent.touchEnd(scroller)
+    fireEvent.transitionEnd(scroller)
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 30 日'))
+    // 等待阶段二动画计时器复位 swipeBusy，再发起新手势
+    await new Promise((r) => setTimeout(r, 400))
+
+    // 右滑（dx = +120）→ 回到今天
+    fireEvent.touchStart(scroller, { touches: [{ clientX: 140, clientY: 150 }] })
+    fireEvent.touchMove(scroller, { touches: [{ clientX: 260, clientY: 158 }] })
+    fireEvent.touchEnd(scroller)
+    fireEvent.transitionEnd(scroller)
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
+    await new Promise((r) => setTimeout(r, 400))
+
+    // 短滑（dx = 30，低于阈值）→ 回弹，日期不变
+    fireEvent.touchStart(scroller, { touches: [{ clientX: 260, clientY: 150 }] })
+    fireEvent.touchMove(scroller, { touches: [{ clientX: 230, clientY: 156 }] })
+    fireEvent.touchEnd(scroller)
+    await new Promise((r) => setTimeout(r, 50))
+    expect(document.body.textContent).toContain('2026 年 9 月 29 日')
+  })
+
   it('默认落地今天的日视图；空白日不自动展开，手动点「+ 添加」才弹出（v7.2）', async () => {
     await renderApp()
     expect(document.body.textContent).toContain('2026 年 9 月 29 日')

@@ -41,8 +41,12 @@ export function DayView(): JSX.Element {
   const edit = useApp((s) => s.edit)
   const wantFocus = useApp((s) => s.wantFocus)
   const consumeFocus = useApp((s) => s.consumeFocus)
+  const shiftDay = useApp((s) => s.shiftDay)
 
   const scrollRef = useRef<HTMLDivElement>(null)
+  // v8.11 触摸滑动翻日：swipeBusy=过渡动画进行中忽略新手势；swipeAnim=本次 selected 变化由滑动引起（跳过入场动画）
+  const swipeBusy = useRef(false)
+  const swipeAnim = useRef(false)
 
   // 表单聚焦（手动展开入口；wantFocus 由 openForm 置位，渲染后消费一次）
   useEffect(() => {
@@ -54,9 +58,10 @@ export function DayView(): JSX.Element {
   }, [wantFocus, edit, consumeFocus])
 
   // 换日过渡：selected 变化（点格子进详情 / 桌面右栏换日 / 返回今天）时重放入场动画。
-  // 首次挂载不播——落地页直接出现，不该有位移。
+  // 首次挂载不播——落地页直接出现，不该有位移。滑动翻页（swipeAnim）也跳过——动画由手势流程接管。
   const firstRender = useRef(true)
   useEffect(() => {
+    if (swipeAnim.current) return
     if (firstRender.current) {
       firstRender.current = false
       return
@@ -79,8 +84,115 @@ export function DayView(): JSX.Element {
     )
   }, [selected])
 
+  // v8.11 触摸滑动翻日（所有日视图生效）：整屏跟手 → 松手两阶段滑入/回弹。
+  // 用原生监听：touchmove 需要 passive:false 才能 preventDefault（React 合成触摸事件为 passive）。
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const THRESHOLD = 70
+    const DUR = 250
+    let startX = 0
+    let startY = 0
+    let startT = 0
+    let dx = 0
+    let dy = 0
+    let tracking = false
+    let finishTimer = 0
+
+    const cleanupInline = (): void => {
+      el.style.transition = ''
+      el.style.transform = ''
+    }
+
+    const settle = (): void => {
+      // 位移不足 → 回弹回原位
+      el.style.transition = 'transform 180ms cubic-bezier(0.22, 1, 0.36, 1)'
+      el.style.transform = 'translateX(0px)'
+      window.setTimeout(cleanupInline, 200)
+    }
+
+    const onStart = (e: TouchEvent): void => {
+      if (swipeBusy.current) return
+      const t = e.touches[0]
+      startX = t.clientX
+      startY = t.clientY
+      startT = performance.now()
+      dx = 0
+      dy = 0
+      tracking = true
+      el.style.transition = 'none'
+    }
+
+    const onMove = (e: TouchEvent): void => {
+      if (!tracking) return
+      const t = e.touches[0]
+      dx = t.clientX - startX
+      dy = t.clientY - startY
+      // 竖向为主（页面滚动）→ 放弃手势，交给浏览器滚动
+      if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 12) {
+        tracking = false
+        return
+      }
+      if (Math.abs(dx) > 6) e.preventDefault()
+      el.style.transform = `translateX(${dx}px)`
+    }
+
+    const onEnd = (): void => {
+      if (!tracking) return
+      tracking = false
+      const dur = performance.now() - startT
+      const over = Math.abs(dx) > THRESHOLD || (Math.abs(dx) > 40 && Math.abs(dx) / Math.max(dur, 1) > 0.45)
+      if (!over) {
+        settle()
+        return
+      }
+      const dir = dx < 0 ? 1 : -1
+      swipeBusy.current = true
+      swipeAnim.current = true
+      // 阶段一：当前页跟手位置滑出屏幕
+      el.style.transition = `transform ${DUR}ms cubic-bezier(0.22, 1, 0.36, 1)`
+      el.style.transform = dx < 0 ? 'translateX(-100%)' : 'translateX(100%)'
+      const finish = (ev: TransitionEvent): void => {
+        if (ev.target !== el) return
+        el.removeEventListener('transitionend', finish)
+        shiftDay(dir)
+        // 阶段二：新内容从反向起点滑入
+        el.style.transition = 'none'
+        el.style.transform = dx < 0 ? 'translateX(100%)' : 'translateX(-100%)'
+        void el.offsetWidth // 强制 reflow，让上面的无过渡定位生效
+        el.style.transition = `transform ${DUR}ms cubic-bezier(0.22, 1, 0.36, 1)`
+        el.style.transform = 'translateX(0px)'
+        window.clearTimeout(finishTimer)
+        finishTimer = window.setTimeout(() => {
+          cleanupInline()
+          swipeBusy.current = false
+          swipeAnim.current = false
+        }, DUR + 60)
+      }
+      el.addEventListener('transitionend', finish, { once: true })
+    }
+
+    const onCancel = (): void => {
+      if (!tracking) return
+      tracking = false
+      settle()
+    }
+
+    el.addEventListener('touchstart', onStart, { passive: true })
+    el.addEventListener('touchmove', onMove, { passive: false })
+    el.addEventListener('touchend', onEnd, { passive: true })
+    el.addEventListener('touchcancel', onCancel, { passive: true })
+    return () => {
+      el.removeEventListener('touchstart', onStart)
+      el.removeEventListener('touchmove', onMove)
+      el.removeEventListener('touchend', onEnd)
+      el.removeEventListener('touchcancel', onCancel)
+      window.clearTimeout(finishTimer)
+    }
+  }, [shiftDay])
+
   if (!detail) {
-    return <div className={styles.dscroll} ref={scrollRef}><div className={styles.empty}>加载中…</div></div>
+    return <div className={styles.dscroll} ref={scrollRef} data-testid="day-scroll"><div className={styles.empty}>加载中…</div></div>
   }
 
   const { y, m, d } = fromKey(selected)
@@ -100,7 +212,7 @@ export function DayView(): JSX.Element {
           </button>
         </div>
       )}
-      <div className={styles.dscroll} ref={scrollRef}>
+      <div className={styles.dscroll} ref={scrollRef} data-testid="day-scroll">
         <div className={styles.dhead}>
           <div className={styles.dtitle}>
             {y} 年 {m} 月 {d} 日

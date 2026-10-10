@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.10'
+const CURRENT_VERSION = 'v8.11'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.11',
+    date: '2026-10-10',
+    items: [
+      '日视图滑动翻页：左右轻扫切换前一天/后一天，整屏跟手、松手两阶段滑入（所有日视图生效，返回仍回原位置）',
+      '修复：子任务进度编辑时，填完百分比后点文字输入框不再被关闭，可继续输入进度描述',
+    ],
+  },
   {
     version: 'v8.10',
     date: '2026-10-10',

@@ -133,6 +133,8 @@ export interface AppState {
   gotoToday(): void
   /** 翻页：周 ±7 天 / 月 ±1 月（US-09）。**日视图 no-op**——v7 起今天视图不翻日 */
   shift(dir: 1 | -1): void
+  /** v8.11 日视图滑动翻页：±1 天（D19 修订——日视图现在可翻日，顶栏按钮仍隐藏，仅触摸手势） */
+  shiftDay(dir: 1 | -1): void
   /** 点周/月的格子。窄屏跳进日视图并记来源；宽屏只切换右栏 */
   selectFromCalendar(k: DateKey, scrollTop?: number): void
   /** 返回来源视图。没有来源时返回 false（Esc 等路径靠它判断有没有事发生） */
@@ -414,6 +416,15 @@ export function createAppStore(
       // v7.9：目标视图无日期语义，翻页同样 no-op。
       if (s.view === 'day' || s.view === 'goals') return
       const next = s.view === 'week' ? addDays(s.selected, dir * 7) : addMonths(s.selected, dir)
+      if (next === s.selected) return
+      set({ selected: next, edit: null, wantFocus: false })
+      void get().refresh()
+    },
+
+    shiftDay(dir) {
+      const s = get()
+      if (s.view !== 'day') return
+      const next = addDays(s.selected, dir)
       if (next === s.selected) return
       set({ selected: next, edit: null, wantFocus: false })
       void get().refresh()
