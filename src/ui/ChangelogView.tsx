@@ -8,11 +8,20 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.19'
+const CURRENT_VERSION = 'v8.20'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.20',
+    date: '2026-10-10',
+    items: [
+      '修复滑动途中看到的内容与松手落地不一致（跳变真根因）：侧页从「摘要版」改为「只读完整版」——顺延横幅、完整待办（已完成沉底）、今日习惯、想法、空态逐区块与落地页一致，仅去掉交互按钮',
+      '日详情聚合带当日习惯数据（该做的+打卡态），侧页与落地同口径渲染',
+      'PWA 更新策略 autoUpdate：主屏图标打开的 PWA 下次导航即收到新版，不再卡旧版本（v8.19 起生效）',
+    ],
+  },
   {
     version: 'v8.19',
     date: '2026-10-10',

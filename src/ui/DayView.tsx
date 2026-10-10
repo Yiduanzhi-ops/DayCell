@@ -31,7 +31,7 @@ import type { DateKey } from '@core'
 import { useApp } from '@/app/context'
 import { TodoSection } from './TodoSection'
 import { NoteSection } from './NoteSection'
-import { HabitSection } from './HabitSection'
+import { HabitSection, freqLabel } from './HabitSection'
 import styles from './DayView.module.css'
 
 const DOW = ['日', '一', '二', '三', '四', '五', '六'] as const
@@ -322,20 +322,28 @@ function DayFull(): JSX.Element {
   )
 }
 
-/** 两侧页：相邻日的只读摘要（滑动途中预览），无交互；数据未就绪显示轻骨架。
- *  v8.18：与落地内容对齐——待办/想法不再截断（全部显示，侧页可滚动）、
- *  补农历/纪念日副标题，途中看到的内容与松手后一致，减少"跳变"感。
- *  v8.19：条目过期（ver < dataVer，写操作/同步后、新聚合未完成）时不显示旧数据，显示骨架。 */
+/** 两侧页：相邻日的**只读完整页**（滑动途中预览），与落地页（DayFull）内容完全一致——
+ *  顺延横幅 / 完整待办（已完成沉底）/ 今日习惯 / 想法 / 空态逐区块对齐，交互元素去掉。
+ *  v8.20：从"摘要版"改为"完整版"——此前侧页只显示未完成待办+想法摘要，
+ *  途中看到的内容与松手落地不一致（落地多出顺延横幅/已完成沉底/习惯区块）= 跳变根因。 */
 function DaySide({ date }: { date: DateKey }): JSX.Element {
   const detail = useApp((s) => {
     const e = s.dayCache.get(date)
     return e && e.ver >= s.dataVer ? e.detail : undefined
   })
   const today = useApp((s) => s.today)
+  const rollDismissed = useApp((s) => s.rollDismissed)
   const { y, m, d } = fromKey(date)
   const isToday = date === today
+  const dayWord = isToday ? '今天' : ''
   const lunarText = detail ? lunarFullText(detail.lunar) : ''
   const lunarEmphasis = !!(detail?.lunar?.festival || detail?.lunar?.solarTerm)
+  const showRoll = !!detail && detail.prevDayRollable > 0 && !rollDismissed[date]
+  const todos = detail?.todos ?? []
+  // 与落地页同一排序：未完成在前（原序），已完成沉底
+  const sorted = [...todos].sort((a, b) => Number(a.done) - Number(b.done))
+  const doneCount = sorted.filter((t) => t.done).length
+  const habits = detail?.habits ?? []
 
   return (
     <div className={styles.pageInner}>
@@ -358,32 +366,83 @@ function DaySide({ date }: { date: DateKey }): JSX.Element {
         <div className={styles.skels}><div className={styles.skel} /><div className={styles.skel} /><div className={styles.skel} /></div>
       ) : (
         <>
-          {detail.todos.filter((t) => !t.done).length > 0 && (
-            <div className={styles.sideBlock}>
-              <div className={styles.sideTitle}>待办</div>
-              {detail.todos
-                .filter((t) => !t.done)
-                .map((t) => (
-                  <div key={t.id} className={styles.sideItem}><span className={styles.sideDot} />{t.text}</div>
-                ))}
+          {showRoll && (
+            <div className={styles.roll} aria-hidden="true">
+              <span className={styles.rollText}>
+                前一天还有 <b>{detail.prevDayRollable}</b> 件没做完
+              </span>
             </div>
           )}
-          {detail.notes.length > 0 && (
+          {/* 待办：完整（未完成在前 + 已完成沉底），只读 */}
+          <div className={styles.sideBlock}>
+            <div className={styles.sideTitle}>
+              待办{sorted.length > 0 ? ` ${doneCount}/${sorted.length}` : ''}
+            </div>
+            {sorted.length > 0 ? (
+              sorted.map((t) => (
+                <div key={t.id} className={`${styles.sideItem}${t.done ? ` ${styles.sideDone}` : ''}`}>
+                  <span className={t.done ? `${styles.sideDot} ${styles.sideDotOn}` : styles.sideDot} />
+                  <span className={styles.sideText}>{t.text}</span>
+                  {t.rolledTo && <span className={styles.sideRolled}>已顺延 →</span>}
+                  {t.rolledFrom && <span className={styles.sideRolled}>顺延自 {sideMd(t.rolledFrom)}</span>}
+                </div>
+              ))
+            ) : (
+              <div className={styles.sideItem}>{dayWord}还没有待办</div>
+            )}
+          </div>
+          {/* 今日习惯：只读（与落地页同口径：今天该做的） */}
+          {habits.length > 0 ? (
+            <div className={styles.sideBlock}>
+              <div className={styles.sideTitle}>
+                今日习惯 {habits.filter((h) => h.done).length}/{habits.length}
+              </div>
+              {habits.map((h) => (
+                <div key={h.id} className={`${styles.sideItem}${h.done ? ` ${styles.sideDone}` : ''}`}>
+                  <span className={h.done ? `${styles.sideDot} ${styles.sideDotOn}` : styles.sideDot} />
+                  <span className={styles.sideText}>{h.name}</span>
+                  <span className={styles.sideFreq}>{freqLabel(h.freq)}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className={styles.sideBlock}>
+              <div className={styles.sideTitle}>今日习惯 0/0</div>
+              <div className={styles.sideItem}>还没有习惯</div>
+            </div>
+          )}
+          {/* 想法：完整 */}
+          {detail.notes.length > 0 ? (
             <div className={styles.sideBlock}>
               <div className={styles.sideTitle}>想法</div>
               {detail.notes.map((n) => (
                 <div key={n.id} className={styles.sideItem}>
                   <span className={styles.sideDot} />
-                  {n.text.length > 44 ? `${n.text.slice(0, 44)}…` : n.text}
+                  <span className={styles.sideText}>{n.text}</span>
                 </div>
               ))}
             </div>
+          ) : (
+            <div className={styles.sideBlock}>
+              <div className={styles.sideTitle}>想法</div>
+              <div className={styles.sideItem}>{dayWord}没有记下想法</div>
+            </div>
           )}
           {detail.summary.isEmpty && (
-            <div className={styles.empty}>○ 这一天还什么都没有</div>
+            <div className={styles.empty}>
+              <div className={styles.big}>○</div>
+              {isToday ? (
+                <>今天还什么都没有<br />点各区块右上角的「+ 添加」开始记录</>
+              ) : (
+                <>这一天还什么都没有<br />点各区块右上角的「+ 添加」补记</>
+              )}
+            </div>
           )}
         </>
       )}
     </div>
   )
 }
+
+/** 'YYYY-MM-DD' → 'M/D'（顺延来源标签用；与 TodoSection 内部同口径） */
+const sideMd = (k: string): string => `${Number(k.slice(5, 7))}/${Number(k.slice(8, 10))}`

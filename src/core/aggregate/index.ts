@@ -121,6 +121,8 @@ export interface DayDetail {
   lunar: LunarInfo | null
   /** 前一天可顺延的待办数。> 0 时显示横幅（PRD D5 / E10）；顺带返回，省一次查询 */
   prevDayRollable: number
+  /** v8.20 当日该做的习惯 + 打卡态（滑动侧页与落地页一致渲染用；不含暂停/不命中的） */
+  habits: HabitDayItem[]
 }
 
 export interface MonthSummary {
@@ -506,6 +508,24 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
   const buildRange = async (keys: readonly DateKey[]): Promise<DayAggregate[]> =>
     (await buildRangeDetailed(keys)).map((d) => d.agg)
 
+  // v8.20：从全量习惯 + 打卡集合算出 date 上该做的习惯项（暂停/不命中的排除）。
+  // habitDay 与 aggregateDayDetail 共用，保证日详情与今日习惯区块口径一致。
+  const buildHabitItems = (
+    habits: readonly HabitRecord[],
+    done: ReadonlySet<string>,
+    date: DateKey,
+  ): HabitDayItem[] => {
+    const dow = dowOf(date)
+    const items: HabitDayItem[] = []
+    for (const h of habits) {
+      if (h.deleted || h.paused) continue // 暂停的习惯不出现在今日（设置页仍可见）
+      const due = h.freq.kind === 'daily' || h.freq.weekdays.includes(dow)
+      if (!due) continue // 每周模式：今天不在选中星期 → 不出现
+      items.push({ id: h.id, name: h.name, freq: h.freq, done: done.has(h.id) })
+    }
+    return items
+  }
+
   return {
     async aggregateDay(date) {
       const [d] = await buildRange([date])
@@ -555,11 +575,14 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
 
       // ⚠️ 区间开成 [date-1, date]：一次查询同时拿到「今天的内容」和
       //    「昨天有几条待办可顺延」。不要为了后者再发一次 byDateAll。
-      const [data, annivTitles, catMap, annivRecs] = await Promise.all([
+      // v8.20 加 habits 全量 + 打卡集合：日详情带当日习惯（侧页与落地一致渲染）。
+      const [data, annivTitles, catMap, annivRecs, habits, done] = await Promise.all([
         store.byDateAll(prev, date),
         anniversaryTitles(date, date),
         catNames(),
         anniversaryRecordsOn(date),
+        store.all<HabitRecord>('habits'),
+        repos.checkins.doneOn(date),
       ])
 
       const buckets = bucketize(data)
@@ -579,6 +602,7 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
         anniversaries: annivRecs,
         lunar: info,
         prevDayRollable: yesterday.todos.filter(isRollable).length,
+        habits: buildHabitItems(habits, done, date),
       }
     },
 
@@ -595,14 +619,7 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
         store.all<HabitRecord>('habits'),
         repos.checkins.doneOn(date),
       ])
-      const dow = dowOf(date)
-      const items: HabitDayItem[] = []
-      for (const h of habits) {
-        if (h.deleted || h.paused) continue // 暂停的习惯不出现在今日（设置页仍可见）
-        const due = h.freq.kind === 'daily' || h.freq.weekdays.includes(dow)
-        if (!due) continue // 每周模式：今天不在选中星期 → 不出现
-        items.push({ id: h.id, name: h.name, freq: h.freq, done: done.has(h.id) })
-      }
+      const items = buildHabitItems(habits, done, date)
       return {
         date,
         items,

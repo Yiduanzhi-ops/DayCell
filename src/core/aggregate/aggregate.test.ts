@@ -411,6 +411,28 @@ describe('aggregateDayDetail — v6 首屏关键路径', () => {
     expect(spy.mock.calls[0]).toEqual(['2026-09-28', '2026-09-29'])
   })
 
+  it('v8.20 aggregateDayDetail 带当日习惯（该做的+打卡态；暂停/不命中排除）', async () => {
+    await repos.habits.create({ name: '喝水', freq: { kind: 'daily' } })
+    const weekly = await repos.habits.create({ name: '周一周三跑', freq: { kind: 'weekly', weekdays: [1, 3] } })
+    const paused = await repos.habits.create({ name: '暂停的', freq: { kind: 'daily' } })
+    await repos.habits.update(paused.id, { paused: true })
+    await repos.checkins.toggle(k('2026-09-28'), weekly.id)
+
+    // 2026-09-29 是周二（dow=2）：daily 命中、weekly 不命中、paused 排除
+    const tue = await agg.aggregateDayDetail(k('2026-09-29'))
+    expect(tue.habits.map((h) => h.name)).toEqual(['喝水'])
+    expect(tue.habits[0]!.done).toBe(false)
+
+    // 2026-10-01 是周四（dow=4）：只有 daily 命中，weekly 不命中
+    const thu = await agg.aggregateDayDetail(k('2026-10-01'))
+    expect(thu.habits.map((h) => h.name)).toEqual(['喝水'])
+
+    // 2026-09-28 是周一（dow=1）：weekly 命中且已打卡
+    const mon = await agg.aggregateDayDetail(k('2026-09-28'))
+    expect(mon.habits.map((h) => h.name)).toEqual(['喝水', '周一周三跑'])
+    expect(mon.habits.find((h) => h.id === weekly.id)?.done).toBe(true)
+  })
+
   it('翻日时不重查分类表（缓存生效，CORE-API §6）', async () => {
     const spy = vi.spyOn(repos.categories, 'nameMap')
     await agg.aggregateDayDetail(k('2026-09-29'))
