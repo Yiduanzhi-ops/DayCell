@@ -1,20 +1,22 @@
 /**
- * 底部视图切换器（v7.3）：固定页面底部，今天/周/月三 tab。
- * 手机端风格：图标 + 文字竖排、active 高亮 accent 色 + 顶部指示条；
+ * 底部视图切换器（v7.3 / v8.13）：固定页面底部。
+ * v8.13：扩为 5 tab，从左到右 **目标 | 想法 | 今天（中间，圆形）| 周 | 月**；
+ * 「今天」居中并做成圆形强调（原型图确认），其余四 tab 图标 + 文字竖排。
  * 桌面端共用同一组件（保持单一布局逻辑，D17 修订：切换器从顶栏移到底部）。
- * 快捷键 d/t/w/m 由 App.tsx 全局接管，与点 tab 等价；键盘用户仍有 title 提示。
+ * 快捷键 d/t/w/m/g/n 由 App.tsx 全局接管，与点 tab 等价；键盘用户仍有 title 提示。
  */
 import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './TabBar.module.css'
 
-/** 今天 = 时钟（"现在"） */
-function TodayIcon(): JSX.Element {
+/** 想法 = 便签（折角纸片，v8.13 想法 tab） */
+function NoteIcon(): JSX.Element {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
       strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="8" />
-      <path d="M12 8v4l2.8 2" />
+      <path d="M5 4h14v13l-4 3H5z" />
+      <path d="M15 20v-3h4" />
+      <path d="M9 9h6M9 12.5h6" />
     </svg>
   )
 }
@@ -54,16 +56,18 @@ export function TabBar(): JSX.Element {
   const view = useApp((s) => s.view)
   const setView = useApp((s) => s.setView)
 
-  const tabs: ReadonlyArray<readonly [ViewKey, string, JSX.Element]> = [
-    ['day', '今天', <TodayIcon key="i" />],
-    ['week', '周', <WeekIcon key="i" />],
-    ['month', '月', <MonthIcon key="i" />],
-    ['goals', '目标', <GoalIcon key="i" />],
+  // v8.13：5 tab，从左到右 目标 | 想法 | 今天（中间）| 周 | 月
+  const tabs: ReadonlyArray<readonly [ViewKey, string]> = [
+    ['goals', '目标'],
+    ['notes', '想法'],
+    ['day', '今天'],
+    ['week', '周'],
+    ['month', '月'],
   ]
 
   return (
     <nav className={styles.bar} role="tablist" aria-label="视图切换">
-      {tabs.map(([v, label, icon]) => (
+      {tabs.map(([v, label]) => (
         <button
           key={v}
           role="tab"
@@ -72,7 +76,17 @@ export function TabBar(): JSX.Element {
           onClick={() => setView(v)}
           title={v === 'day' ? '快捷键 d / t，回到今天' : `快捷键 ${v[0]}`}
         >
-          {icon}
+          {v === 'day' ? (
+            <span className={styles.today} aria-hidden="true">今</span>
+          ) : v === 'notes' ? (
+            <NoteIcon />
+          ) : v === 'week' ? (
+            <WeekIcon />
+          ) : v === 'month' ? (
+            <MonthIcon />
+          ) : (
+            <GoalIcon />
+          )}
           <span>{label}</span>
         </button>
       ))}
@@ -80,4 +94,4 @@ export function TabBar(): JSX.Element {
   )
 }
 
-type ViewKey = 'day' | 'week' | 'month' | 'goals'
+type ViewKey = 'day' | 'week' | 'month' | 'goals' | 'notes'

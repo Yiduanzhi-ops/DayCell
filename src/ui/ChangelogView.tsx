@@ -8,11 +8,20 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.12'
+const CURRENT_VERSION = 'v8.13'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.13',
+    date: '2026-10-10',
+    items: [
+      '新增「想法」tab：全部想法按天分组、时间倒序，10 条一页翻页',
+      '底部 tab 扩为 5 个：目标 | 想法 | 今天（中间）| 周 | 月，默认仍打开今日视图',
+      '点想法条目进入对应日视图（编辑/删除在日视图做），返回精确还原页码与滚动位置',
+    ],
+  },
   {
     version: 'v8.12',
     date: '2026-10-10',

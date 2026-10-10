@@ -187,6 +187,8 @@ export interface Aggregates {
   subtasksOfGoal(goalId: string): Promise<SubtaskRecord[]>
   /** v8.0 今日习惯：date 上该做的习惯 + 打卡状态 */
   habitDay(date: DateKey): Promise<HabitDay>
+  /** v8.13 想法 tab：全量活想法，时间倒序（date 降序，同日 createdAt 降序）。UI 按天分组 + 分页 */
+  notesAll(): Promise<NoteRecord[]>
   /**
    * 清掉分类名缓存。
    *
@@ -607,6 +609,19 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
         doneCount: items.filter((x) => x.done).length,
         dueCount: items.length,
       }
+    },
+
+    /**
+     * v8.13 想法 tab 数据源。全量活想法（store.all 默认排墓碑；再显式 filter 防呆），
+     * 时间倒序：date 降序、同日 createdAt 降序（最新的想法在最上）。
+     * 返回浅拷贝，避免 UI 侧意外改动污染 store 内引用。
+     */
+    async notesAll() {
+      const all = await store.all<NoteRecord>('notes')
+      return all
+        .filter((r) => !r.deleted)
+        .map((r) => ({ ...r }))
+        .sort((a, b) => (a.date === b.date ? b.createdAt - a.createdAt : b.date.localeCompare(a.date)))
     },
 
     invalidate() {

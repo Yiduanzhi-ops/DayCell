@@ -44,6 +44,22 @@
 }
 .tab:active { background: var(--bg-hover); }
 
+/* v8.13：中间「今天」tab 的圆形强调（原型图确认：5 tab 今天居中） */
+.today {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-hover);
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+.tab.on .today { background: var(--accent); color: #fff; }
+
 @media (min-width: 900px) {
   /* 桌面端：同样的底部 tab，只是更高、字号略大，保持两端视觉一致 */
   .tab { min-height: 62px; font-size: 12px; gap: 4px; }

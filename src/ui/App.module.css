@@ -55,6 +55,10 @@
 .app[data-view='goals'] .main { grid-template-columns: minmax(0, 1fr); }
 .app[data-view='goals'] .cal { display: none; }
 .app[data-view='goals'] .detail { display: none; }
+/* v8.13 想法视图：整屏单列（无日历/日详情），同目标视图 */
+.app[data-view='notes'] .main { grid-template-columns: minmax(0, 1fr); }
+.app[data-view='notes'] .cal { display: none; }
+.app[data-view='notes'] .detail { display: none; }
 /* v7 / D19：今天视图不翻日——顶栏前后箭头的隐藏规则在 TopBar.module.css（CSS Modules 类名不跨文件） */
 
 /* 手机（<900px）：三视图各自全屏，同一时刻只显示一个。

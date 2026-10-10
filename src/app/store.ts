@@ -39,6 +39,7 @@ import {
   type HabitFreq,
   type HabitRecord,
   type MonthSummary,
+  type NoteRecord,
   type ProgressField,
   type StageInput,
   type StageRecord,
@@ -53,14 +54,17 @@ import {
 import type { CoreBundle } from './bootstrap'
 import { buildTransport, readSyncConfig, writeSyncConfig } from './sync'
 
-export type View = 'day' | 'week' | 'month' | 'goals'
+export type View = 'day' | 'week' | 'month' | 'goals' | 'notes'
 /** v6.1：内联表单是唯一录入入口，同一时刻最多展开一个 */
 export type FormKind = 'todo' | 'cost' | 'note'
 
 export interface SourceState {
-  view: 'week' | 'month'
+  /** v8.13：'notes' = 从想法 tab 列表点条目进入日视图的来源（返回回想法列表） */
+  view: 'week' | 'month' | 'notes'
   selected: DateKey
   scrollTop: number
+  /** v8.13：想法列表页码（source.view === 'notes' 时返回还原） */
+  notesPage?: number
 }
 
 export interface ToastState {
@@ -96,6 +100,10 @@ export interface AppState {
   habitDay: HabitDay | null
   /** v8.0：习惯设置页列表（全部活习惯，含暂停的） */
   habitList: HabitRecord[]
+  /** v8.13：想法 tab 数据源（全量活想法，时间倒序；分组/分页在 NotesView 做） */
+  notesList: NoteRecord[]
+  /** v8.13：想法列表页码（1 起；切走 tab 重置为 1，从日视图返回还原） */
+  notesPage: number
 
   /** IndexedDB 不可用（PRD E1）：数据不持久，UI 顶部红色横幅 */
   degraded: boolean
@@ -142,6 +150,10 @@ export interface AppState {
   prefetchDay(k: DateKey): Promise<void>
   /** 点周/月的格子。窄屏跳进日视图并记来源；宽屏只切换右栏 */
   selectFromCalendar(k: DateKey, scrollTop?: number): void
+  /** v8.13 想法 tab：点条目跳进该日日视图。窄屏记来源（返回回想法列表+页码+滚动位）；宽屏直接切日视图 */
+  openDayFromNotes(k: DateKey, scrollTop?: number): void
+  /** v8.13 想法列表翻页（NotesView 分页控件调用） */
+  setNotesPage(p: number): void
   /** 返回来源视图。没有来源时返回 false（Esc 等路径靠它判断有没有事发生） */
   back(): boolean
   onPopstate(): void
@@ -316,6 +328,8 @@ export function createAppStore(
     goalDetail: null,
     habitDay: null,
     habitList: [],
+    notesList: [],
+    notesPage: 1,
 
     degraded: bundle.degraded,
     lunarFailed: bundle.lunarFailed,
@@ -356,6 +370,13 @@ export function createAppStore(
           const goalList = await aggregates.goalSummaries()
           if (seq !== loadSeq) return
           set({ goalList, loading: false })
+          return
+        }
+        // v8.13 想法视图：不加载日历聚合，只刷想法列表（notesList 是它的唯一数据源）
+        if (view === 'notes') {
+          const notesList = await aggregates.notesAll()
+          if (seq !== loadSeq) return
+          set({ notesList, loading: false })
           return
         }
         // detail 恒加载（桌面分栏右栏 / 手机日视图都要）；日历数据按当前视图加载
@@ -408,6 +429,8 @@ export function createAppStore(
         wantFocus: false,
         // 切回目标 tab 一律回列表（详情页不跨 tab 保持）
         goalDetail: v === 'goals' ? null : s.goalDetail,
+        // v8.13：切走想法 tab 再回来，列表回到第 1 页
+        notesPage: 1,
       })
       if (needPop && canHistory()) history.back()
       void get().refresh()
@@ -424,8 +447,8 @@ export function createAppStore(
       const s = get()
       // v7：今天视图不翻日（D19）——补记其他日子走周/月点格子。
       // 顶栏的翻页按钮在日视图下由 CSS 隐藏，这里是行为层的同一事实。
-      // v7.9：目标视图无日期语义，翻页同样 no-op。
-      if (s.view === 'day' || s.view === 'goals') return
+      // v7.9：目标视图无日期语义，翻页同样 no-op。v8.13：想法视图同（列表页无日期语义）。
+      if (s.view === 'day' || s.view === 'goals' || s.view === 'notes') return
       const next = s.view === 'week' ? addDays(s.selected, dir * 7) : addMonths(s.selected, dir)
       if (next === s.selected) return
       set({ selected: next, edit: null, wantFocus: false })
@@ -470,6 +493,39 @@ export function createAppStore(
       void get().refresh()
     },
 
+    /**
+     * v8.13 想法 tab：点条目跳进该日日视图（编辑/删除在日视图做）。
+     * 窄屏：记来源（view='notes' + 页码 + 滚动位），返回精确还原；宽屏：直接切到该日日视图。
+     */
+    openDayFromNotes(k, scrollTop = 0) {
+      const s = get()
+      if (narrow()) {
+        if (canHistory()) history.pushState({ daycell: 'day' }, '')
+        set({
+          source: {
+            view: 'notes',
+            selected: s.selected,
+            scrollTop,
+            notesPage: s.notesPage,
+          },
+          selected: k,
+          view: 'day',
+          historyPushed: true,
+          edit: null,
+          wantFocus: false,
+        })
+      } else {
+        if (s.view === 'day' && k === s.selected) return
+        set({ selected: k, view: 'day', edit: null, wantFocus: false })
+      }
+      void get().refresh()
+    },
+
+    setNotesPage(p) {
+      if (get().notesPage === p) return
+      set({ notesPage: p })
+    },
+
     back() {
       const s = get()
       if (!s.source) return false
@@ -483,6 +539,8 @@ export function createAppStore(
         edit: null,
         wantFocus: false,
         restoreScrollTo: src.scrollTop,
+        // v8.13：从想法列表进日视图返回时，还原当时页码
+        notesPage: src.notesPage ?? 1,
       })
       void get().refresh()
       // 手势返回（popstate）进来时条目已被浏览器弹掉，needPop 为 false，不会二次 back

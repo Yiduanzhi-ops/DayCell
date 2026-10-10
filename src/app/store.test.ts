@@ -770,3 +770,80 @@ describe('v7.5 备份导出与合并导入', () => {
     expect(await S(app).exportBackup()).toBe(true)
   })
 })
+
+describe('v8.13 想法 tab（notesList / 分页 / 来源栈）', () => {
+  it('setView notes：加载 notesList（全量倒序），shift() 与翻页按钮 no-op', async () => {
+    const { app, bundle } = await makeApp()
+    await bundle.repos.notes.create('2026-09-28' as DateKey, '昨天的想法')
+    await bundle.repos.notes.create('2026-09-29' as DateKey, '今天的想法')
+
+    S(app).setView('notes')
+    await waitFor(() => expect(S(app).view).toBe('notes'))
+    await waitFor(() => expect(S(app).notesList.map((n) => n.text)).toEqual(['今天的想法', '昨天的想法']))
+    expect(S(app).notesPage).toBe(1)
+
+    S(app).shift(1) // 想法视图无日期语义，翻页 no-op
+    expect(S(app).selected).toBe(TODAY)
+  })
+
+  it('setNotesPage：设置页码；setView 切走再回来重置为 1', async () => {
+    const { app } = await makeApp()
+    S(app).setView('notes')
+    await waitFor(() => expect(S(app).view).toBe('notes'))
+    S(app).setNotesPage(3)
+    expect(S(app).notesPage).toBe(3)
+    S(app).setView('day')
+    S(app).setView('notes')
+    expect(S(app).notesPage).toBe(1)
+  })
+
+  it('窄屏从想法列表点条目：push history、记来源（notes+页码+滚动位）、跳该日日视图', async () => {
+    const h = installHistory()
+    const { app, bundle } = await makeApp({ narrow: true })
+    const n = await bundle.repos.notes.create('2026-10-01' as DateKey, '十月一日的想法')
+    S(app).setView('notes')
+    await waitFor(() => expect(S(app).view).toBe('notes'))
+    S(app).setNotesPage(2)
+
+    S(app).openDayFromNotes(n.date, 456)
+    const s = S(app)
+    expect(s.view).toBe('day')
+    expect(s.selected).toBe('2026-10-01')
+    expect(s.source).toEqual({ view: 'notes', selected: TODAY, scrollTop: 456, notesPage: 2 })
+    expect(s.historyPushed).toBe(true)
+    expect(h.pushState).toHaveBeenCalledTimes(1)
+  })
+
+  it('back() 从想法来源返回：还原想法视图 + 当时页码 + 滚动位', async () => {
+    const h = installHistory()
+    const { app, bundle } = await makeApp({ narrow: true })
+    const n = await bundle.repos.notes.create('2026-10-01' as DateKey, '十月一日的想法')
+    S(app).setView('notes')
+    await waitFor(() => expect(S(app).view).toBe('notes'))
+    S(app).setNotesPage(2)
+    S(app).openDayFromNotes(n.date, 456)
+
+    const ok = S(app).back()
+    expect(ok).toBe(true)
+    await waitFor(() => expect(S(app).view).toBe('notes'))
+    const s = S(app)
+    expect(s.selected).toBe(TODAY)
+    expect(s.notesPage).toBe(2)
+    expect(s.restoreScrollTo).toBe(456)
+    expect(s.source).toBeNull()
+    expect(h.back).toHaveBeenCalledTimes(1)
+  })
+
+  it('宽屏从想法列表点条目：直接切日视图，不记来源', async () => {
+    const { app, bundle } = await makeApp({ narrow: false })
+    const n = await bundle.repos.notes.create('2026-10-01' as DateKey, '十月一日的想法')
+    S(app).setView('notes')
+    await waitFor(() => expect(S(app).view).toBe('notes'))
+
+    S(app).openDayFromNotes(n.date)
+    expect(S(app).view).toBe('day')
+    expect(S(app).selected).toBe('2026-10-01')
+    expect(S(app).source).toBeNull()
+    expect(S(app).historyPushed).toBe(false)
+  })
+})

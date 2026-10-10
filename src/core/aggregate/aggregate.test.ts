@@ -565,3 +565,30 @@ describe('默认分类完整性', () => {
     expect(d.costCents).toBe(800)
   })
 })
+
+describe('notesAll — v8.13 想法列表数据源', () => {
+  it('全量活想法：date 降序、同日 createdAt 降序（最新在最上）；墓碑排除；返回拷贝', async () => {
+    await repos.notes.create(k('2026-09-28'), '昨天第一条')
+    clock.advance(5000)
+    await repos.notes.create(k('2026-09-28'), '昨天第二条（更新）')
+    clock.advance(5000)
+    await repos.notes.create(k('2026-09-29'), '今天第一条')
+    clock.advance(5000)
+    const del = await repos.notes.create(k('2026-09-25'), '已删除')
+    clock.advance(5000)
+    await repos.notes.softDelete(del.id)
+
+    const all = await agg.notesAll()
+    expect(all.map((n) => n.text)).toEqual(['今天第一条', '昨天第二条（更新）', '昨天第一条'])
+    expect(all.map((n) => n.date)).toEqual(['2026-09-29', '2026-09-28', '2026-09-28'])
+
+    // 返回拷贝：改动不污染 store 内引用
+    all[0]!.text = 'x'
+    const again = await agg.notesAll()
+    expect(again[0]!.text).toBe('今天第一条')
+  })
+
+  it('没有想法时返回空数组', async () => {
+    expect(await agg.notesAll()).toEqual([])
+  })
+})

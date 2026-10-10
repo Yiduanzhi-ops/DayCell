@@ -1,0 +1,122 @@
+/* 想法 tab（v8.13）：整屏列表。与目标视图一样不渲染日历/日详情（App.module.css data-view='notes'）。 */
+
+.page {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 14px 12px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.count {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  padding: 6px 2px 2px;
+}
+
+/* ---- 空态 ---- */
+.empty {
+  padding: 72px 24px;
+  text-align: center;
+  color: var(--ink-3);
+}
+.emptyMain {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink-2);
+  margin: 0 0 8px;
+}
+.emptySub {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* ---- 分组标题 ---- */
+.groupTitle {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 14px 2px 7px;
+}
+.groupDate {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--ink-1);
+}
+.groupSub {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.groupCount {
+  font-size: 11px;
+  color: var(--ink-4);
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+/* ---- 想法条目 ---- */
+.item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 9px 12px;
+  margin-bottom: 8px;
+  background: var(--bg);
+  color: var(--ink-1);
+}
+.itemText {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.itemTime {
+  display: block;
+  text-align: right;
+  font-size: 11px;
+  color: var(--ink-4);
+  margin-top: 5px;
+}
+.item:active { background: var(--bg-hover); }
+
+/* ---- 分页 ---- */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 14px 0 6px;
+}
+.pageBtn {
+  font-size: 12px;
+  color: var(--accent);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 5px 12px;
+  background: var(--bg);
+}
+.pageBtn:disabled {
+  color: var(--ink-4);
+  opacity: 0.7;
+}
+.pageInfo {
+  font-size: 12px;
+  color: var(--ink-2);
+}

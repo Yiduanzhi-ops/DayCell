@@ -61,6 +61,9 @@ export function TopBar(): JSX.Element {
   } else if (view === 'goals') {
     // v7.9：目标视图无日期语义
     title = '目标'
+  } else if (view === 'notes') {
+    // v8.13：想法视图无日期语义
+    title = '想法'
   } else if (view === 'week') {
     const a = week?.days[0] ? fromKey(week.days[0].date) : null
     const b = week?.days[6] ? fromKey(week.days[6].date) : null
@@ -78,7 +81,7 @@ export function TopBar(): JSX.Element {
         <BrandMark />
         <span>DayCell</span>
       </div>
-      <div className={view === 'day' || view === 'goals' ? `${styles.nav} ${styles.navDay}` : styles.nav}>
+      <div className={view === 'day' || view === 'goals' || view === 'notes' ? `${styles.nav} ${styles.navDay}` : styles.nav}>
         <button onClick={() => shift(-1)} aria-label="上一个" title="上一个">
           <ChevronLeft />
         </button>
@@ -91,7 +94,7 @@ export function TopBar(): JSX.Element {
         {sub && <small>{sub}</small>}
       </div>
       <div className={styles.spacer} />
-      {view !== 'goals' && selected !== today && (
+      {view !== 'goals' && view !== 'notes' && selected !== today && (
         <button className={styles.todayBtn} onClick={gotoToday}>
           今天
         </button>

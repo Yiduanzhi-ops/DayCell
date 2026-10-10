@@ -19,6 +19,7 @@ import { WeekView } from './WeekView'
 import { MonthView } from './MonthView'
 import { AnnivSettings } from './AnnivSettings'
 import { GoalsView } from './GoalsView'
+import { NotesView } from './NotesView'
 import { HabitsView } from './HabitsView'
 import { SyncSettings } from './SyncSettings'
 import { ShareView } from './ShareView'
@@ -72,6 +73,7 @@ function Shell(): JSX.Element {
         case 'w': setView('week'); break
         case 'm': setView('month'); break
         case 'g': setView('goals'); break
+        case 'n': setView('notes'); break
         case 'Escape':
           if (edit) closeForm()
           else back()
@@ -104,9 +106,11 @@ function Shell(): JSX.Element {
       )}
       <TopBar />
       <div className={styles.main}>
-        {/* v7.9：目标视图整屏替换日历 + 详情（无日期语义，不渲染 .cal/.detail） */}
+        {/* v7.9：目标视图整屏替换日历 + 详情（无日期语义，不渲染 .cal/.detail）。v8.13：想法视图同 */}
         {view === 'goals' ? (
           <GoalsView />
+        ) : view === 'notes' ? (
+          <NotesView />
         ) : (
           <>
             <section className={styles.cal} aria-label="日历">

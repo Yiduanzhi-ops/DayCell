@@ -261,3 +261,60 @@ describe('App 冒烟', () => {
     await waitFor(() => expect(screen.queryByLabelText('新想法')).not.toBeInTheDocument())
   })
 })
+
+describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图）', () => {
+  it('底部 tab 从左到右：目标 | 想法 | 今天 | 周 | 月，默认打开今日视图', async () => {
+    await renderApp()
+    const tabs = screen.getAllByRole('tab')
+    expect(tabs).toHaveLength(5)
+    expect(tabs[0]).toHaveAccessibleName('目标')
+    expect(tabs[1]).toHaveAccessibleName('想法')
+    expect(tabs[2]).toHaveAccessibleName('今天')
+    expect(tabs[3]).toHaveAccessibleName('周')
+    expect(tabs[4]).toHaveAccessibleName('月')
+    // 默认仍是今日视图（落地页不变）
+    expect(document.body.textContent).toContain('2026 年 9 月 29 日')
+  })
+
+  it('点「想法」tab：空态引导', async () => {
+    await renderApp()
+    fireEvent.click(screen.getByRole('tab', { name: '想法' }))
+    await waitFor(() => expect(document.body.textContent).toContain('还没有记过想法'))
+  })
+
+  it('列表按天分组显示、点击条目进入该日日视图（编辑删除在日视图做）', async () => {
+    const store = await renderApp()
+    await store.getState().createNote('十月一日记的念头')
+    await store.getState().shiftDay(1) // → 9/30
+    await store.getState().createNote('九月三十日的念头')
+    await store.getState().shiftDay(-1) // → 9/29
+    await waitFor(() => expect(document.body.textContent).toContain('十月一日记的念头'))
+
+    fireEvent.click(screen.getByRole('tab', { name: '想法' }))
+    await waitFor(() => expect(document.body.textContent).toContain('共 2 条想法'))
+    expect(document.body.textContent).toContain('十月一日记的念头')
+
+    // 点击条目 → 进入对应日日视图（9/30，想法在 shiftDay 后创建）
+    fireEvent.click(screen.getByRole('button', { name: /九月三十日的念头/ }))
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 30 日'))
+    expect(document.body.textContent).toContain('九月三十日的念头')
+  })
+
+  it('10 条一页：11 条想法分两页，下一页看到第 11 条', async () => {
+    const store = await renderApp()
+    for (let i = 1; i <= 11; i++) await store.getState().createNote(`想法第 ${i} 条`)
+    await waitFor(() => expect(document.body.textContent).toContain('想法第 1 条'))
+
+    fireEvent.click(screen.getByRole('tab', { name: '想法' }))
+    await waitFor(() => expect(document.body.textContent).toContain('共 11 条想法'))
+    await waitFor(() => expect(document.body.textContent).toContain('1 / 2'))
+    // 同日按 createdAt 倒序：第一页 = 最新 10 条（第 11…2 条），第 1 条在第二页
+    expect(document.body.textContent).toContain('想法第 11 条')
+    expect(document.body.textContent).not.toContain('想法第 1 条')
+
+    fireEvent.click(screen.getByRole('button', { name: '下一页 ›' }))
+    await waitFor(() => expect(document.body.textContent).toContain('2 / 2'))
+    expect(document.body.textContent).toContain('想法第 1 条')
+    expect(document.body.textContent).not.toContain('想法第 11 条')
+  })
+})
