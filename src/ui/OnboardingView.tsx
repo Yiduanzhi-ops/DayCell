@@ -248,28 +248,28 @@ export function OnboardingView(): JSX.Element {
 
         <div className={styles.body} key={step}>
           <div className={styles.illu}>{step === 0 ? <img className={styles.logo} src={LOGO_URL} alt="DayCell" /> : <page.illu />}</div>
-          <h1 className={styles.title}>{page.title}</h1>
-          <p className={styles.sub}>{page.sub}</p>
+          <h1 className={styles.title} style={{ animationDelay: '0.08s' }}>{page.title}</h1>
+          <p className={styles.sub} style={{ animationDelay: '0.16s' }}>{page.sub}</p>
 
           {step === 0 ? (
-            <div className={styles.grid}>
+            <div className={styles.grid} style={{ animationDelay: '0.24s' }}>
               <div className={styles.hlRow}>
-                {HIGHLIGHTS.map((h) => (
-                  <div className={styles.gc} key={h.label}>
+                {HIGHLIGHTS.map((h, i) => (
+                  <div className={styles.gc} key={h.label} style={{ animationDelay: `${0.28 + i * 0.07}s` }}>
                     <span className={styles.gcIcon}>{h.icon}</span>
                     <b>{h.label}</b>
                   </div>
                 ))}
               </div>
-              <div className={styles.tipWrap}>
+              <div className={styles.tipWrap} style={{ animationDelay: '0.72s' }}>
                 <span className={styles.plus}>+</span>
                 添加到主屏幕，获取 APP 使用体验
               </div>
             </div>
           ) : (
-            <div className={styles.pts}>
-              {page.points?.map((p) => (
-                <div className={styles.pt} key={p}>
+            <div className={styles.pts} style={{ animationDelay: '0.24s' }}>
+              {page.points?.map((p, i) => (
+                <div className={styles.pt} key={p} style={{ animationDelay: `${0.28 + i * 0.08}s` }}>
                   <span className={styles.ptIcon}>✓</span>
                   {p}
                 </div>

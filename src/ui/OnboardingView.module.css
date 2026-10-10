@@ -17,7 +17,9 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 12px 18px 20px;
+  padding: 12px 20px 24px;
+  /* 极端小屏（如 iPhone SE）内容超高时保底可滚，按钮不丢 */
+  overflow-y: auto;
 }
 
 .top {
@@ -41,34 +43,47 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  animation: fadeUp 0.5s ease both;
+  padding: 8px 0 4px;
 }
 
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(14px); }
+  from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: none; }
 }
 
+/* 切屏时标题 / 副标题 / 内容块 / 卡片依次浮现（delay 由组件 inline 覆盖） */
+.title, .sub, .grid, .pts, .gc, .pt, .tipWrap {
+  animation: fadeUp 0.55s ease both;
+}
+
 .illu {
-  height: 132px;
+  height: 150px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 0 12px;
+  margin: 0 0 18px;
 }
 
+/* 插画轻浮动：入场后再慢慢上下漂，给整屏一点"活着"的动态感 */
 .illuSvg {
-  width: 212px;
-  height: 124px;
+  width: 224px;
+  height: 132px;
   display: block;
+  animation: floatY 3.8s ease-in-out 0.9s infinite;
 }
 
 .logo {
-  width: 104px;
-  height: 104px;
+  width: 106px;
+  height: 106px;
   border-radius: 26px;
   object-fit: cover;
   box-shadow: 0 10px 24px rgba(20, 24, 40, 0.18), 0 2px 6px rgba(20, 24, 40, 0.08);
+  animation: floatY 3.8s ease-in-out 0.9s infinite;
+}
+
+@keyframes floatY {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
 }
 
 .title {
@@ -83,8 +98,8 @@
 .sub {
   font-size: 12.5px;
   color: var(--ink-3);
-  line-height: 1.5;
-  margin-top: 6px;
+  line-height: 1.65;
+  margin-top: 10px;
   text-align: center;
 }
 
@@ -92,33 +107,34 @@
 .grid {
   display: flex;
   flex-direction: column;
-  margin-top: 18px;
+  margin-top: 26px;
 }
 
 .hlRow {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 10px;
 }
 
 .gc {
   background: var(--bg-subtle);
   border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 9px 10px;
+  border-radius: 13px;
+  padding: 13px 12px;
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
+  min-height: 48px;
 }
 
 .gcIcon {
-  flex: 0 0 18px;
-  width: 18px;
-  height: 18px;
-  border-radius: 6px;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  border-radius: 7px;
   background: var(--accent-soft);
   color: var(--accent);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -137,11 +153,11 @@
   align-items: center;
   justify-content: center;
   gap: 7px;
-  margin-top: 16px;
+  margin-top: 20px;
   background: var(--accent-soft);
   border: 1px dashed var(--accent-line);
   border-radius: 11px;
-  padding: 9px 10px;
+  padding: 11px 10px;
   font-size: 11px;
   color: var(--accent);
   white-space: nowrap;
@@ -165,32 +181,32 @@
 .pts {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 18px;
+  gap: 10px;
+  margin-top: 26px;
 }
 
 .pt {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
   background: var(--bg-subtle);
   border: 1px solid var(--line);
-  border-radius: 13px;
-  padding: 10px 12px;
+  border-radius: 14px;
+  padding: 13px 14px;
   font-size: 13px;
-  line-height: 1.4;
+  line-height: 1.45;
   color: var(--ink-2);
   white-space: nowrap;
 }
 
 .ptIcon {
-  flex: 0 0 22px;
-  width: 22px;
-  height: 22px;
-  border-radius: 8px;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  border-radius: 9px;
   background: var(--accent-soft);
   color: var(--accent);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -201,8 +217,8 @@
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding-top: 16px;
+  gap: 14px;
+  padding-top: 24px;
 }
 
 .track {

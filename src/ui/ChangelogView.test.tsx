@@ -37,16 +37,16 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v8.22')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v8.23')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v8.22')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v8.23')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v8.22，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v8.23，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v8.22')
-    expect(screen.getByText('新增首次使用引导：首次打开自动弹出 6 屏功能总览（总览 / 今日视图 / 周月视图 / 目标 / 纪念日 / 数据安全），含品牌 logo、亮点速览与「添加到主屏幕」提示')).toBeInTheDocument()
+    expect(vers[0].textContent).toBe('v8.23')
+    expect(screen.getByText('引导动效升级：插画与 logo 轻浮动 + 标题/要点/卡片依次浮现，切屏更有交互感')).toBeInTheDocument()
   })
 
   it('历史版本（v8.2 同步、v7.9 目标、v7.5 菜单）要点存在', async () => {

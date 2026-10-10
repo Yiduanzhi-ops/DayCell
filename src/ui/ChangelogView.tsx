@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.22'
+const CURRENT_VERSION = 'v8.23'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.23',
+    date: '2026-10-10',
+    items: [
+      '引导动效升级：插画与 logo 轻浮动 + 标题/要点/卡片依次浮现，切屏更有交互感',
+      '引导排版拉开呼吸感：插画与文字、卡片上下间距加大；首屏 6 个亮点卡更高更方正，不再扁挤',
+    ],
+  },
   {
     version: 'v8.22',
     date: '2026-10-10',
