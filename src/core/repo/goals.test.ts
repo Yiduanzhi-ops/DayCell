@@ -59,6 +59,40 @@ describe('goals', () => {
     expect(g2.note).toBe('新阐述')
   })
 
+  it('v8.10 progress：create 可带进度（pct/note 可只填其一）；update 改/清空；缺省兼容', async () => {
+    // 两者都填
+    const g = await repos.goals.create({ title: '目标', progress: { pct: 60, note: '已完成框架' } })
+    expect(g.progress).toEqual({ pct: 60, note: '已完成框架' })
+    // 只填 pct
+    const g2 = await repos.goals.create({ title: '目标2', progress: { pct: 30 } })
+    expect(g2.progress).toEqual({ pct: 30 })
+    expect('note' in g2.progress!).toBe(false)
+    // 只填 note
+    const g3 = await repos.goals.create({ title: '目标3', progress: { note: '还在准备' } })
+    expect(g3.progress).toEqual({ note: '还在准备' })
+    expect('pct' in g3.progress!).toBe(false)
+    // update 覆盖
+    const g4 = await repos.goals.update(g.id, { progress: { pct: 80, note: '快完成了' } })
+    expect(g4.progress).toEqual({ pct: 80, note: '快完成了' })
+    // 显式传空对象 → 清空并删字段
+    const g5 = await repos.goals.update(g.id, { progress: {} })
+    expect(g5.progress).toBeUndefined()
+    expect('progress' in g5).toBe(false)
+    // 缺省创建 → 无 progress 字段（旧数据兼容形态）
+    const plain = await repos.goals.create({ title: '无进度' })
+    expect('progress' in plain).toBe(false)
+  })
+
+  it('v8.10 progress 非法：pct 越界/小数拒绝；note 超长拒绝', async () => {
+    await expect(repos.goals.create({ title: 'x', progress: { pct: 101 } })).rejects.toThrow(ValidationError)
+    await expect(repos.goals.create({ title: 'x', progress: { pct: -1 } })).rejects.toThrow(ValidationError)
+    await expect(repos.goals.create({ title: 'x', progress: { pct: 1.5 } })).rejects.toThrow(ValidationError)
+    await expect(repos.goals.create({ title: 'x', progress: { note: 'x'.repeat(201) } })).rejects.toThrow(ValidationError)
+    const g = await repos.goals.create({ title: 'x' })
+    await expect(repos.goals.update(g.id, { progress: { note: 'x'.repeat(201) } })).rejects.toThrow(ValidationError)
+    await expect(repos.goals.update(g.id, { progress: { pct: 101 } })).rejects.toThrow(ValidationError)
+  })
+
   it('setDone：目标整体完成/取消完成（v7.9 补）', async () => {
     const g = await repos.goals.create({ title: '复习考公' })
     expect(g.done).toBe(false)
@@ -379,6 +413,38 @@ describe('subtasks', () => {
     await expect(repos.subtasks.create({ goalId: g.id, title: 'x', desc: 'x'.repeat(501) })).rejects.toThrow(ValidationError)
     const st = await repos.subtasks.create({ goalId: g.id, title: 'x' })
     await expect(repos.subtasks.update(st.id, { desc: 'x'.repeat(501) })).rejects.toThrow(ValidationError)
+  })
+
+  it('v8.10 progress：create 可带进度（pct/note 可只填其一）；update 改/清空；缺省兼容', async () => {
+    const g = await repos.goals.create({ title: '目标' })
+    // 两者都填
+    const st = await repos.subtasks.create({ goalId: g.id, title: '子任务', progress: { pct: 40, note: '做到一半' } })
+    expect(st.progress).toEqual({ pct: 40, note: '做到一半' })
+    // 只填 note（覆盖旧 pct）
+    const st2 = await repos.subtasks.update(st.id, { progress: { note: '只差收尾' } })
+    expect(st2.progress).toEqual({ note: '只差收尾' })
+    expect('pct' in st2.progress!).toBe(false)
+    // 只填 pct
+    const st3 = await repos.subtasks.update(st.id, { progress: { pct: 90 } })
+    expect(st3.progress).toEqual({ pct: 90 })
+    expect('note' in st3.progress!).toBe(false)
+    // 显式传空对象 → 清空并删字段
+    const st4 = await repos.subtasks.update(st.id, { progress: {} })
+    expect(st4.progress).toBeUndefined()
+    expect('progress' in st4).toBe(false)
+    // 缺省创建 → 无 progress 字段
+    const plain = await repos.subtasks.create({ goalId: g.id, title: '无进度' })
+    expect('progress' in plain).toBe(false)
+  })
+
+  it('v8.10 progress 非法：pct 越界拒绝；note 超长拒绝', async () => {
+    const g = await repos.goals.create({ title: '目标' })
+    await expect(repos.subtasks.create({ goalId: g.id, title: 'x', progress: { pct: -1 } })).rejects.toThrow(ValidationError)
+    await expect(repos.subtasks.create({ goalId: g.id, title: 'x', progress: { pct: 101 } })).rejects.toThrow(ValidationError)
+    await expect(repos.subtasks.create({ goalId: g.id, title: 'x', progress: { note: 'x'.repeat(201) } })).rejects.toThrow(ValidationError)
+    const st = await repos.subtasks.create({ goalId: g.id, title: 'x' })
+    await expect(repos.subtasks.update(st.id, { progress: { note: 'x'.repeat(201) } })).rejects.toThrow(ValidationError)
+    await expect(repos.subtasks.update(st.id, { progress: { pct: 101 } })).rejects.toThrow(ValidationError)
   })
 
   it('byGoal：只返回该目标的活子任务（软删的不算）', async () => {

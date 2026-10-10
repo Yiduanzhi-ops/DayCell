@@ -91,15 +91,27 @@ export interface CategoryRecord extends CoreRecord {
 }
 
 /**
+ * v8.10 当前进度（用户拍板 C 形态：文本 + 百分比，可只填其一）。
+ * pct：0–100 整数，可空；note：进度描述（≤200 字），可空。
+ * 空对象 {} / 缺省 = 无进度（旧数据与旧备份天然兼容，无需升库版本）。
+ */
+export interface ProgressField {
+  pct?: number
+  note?: string
+}
+
+/**
  * v7.9 阶段性目标（用户拍板口径）：
- * 目标 = 一个阶段性的主题（如「复习考公」），自身只有标题与阐述；
- * 进度全部体现在其下的阶段（StageRecord）里。不做子阶段、不做每日打卡。
+ * 目标 = 一个阶段性的主题（如「复习考公」），自身有标题、阐述与当前进度；
+ * 进度体现在其下的阶段（StageRecord）与子任务（SubtaskRecord）里。不做子阶段、不做每日打卡。
  */
 export interface GoalRecord extends CoreRecord {
   type: 'goal'
   title: string
   /** 目标阐述 / 总结沉淀（可空；详情页顶部主展示区） */
   note: string
+  /** v8.10 目标层级当前进度（与阐述同级展示，独立手填，不自动聚合子任务/阶段） */
+  progress?: ProgressField
   /** 目标整体是否完成（v7.9 补：完成的目标沉底到「已完成」列表，可回看/取消）。
    *  旧记录/旧备份无此字段 → 读路径一律按 false 归一化（见 aggregate.goalSummaries / store.openGoal） */
   done: boolean
@@ -136,6 +148,8 @@ export interface SubtaskRecord extends CoreRecord {
   done: boolean
   /** v8.9 子任务具体内容（可选；空/缺省 = 无描述，旧数据天然兼容） */
   desc?: string
+  /** v8.10 子任务当前进度（与描述同级展示，描述在上、进度在下；独立手填） */
+  progress?: ProgressField
 }
 
 /**

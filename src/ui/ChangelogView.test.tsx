@@ -37,16 +37,16 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v8.9')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v8.10')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v8.9')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v8.10')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v8.9，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v8.10，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v8.9')
-    expect(screen.getByText('子任务支持「描述」：点描述区域（或「＋ 添加描述」）就地编辑，内容常驻显示在子任务标题下方（最多 500 字，多行），完成时随标题一起淡化')).toBeInTheDocument()
+    expect(vers[0].textContent).toBe('v8.10')
+    expect(screen.getByText('目标与子任务都支持「当前进度」（文本 + 百分比，可只填其一，独立手填）')).toBeInTheDocument()
   })
 
   it('历史版本（v8.2 同步、v7.9 目标、v7.5 菜单）要点存在', async () => {

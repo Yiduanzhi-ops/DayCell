@@ -12,7 +12,8 @@
  */
 import { useState } from 'react'
 import type { JSX, ReactNode } from 'react'
-import type { GoalRecord, StageInput, StageRecord, SubtaskRecord } from '@core'
+import { parsePct } from '@core'
+import type { GoalRecord, ProgressField, StageInput, StageRecord, SubtaskRecord } from '@core'
 import { useApp } from '@/app/context'
 import styles from './GoalsView.module.css'
 
@@ -361,11 +362,16 @@ function SubtaskRow({
 }): JSX.Element {
   const setSubtaskDone = useApp((s) => s.setSubtaskDone)
   const updateSubtask = useApp((s) => s.updateSubtask)
+  const showToast = useApp((s) => s.showToast)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(subtask.title)
   // v8.9：描述就地编辑（方案 A，常驻显示在标题下方）
   const [descEditing, setDescEditing] = useState(false)
   const [descDraft, setDescDraft] = useState(subtask.desc ?? '')
+  // v8.10：当前进度（C 形态：文本 + 百分比，描述在上、进度在下）
+  const [progEditing, setProgEditing] = useState(false)
+  const [progPctDraft, setProgPctDraft] = useState(subtask.progress?.pct !== undefined ? String(subtask.progress.pct) : '')
+  const [progNoteDraft, setProgNoteDraft] = useState(subtask.progress?.note ?? '')
 
   const save = async (): Promise<void> => {
     const t = draft.trim()
@@ -378,6 +384,20 @@ function SubtaskRow({
     const orig = subtask.desc ?? ''
     if (d !== orig) await updateSubtask(subtask.id, { desc: d })
     setDescEditing(false)
+  }
+
+  const saveProgress = async (): Promise<void> => {
+    const { p, err: e } = draftToProgress(progPctDraft, progNoteDraft)
+    if (e) {
+      showToast(e)
+      return
+    }
+    const origPct = subtask.progress?.pct
+    const origNote = subtask.progress?.note ?? ''
+    if ((p?.pct ?? undefined) !== origPct || (p?.note ?? '') !== origNote) {
+      await updateSubtask(subtask.id, { progress: p })
+    }
+    setProgEditing(false)
   }
 
   return (
@@ -453,6 +473,64 @@ function SubtaskRow({
             {subtask.desc || '＋ 添加描述'}
           </div>
         )}
+        {/* v8.10 当前进度：与描述同级，描述在上、进度在下（C 形态：文本 + 百分比） */}
+        {progEditing ? (
+          <div className={styles.subProgEdit}>
+            <input
+              className={styles.subPctInput}
+              type="text"
+              inputMode="numeric"
+              value={progPctDraft}
+              placeholder="0-100"
+              maxLength={3}
+              autoFocus
+              onChange={(e) => setProgPctDraft(e.target.value)}
+              onBlur={() => void saveProgress()}
+            />
+            <textarea
+              className={styles.subProgNoteInput}
+              value={progNoteDraft}
+              maxLength={200}
+              rows={2}
+              placeholder="进度描述"
+              onChange={(e) => setProgNoteDraft(e.target.value)}
+              onBlur={() => void saveProgress()}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setProgPctDraft(subtask.progress?.pct !== undefined ? String(subtask.progress.pct) : '')
+                  setProgNoteDraft(subtask.progress?.note ?? '')
+                  setProgEditing(false)
+                }
+              }}
+            />
+          </div>
+        ) : subtask.progress && (subtask.progress.pct !== undefined || subtask.progress.note) ? (
+          <div
+            className={styles.subProg}
+            title="点击编辑当前进度"
+            onClick={() => {
+              setProgPctDraft(subtask.progress?.pct !== undefined ? String(subtask.progress.pct) : '')
+              setProgNoteDraft(subtask.progress?.note ?? '')
+              setProgEditing(true)
+            }}
+          >
+            {subtask.progress.pct !== undefined && <span className={styles.subPct}>{subtask.progress.pct}%</span>}
+            {subtask.progress.pct !== undefined && subtask.progress.note && <span className={styles.subProgSep}> · </span>}
+            {subtask.progress.note && <span className={styles.subProgNote}>{subtask.progress.note}</span>}
+          </div>
+        ) : (
+          <div
+            className={[styles.subProg, styles.subProgEmpty].join(' ')}
+            title="点击编辑当前进度"
+            onClick={() => {
+              setProgPctDraft('')
+              setProgNoteDraft('')
+              setProgEditing(true)
+            }}
+          >
+            ＋ 添加进度
+          </div>
+        )}
       </div>
       <button
         className={styles.subDel}
@@ -470,6 +548,26 @@ function SubtaskRow({
 // 目标详情页：阐述为主展示，阶段列表在下方
 // ---------------------------------------------------------------------------
 
+/**
+ * v8.10 把草稿（pct 文本 + note 文本）解析为 ProgressField。
+ * pct 空 = 不填；非法 → 返回 { err }（调用方 toast 提示且不退出编辑）；
+ * note 空 = 忽略。都空 → 空对象 {}（repo 层语义 = 清空进度）。
+ */
+const draftToProgress = (pctTxt: string, noteTxt: string): { p?: ProgressField; err?: string } => {
+  const t = pctTxt.trim()
+  let pct: number | undefined
+  if (t) {
+    const r = parsePct(t)
+    if (!r.ok) return { err: r.message }
+    pct = r.value
+  }
+  const note = noteTxt.trim()
+  const p: ProgressField = {}
+  if (pct !== undefined) p.pct = pct
+  if (note) p.note = note
+  return { p }
+}
+
 function GoalDetail({
   goal,
   stages,
@@ -485,9 +583,14 @@ function GoalDetail({
   const setGoalDone = useApp((s) => s.setGoalDone)
   const deleteStage = useApp((s) => s.deleteStage)
   const deleteSubtask = useApp((s) => s.deleteSubtask)
+  const showToast = useApp((s) => s.showToast)
 
   const [noteEdit, setNoteEdit] = useState(false)
   const [noteDraft, setNoteDraft] = useState(goal.note)
+  // v8.10 目标层级当前进度（与阐述同级，阐述上、进度下，独立手填）
+  const [progEdit, setProgEdit] = useState(false)
+  const [progPctDraft, setProgPctDraft] = useState(goal.progress?.pct !== undefined ? String(goal.progress.pct) : '')
+  const [progNoteDraft, setProgNoteDraft] = useState(goal.progress?.note ?? '')
   const [stageSheet, setStageSheet] = useState<null | 'new' | StageRecord>(null)
   const [subtaskSheet, setSubtaskSheet] = useState(false)
   // v8.5 双视图：阶段（时间维度）| 子任务（执行维度），各自进度独立
@@ -496,6 +599,21 @@ function GoalDetail({
   const saveNote = async (): Promise<void> => {
     const ok = await updateGoal(goal.id, { note: noteDraft.trim() })
     if (ok) setNoteEdit(false)
+  }
+
+  const saveProg = async (): Promise<void> => {
+    const { p, err: e } = draftToProgress(progPctDraft, progNoteDraft)
+    if (e) {
+      showToast(e)
+      return
+    }
+    const origPct = goal.progress?.pct
+    const origNote = goal.progress?.note ?? ''
+    if ((p?.pct ?? undefined) !== origPct || (p?.note ?? '') !== origNote) {
+      const ok = await updateGoal(goal.id, { progress: p })
+      if (!ok) return
+    }
+    setProgEdit(false)
   }
 
   const removeGoal = (): void => {
@@ -562,6 +680,59 @@ function GoalDetail({
             <div className={styles.noteActions}>
               <button className={styles.btnGhost} onClick={() => setNoteEdit(false)}>取消</button>
               <button className={styles.btnPrimary} onClick={() => void saveNote()}>保存</button>
+            </div>
+          </div>
+        )}
+
+        {/* v8.10 目标层级当前进度：与阐述同级（阐述上、进度下），独立手填，不自动聚合 */}
+        <div className={styles.progTag}>
+          当前进度
+          {!progEdit && (
+            <button
+              onClick={() => {
+                setProgPctDraft(goal.progress?.pct !== undefined ? String(goal.progress.pct) : '')
+                setProgNoteDraft(goal.progress?.note ?? '')
+                setProgEdit(true)
+              }}
+            >
+              编辑
+            </button>
+          )}
+        </div>
+        {!progEdit ? (
+          goal.progress && (goal.progress.pct !== undefined || goal.progress.note) ? (
+            <p>
+              {goal.progress.pct !== undefined && <span className={styles.goalPct}>{goal.progress.pct}%</span>}
+              {goal.progress.pct !== undefined && goal.progress.note && <span className={styles.progSep}> · </span>}
+              {goal.progress.note}
+            </p>
+          ) : (
+            <p className={styles.noteEmpty}>还没有写当前进度。点「编辑」记录现在做到哪一步。</p>
+          )
+        ) : (
+          <div className={styles.progEdit}>
+            <div className={styles.progEditRow}>
+              <input
+                className={styles.progPctInput}
+                type="text"
+                inputMode="numeric"
+                value={progPctDraft}
+                placeholder="0-100"
+                maxLength={3}
+                onChange={(e) => setProgPctDraft(e.target.value)}
+              />
+              <span className={styles.progPctSuffix}>%</span>
+            </div>
+            <textarea
+              value={progNoteDraft}
+              maxLength={200}
+              rows={2}
+              placeholder="进度描述（可空）"
+              onChange={(e) => setProgNoteDraft(e.target.value)}
+            />
+            <div className={styles.noteActions}>
+              <button className={styles.btnGhost} onClick={() => setProgEdit(false)}>取消</button>
+              <button className={styles.btnPrimary} onClick={() => void saveProg()}>保存</button>
             </div>
           </div>
         )}

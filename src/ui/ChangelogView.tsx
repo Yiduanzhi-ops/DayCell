@@ -8,11 +8,20 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.9'
+const CURRENT_VERSION = 'v8.10'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.10',
+    date: '2026-10-10',
+    items: [
+      '目标与子任务都支持「当前进度」（文本 + 百分比，可只填其一，独立手填）',
+      '子任务：进度与描述同级，常驻显示在描述下方（点进度区域就地编辑，百分比 0–100，描述最多 200 字）',
+      '目标详情：进度与「目标阐述」同级展示（阐述在上、进度在下），点「编辑」填写',
+    ],
+  },
   {
     version: 'v8.9',
     date: '2026-10-10',

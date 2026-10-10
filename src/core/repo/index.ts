@@ -20,6 +20,7 @@ import type {
   HabitFreq,
   HabitRecord,
   NoteRecord,
+  ProgressField,
   SettingKey,
   StageRecord,
   SubtaskRecord,
@@ -44,6 +45,7 @@ import {
   parseStageTitle,
   parseSubtaskTitle,
   parseSubtaskDesc,
+  parseProgressNote,
   parseTodoText,
   type ParseResult,
 } from '../validate'
@@ -178,6 +180,8 @@ export interface CategoryRepo {
 export interface GoalInput {
   title: string
   note?: string
+  /** v8.10 目标层级当前进度（可空；空对象 = 无进度） */
+  progress?: ProgressField
 }
 
 export interface GoalRepo {
@@ -219,14 +223,16 @@ export interface SubtaskInput {
   title: string
   /** v8.9 可选：子任务具体内容（空/缺省 = 无描述） */
   desc?: string
+  /** v8.10 可选：子任务当前进度（空对象 = 无进度） */
+  progress?: ProgressField
 }
 
 export interface SubtaskRepo {
   byGoal(goalId: string): Promise<SubtaskRecord[]>
   /** 目标必须存在 */
   create(input: SubtaskInput): Promise<SubtaskRecord>
-  /** v8.9 起支持改标题与描述（字段轻，无日期备注） */
-  update(id: string, patch: { title?: string; desc?: string }): Promise<SubtaskRecord>
+  /** v8.9 起支持改标题与描述；v8.10 支持改当前进度（字段轻，无日期备注） */
+  update(id: string, patch: { title?: string; desc?: string; progress?: ProgressField | undefined }): Promise<SubtaskRecord>
   setDone(id: string, done: boolean): Promise<SubtaskRecord>
   softDelete(id: string): Promise<void>
 }
@@ -591,12 +597,15 @@ export function createRepos(deps: RepoDeps): Repos {
     async create(input) {
       const title = unwrap(parseGoalTitle(input.title))
       const note = unwrap(parseGoalNote(input.note ?? ''))
+      // v8.10 progress 可选：空对象/缺省不写入字段（旧数据兼容）
+      const progress = parseProgress(input.progress)
       const ts = now()
       return store.put<GoalRecord>('goals', {
         id: idGen.next(),
         type: 'goal',
         title,
         note,
+        ...(progress !== undefined ? { progress } : {}),
         done: false,
         createdAt: ts,
         updatedAt: ts,
@@ -609,6 +618,12 @@ export function createRepos(deps: RepoDeps): Repos {
       const next: GoalRecord = { ...rec }
       if (patch.title !== undefined) next.title = unwrap(parseGoalTitle(patch.title))
       if (patch.note !== undefined) next.note = unwrap(parseGoalNote(patch.note))
+      // v8.10 同 desc 模式：显式传 {progress: {}} / {progress: undefined} 表示清空；不传键保留
+      if ('progress' in patch) {
+        const p = parseProgress(patch.progress)
+        if (p === undefined) delete next.progress
+        else next.progress = p
+      }
       return store.put<GoalRecord>('goals', next)
     },
 
@@ -643,6 +658,23 @@ export function createRepos(deps: RepoDeps): Repos {
     if (!Number.isInteger(pct) || pct < 0 || pct > 100) {
       throw new ValidationError('BAD_VALUE', '进度必须是 0–100 的整数')
     }
+  }
+
+  /**
+   * v8.10 解析当前进度字段（goal / subtask 共用）。
+   * pct 非 undefined 时兜底校验（UI 已用 parsePct 预检）；note 可空（parseProgressNote）；
+   * 两者都空 → 返回 undefined（= 无进度，调用方删字段/不写入）。
+   */
+  const parseProgress = (p: ProgressField | undefined): { pct?: number; note?: string } | undefined => {
+    if (p === undefined) return undefined
+    let pct: number | undefined
+    if (p.pct !== undefined) {
+      assertPct(p.pct)
+      pct = p.pct
+    }
+    const note = unwrap(parseProgressNote(p.note ?? '')) || undefined
+    if (pct === undefined && note === undefined) return undefined
+    return { ...(pct !== undefined ? { pct } : {}), ...(note !== undefined ? { note } : {}) }
   }
 
   const stages: StageRepo = {
@@ -731,6 +763,8 @@ export function createRepos(deps: RepoDeps): Repos {
       const title = unwrap(parseSubtaskTitle(input.title))
       // v8.9 desc 可选：空/缺省不写入字段（旧数据兼容）
       const desc = input.desc === undefined ? undefined : unwrap(parseSubtaskDesc(input.desc)) || undefined
+      // v8.10 progress 可选：空对象/缺省不写入字段
+      const progress = parseProgress(input.progress)
       const ts = now()
       return store.put<SubtaskRecord>('subtasks', {
         id: idGen.next(),
@@ -739,6 +773,7 @@ export function createRepos(deps: RepoDeps): Repos {
         title,
         done: false,
         ...(desc !== undefined ? { desc } : {}),
+        ...(progress !== undefined ? { progress } : {}),
         createdAt: ts,
         updatedAt: ts,
         deleted: false,
@@ -755,6 +790,12 @@ export function createRepos(deps: RepoDeps): Repos {
         const desc = unwrap(parseSubtaskDesc(patch.desc ?? '')) || undefined
         if (desc === undefined) delete next.desc
         else next.desc = desc
+      }
+      // v8.10 同模式：显式传 {progress: {}} / {progress: undefined} 表示清空；不传键保留
+      if ('progress' in patch) {
+        const p = parseProgress(patch.progress)
+        if (p === undefined) delete next.progress
+        else next.progress = p
       }
       return store.put<SubtaskRecord>('subtasks', next)
     },

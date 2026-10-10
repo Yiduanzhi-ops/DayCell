@@ -39,6 +39,7 @@ import {
   type HabitFreq,
   type HabitRecord,
   type MonthSummary,
+  type ProgressField,
   type StageInput,
   type StageRecord,
   type SubtaskInput,
@@ -180,7 +181,7 @@ export interface AppState {
   openGoal(id: string): Promise<void>
   closeGoal(): void
   createGoal(title: string, note: string): Promise<boolean>
-  updateGoal(id: string, patch: { title?: string; note?: string }): Promise<boolean>
+  updateGoal(id: string, patch: { title?: string; note?: string; progress?: ProgressField | undefined }): Promise<boolean>
   /** 目标整体完成/取消完成（完成的目标沉底到「已完成」列表） */
   setGoalDone(id: string, done: boolean): Promise<boolean>
   /** 删目标（连带其全部阶段，repo 维护） */
@@ -193,7 +194,7 @@ export interface AppState {
   deleteStage(id: string): Promise<boolean>
   // ---- v8.5：子任务（阶段/子任务双视图） ----
   createSubtask(input: SubtaskInput): Promise<boolean>
-  updateSubtask(id: string, patch: { title?: string; desc?: string }): Promise<boolean>
+  updateSubtask(id: string, patch: { title?: string; desc?: string; progress?: ProgressField | undefined }): Promise<boolean>
   setSubtaskDone(id: string, done: boolean): Promise<boolean>
   deleteSubtask(id: string): Promise<boolean>
 

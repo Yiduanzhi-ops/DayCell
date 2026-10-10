@@ -48,6 +48,8 @@ export const LIMITS = {
   stageNote: 1000,
   subtaskTitle: 50,
   subtaskDesc: 500,
+  /** v8.10 当前进度描述（文本部分） */
+  progressNote: 200,
   habitName: 30,
   /** 99,999,999 元 = 9,999,999,900 分（PRD E7） */
   maxAmountCents: 9_999_999_900,
@@ -207,6 +209,15 @@ export function parsePct(raw: string | undefined | null): ParseResult<number | u
     return err('BAD_VALUE', '进度必须是 0–100 的整数')
   }
   return ok(n)
+}
+
+/** v8.10 当前进度描述（文本部分）**可以为空**——空串是合法值，多行保留；超长拒绝 */
+export function parseProgressNote(raw: string): ParseResult<string> {
+  const t = raw.replace(/\r\n?/g, '\n').trim()
+  if (t.length > LIMITS.progressNote) {
+    return err('TOO_LONG', `进度描述最多 ${LIMITS.progressNote} 字，当前 ${t.length} 字`)
+  }
+  return ok(t)
 }
 
 // ---------------------------------------------------------------------------

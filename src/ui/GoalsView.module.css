@@ -231,6 +231,129 @@
   cursor: pointer;
 }
 
+/* v8.10 目标层级「当前进度」：与目标阐述同级（阐述上、进度下） */
+.progTag {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line);
+  font-size: 11px;
+  color: var(--ink-3);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.progTag button {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.goalPct {
+  color: var(--accent);
+  font-weight: 700;
+}
+.progSep {
+  color: var(--ink-3);
+}
+.progEdit { margin-top: 4px; }
+.progEditRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.progPctInput {
+  width: 72px;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 14px;
+  background: var(--bg);
+  color: var(--ink);
+  outline: none;
+}
+.progPctInput:focus { border-color: var(--accent); }
+.progPctSuffix {
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.progEdit textarea {
+  width: 100%;
+  min-height: 64px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.7;
+  resize: vertical;
+  background: var(--bg);
+  outline: none;
+  color: var(--ink);
+}
+.progEdit textarea:focus { border-color: var(--accent); }
+
+/* v8.10 子任务「当前进度」：与描述同级，描述在上、进度在下 */
+.subProg {
+  font-size: 11px;
+  line-height: 1.5;
+  word-break: break-word;
+  cursor: text;
+  padding: 1px 0;
+  min-width: 0;
+}
+.subProgEmpty {
+  color: var(--ink-3);
+  opacity: 0.6;
+}
+.subPct {
+  color: var(--accent);
+  font-weight: 700;
+}
+.subProgSep {
+  color: var(--ink-3);
+}
+.subProgNote {
+  color: var(--ink-3);
+}
+.subProgEdit {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.subPctInput {
+  flex: none;
+  width: 56px;
+  min-width: 0;
+  box-sizing: border-box;
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 4px 6px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--ink-1);
+  outline: none;
+}
+.subProgNoteInput {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 4px 6px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--ink-1);
+  outline: none;
+  resize: vertical;
+}
+
 /* ---- 阶段列表 ---- */
 .stageTitle {
   margin-top: 22px;

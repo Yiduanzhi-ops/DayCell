@@ -7,6 +7,7 @@ import {
   parseAnniversaryTitle,
   parseCategoryName,
   parseSubtaskDesc,
+  parseProgressNote,
   parseDateKey,
   normalizeNumericInput,
   textLength,
@@ -209,6 +210,14 @@ describe('文本校验', () => {
     expect(val(parseSubtaskDesc('  具体做法：\n每天 30 分钟  '))).toBe('具体做法：\n每天 30 分钟')
     expect(val(parseSubtaskDesc('a'.repeat(LIMITS.subtaskDesc)))).toHaveLength(LIMITS.subtaskDesc)
     expect(code(parseSubtaskDesc('a'.repeat(LIMITS.subtaskDesc + 1)))).toBe('TOO_LONG')
+  })
+
+  it('当前进度描述 v8.10：空串合法；多行保留；超长拒绝（上限 200）', () => {
+    expect(val(parseProgressNote(''))).toBe('')
+    expect(val(parseProgressNote('   '))).toBe('')
+    expect(val(parseProgressNote('  已完成框架\n还剩细节  '))).toBe('已完成框架\n还剩细节')
+    expect(val(parseProgressNote('a'.repeat(LIMITS.progressNote)))).toHaveLength(LIMITS.progressNote)
+    expect(code(parseProgressNote('a'.repeat(LIMITS.progressNote + 1)))).toBe('TOO_LONG')
   })
 
   it('错误文案都是可直接展示的中文（UI 不得自行拼接）', () => {

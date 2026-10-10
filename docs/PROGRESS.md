@@ -1,8 +1,8 @@
 # DayCell 实施进度快照
 
 > **这份文件的用途**：让会话上下文可以安全丢弃。接手时先读这份，再按需读 PRD / CORE-API。
-> 最后更新：2026-10-10 · **v8.9 子任务描述**（见 §0x）；此前 v8.8 月视图纪念日徽章格内三行 + 花费展示彻底移除（§0w）；此前 v8.7 目标卡片子任务计数 + 详情默认子任务视图（§0v）；此前 v8.6 使用手册 + 分享图生成（§0t）、v8.5 目标详情双视图（§0s）、此前 v8.4 版本更新页 + 汉堡菜单按钮 + 周/月去支出（§0r）、v8.3 分享与手册页（§0q）、v8.2 Gitee 同步（§0p）、v8.1 坚果云同步（§0o）、v8.0 习惯模块（§0n）、v7.9 阶段性目标模块（§0m）、v7.8 logo 高清化重制（§0l）、v7.7 logo 上架（§0k）、v7.6 支出改造（§0j）、v7.5 菜单/备份/纪念日/夜间（§0i）、v7.4 录入手动化 + 月汇总条 + 旧「小格」logo（§0h）、v7.3 应用名 + 底部切换器（§0g）、v7.2 手机端录入打磨（§0f）、PWA 已接线 + dist 重建（§0e）、v7.1 月格三行 + 启动页（§0d）
-> 当前状态 **全绿**：`tsc -b` 0 错 / `eslint .` 0 错 / **647 测试通过**（24 文件）/ build 通过（PWA precache 16 entries / 1996.63 KiB，qrcode 独立懒加载 chunk）
+> 最后更新：2026-10-10 · **v8.10 目标/子任务当前进度**（见 §0y）；此前 v8.9 子任务描述（§0x）；此前 v8.8 月视图纪念日徽章格内三行 + 花费展示彻底移除（§0w）；此前 v8.7 目标卡片子任务计数 + 详情默认子任务视图（§0v）；此前 v8.6 使用手册 + 分享图生成（§0t）、v8.5 目标详情双视图（§0s）、此前 v8.4 版本更新页 + 汉堡菜单按钮 + 周/月去支出（§0r）、v8.3 分享与手册页（§0q）、v8.2 Gitee 同步（§0p）、v8.1 坚果云同步（§0o）、v8.0 习惯模块（§0n）、v7.9 阶段性目标模块（§0m）、v7.8 logo 高清化重制（§0l）、v7.7 logo 上架（§0k）、v7.6 支出改造（§0j）、v7.5 菜单/备份/纪念日/夜间（§0i）、v7.4 录入手动化 + 月汇总条 + 旧「小格」logo（§0h）、v7.3 应用名 + 底部切换器（§0g）、v7.2 手机端录入打磨（§0f）、PWA 已接线 + dist 重建（§0e）、v7.1 月格三行 + 启动页（§0d）
+> 当前状态 **全绿**：`tsc -b` 0 错 / `eslint .` 0 错 / **654 测试通过**（24 文件）/ build 通过（PWA precache 16 entries，qrcode 独立懒加载 chunk）
 > **已 git 化**（分支 `main`）。core 层 **14/14 模块全部完成**（含 `backup/*`，v7.5 补齐；`sync/*`，v8.2 现行 Gitee 通道）。
 
 ---
@@ -55,6 +55,27 @@
 - **验证**：tsc / eslint 0 错；647 全绿；build 16 precache entries。
 
 **文档落点**：SPEC 头部链 v8.9；本节；PRD v2.8；README v8.9。
+
+---
+
+## 0y. ★ v8.10 目标/子任务「当前进度」（2026-10-10，用户指令）
+
+**需求**：用户先要求「在子目标下、和具体内容同一级别，加一个目前进度的文本框」，随后拍板 **C 形态**：进度 = **文本 + 百分比数字，可只填其一**；**子任务进度在描述下方**（描述在上、进度在下，同一级别）；**目标层级也加当前进度，与「目标阐述」同级**（阐述上、进度下），独立手填、不自动聚合阶段/子任务。
+
+**实现落点**：
+- **core 层**（`src/core/types.ts` / `validate.ts` / `repo/index.ts`）：
+  - 新类型 `ProgressField { pct?: number; note?: string }`（pct 0–100 整数可空；note ≤200 字可空；空对象/缺省 = 无进度，**旧数据与旧备份天然兼容、无需升库版本**）；`GoalRecord` 与 `SubtaskRecord` 各加可选字段 `progress?: ProgressField`（注释更新 v8.10）。
+  - `LIMITS.progressNote = 200`；新增 `parseProgressNote`（**可空**——空串合法、多行保留、超长拒绝 TOO_LONG 含实际字数）；pct 复用 `parsePct`。
+  - `GoalInput` / `SubtaskInput` 加 `progress?: ProgressField`；`SubtaskRepo.update` patch 扩展为 `{ title?; desc?; progress? }`。
+  - create：progress 缺省/空对象不写入字段；update：**用 `'progress' in patch` 判断**——显式传 `{ progress: {} }` / `{ progress: undefined }` 清空删字段，不传键保留原值（与 desc 同一模式）；新增内部辅助 `parseProgress`（pct 非 undefined 时 `assertPct` 兜底、note 走 `parseProgressNote`，两者皆空返回 undefined）。
+- **app 层**（`src/app/store.ts`）：`updateGoal` / `updateSubtask` patch 类型同步加 `progress?: ProgressField | undefined`（透传 repo，未加日志）。
+- **UI 层**（`src/ui/GoalsView.tsx` + `.module.css`）：
+  - **子任务行**：描述区下方新增进度区——无进度显示「＋ 添加进度」占位（淡化）；有进度常驻显示（百分比 accent 加粗 + 「 · 」+ 描述小字）；点击就地编辑（pct 数字输入 inputMode=numeric + 描述 textarea，失焦保存、Escape 取消还原）；pct 非法经 `draftToProgress` → `parsePct` 预检 → toast 文案不退出编辑。
+  - **目标详情**：`noteBox` 内「目标阐述」区块下方新增「当前进度」区块（虚线分隔，tag + 编辑按钮 + 空占位/展示/编辑态，含 pct 输入 + 描述 textarea + 取消/保存），与阐述同级（阐述上、进度下）。
+- **测试**：validate.test 新增 `parseProgressNote`（空串/多行/上限 200）；goals.test 新增 goal progress（create 可带/只填其一/update 覆盖/空对象清空/缺省兼容 + 越界/小数/超长拒绝）与 subtask progress（同模式 + 只填 note/pct 覆盖）4 项；GoalsView.test 新增子任务进度全链路（占位 → 就地编辑保存 → 常驻显示 → Escape 取消 → 清空回占位）与目标进度（与阐述同级、编辑保存、只填百分比）2 项 → **647 + 7 = 654 全绿**（24 文件）。
+- **验证**：tsc / eslint 0 错；654 全绿；build 通过。
+
+**文档落点**：SPEC 头部链 v8.10；本节；PRD v2.9；README v8.10。
 
 ---
 

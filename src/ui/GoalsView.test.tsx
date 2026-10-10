@@ -289,4 +289,98 @@ describe('目标模块（v7.9）', () => {
     })
     await waitFor(() => screen.getByText(/添加描述/))
   })
+
+  it('子任务当前进度 v8.10：无进度显占位 → 就地编辑（百分比+描述）→ 常驻显示在描述下方 → Escape 取消 → 清空回占位', async () => {
+    await renderApp()
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => screen.getByText(/进行中的目标/))
+
+    fireEvent.click(screen.getByRole('button', { name: '＋ 新建目标' }))
+    fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
+    await screen.findByText('复习考公')
+
+    fireEvent.click(screen.getByText('复习考公'))
+    await waitFor(() => screen.getByText(/还没有子任务/))
+    fireEvent.click(screen.getByRole('button', { name: '＋ 添加子任务' }))
+    fireEvent.change(screen.getByPlaceholderText('如：做完教案第 3 章'), { target: { value: '做题' } })
+    fireEvent.click(screen.getByRole('button', { name: '添加' }))
+    await waitFor(() => screen.getByText('做题'))
+
+    // 无进度 → 显示占位
+    expect(screen.getByText('＋ 添加进度')).toBeInTheDocument()
+
+    // 点占位 → 编辑态：pct 输入 + 描述 textarea → blur textarea 保存
+    fireEvent.click(screen.getByText('＋ 添加进度'))
+    const pct = screen.getByPlaceholderText('0-100')
+    const note = screen.getByPlaceholderText('进度描述')
+    fireEvent.change(pct, { target: { value: '40' } })
+    fireEvent.change(note, { target: { value: '做到一半' } })
+    await act(async () => {
+      fireEvent.blur(note)
+    })
+    await waitFor(() => screen.getByText('40%'))
+    expect(screen.getByText('做到一半')).toBeInTheDocument()
+    // 标题仍在
+    expect(screen.getByText('做题')).toBeInTheDocument()
+
+    // 再点进度 → 改内容 → Escape 取消不保存
+    fireEvent.click(screen.getByText('做到一半'))
+    const pct2 = screen.getByPlaceholderText('0-100')
+    const note2 = screen.getByPlaceholderText('进度描述')
+    fireEvent.change(pct2, { target: { value: '90' } })
+    fireEvent.change(note2, { target: { value: '快完了' } })
+    fireEvent.keyDown(note2, { key: 'Escape' })
+    await waitFor(() => screen.getByText('40%'))
+    expect(screen.queryByText('快完了')).not.toBeInTheDocument()
+
+    // 清空 → 回到占位
+    fireEvent.click(screen.getByText('做到一半'))
+    const pct3 = screen.getByPlaceholderText('0-100')
+    const note3 = screen.getByPlaceholderText('进度描述')
+    fireEvent.change(pct3, { target: { value: '' } })
+    fireEvent.change(note3, { target: { value: '' } })
+    await act(async () => {
+      fireEvent.blur(note3)
+    })
+    await waitFor(() => screen.getByText('＋ 添加进度'))
+    expect(screen.queryByText('40%')).not.toBeInTheDocument()
+  })
+
+  it('目标当前进度 v8.10：详情页与阐述同级（阐述上、进度下）→ 编辑保存 → 只填百分比也可', async () => {
+    await renderApp()
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => screen.getByText(/进行中的目标/))
+
+    fireEvent.click(screen.getByRole('button', { name: '＋ 新建目标' }))
+    fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
+    await screen.findByText('复习考公')
+
+    fireEvent.click(screen.getByText('复习考公'))
+    // 阐述区块（空态）+ 当前进度区块（空态，与阐述同级）
+    await waitFor(() => screen.getByText(/还没有写阐述/))
+    expect(screen.getByText('当前进度')).toBeInTheDocument()
+    expect(screen.getByText(/还没有写当前进度/)).toBeInTheDocument()
+
+    // 点「编辑」（当前进度行的按钮）→ pct + note → 保存 → 显示在阐述下方
+    fireEvent.click(screen.getAllByRole('button', { name: '编辑' })[1])
+    const pct = screen.getByPlaceholderText('0-100')
+    const note = screen.getByPlaceholderText('进度描述（可空）')
+    fireEvent.change(pct, { target: { value: '60' } })
+    fireEvent.change(note, { target: { value: '已完成框架' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => screen.getByText('60%'))
+    expect(screen.getByText('已完成框架')).toBeInTheDocument()
+
+    // 只填百分比（note 可空）：再编辑只改 pct
+    fireEvent.click(screen.getAllByRole('button', { name: '编辑' })[1])
+    const pct2 = screen.getByPlaceholderText('0-100')
+    const note2 = screen.getByPlaceholderText('进度描述（可空）')
+    fireEvent.change(pct2, { target: { value: '80' } })
+    fireEvent.change(note2, { target: { value: '' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => screen.getByText('80%'))
+    expect(screen.queryByText('已完成框架')).not.toBeInTheDocument()
+  })
 })
