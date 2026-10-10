@@ -8,11 +8,18 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.18'
+const CURRENT_VERSION = 'v8.19'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.19',
+    date: '2026-10-10',
+    items: [
+      '修复滑动途中仍显示旧数据（手机端聚合延迟）：日缓存条目带数据版本，写操作/同步后旧条目过期不显示，待重新聚合完成再展示，杜绝松手跳变',
+    ],
+  },
   {
     version: 'v8.18',
     date: '2026-10-10',

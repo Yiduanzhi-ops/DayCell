@@ -73,6 +73,12 @@ export interface ToastState {
   seq: number
 }
 
+/** v8.19：dayCache 条目 = 聚合结果 + 聚合时的数据版本（dataVer）。ver < 当前 dataVer 视为过期 */
+export interface DayCacheEntry {
+  detail: DayDetail
+  ver: number
+}
+
 export interface AppState {
   today: DateKey
   view: View
@@ -85,8 +91,12 @@ export interface AppState {
 
   detail: DayDetail | null
   /** v8.12 日视图滑动翻页：相邻日 detail 内存缓存（key=DateKey；滑动轨道三页同屏渲染的数据源）。
-   * 只存内存不持久化；selected 的条目由 refresh 权威写入，相邻条目由 prefetchDay 填充。 */
-  dayCache: ReadonlyMap<DateKey, DayDetail>
+   * 只存内存不持久化；selected 的条目由 refresh 权威写入，相邻条目由 prefetchDay 填充。
+   * v8.19：条目携带聚合时的 dataVer——任何写操作/同步后 dataVer 递增，旧条目 ver < dataVer 视为
+   * 过期，滑动途中不显示（显示骨架），等 prefetchDay 重新聚合后再显示，杜绝"途中旧数据、松手跳变"。 */
+  dayCache: ReadonlyMap<DateKey, DayCacheEntry>
+  /** v8.19 数据版本：写操作/同步成功后 +1，用于判定 dayCache 条目是否过期 */
+  dataVer: number
   week: { days: WeekDay[]; total: WeekTotal } | null
   month: { days: DayAggregate[]; summary: MonthSummary } | null
   cats: CategoryRecord[]
@@ -320,6 +330,7 @@ export function createAppStore(
 
     detail: null,
     dayCache: new Map(),
+    dataVer: 0,
     week: null,
     month: null,
     cats: [],
@@ -394,7 +405,7 @@ export function createAppStore(
         // v8.18：保留旧条目（相邻日由 prefetchDay 每次滑动重新聚合，永远最新；
         // 曾尝试"刷新清空只留 selected"，会抹掉并发 prefetch 结果 → 侧页闪骨架，已回退）。
         const cache = new Map(get().dayCache)
-        cache.set(selected, dayDetail)
+        cache.set(selected, { detail: dayDetail, ver: get().dataVer })
 
         const patch: Partial<AppState> = {
           detail: dayDetail,
@@ -472,7 +483,7 @@ export function createAppStore(
       // 本地聚合 ~20ms，touchstart/翻页时后台执行，滑动途中即就绪；每次滑动聚合 1~2 次无感。
       // 无清空竞态：refresh 只写 selected，prefetch 写相邻日，各自 key 互不覆盖。
       const d = await aggregates.aggregateDayDetail(k)
-      set({ dayCache: new Map(get().dayCache).set(k, d) })
+      set({ dayCache: new Map(get().dayCache).set(k, { detail: d, ver: get().dataVer }) })
     },
 
     selectFromCalendar(k, scrollTop = 0) {
@@ -585,6 +596,7 @@ export function createAppStore(
     async createTodo(text) {
       try {
         await repos.todos.create(get().selected, text)
+        set({ dataVer: get().dataVer + 1 })
         await get().refresh()
         get().showToast('已添加待办')
         return true // 表单保留并清空，方便连续录入（US-06）
@@ -597,6 +609,7 @@ export function createAppStore(
     async toggleTodo(id) {
       try {
         const t = await repos.todos.toggle(id)
+        set({ dataVer: get().dataVer + 1 })
         await get().refresh()
         if (t.done) get().showToast('完成了一件')
       } catch (e) {
@@ -607,6 +620,7 @@ export function createAppStore(
     async updateTodoText(id, text) {
       try {
         await repos.todos.setText(id, text)
+        set({ dataVer: get().dataVer + 1 })
         await get().refresh()
         get().showToast('已更新待办')
         return true
@@ -619,6 +633,7 @@ export function createAppStore(
     async deleteTodo(id) {
       try {
         await repos.todos.softDelete(id)
+        set({ dataVer: get().dataVer + 1 })
         await get().refresh()
         get().showToast('已删除')
       } catch (e) {
@@ -629,6 +644,7 @@ export function createAppStore(
     async createNote(text) {
       try {
         await repos.notes.create(get().selected, text)
+        set({ dataVer: get().dataVer + 1 })
         await get().refresh()
         get().showToast('已记下这个想法')
         return true
@@ -641,6 +657,7 @@ export function createAppStore(
     async updateNoteText(id, text) {
       try {
         await repos.notes.setText(id, text)
+        set({ dataVer: get().dataVer + 1 })
         await get().refresh()
         get().showToast('已更新想法')
         return true
@@ -653,6 +670,7 @@ export function createAppStore(
     async deleteNote(id) {
       try {
         await repos.notes.softDelete(id)
+        set({ dataVer: get().dataVer + 1 })
         await get().refresh()
         get().showToast('已删除')
       } catch (e) {
@@ -663,6 +681,7 @@ export function createAppStore(
     async createExpense(cents, catId, note) {
       try {
         const rec = await repos.expenses.create(get().selected, { amountCents: cents, catId, note })
+        set({ dataVer: get().dataVer + 1 })
         set({ lastCatId: catId }) // S5：下次默认选中同一分类
         await get().refresh()
         const name = get().cats.find((c) => c.id === catId)?.name ?? ''
@@ -677,6 +696,7 @@ export function createAppStore(
     async deleteExpense(id) {
       try {
         await repos.expenses.softDelete(id)
+        set({ dataVer: get().dataVer + 1 })
         await get().refresh()
         get().showToast('已删除这笔支出')
       } catch (e) {
@@ -689,6 +709,7 @@ export function createAppStore(
       const from = addDays(s.selected, -1)
       try {
         const r = await repos.todos.rollOver(from, s.selected)
+        set({ dataVer: get().dataVer + 1 })
         set({ rollDismissed: { ...s.rollDismissed, [s.selected]: true } })
         await get().refresh()
         get().showToast(r.moved.length > 0 ? `已顺延 ${r.moved.length} 件` : '没有可顺延的待办')
@@ -757,6 +778,7 @@ export function createAppStore(
         const stats = await mergeBackup(bundle.store, parsed)
         // 分类可能新增 → 清分类名缓存，避免显示旧名
         aggregates.invalidate()
+        set({ dataVer: get().dataVer + 1 })
         await get().refresh()
         const total =
           stats.added.todos + stats.added.notes + stats.added.expenses +
@@ -812,6 +834,7 @@ export function createAppStore(
     async createAnniversary(input) {
       try {
         await repos.anniversaries.create(input)
+        set({ dataVer: get().dataVer + 1 })
         await get().refresh()
         await get().refreshAnniv()
         get().showToast('已添加纪念日')
@@ -825,6 +848,7 @@ export function createAppStore(
     async updateAnniversary(id, patch) {
       try {
         await repos.anniversaries.update(id, patch)
+        set({ dataVer: get().dataVer + 1 })
         await get().refresh()
         await get().refreshAnniv()
         get().showToast('已更新纪念日')
@@ -838,6 +862,7 @@ export function createAppStore(
     async deleteAnniversary(id) {
       try {
         await repos.anniversaries.softDelete(id)
+        set({ dataVer: get().dataVer + 1 })
         await get().refresh()
         await get().refreshAnniv()
         get().showToast('已删除纪念日')
@@ -885,6 +910,7 @@ export function createAppStore(
     async createGoal(title, note) {
       try {
         await repos.goals.create({ title, note })
+        set({ dataVer: get().dataVer + 1 })
         await get().refreshGoals()
         get().showToast('已创建目标')
         return true
@@ -897,6 +923,7 @@ export function createAppStore(
     async updateGoal(id, patch) {
       try {
         const goal = await repos.goals.update(id, patch)
+        set({ dataVer: get().dataVer + 1 })
         set((s) => (s.goalDetail && s.goalDetail.goal.id === id ? { goalDetail: { ...s.goalDetail, goal } } : s))
         await get().refreshGoals()
         get().showToast('已更新目标')
@@ -910,6 +937,7 @@ export function createAppStore(
     async setGoalDone(id, done) {
       try {
         const goal = await repos.goals.setDone(id, done)
+        set({ dataVer: get().dataVer + 1 })
         set((s) => (s.goalDetail && s.goalDetail.goal.id === id ? { goalDetail: { ...s.goalDetail, goal } } : s))
         await get().refreshGoals()
         get().showToast(done ? '目标已完成' : '已恢复进行中')
@@ -923,6 +951,7 @@ export function createAppStore(
     async deleteGoal(id) {
       try {
         await repos.goals.softDelete(id)
+        set({ dataVer: get().dataVer + 1 })
         if (get().goalDetail?.goal.id === id) set({ goalDetail: null })
         await get().refreshGoals()
         get().showToast('已删除目标')
@@ -936,6 +965,7 @@ export function createAppStore(
     async createStage(input) {
       try {
         const stage = await repos.stages.create(input)
+        set({ dataVer: get().dataVer + 1 })
         set((s) =>
           s.goalDetail && s.goalDetail.goal.id === input.goalId
             ? { goalDetail: { ...s.goalDetail, stages: [...s.goalDetail.stages, stage] } }
@@ -953,6 +983,7 @@ export function createAppStore(
     async updateStage(id, patch) {
       try {
         const stage = await repos.stages.update(id, patch)
+        set({ dataVer: get().dataVer + 1 })
         set((s) =>
           s.goalDetail
             ? { goalDetail: { ...s.goalDetail, stages: s.goalDetail.stages.map((x) => (x.id === id ? stage : x)) } }
@@ -969,6 +1000,7 @@ export function createAppStore(
     async setCurrentStage(id) {
       try {
         const stage = await repos.stages.setCurrent(id)
+        set({ dataVer: get().dataVer + 1 })
         set((s) =>
           s.goalDetail
             ? {
@@ -993,6 +1025,7 @@ export function createAppStore(
     async setStageDone(id, done) {
       try {
         const stage = await repos.stages.setDone(id, done)
+        set({ dataVer: get().dataVer + 1 })
         set((s) =>
           s.goalDetail
             ? { goalDetail: { ...s.goalDetail, stages: s.goalDetail.stages.map((x) => (x.id === id ? stage : x)) } }
@@ -1009,6 +1042,7 @@ export function createAppStore(
     async deleteStage(id) {
       try {
         await repos.stages.softDelete(id)
+        set({ dataVer: get().dataVer + 1 })
         set((s) =>
           s.goalDetail
             ? { goalDetail: { ...s.goalDetail, stages: s.goalDetail.stages.filter((x) => x.id !== id) } }
@@ -1028,6 +1062,7 @@ export function createAppStore(
     async createSubtask(input) {
       try {
         const subtask = await repos.subtasks.create(input)
+        set({ dataVer: get().dataVer + 1 })
         set((s) =>
           s.goalDetail && s.goalDetail.goal.id === input.goalId
             ? { goalDetail: { ...s.goalDetail, subtasks: [...s.goalDetail.subtasks, subtask] } }
@@ -1045,6 +1080,7 @@ export function createAppStore(
     async updateSubtask(id, patch) {
       try {
         const subtask = await repos.subtasks.update(id, patch)
+        set({ dataVer: get().dataVer + 1 })
         set((s) =>
           s.goalDetail
             ? { goalDetail: { ...s.goalDetail, subtasks: s.goalDetail.subtasks.map((x) => (x.id === id ? subtask : x)) } }
@@ -1061,6 +1097,7 @@ export function createAppStore(
     async setSubtaskDone(id, done) {
       try {
         const subtask = await repos.subtasks.setDone(id, done)
+        set({ dataVer: get().dataVer + 1 })
         set((s) =>
           s.goalDetail
             ? { goalDetail: { ...s.goalDetail, subtasks: s.goalDetail.subtasks.map((x) => (x.id === id ? subtask : x)) } }
@@ -1077,6 +1114,7 @@ export function createAppStore(
     async deleteSubtask(id) {
       try {
         await repos.subtasks.softDelete(id)
+        set({ dataVer: get().dataVer + 1 })
         set((s) =>
           s.goalDetail
             ? { goalDetail: { ...s.goalDetail, subtasks: s.goalDetail.subtasks.filter((x) => x.id !== id) } }
@@ -1114,6 +1152,7 @@ export function createAppStore(
     async createHabit(input) {
       try {
         await repos.habits.create(input)
+        set({ dataVer: get().dataVer + 1 })
         await get().refreshHabits()
         await get().refresh()
         get().showToast('已新建习惯')
@@ -1127,6 +1166,7 @@ export function createAppStore(
     async updateHabit(id, patch) {
       try {
         await repos.habits.update(id, patch)
+        set({ dataVer: get().dataVer + 1 })
         await get().refreshHabits()
         await get().refresh()
         return true
@@ -1139,6 +1179,7 @@ export function createAppStore(
     async deleteHabit(id) {
       try {
         await repos.habits.softDelete(id)
+        set({ dataVer: get().dataVer + 1 })
         await get().refreshHabits()
         await get().refresh()
         get().showToast('已删除习惯')
@@ -1152,6 +1193,7 @@ export function createAppStore(
     async toggleHabit(date, habitId) {
       try {
         const done = await repos.checkins.toggle(date, habitId)
+        set({ dataVer: get().dataVer + 1 })
         await get().refresh()
         if (done) get().showToast('打卡成功')
       } catch (e) {
@@ -1190,6 +1232,7 @@ export function createAppStore(
       }
       try {
         await syncEngine.sync()
+        set({ dataVer: get().dataVer + 1 })
         get().showToast('同步完成')
         return true
       } catch (e) {

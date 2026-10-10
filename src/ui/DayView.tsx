@@ -243,10 +243,14 @@ export function DayView(): JSX.Element {
 /** 中间页：当前选中日的完整视图（可交互：待办勾选/编辑、想法、习惯、顺延横幅、空态）。
  *  数据源 = dayCache.get(selected)（滑动预取/refresh 写入，恒为 selected 当日的完整 detail）兜底 store.detail。
  *  v8.15：翻页落地重排瞬间 store.detail 仍是旧日期的（refresh 异步），直接用会标题/内容错位或闪骨架，
- *  缓存优先保证落地即显示目标日真实内容；refresh 完成后 cache.set(selected, 新 detail) 无缝接管。 */
+ *  缓存优先保证落地即显示目标日真实内容；refresh 完成后 cache.set(selected, 新 detail) 无缝接管。
+ *  v8.19：缓存条目携带 dataVer，过期（ver < dataVer，写操作/同步后）时兜底 store.detail（refresh 聚合的最新数据）。 */
 function DayFull(): JSX.Element {
   const selected = useApp((s) => s.selected)
-  const cached = useApp((s) => s.dayCache.get(selected))
+  const cached = useApp((s) => {
+    const e = s.dayCache.get(selected)
+    return e && e.ver >= s.dataVer ? e.detail : undefined
+  })
   const detail = useApp((s) => s.detail)
   const today = useApp((s) => s.today)
   const rollDismissed = useApp((s) => s.rollDismissed)
@@ -318,12 +322,15 @@ function DayFull(): JSX.Element {
   )
 }
 
-/** 两侧页：相邻日的只读摘要（滑动途中预览），无交互；数据未就绪显示轻骨架 */
 /** 两侧页：相邻日的只读摘要（滑动途中预览），无交互；数据未就绪显示轻骨架。
  *  v8.18：与落地内容对齐——待办/想法不再截断（全部显示，侧页可滚动）、
- *  补农历/纪念日副标题，途中看到的内容与松手后一致，减少"跳变"感。 */
+ *  补农历/纪念日副标题，途中看到的内容与松手后一致，减少"跳变"感。
+ *  v8.19：条目过期（ver < dataVer，写操作/同步后、新聚合未完成）时不显示旧数据，显示骨架。 */
 function DaySide({ date }: { date: DateKey }): JSX.Element {
-  const detail = useApp((s) => s.dayCache.get(date))
+  const detail = useApp((s) => {
+    const e = s.dayCache.get(date)
+    return e && e.ver >= s.dataVer ? e.detail : undefined
+  })
   const today = useApp((s) => s.today)
   const { y, m, d } = fromKey(date)
   const isToday = date === today

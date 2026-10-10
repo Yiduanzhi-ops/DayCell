@@ -160,31 +160,45 @@ describe('视图与日期不变量（US-09 / D17 / D19·v7）', () => {
     const spy = vi.spyOn(bundle.aggregates, 'aggregateDayDetail')
     // 首次：聚合并写入缓存
     await S(app).prefetchDay('2026-09-28' as DateKey)
-    expect(S(app).dayCache.get('2026-09-28' as DateKey)?.date).toBe('2026-09-28')
+    expect(S(app).dayCache.get('2026-09-28' as DateKey)?.detail.date).toBe('2026-09-28')
     // v8.18：再次调用仍然重新聚合（缓存可能陈旧 → 滑动侧页永远最新，无松手跳变）
     const calls = spy.mock.calls.length
     await S(app).prefetchDay('2026-09-28' as DateKey)
     expect(spy.mock.calls.length).toBeGreaterThan(calls)
     // selected 的条目由 refresh 写入（翻日后 dayCache 有目标日）
     S(app).shiftDay(1)
-    await waitFor(() => expect(S(app).dayCache.get('2026-09-30' as DateKey)?.date).toBe('2026-09-30'))
+    await waitFor(() => expect(S(app).dayCache.get('2026-09-30' as DateKey)?.detail.date).toBe('2026-09-30'))
   })
 
   it('v8.18 写操作后相邻日始终最新：写后 prefetch 重新聚合含新数据的条目（滑动侧页不跳变）', async () => {
     const { app } = await makeApp()
     // 先预取明天（此时为空）进缓存
     await S(app).prefetchDay('2026-09-30' as DateKey)
-    expect(S(app).dayCache.get('2026-09-30' as DateKey)?.summary.isEmpty).toBe(true)
+    expect(S(app).dayCache.get('2026-09-30' as DateKey)?.detail.summary.isEmpty).toBe(true)
     // 翻到明天写一条待办（refresh 权威写入 selected）
     S(app).shiftDay(1)
-    await waitFor(() => expect(S(app).dayCache.get('2026-09-30' as DateKey)?.date).toBe('2026-09-30'))
+    await waitFor(() => expect(S(app).dayCache.get('2026-09-30' as DateKey)?.detail.date).toBe('2026-09-30'))
     await S(app).createTodo('新任务')
     await waitFor(() => expect(S(app).detail?.summary.isEmpty).toBe(false))
     // 回到今天后，再 prefetch 明天 → 总是重新聚合 → 含新任务（不是旧缓存）
     S(app).shiftDay(-1)
     await waitFor(() => expect(S(app).selected).toBe('2026-09-29'))
     await S(app).prefetchDay('2026-09-30' as DateKey)
-    expect(S(app).dayCache.get('2026-09-30' as DateKey)?.summary.isEmpty).toBe(false)
+    expect(S(app).dayCache.get('2026-09-30' as DateKey)?.detail.summary.isEmpty).toBe(false)
+  })
+
+  it('v8.19 数据版本：写操作后旧缓存条目过期（ver < dataVer），重新聚合后恢复新鲜', async () => {
+    const { app } = await makeApp()
+    // 预取明天进缓存（ver = 当前 dataVer）
+    await S(app).prefetchDay('2026-09-30' as DateKey)
+    expect(S(app).dayCache.get('2026-09-30' as DateKey)?.ver).toBe(0)
+    // 写一条待办 → dataVer +1 → 旧条目过期
+    await S(app).createTodo('写操作')
+    expect(S(app).dataVer).toBeGreaterThan(0)
+    expect((S(app).dayCache.get('2026-09-30' as DateKey)?.ver ?? 0) < S(app).dataVer).toBe(true)
+    // 重新聚合后 ver 更新为最新 → 恢复新鲜
+    await S(app).prefetchDay('2026-09-30' as DateKey)
+    expect(S(app).dayCache.get('2026-09-30' as DateKey)?.ver).toBe(S(app).dataVer)
   })
 
   it('周视图翻页不丢当前视图', async () => {

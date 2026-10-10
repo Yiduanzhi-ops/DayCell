@@ -20,8 +20,12 @@ const hhmm = (ms: number): string => {
 
 export function NoteSection({ dayWord }: { dayWord: string }): JSX.Element {
   // v8.15：缓存优先（同 TodoSection：翻页落地瞬间 store.detail 仍是旧日期，直接用会错位闪旧）
+  // v8.19：缓存条目携带 dataVer，过期（ver < dataVer）时兜底 store.detail（最新聚合）。
   const selected = useApp((s) => s.selected)
-  const cached = useApp((s) => s.dayCache.get(selected))
+  const cached = useApp((s) => {
+    const e = s.dayCache.get(selected)
+    return e && e.ver >= s.dataVer ? e.detail : undefined
+  })
   const detail = useApp((s) => s.detail)
   const edit = useApp((s) => s.edit)
   const openForm = useApp((s) => s.openForm)
