@@ -24,9 +24,9 @@ Vite 产出的带 hash 的 JS / CSS / HTML / 图标全部进 precache manifest�
 ### 2. 更新策略：`autoUpdate` + 全量替换 precache
 
 - 新版本 SW 安装时立刻预缓存新资源，**不阻塞当前页面**
-- `skipWaiting: false`、`clientsClaim: false`——**不在运行中偷换资源**（PRD E20）
-- 所有页签关闭后新 SW 自然激活；旧 precache 条目被 Workbox 自动清理
-- 额外提供"有新版本，点击刷新"的可选提示（不强制）
+- **v8.19 起：`registerType: 'autoUpdate'`（skipWaiting + clientsClaim）**——新 SW 安装即激活，下次导航/刷新即用新版
+- **v7.1–v8.18 曾是 `prompt`（skipWaiting/clientsClaim 均 false，等所有页签关闭再激活）**，实测后果：PWA 常驻用户（主屏幕图标打开）的新 SW 永远处于 waiting，反复退出重进都拿不到新版，卡死在旧版本页。单人产品没有"提示用户刷新"的前端（v0 不做更新 UI），waiting 策略等于**发版无效**。故改为立即激活
+- 旧 precache 条目被 Workbox 自动清理（`cleanupOutdatedCaches`）
 
 ### 3. 运行时请求：v0 一律不缓存网络资源
 
@@ -36,7 +36,7 @@ Vite 产出的带 hash 的 JS / CSS / HTML / 图标全部进 precache manifest�
 
 ## 理由
 
-**为什么不用 `skipWaiting: true`（立即激活）**：这是白屏的经典来源。旧页面已经加载了 `app.abc123.js`，新 SW 立刻接管并清掉旧 precache，此时旧页面懒加载农历库（`lunar.def456.js`）就会 404。**"等所有页签关闭再激活"虽然让用户晚一点拿到新版，但绝不会把正在用的页面搞坏。**对一个记录类应用，晚一小时更新毫无损失。
+**为什么 v8.19 改为 `skipWaiting: true`（立即激活）**：原否决理由是白屏经典来源——旧页面已加载 `app.abc123.js`，新 SW 接管并清掉旧 precache 后，旧页面懒加载 `lunar.def456.js` 会 404。对 DayCell 此风险已降为 ≈0：唯一动态 chunk 是 lunar（ADR-0004），首屏日视图即显示农历、必然已加载，后续不再发起新的资源请求；且 DayCell 无 runtime caching，激活后旧页面不再请求任何 precache 资源。而"等页签关闭再激活"的代价被实测放大：PWA 常驻用户的 SW 永不退出 waiting → **新版永远到不了用户**，比极小概率的白屏窗口严重得多。故改立即激活（E20 豁免理由：激活不中断已加载页面，只影响后续导航）。
 
 **为什么 precache 而不是 runtime caching**： precache 在构建时就知道全部资源，命中率 100%，且 Workbox 自动管理生命周期。runtime caching 需要自己处理过期、版本、失败回退，对 v0 是纯负担。
 
@@ -59,7 +59,7 @@ Vite 产出的带 hash 的 JS / CSS / HTML / 图标全部进 precache manifest�
 - 发版不会打断正在使用的用户
 
 **负面**
-- **用户可能长时间跑旧版本**（只要不关页签）。缓解：提供"有新版本"提示；对单人使用的产品影响很小
+- **极窄窗口内旧页面懒加载可能 404**（见上，DayCell 实际 ≈0）。**缓解**：保持唯一动态 chunk lunar 首屏必加载；若将来新增懒加载 chunk，需重审此策略
 - 预缓存增加约 60 KB 的首次下载（但换来后续零网络）
 - SW 调试成本高。**缓解**：开发环境默认不注册 SW（`devOptions.enabled: false`），避免开发时缓存干扰
 

@@ -58,8 +58,9 @@ async function main(): Promise<void> {
   if (cfg) void syncEngine.pull().catch(() => {})
 
   // SW 注册放在首帧之后——注册与预缓存安装都不该占首屏关键路径（PRD §5.1）。
-  // 策略见 ADR-0002：新 SW 不 skipWaiting，所有页签关闭后自然激活；注册失败静默忽略
-  // （离线能力是增强，不是功能前提；E1 的存储降级横幅与此无关，照常工作）。
+  // 策略见 ADR-0002（v8.19 起 autoUpdate）：新 SW 安装即 skipWaiting 激活（由 vite-plugin-pwa
+  // 生成的 sw.js 自带），下次导航/刷新即用新版，PWA 常驻用户不再卡旧版；纯 precache 无
+  // runtime caching，激活不中断已加载页面。注册失败静默忽略（离线是增强，不是前提）。
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('/sw.js').catch(() => {})

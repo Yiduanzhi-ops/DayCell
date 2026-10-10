@@ -11,12 +11,14 @@ export default defineConfig({
     react(),
     // PWA（ADR-0002，v7.1 接线）：
     //  - 预缓存全部构建产物（JS/CSS/HTML/图标，含懒加载的 lunar chunk）→ 首访后完整离线（US-11）
-    //  - registerType 'prompt' = skipWaiting/clientsClaim 均 false：**不在运行中偷换资源**（E20），
-    //    所有页签关闭后新 SW 自然激活；"有新版本"提示 v0 不做 UI，留给 S1/S2 里程碑
+    //  - registerType 'autoUpdate'（v8.19 起）：新 SW 安装即 skipWaiting 激活（clientsClaim），
+    //    下次导航/刷新即用新版——此前 'prompt' 策略让新 SW 永远 waiting，PWA 常驻用户
+    //    （主屏幕图标打开）反复退出重进都收不到新版，实测卡在旧版本页；
+    //    DayCell 无 runtime caching、纯 precache，激活不会中断已加载页面，风险可控（E20 豁免）
     //  - 不注册任何 runtime caching：v0 运行时零网络请求（PRD §5.4），没有可缓存的东西
     //  - devOptions 保持关闭：开发时 SW 缓存只会干扰调试（ADR-0002 后果节）
     VitePWA({
-      registerType: 'prompt',
+      registerType: 'autoUpdate',
       // 注册由 src/main.tsx 手动做（挂载后、window load 时）——不让插件再往 HTML 注入
       // registerSW.js，否则同一个 sw.js 被注册两条路径，行为虽幂等但归属不清
       injectRegister: null,
@@ -25,7 +27,7 @@ export default defineConfig({
       manifest: {
         name: 'DayCell',
         short_name: 'DayCell', // v7.6 用户拍板：应用名统一 DayCell
-        description: '以「一天」为容器的记录本：待办、想法、花费。作者：以端枳。',
+        description: '以「一天」为容器的记录本：待办、习惯、目标、想法。作者：以端枳。',
         lang: 'zh-CN',
         start_url: '/DayCell/?source=pwa', // ADR-0002：标记启动来源，不做埋点上报（PRD §5.4）；前缀与 base 保持一致
         scope: '/DayCell/',
