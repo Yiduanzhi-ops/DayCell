@@ -77,40 +77,9 @@
 .dsub .fest { color: var(--accent); font-weight: 500; }
 .anniBadge { color: var(--accent); background: var(--accent-soft); padding: 2px 8px; border-radius: 5px; font-size: 11px; }
 
-/* 侧页摘要（滑动途中预览相邻日）——v8.20 起为**只读完整页**：与落地页内容逐区块一致
-   （顺延横幅 / 完整待办含已完成沉底 / 今日习惯 / 想法 / 空态），仅去掉交互元素 */
-.sideBlock {
-  background: var(--bg-subtle);
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  padding: 9px 11px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.sideTitle { font-size: 11px; color: var(--ink-3); font-weight: 600; }
-.sideItem {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  font-size: 12.5px;
-  color: var(--ink-2);
-  line-height: 1.45;
-}
-.sideText { flex: 1; min-width: 0; word-break: break-word; }
-.sideDot {
-  flex: 0 0 auto;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--ink-4);
-  margin-top: 6px;
-}
-.sideDotOn { background: var(--accent-strong); }
-.sideDone { color: var(--ink-3); }
-.sideDone .sideText { text-decoration: line-through; text-decoration-color: var(--ink-4); }
-.sideFreq { flex: 0 0 auto; font-size: 11px; color: var(--ink-4); margin-top: 1px; }
-.sideRolled { flex: 0 0 auto; font-size: 10.5px; color: var(--accent); margin-top: 2px; }
+/* v8.21：三页共用 DayFull 同一套样式（detail.module.css），不再有独立的"侧页样式"。
+   readonly 仅用于两侧页容器：禁交互（滑动途中不误触按钮），视觉与中间页完全一致 */
+.readonly { pointer-events: none; }
 
 /* 轻骨架：数据未就绪时占位（预取落地后自动填充） */
 .skels { display: flex; flex-direction: column; gap: 10px; }

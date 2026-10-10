@@ -11,7 +11,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from 'vitest'
 import '@testing-library/jest-dom/vitest'
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react'
 import { createMemoryStore, type DateKey } from '@core'
 import { initCore } from '@/app/bootstrap'
 import { createAppStore } from '@/app/store'
@@ -70,7 +70,7 @@ describe('App 冒烟', () => {
     expect(screen.queryByLabelText('新待办')).not.toBeInTheDocument() // 不再自动展开（v7.2）
     expect(screen.getByRole('tab', { name: '今天' })).toBeInTheDocument() // v7：切换器首标签
 
-    fireEvent.click(screen.getByRole('button', { name: '添加待办' }))
+    fireEvent.click(within(screen.getByTestId('day-center')).getByRole('button', { name: '添加待办' }))
     expect(screen.getByLabelText('新待办')).toBeInTheDocument()
   })
 
@@ -129,7 +129,7 @@ describe('App 冒烟', () => {
 
   it('点「添加待办」→ 敲字回车 → 待办出现在列表（单一录入入口全链路）', async () => {
     await renderApp()
-    fireEvent.click(screen.getByRole('button', { name: '添加待办' }))
+    fireEvent.click(within(screen.getByTestId('day-center')).getByRole('button', { name: '添加待办' }))
     const input = screen.getByLabelText('新待办')
     fireEvent.change(input, { target: { value: '买牛奶' } })
     fireEvent.keyDown(input, { key: 'Enter' })
@@ -140,7 +140,7 @@ describe('App 冒烟', () => {
 
   it('点已存待办的文字 → 就地编辑，回车保存（v7 / US-13）', async () => {
     await renderApp()
-    fireEvent.click(screen.getByRole('button', { name: '添加待办' }))
+    fireEvent.click(within(screen.getByTestId('day-center')).getByRole('button', { name: '添加待办' }))
     const input = screen.getByLabelText('新待办')
     fireEvent.change(input, { target: { value: '买牛奶' } })
     fireEvent.keyDown(input, { key: 'Enter' })
@@ -176,7 +176,7 @@ describe('App 冒烟', () => {
     // v8.0 起今天视图不再录入支出（记账走 iCost），改走 store action 造数，验证月格 v8.4 不再展示金额
     await store.getState().createExpense(12900, 'other', '午饭')
     await waitFor(() => expect(store.getState().detail?.summary.costCents).toBe(12900))
-    fireEvent.click(screen.getByRole('button', { name: '添加想法' }))
+    fireEvent.click(within(screen.getByTestId('day-center')).getByRole('button', { name: '添加想法' }))
     fireEvent.change(screen.getByLabelText('新想法'), { target: { value: '一个念头' } })
     fireEvent.click(screen.getAllByRole('button', { name: '保存' }).at(-1)!)
     await waitFor(() => expect(store.getState().detail?.notes).toHaveLength(1))
@@ -212,20 +212,20 @@ describe('App 冒烟', () => {
     expect(screen.queryByRole('button', { name: '记一笔支出' })).not.toBeInTheDocument()
     expect(screen.queryByText('支出')).not.toBeInTheDocument()
     // 待办/想法区块仍在
-    expect(screen.getByRole('button', { name: '添加待办' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '添加想法' })).toBeInTheDocument()
+    expect(within(screen.getByTestId('day-center')).getByRole('button', { name: '添加待办' })).toBeInTheDocument()
+    expect(within(screen.getByTestId('day-center')).getByRole('button', { name: '添加想法' })).toBeInTheDocument()
   })
 
   it('v7.6 已完成的待办自动沉底，未完成保持原序', async () => {
     await renderApp()
     // 先加「甲」，再加「乙」，再勾掉「甲」→ 顺序应变 乙、甲
-    fireEvent.click(screen.getByRole('button', { name: '添加待办' }))
+    fireEvent.click(within(screen.getByTestId('day-center')).getByRole('button', { name: '添加待办' }))
     let input = screen.getByLabelText('新待办')
     fireEvent.change(input, { target: { value: '甲' } })
     fireEvent.keyDown(input, { key: 'Enter' })
     await screen.findByText('甲')
 
-    fireEvent.click(screen.getByRole('button', { name: '添加待办' }))
+    fireEvent.click(within(screen.getByTestId('day-center')).getByRole('button', { name: '添加待办' }))
     input = screen.getByLabelText('新待办')
     fireEvent.change(input, { target: { value: '乙' } })
     fireEvent.keyDown(input, { key: 'Enter' })
@@ -279,7 +279,7 @@ describe('App 冒烟', () => {
     await renderApp()
 
     // 想法：添加 → 保存 → 表单消失
-    fireEvent.click(screen.getByRole('button', { name: '添加想法' }))
+    fireEvent.click(within(screen.getByTestId('day-center')).getByRole('button', { name: '添加想法' }))
     fireEvent.change(screen.getByLabelText('新想法'), { target: { value: '一个念头' } })
     fireEvent.click(screen.getAllByRole('button', { name: '保存' }).at(-1)!)
     await screen.findByText('一个念头')

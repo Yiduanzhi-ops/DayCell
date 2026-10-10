@@ -37,16 +37,16 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v8.20')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v8.21')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v8.20')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v8.21')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v8.20，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v8.21，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v8.20')
-    expect(screen.getByText('修复滑动途中看到的内容与松手落地不一致（跳变真根因）：侧页从「摘要版」改为「只读完整版」——顺延横幅、完整待办（已完成沉底）、今日习惯、想法、空态逐区块与落地页一致，仅去掉交互按钮')).toBeInTheDocument()
+    expect(vers[0].textContent).toBe('v8.21')
+    expect(screen.getByText('滑动跳变彻底根治：三页共用同一个 DayFull 组件、同一套样式渲染（去掉独立的「侧页样式」），滑动途中看到的样子 = 松手落地后的样子，只禁点击不改视觉')).toBeInTheDocument()
   })
 
   it('历史版本（v8.2 同步、v7.9 目标、v7.5 菜单）要点存在', async () => {

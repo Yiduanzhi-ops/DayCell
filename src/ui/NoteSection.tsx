@@ -7,6 +7,7 @@
 import { useRef, useState } from 'react'
 import type { JSX } from 'react'
 import type { NoteRecord } from '@core'
+import type { DateKey } from '@core'
 import { useApp } from '@/app/context'
 import { FormActs } from './forms'
 import styles from './detail.module.css'
@@ -18,16 +19,24 @@ const hhmm = (ms: number): string => {
   return `${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
-export function NoteSection({ dayWord }: { dayWord: string }): JSX.Element {
+/** 想法区块（M5 / US-02）：多行纯文本，不解析 Markdown（D6）。
+ *  v8.21：加 date prop——两侧页（滑动预览相邻日）传 date 渲染**静态完整版**：
+ *  不读全局 edit（不展开表单/就地编辑态），只读展示；中间页（date 缺省）保持交互。
+ *  ⌘/Ctrl+Enter 保存（多行场景里裸回车必须是换行），保存后表单保留并清空。
+ *  US-13（v7）：点正文就地编辑——裸回车换行、⌘/Ctrl+Enter 或「保存」按钮提交、Esc 取消，
+ *  失焦时「有改动即保存」。手机没有 ⌘ 键，所以编辑态也必须给可点的「保存」。 */
+export function NoteSection({ dayWord, date }: { dayWord: string; date?: DateKey }): JSX.Element {
   // v8.15：缓存优先（同 TodoSection：翻页落地瞬间 store.detail 仍是旧日期，直接用会错位闪旧）
-  // v8.19：缓存条目携带 dataVer，过期（ver < dataVer）时兜底 store.detail（最新聚合）。
+  // v8.19：缓存条目携带 dataVer，过期（ver < dataVer）时兜底 store.detail（最新聚合）；
+  // 侧页（有 date）无兜底——过期显示骨架，绝不显示旧数据。
   const selected = useApp((s) => s.selected)
+  const k = date ?? selected
   const cached = useApp((s) => {
-    const e = s.dayCache.get(selected)
+    const e = s.dayCache.get(k)
     return e && e.ver >= s.dataVer ? e.detail : undefined
   })
-  const detail = useApp((s) => s.detail)
-  const edit = useApp((s) => s.edit)
+  const detail = useApp((s) => (date ? undefined : s.detail))
+  const edit = useApp((s) => (date ? undefined : s.edit)) // 侧页不受全局表单态影响
   const openForm = useApp((s) => s.openForm)
   const deleteNote = useApp((s) => s.deleteNote)
 

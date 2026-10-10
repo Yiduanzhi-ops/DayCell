@@ -31,7 +31,7 @@ import type { DateKey } from '@core'
 import { useApp } from '@/app/context'
 import { TodoSection } from './TodoSection'
 import { NoteSection } from './NoteSection'
-import { HabitSection, freqLabel } from './HabitSection'
+import { HabitSection } from './HabitSection'
 import styles from './DayView.module.css'
 
 const DOW = ['日', '一', '二', '三', '四', '五', '六'] as const
@@ -225,14 +225,14 @@ export function DayView(): JSX.Element {
       )}
       <div className={styles.trackWrap}>
         <div className={styles.track} ref={trackRef} data-testid="day-scroll">
-          <div className={styles.tpage}>
-            <DaySide date={pages[0]} />
+          <div className={`${styles.tpage} ${styles.readonly}`}>
+            <DayFull date={pages[0]} />
           </div>
-          <div className={styles.tpage}>
+          <div className={styles.tpage} data-testid="day-center">
             <DayFull />
           </div>
-          <div className={styles.tpage}>
-            <DaySide date={pages[2]} />
+          <div className={`${styles.tpage} ${styles.readonly}`}>
+            <DayFull date={pages[2]} />
           </div>
         </div>
       </div>
@@ -240,23 +240,27 @@ export function DayView(): JSX.Element {
   )
 }
 
-/** 中间页：当前选中日的完整视图（可交互：待办勾选/编辑、想法、习惯、顺延横幅、空态）。
- *  数据源 = dayCache.get(selected)（滑动预取/refresh 写入，恒为 selected 当日的完整 detail）兜底 store.detail。
+/** 单日完整视图（v8.21 起三页共用）：中间页 = 当前选中日（可交互）；两侧页 = 相邻日（只读预览）。
+ *  数据源 = dayCache.get(k)（滑动预取/refresh 写入，恒为 k 当日的完整 detail）；无 date（中间页）时兜底 store.detail。
  *  v8.15：翻页落地重排瞬间 store.detail 仍是旧日期的（refresh 异步），直接用会标题/内容错位或闪骨架，
  *  缓存优先保证落地即显示目标日真实内容；refresh 完成后 cache.set(selected, 新 detail) 无缝接管。
- *  v8.19：缓存条目携带 dataVer，过期（ver < dataVer，写操作/同步后）时兜底 store.detail（refresh 聚合的最新数据）。 */
-function DayFull(): JSX.Element {
+ *  v8.19：缓存条目携带 dataVer，过期（ver < dataVer，写操作/同步后）时中间页兜底 store.detail（refresh 聚合的最新数据），
+ *  侧页（有 date）无兜底 → 显示骨架，绝不显示旧数据。
+ *  v8.21：三页用同一组件同一套样式渲染，途中看到的样子 = 松手落地后的样子（消除样式跳变）；
+ *  侧页容器加 readonly（pointer-events:none）只禁交互不改变视觉。 */
+function DayFull({ date }: { date?: DateKey } = {}): JSX.Element {
   const selected = useApp((s) => s.selected)
+  const k = date ?? selected
   const cached = useApp((s) => {
-    const e = s.dayCache.get(selected)
+    const e = s.dayCache.get(k)
     return e && e.ver >= s.dataVer ? e.detail : undefined
   })
-  const detail = useApp((s) => s.detail)
+  const detail = useApp((s) => (date ? undefined : s.detail)) // 侧页不做 selected 兜底
   const today = useApp((s) => s.today)
   const rollDismissed = useApp((s) => s.rollDismissed)
   const rollOver = useApp((s) => s.rollOver)
   const dismissRoll = useApp((s) => s.dismissRoll)
-  const edit = useApp((s) => s.edit)
+  const edit = useApp((s) => (date ? undefined : s.edit)) // 侧页不受全局表单态影响
 
   const effective = cached ?? detail
   if (!effective) {
@@ -267,11 +271,11 @@ function DayFull(): JSX.Element {
     )
   }
 
-  const { y, m, d } = fromKey(selected)
-  const isToday = selected === today
+  const { y, m, d } = fromKey(k)
+  const isToday = k === today
   const lunarText = lunarFullText(effective.lunar)
   const lunarEmphasis = !!(effective.lunar?.festival || effective.lunar?.solarTerm)
-  const showRoll = effective.prevDayRollable > 0 && !rollDismissed[selected]
+  const showRoll = effective.prevDayRollable > 0 && !rollDismissed[k]
   const dayWord = isToday ? '今天' : ''
 
   return (
@@ -279,7 +283,7 @@ function DayFull(): JSX.Element {
       <div className={styles.dhead}>
         <div className={styles.dtitle}>
           {y} 年 {m} 月 {d} 日
-          <span className={styles.dow}>周{DOW[dowOf(selected)]}</span>
+          <span className={styles.dow}>周{DOW[dowOf(k)]}</span>
           {isToday && <span className={styles.todayMark}>今天</span>}
         </div>
         {(lunarText || effective.anniversaries.length > 0) && (
@@ -304,9 +308,9 @@ function DayFull(): JSX.Element {
         </div>
       )}
 
-      <TodoSection dayWord={dayWord} />
-      <HabitSection />
-      <NoteSection dayWord={dayWord} />
+      <TodoSection dayWord={dayWord} date={date} />
+      <HabitSection date={date} />
+      <NoteSection dayWord={dayWord} date={date} />
 
       {effective.summary.isEmpty && !edit && (
         <div className={styles.empty}>
@@ -322,127 +326,3 @@ function DayFull(): JSX.Element {
   )
 }
 
-/** 两侧页：相邻日的**只读完整页**（滑动途中预览），与落地页（DayFull）内容完全一致——
- *  顺延横幅 / 完整待办（已完成沉底）/ 今日习惯 / 想法 / 空态逐区块对齐，交互元素去掉。
- *  v8.20：从"摘要版"改为"完整版"——此前侧页只显示未完成待办+想法摘要，
- *  途中看到的内容与松手落地不一致（落地多出顺延横幅/已完成沉底/习惯区块）= 跳变根因。 */
-function DaySide({ date }: { date: DateKey }): JSX.Element {
-  const detail = useApp((s) => {
-    const e = s.dayCache.get(date)
-    return e && e.ver >= s.dataVer ? e.detail : undefined
-  })
-  const today = useApp((s) => s.today)
-  const rollDismissed = useApp((s) => s.rollDismissed)
-  const { y, m, d } = fromKey(date)
-  const isToday = date === today
-  const dayWord = isToday ? '今天' : ''
-  const lunarText = detail ? lunarFullText(detail.lunar) : ''
-  const lunarEmphasis = !!(detail?.lunar?.festival || detail?.lunar?.solarTerm)
-  const showRoll = !!detail && detail.prevDayRollable > 0 && !rollDismissed[date]
-  const todos = detail?.todos ?? []
-  // 与落地页同一排序：未完成在前（原序），已完成沉底
-  const sorted = [...todos].sort((a, b) => Number(a.done) - Number(b.done))
-  const doneCount = sorted.filter((t) => t.done).length
-  const habits = detail?.habits ?? []
-
-  return (
-    <div className={styles.pageInner}>
-      <div className={styles.dhead}>
-        <div className={styles.dtitle}>
-          {y} 年 {m} 月 {d} 日
-          <span className={styles.dow}>周{DOW[dowOf(date)]}</span>
-          {isToday && <span className={styles.todayMark}>今天</span>}
-        </div>
-        {detail && (lunarText || detail.anniversaries.length > 0) && (
-          <div className={styles.dsub}>
-            {lunarText && <span className={lunarEmphasis ? styles.fest : undefined}>{lunarText}</span>}
-            {detail.anniversaries.map((a) => (
-              <span key={a.id} className={styles.anniBadge}>◷ {a.title}</span>
-            ))}
-          </div>
-        )}
-      </div>
-      {!detail ? (
-        <div className={styles.skels}><div className={styles.skel} /><div className={styles.skel} /><div className={styles.skel} /></div>
-      ) : (
-        <>
-          {showRoll && (
-            <div className={styles.roll} aria-hidden="true">
-              <span className={styles.rollText}>
-                前一天还有 <b>{detail.prevDayRollable}</b> 件没做完
-              </span>
-            </div>
-          )}
-          {/* 待办：完整（未完成在前 + 已完成沉底），只读 */}
-          <div className={styles.sideBlock}>
-            <div className={styles.sideTitle}>
-              待办{sorted.length > 0 ? ` ${doneCount}/${sorted.length}` : ''}
-            </div>
-            {sorted.length > 0 ? (
-              sorted.map((t) => (
-                <div key={t.id} className={`${styles.sideItem}${t.done ? ` ${styles.sideDone}` : ''}`}>
-                  <span className={t.done ? `${styles.sideDot} ${styles.sideDotOn}` : styles.sideDot} />
-                  <span className={styles.sideText}>{t.text}</span>
-                  {t.rolledTo && <span className={styles.sideRolled}>已顺延 →</span>}
-                  {t.rolledFrom && <span className={styles.sideRolled}>顺延自 {sideMd(t.rolledFrom)}</span>}
-                </div>
-              ))
-            ) : (
-              <div className={styles.sideItem}>{dayWord}还没有待办</div>
-            )}
-          </div>
-          {/* 今日习惯：只读（与落地页同口径：今天该做的） */}
-          {habits.length > 0 ? (
-            <div className={styles.sideBlock}>
-              <div className={styles.sideTitle}>
-                今日习惯 {habits.filter((h) => h.done).length}/{habits.length}
-              </div>
-              {habits.map((h) => (
-                <div key={h.id} className={`${styles.sideItem}${h.done ? ` ${styles.sideDone}` : ''}`}>
-                  <span className={h.done ? `${styles.sideDot} ${styles.sideDotOn}` : styles.sideDot} />
-                  <span className={styles.sideText}>{h.name}</span>
-                  <span className={styles.sideFreq}>{freqLabel(h.freq)}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className={styles.sideBlock}>
-              <div className={styles.sideTitle}>今日习惯 0/0</div>
-              <div className={styles.sideItem}>还没有习惯</div>
-            </div>
-          )}
-          {/* 想法：完整 */}
-          {detail.notes.length > 0 ? (
-            <div className={styles.sideBlock}>
-              <div className={styles.sideTitle}>想法</div>
-              {detail.notes.map((n) => (
-                <div key={n.id} className={styles.sideItem}>
-                  <span className={styles.sideDot} />
-                  <span className={styles.sideText}>{n.text}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className={styles.sideBlock}>
-              <div className={styles.sideTitle}>想法</div>
-              <div className={styles.sideItem}>{dayWord}没有记下想法</div>
-            </div>
-          )}
-          {detail.summary.isEmpty && (
-            <div className={styles.empty}>
-              <div className={styles.big}>○</div>
-              {isToday ? (
-                <>今天还什么都没有<br />点各区块右上角的「+ 添加」开始记录</>
-              ) : (
-                <>这一天还什么都没有<br />点各区块右上角的「+ 添加」补记</>
-              )}
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  )
-}
-
-/** 'YYYY-MM-DD' → 'M/D'（顺延来源标签用；与 TodoSection 内部同口径） */
-const sideMd = (k: string): string => `${Number(k.slice(5, 7))}/${Number(k.slice(8, 10))}`

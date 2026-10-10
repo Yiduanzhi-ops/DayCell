@@ -8,6 +8,7 @@
 import { useRef, useState } from 'react'
 import type { JSX } from 'react'
 import { todoProgress, type TodoRecord } from '@core'
+import type { DateKey } from '@core'
 import { useApp } from '@/app/context'
 import { Check } from './icons'
 import { FormActs } from './forms'
@@ -16,17 +17,23 @@ import styles from './detail.module.css'
 /** 'YYYY-MM-DD' → 'M/D'（顺延来源标签用） */
 const md = (k: string): string => `${Number(k.slice(5, 7))}/${Number(k.slice(8, 10))}`
 
-export function TodoSection({ dayWord }: { dayWord: string }): JSX.Element {
-  // v8.15：缓存优先（dayCache.get(selected) 恒为目标日完整 detail），兜底 store.detail——
+/** 待办区块（M4：CRUD + 勾选；US-04 顺延痕迹展示；US-13 点文字就地编辑，v7）。
+ *  v8.21：加 date prop——两侧页（滑动预览相邻日）传 date 渲染**静态完整版**：
+ *  不读全局 edit（不展开表单/就地编辑态），只读展示；中间页（date 缺省）保持交互。
+ *  表单保存后**收起**（v7.4：原"保留并清空连续录入"改为手动——用户拍板），Esc / 取消收起。 */
+export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey }): JSX.Element {
+  // v8.15：缓存优先（dayCache.get(k) 恒为目标日完整 detail），兜底 store.detail——
   // 翻页落地重排瞬间 store.detail 仍是旧日期（refresh 异步），直接读会内容错位闪旧。
-  // v8.19：缓存条目携带 dataVer，过期（ver < dataVer）时兜底 store.detail（最新聚合）。
+  // v8.19：缓存条目携带 dataVer，过期（ver < dataVer）时兜底 store.detail（最新聚合）；
+  // 侧页（有 date）无兜底——过期显示骨架，绝不显示旧数据。
   const selected = useApp((s) => s.selected)
+  const k = date ?? selected
   const cached = useApp((s) => {
-    const e = s.dayCache.get(selected)
+    const e = s.dayCache.get(k)
     return e && e.ver >= s.dataVer ? e.detail : undefined
   })
-  const detail = useApp((s) => s.detail)
-  const edit = useApp((s) => s.edit)
+  const detail = useApp((s) => (date ? undefined : s.detail))
+  const edit = useApp((s) => (date ? undefined : s.edit)) // 侧页不受全局表单态影响
   const openForm = useApp((s) => s.openForm)
   const toggleTodo = useApp((s) => s.toggleTodo)
   const deleteTodo = useApp((s) => s.deleteTodo)
