@@ -1,0 +1,32 @@
+/**
+ * 悬浮球样式：整窗深色底 + 圆角 logo 球，hover 轻微放大提示可点击。
+ * 窗口不透明（backgroundColor #101014），球底与窗口底色同色、圆角融合。
+ * 注意：不能加 -webkit-app-region: drag——drag 区域会吞掉点击事件，
+ * 球必须可点击展开。
+ */
+.ball {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: #101014;
+  cursor: pointer;
+}
+
+.logo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 14px; /* logo 是圆角方块，保持其圆角观感 */
+  transition: transform 0.15s ease;
+}
+
+.ball:hover .logo {
+  transform: scale(1.06);
+}
+
+.ball:active .logo {
+  transform: scale(0.96);
+}

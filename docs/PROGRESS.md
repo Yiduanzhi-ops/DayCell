@@ -245,6 +245,20 @@
 
 ---
 
+## 0ze. ★ macOS 桌面壳 v1.1.0 —— logo 悬浮球 + 手机同尺寸面板（2026-10-12，用户指令）
+
+**需求**：v1.0 细条太丑、面板全屏高太矮、太窄——①去掉细边条改 **logo 悬浮球**（贴右缘、点击展开）；②弹出窗口改**手机屏比例**（≈iPhone），不要全屏高；③悬浮球第一版**不做拖动**、去掉划过自动展开（避免与球打架）；实测后追加修复：球太小点多次、面板太小、窗口保持不住。
+
+**实现**（独立产物，手机端/Pages 零影响；`src/ui/BallView.tsx` 等前端组件网页端永不出现）：
+- **壳三态**：`M_BALL`（64pt logo 球贴主屏右缘居中、**置顶** `set_always_on_top(true)`，防被全屏窗盖住）/ `M_PANEL`（414×896pt 面板贴右缘居中）/ `M_WIDE`（820×900pt 宽窗）；`set_mode` invoke 命令（panel/wide/ball）；托盘「展开/收起面板、切换宽窗、开机自启、退出」；热键 `Cmd+Shift+D` 不变。
+- **悬浮球前端**：`BallGate.tsx` 仅 Tauri 且窗口 <90px 渲染 `BallView`（整窗 logo-hi.png，深色底 `#101014`），resize 自动切换；`pointerdown` 首击即展开（不用 `click`——未激活无边框窗口 macOS 首击只 focus 不派发 click，导致"必须点好几下"）；**不能加 `-webkit-app-region: drag`**（drag 区吞点击）。
+- **关键坑（均实测修复）**：①**尺寸单位**——`PhysicalSize/PANEL_W` 若直接传「逻辑 pt 值」，Retina @2x 下窗口只有目标一半（用户"窗口老小"根因）；monitor `size/position` 与 `set_size/set_position` 都收**物理像素**，`apply_mode` 统一 `×scale_factor` 换算（球 64pt→128px、面板 414×896pt→828×1792px）后才符合视觉预期；②**透明窗口点击不可靠**（v1.1 曾 `transparent:true`，CGEvent/AX 点击均无法命中）→ 改回不透明窗口 + 深色球底（`tauri.conf.json` 去 `transparent`、`backgroundColor:#101014`）；③**收回太灵敏**——移出立即收回用户觉得"窗口保持不住"→ **去掉自动收回**（面板默认保持，收起走热键/托盘），托盘"锁定面板"项随之删除。
+- **验证**：cargo check 0 警告；tsc/eslint 0 错；vitest 681 全绿（BallView 2 用例 pointerdown）；日志实证——启动球 `logic 64x64 scale=2`（128×128px @右缘居中）、点击 `set_mode panel` → `logic 414x896`（828×1792px @右缘居中）、无收回记录（面板保持）；截图确认 64pt 球可见 + 面板完整渲染 DayCell 手机界面（待办/习惯/想法/底部五 tab）。
+- **版本**：壳 1.1.0（Cargo.toml + tauri.conf.json，`macOSPrivateApi:true` + Cargo `macos-private-api` feature 配套），前端 v8.23 不变；产物 `DayCell.app` + `DayCell_1.1.0_aarch64.dmg`。
+- **文档落点**：本节；根 README 功能表 + Tauri 构建节；`src-tauri/README.md`（交互表重写为 v1.1）；PRD 修订行 v2.24。
+
+---
+
 ## 0zd. ★ macOS 桌面壳 v1.0.0 —— Tauri 侧边常驻（2026-10-12，用户指令）
 
 **需求**：电脑端随时可唤醒的 DayCell——「放屏幕侧边、Dock 那种划过边缘自动展开的手感」；要 Dock 式划过自动展开/移出自动收回，明确不要"点击才展开"。

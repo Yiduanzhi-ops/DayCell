@@ -25,12 +25,15 @@ import { SyncSettings } from './SyncSettings'
 import { ShareView } from './ShareView'
 import { ChangelogView } from './ChangelogView'
 import { OnboardingView } from './OnboardingView'
+import { BallGate } from './BallGate'
 import styles from './App.module.css'
 
 export function App({ store }: { store: StoreApi<AppState> }): JSX.Element {
   return (
     <AppStoreContext.Provider value={store}>
-      <Shell />
+      <BallGate>
+        <Shell />
+      </BallGate>
     </AppStoreContext.Provider>
   )
 }
