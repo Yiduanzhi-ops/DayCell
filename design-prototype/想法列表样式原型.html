@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230a84ff'/%3E%3Ccircle cx='50' cy='42' r='16' fill='white'/%3E%3Crect x='26' y='64' width='48' height='12' rx='6' fill='white' opacity='0.85'/%3E%3C/svg%3E">
+<title>想法列表条目样式 · 三方案对比</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: #1c1c1e; color: #111; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif; }
+  body { padding: 20px 12px 48px; }
+
+  .head { max-width: 560px; margin: 0 auto 18px; text-align: center; }
+  .head h1 { font-size: 18px; font-weight: 650; color: #f5f5f7; letter-spacing: .01em; }
+  .head p { font-size: 12.5px; color: #98989d; margin-top: 6px; }
+
+  .switcher { max-width: 560px; margin: 0 auto 20px; display: flex; gap: 8px; }
+  .switcher button {
+    flex: 1; height: 44px; border: 1px solid #48484a; border-radius: 12px;
+    background: #2c2c2e; color: #f5f5f7; font-size: 14.5px; font-weight: 600;
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .switcher button.on { background: #0a84ff; border-color: #0a84ff; color: #fff; }
+  .switcher button small { display: block; font-size: 10.5px; font-weight: 400; color: #98989d; margin-top: 1px; }
+  .switcher button.on small { color: rgba(255,255,255,.85); }
+
+  /* 手机屏 */
+  .stage { max-width: 560px; margin: 0 auto; }
+  .phone {
+    width: 375px; margin: 0 auto; border-radius: 24px; overflow: hidden;
+    box-shadow: 0 10px 34px rgba(0,0,0,.45);
+  }
+  .statusbar { height: 34px; background: inherit; }
+  .nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px 8px; }
+  .nav .title { font-size: 15.5px; font-weight: 650; }
+  .nav .tabs { display: flex; gap: 2px; }
+  .nav .tab { font-size: 11.5px; color: #8e8e93; padding: 6px 10px; border-radius: 8px; }
+  .nav .tab.cur { background: rgba(10,132,255,.12); color: #0a84ff; font-weight: 600; }
+  .scroll { height: 640px; overflow-y: auto; padding: 4px 14px 16px; -webkit-overflow-scrolling: touch; }
+
+  /* 共用条目骨架 */
+  .cnt { font-size: 11.5px; color: #8e8e93; padding: 8px 4px 2px; }
+  .row { display: block; width: 100%; text-align: left; background: transparent; border: none; font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .row .t1 { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .row .txt { flex: 1; min-width: 0; font-size: 13.5px; line-height: 1.5; color: #111; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .row .star { flex: 0 0 auto; font-size: 13px; line-height: 1.5; color: #c7c7cc; padding: 1px 2px; }
+  .row .star.on { color: #f5b301; }
+  .row .tm { display: block; text-align: right; font-size: 11px; color: #8e8e93; margin-top: 5px; }
+  .row:active { background: #f2f2f7; border-radius: 10px; }
+
+  .gtitle { display: flex; align-items: baseline; gap: 8px; padding: 16px 4px 8px; }
+  .gtitle .d { font-size: 14px; font-weight: 650; color: #111; }
+  .gtitle .s { font-size: 11.5px; color: #8e8e93; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gtitle .n { font-size: 11px; color: #c7c7cc; margin-left: auto; flex: 0 0 auto; }
+
+  /* 方案 A：行分隔列表（无边框，hairline 分隔） */
+  .pA .scroll { background: #fff; }
+  .pA .row { padding: 12px 4px; border-bottom: 1px solid #e5e5ea; border-radius: 0; }
+  .pA .row:last-of-type { border-bottom: none; }
+  .pA .row:active { background: #f7f7f9; }
+
+  /* 方案 B：留白列表（无边框无分隔） */
+  .pB .scroll { background: #fff; }
+  .pB .row { padding: 13px 6px; border-radius: 10px; margin-bottom: 2px; }
+  .pB .row:active { background: #f2f2f7; }
+  .pB .gtitle { padding: 20px 6px 10px; }
+
+  /* 方案 C：分组圆角容器（一组一框，组内 hairline） */
+  .pC .scroll { background: #f2f2f7; padding-top: 8px; }
+  .pC .cnt { padding-left: 6px; padding-right: 6px; }
+  .pC .gtitle { padding: 16px 6px 7px; }
+  .pC .gbox { background: #fff; border-radius: 12px; overflow: hidden; margin: 0 0 12px; }
+  .pC .gbox .row { padding: 12px 12px; border-bottom: 1px solid #e5e5ea; border-radius: 0; }
+  .pC .gbox .row:last-child { border-bottom: none; }
+  .pC .row:active { background: #f7f7f9; }
+  .pC .pin { margin-top: 2px; }
+
+  .note { max-width: 560px; margin: 16px auto 0; text-align: center; font-size: 12px; color: #98989d; line-height: 1.7; }
+  .note b { color: #d1d1d6; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>想法列表 · 条目样式三方案</h1>
+  <p>顶部切换方案对比；★ 可点（收藏置顶，无标题）；下方为日期分组</p>
+</div>
+
+<div class="switcher" id="switcher">
+  <button data-p="A" class="on">方案 A<small>行分隔列表</small></button>
+  <button data-p="B">方案 B<small>留白列表</small></button>
+  <button data-p="C">方案 C<small>分组圆角容器</small></button>
+</div>
+
+<div class="stage">
+  <div class="phone" id="phone"></div>
+</div>
+
+<p class="note" id="note"></p>
+
+<script>
+(function () {
+  'use strict'
+  var NOTES = [
+    { text: '跟导师确认了开题方向，先按语义分割方案走', time: '22:41', day: '9月28日', year: '2026 年 · 周一', lunar: '', pinned: true },
+    { text: '记一下：下周一体检，记得空腹', time: '08:12', day: '9月29日', year: '2026 年 · 周二', lunar: '', pinned: true },
+    { text: '下午把同步方案的时序图画完，标注合并冲突分支', time: '09:30', day: '9月29日', year: '2026 年 · 周二', lunar: '', pinned: false },
+    { text: '晚上跑步 5km，配速 6\u203220\u2032\u2032', time: '19:05', day: '9月29日', year: '2026 年 · 周二', lunar: '', pinned: false },
+    { text: '想法：目标模块的子任务视图可以加周复盘入口', time: '21:47', day: '9月29日', year: '2026 年 · 周二', lunar: '', pinned: false },
+    { text: '给 DayCell 的想法列表想了三种样式，明天出原型', time: '23:10', day: '9月28日', year: '2026 年 · 周一', lunar: '', pinned: false },
+    { text: '把每日花费的反思改为周/月维度，跟 iCost 对齐', time: '20:33', day: '9月28日', year: '2026 年 · 周一', lunar: '', pinned: false }
+  ]
+
+  var PLANS = {
+    A: { name: '方案 A', desc: '行分隔列表：去掉卡片框，条目占满整行，用一条浅色细线分隔。视觉最接近系统设置 / 聊天列表。' },
+    B: { name: '方案 B', desc: '留白列表：无边框、无分隔线，只靠间距分组，点击整行浅色反馈。最极简，边界感最弱。' },
+    C: { name: '方案 C', desc: '分组圆角容器：每个日期组是一个整体圆角容器（无独立边框），组内条目用细线分隔，组标题在容器上方。最精致，偏苹果风。' }
+  }
+
+  var cur = 'A'
+  var phone = document.getElementById('phone')
+  var note = document.getElementById('note')
+  var switcher = document.getElementById('switcher')
+
+  function render() {
+    var pins = NOTES.filter(function (n) { return n.pinned })
+    var rest = NOTES.filter(function (n) { return !n.pinned })
+    var groups = []
+    if (pins.length) groups.push({ day: '', year: '', lunar: '', items: pins, pinned: true })
+    rest.forEach(function (n) {
+      var g = groups[groups.length - 1]
+      if (!g.pinned && g.day === n.day) g.items.push(n)
+      else groups.push({ day: n.day, year: n.year, lunar: n.lunar, items: [n], pinned: false })
+    })
+
+    var html = '<div class="statusbar"></div>'
+    html += '<div class="nav"><span class="title">想法</span><span class="tabs"><span class="tab cur">列表</span><span class="tab">日历</span></span></div>'
+    html += '<div class="scroll">'
+    html += '<div class="cnt">共 ' + NOTES.length + ' 条想法</div>'
+    groups.forEach(function (g) {
+      if (!g.pinned) {
+        html += '<div class="gtitle"><span class="d">' + g.day + '</span><span class="s">' + g.year + (g.lunar ? ' · ' + g.lunar : '') + '</span><span class="n">' + g.items.length + ' 条</span></div>'
+      }
+      var box = cur === 'C' ? '<div class="gbox' + (g.pinned ? ' pin' : '') + '">' : ''
+      if (box) html += box
+      g.items.forEach(function (n) {
+        html += '<button class="row" data-id="' + NOTES.indexOf(n) + '" type="button">'
+        html += '<span class="t1"><span class="txt">' + n.text + '</span><span class="star' + (n.pinned ? ' on' : '') + '">' + (n.pinned ? '★' : '☆') + '</span></span>'
+        html += '<span class="tm">' + n.time + '</span></button>'
+      })
+      if (box) html += '</div>'
+    })
+    html += '</div></div>'
+    phone.innerHTML = html
+    phone.className = 'phone p' + cur
+    note.innerHTML = '<b>' + PLANS[cur].name + '</b> · ' + PLANS[cur].desc
+  }
+
+  switcher.addEventListener('click', function (e) {
+    var b = e.target.closest('button')
+    if (!b) return
+    cur = b.getAttribute('data-p')
+    Array.prototype.forEach.call(switcher.querySelectorAll('button'), function (x) { x.classList.remove('on') })
+    b.classList.add('on')
+    render()
+  })
+
+  phone.addEventListener('click', function (e) {
+    var star = e.target.closest('.star')
+    if (!star) return
+    var row = star.closest('.row')
+    var id = Number(row.getAttribute('data-id'))
+    NOTES[id].pinned = !NOTES[id].pinned
+    render()
+  })
+
+  render()
+})()
+</script>
+</body>
+</html>

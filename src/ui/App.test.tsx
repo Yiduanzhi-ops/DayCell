@@ -364,7 +364,7 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     expect(document.body.textContent).not.toContain('想法第 11 条')
   })
 
-  it('v8.29 想法列表按日期分组展示，收藏星标已下线', async () => {
+  it('v8.30 想法收藏：点星标收藏旧想法 → 置顶（无标题）；再点取消恢复时间序', async () => {
     const store = await renderApp()
     await store.getState().createNote('最新的念头')
     await store.getState().shiftDay(-1) // → 9/28
@@ -372,12 +372,25 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
 
     fireEvent.click(screen.getByRole('tab', { name: '想法' }))
     await waitFor(() => expect(document.body.textContent).toContain('共 2 条想法'))
-    // 按日期分组：两天各自成组
-    expect(document.body.textContent).toContain('9月28日')
-    expect(document.body.textContent).toContain('9月29日')
-    // 收藏星标已下线：没有「⭐ 收藏」分组、没有收藏按钮
+    // 收藏标题已去除：没有任何「⭐ 收藏」/「收藏」分组标题
     expect(document.body.textContent).not.toContain('⭐ 收藏')
-    expect(screen.queryByRole('button', { name: '收藏' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '取消收藏' })).not.toBeInTheDocument()
+    expect(screen.queryByText('收藏')).not.toBeInTheDocument()
+
+    // 点旧想法（时间倒序在下方）的星标按钮（收藏）→ 置顶
+    const stars = screen.getAllByRole('button', { name: '收藏' })
+    fireEvent.click(stars[stars.length - 1])
+    await waitFor(() => expect(screen.getByRole('button', { name: '取消收藏' })).toBeInTheDocument())
+    // 无标题置顶：收藏的旧想法排在最新想法之前
+    const pinnedIdx = document.body.textContent!.indexOf('想收藏的念头')
+    const latestIdx = document.body.textContent!.indexOf('最新的念头')
+    expect(pinnedIdx).toBeLessThan(latestIdx)
+
+    // 取消收藏（按钮 label 变为 取消收藏）→ 恢复时间倒序
+    fireEvent.click(screen.getByRole('button', { name: '取消收藏' }))
+    await waitFor(() => expect(document.body.textContent).toContain('最新的念头'))
+    expect(screen.getAllByRole('button', { name: '收藏' })).toHaveLength(2)
+    const latestIdx2 = document.body.textContent!.indexOf('最新的念头')
+    const pinnedIdx2 = document.body.textContent!.indexOf('想收藏的念头')
+    expect(pinnedIdx2).toBeGreaterThan(latestIdx2)
   })
 })

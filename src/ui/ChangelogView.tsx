@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.29'
+const CURRENT_VERSION = 'v8.30'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.30',
+    date: '2026-10-12',
+    items: [
+      '想法列表改「分组圆角容器」样式：每组一个圆角框、组内细线分隔，不再是独立卡片框',
+      '想法收藏恢复：星标按钮保留，收藏条目置顶展示且不再显示「收藏」标题',
+    ],
+  },
   {
     version: 'v8.29',
     date: '2026-10-12',

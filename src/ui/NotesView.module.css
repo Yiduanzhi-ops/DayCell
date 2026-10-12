@@ -8,18 +8,20 @@
   overflow: hidden;
 }
 
+/* v8.30 方案 C：分组圆角容器——列表底色浅灰（grouped），每组一个圆角白容器，组内细线分隔 */
 .list {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 8px 14px 12px;
+  padding: 4px 14px 14px;
+  background: var(--bg-subtle);
   -webkit-overflow-scrolling: touch;
 }
 
 .count {
   font-size: 11.5px;
   color: var(--ink-3);
-  padding: 6px 2px 2px;
+  padding: 8px 4px 4px;
 }
 
 /* ---- 空态 ---- */
@@ -41,12 +43,23 @@
   line-height: 1.6;
 }
 
-/* ---- 分组标题 ---- */
+/* ---- 分组容器（v8.30 方案 C：一组一框，组内 hairline 分隔） ---- */
+.gbox {
+  background: var(--bg);
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 0 0 14px;
+}
+.gboxPin {
+  margin-top: 2px;
+}
+
+/* ---- 分组标题（收藏组不渲染；日期组标题在容器上方） ---- */
 .groupTitle {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  padding: 14px 2px 7px;
+  padding: 16px 4px 8px;
 }
 .groupDate {
   font-size: 14px;
@@ -67,17 +80,20 @@
   flex: 0 0 auto;
 }
 
-/* ---- 想法条目 ---- */
+/* ---- 想法条目（组内行，hairline 分隔，无独立边框） ---- */
 .item {
   display: block;
   width: 100%;
   text-align: left;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 9px 12px;
-  margin-bottom: 8px;
-  background: var(--bg);
+  border: none;
+  border-bottom: 1px solid var(--line-2);
+  border-radius: 0;
+  padding: 12px;
+  background: transparent;
   color: var(--ink-1);
+}
+.item:last-child {
+  border-bottom: none;
 }
 .itemTop {
   display: flex;
@@ -103,6 +119,20 @@
   margin-top: 5px;
 }
 .item:active { background: var(--bg-hover); }
+
+/* v8.24 收藏星标（嵌在想法框内右上，低调小号）；v8.30 恢复——功能保留，仅标题去除 */
+.star {
+  flex: 0 0 auto;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-4);
+  padding: 1px 2px;
+  cursor: pointer;
+  user-select: none;
+}
+.starOn {
+  color: #f5b301;
+}
 
 /* ---- 分页 ---- */
 .pager {

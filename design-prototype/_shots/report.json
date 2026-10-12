@@ -1,0 +1,272 @@
+{
+  "src": "想法列表样式原型.html",
+  "url": "file:///home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/%E6%83%B3%E6%B3%95%E5%88%97%E8%A1%A8%E6%A0%B7%E5%BC%8F%E5%8E%9F%E5%9E%8B.html",
+  "outdir": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots",
+  "include": [
+    "lint",
+    "screenshots",
+    "structure"
+  ],
+  "shots": {
+    "mobile": {
+      "revealed": 0,
+      "eval": {
+        "executed": true,
+        "result": null
+      },
+      "screenshot": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots/想法列表样式原型_mobile.jpg",
+      "screenshotBytes": 51327,
+      "truncated": false,
+      "structure": {
+        "title": "想法列表条目样式 · 三方案对比",
+        "firstH1": "想法列表 · 条目样式三方案",
+        "viewport": {
+          "w": 390,
+          "h": 844
+        },
+        "fullpage": {
+          "w": 390,
+          "h": 997
+        },
+        "counts": {
+          "section": 0,
+          "h1": 1,
+          "h2": 0,
+          "img": 0,
+          "canvas": 0,
+          "svg": 0,
+          "links": 0,
+          "buttons": 10
+        }
+      },
+      "consoleErrors": [],
+      "consoleWarnings": [],
+      "horizontalOverflow": [],
+      "resourceErrors": [],
+      "slopFontsWarning": [
+        {
+          "family": "arial",
+          "elementCount": 3,
+          "sampleText": "方案 A行分隔列表"
+        }
+      ],
+      "slopFontsHint": "warning · 含义：页面使用了 skill 明确禁的 slop 高发字体（Inter / Roboto / Arial / Fraunces / Playfair）。elementCount 是命中该字体的元素数（不含 fallback），sampleText 是首个样例文字。 | 修法：换成主题相关的字体族（衬线/无衬线/等宽视调性而定），走自托管镜像 miaoda.feishu.cn/fonts/css2。 | 豁免：(1) **用户品牌指定使用**——例如客户 CI 明确要求 Inter/Roboto，写在 brief 里可忽略；(2) **系统字体 fallback 命中**——虽然本规则只取 fontFamily 首选族，但如果这个族本身写的是 \"Arial\"、可能只是保守 fallback；如果同一元素明显还挂了自定义字体但 fallback 落到 Arial（例如自定义字体 404 了），修的其实是字体加载而非字体选型；(3) 极简项目本就要 \"grotesque + 中性感\"，且用户未指定——罕见但存在，看截图和 design plan 确认后可豁免。",
+      "emojiUsageWarning": [
+        {
+          "tag": "p",
+          "chars": "★",
+          "contextText": "顶部切换方案对比；★ 可点（收藏置顶，无标题）；下方为日期分组"
+        },
+        {
+          "tag": "span",
+          "chars": "★",
+          "contextText": "★"
+        },
+        {
+          "tag": "span",
+          "chars": "★",
+          "contextText": "★"
+        },
+        {
+          "tag": "span",
+          "chars": "☆",
+          "contextText": "☆"
+        },
+        {
+          "tag": "span",
+          "chars": "☆",
+          "contextText": "☆"
+        },
+        {
+          "tag": "span",
+          "chars": "☆",
+          "contextText": "☆"
+        },
+        {
+          "tag": "span",
+          "chars": "☆",
+          "contextText": "☆"
+        },
+        {
+          "tag": "span",
+          "chars": "☆",
+          "contextText": "☆"
+        }
+      ],
+      "emojiUsageHint": "warning · 含义：页面正文里检出 emoji 字符（U+1F300–U+1FAFF 或 U+2600–U+27BF 平面）。SKILL.md 视觉设计段明确禁用 emoji——不作图标、不作装饰、不放进数据。 | 修法：换成内联 SVG 图标（<svg viewBox=\"0 0 24 24\">）建立风格连贯的图标语言。 | 豁免：(1) **用户品牌资产明确包含 emoji**（罕见，但如即时通讯、社交媒体主题的产物合理）；(2) 主题本身就是关于 emoji 的（emoji 历史 / 表情包研究 / Unicode 演进）；(3) 引用某条真实文本原文（如推文截图的文字版），emoji 是内容而非装饰——保留原文可接受，但仍应权衡；(4) 装饰性 dingbat（如 U+2713 勾选符 ✓、U+2192 箭头 →、U+2605 星 ★）落入 U+2600–U+27BF 平面被误报的，如确认是符号非 emoji 可忽略。"
+    }
+  },
+  "engine": "playwright",
+  "chromiumExec": "/opt/vm/preinstall/ms-playwright/chromium-1169/chrome-linux/chrome",
+  "elapsedSec": 3.01,
+  "schemaVersion": 2,
+  "status": "warning",
+  "engineInfo": {
+    "name": "playwright",
+    "degraded": false,
+    "degradedReasons": []
+  },
+  "input": {
+    "original": "想法列表样式原型.html",
+    "resolvedPath": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/想法列表样式原型.html",
+    "baseUrl": "file:///home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/%E6%83%B3%E6%B3%95%E5%88%97%E8%A1%A8%E6%A0%B7%E5%BC%8F%E5%8E%9F%E5%9E%8B.html",
+    "protocol": "file",
+    "cwd": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype",
+    "mediaMode": {
+      "reducedMotion": true
+    }
+  },
+  "artifacts": {
+    "screenshots": [
+      {
+        "viewport": "mobile",
+        "path": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots/想法列表样式原型_mobile.jpg",
+        "size": 51327,
+        "visualCoverage": {
+          "complete": true,
+          "reason": null
+        }
+      }
+    ]
+  },
+  "summary": {
+    "blocker": 0,
+    "error": 0,
+    "warning": 9,
+    "info": 0
+  },
+  "findings": [
+    {
+      "ruleId": "slopFontsWarning",
+      "severity": "warning",
+      "kind": "typography",
+      "viewport": "mobile",
+      "selector": null,
+      "evidence": {
+        "family": "arial",
+        "elementCount": 3,
+        "sampleText": "方案 A行分隔列表"
+      },
+      "dedupeKey": "slopFontsWarning|mobile||0"
+    },
+    {
+      "ruleId": "emojiUsageWarning",
+      "severity": "warning",
+      "kind": "typography",
+      "viewport": "mobile",
+      "selector": "p",
+      "evidence": {
+        "tag": "p",
+        "chars": "★",
+        "contextText": "顶部切换方案对比；★ 可点（收藏置顶，无标题）；下方为日期分组"
+      },
+      "dedupeKey": "emojiUsageWarning|mobile|p|0"
+    },
+    {
+      "ruleId": "emojiUsageWarning",
+      "severity": "warning",
+      "kind": "typography",
+      "viewport": "mobile",
+      "selector": "span",
+      "evidence": {
+        "tag": "span",
+        "chars": "★",
+        "contextText": "★"
+      },
+      "dedupeKey": "emojiUsageWarning|mobile|span|1"
+    },
+    {
+      "ruleId": "emojiUsageWarning",
+      "severity": "warning",
+      "kind": "typography",
+      "viewport": "mobile",
+      "selector": "span",
+      "evidence": {
+        "tag": "span",
+        "chars": "★",
+        "contextText": "★"
+      },
+      "dedupeKey": "emojiUsageWarning|mobile|span|2"
+    },
+    {
+      "ruleId": "emojiUsageWarning",
+      "severity": "warning",
+      "kind": "typography",
+      "viewport": "mobile",
+      "selector": "span",
+      "evidence": {
+        "tag": "span",
+        "chars": "☆",
+        "contextText": "☆"
+      },
+      "dedupeKey": "emojiUsageWarning|mobile|span|3"
+    },
+    {
+      "ruleId": "emojiUsageWarning",
+      "severity": "warning",
+      "kind": "typography",
+      "viewport": "mobile",
+      "selector": "span",
+      "evidence": {
+        "tag": "span",
+        "chars": "☆",
+        "contextText": "☆"
+      },
+      "dedupeKey": "emojiUsageWarning|mobile|span|4"
+    },
+    {
+      "ruleId": "emojiUsageWarning",
+      "severity": "warning",
+      "kind": "typography",
+      "viewport": "mobile",
+      "selector": "span",
+      "evidence": {
+        "tag": "span",
+        "chars": "☆",
+        "contextText": "☆"
+      },
+      "dedupeKey": "emojiUsageWarning|mobile|span|5"
+    },
+    {
+      "ruleId": "emojiUsageWarning",
+      "severity": "warning",
+      "kind": "typography",
+      "viewport": "mobile",
+      "selector": "span",
+      "evidence": {
+        "tag": "span",
+        "chars": "☆",
+        "contextText": "☆"
+      },
+      "dedupeKey": "emojiUsageWarning|mobile|span|6"
+    },
+    {
+      "ruleId": "emojiUsageWarning",
+      "severity": "warning",
+      "kind": "typography",
+      "viewport": "mobile",
+      "selector": "span",
+      "evidence": {
+        "tag": "span",
+        "chars": "☆",
+        "contextText": "☆"
+      },
+      "dedupeKey": "emojiUsageWarning|mobile|span|7"
+    }
+  ],
+  "prioritizedActions": [
+    {
+      "ruleId": "slopFontsWarning",
+      "severity": "warning",
+      "viewport": "mobile",
+      "selector": null
+    },
+    {
+      "ruleId": "emojiUsageWarning",
+      "severity": "warning",
+      "viewport": "mobile",
+      "selector": "p"
+    }
+  ],
+  "reportPath": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots/report.json"
+}
