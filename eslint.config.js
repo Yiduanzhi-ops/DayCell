@@ -35,7 +35,7 @@ const domGlobal = (name, extra = '') => ({
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'prototype/**', 'dev-dist/**', '*.cjs', 'scripts/**'],
+    ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'prototype/**', 'dev-dist/**', '*.cjs', 'scripts/**', 'src-tauri/**'],
   },
 
   // ---------- 基础 ----------

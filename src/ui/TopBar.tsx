@@ -76,7 +76,8 @@ export function TopBar(): JSX.Element {
   }
 
   return (
-    <header className={styles.topbar}>
+    // Tauri 桌面壳：无边框窗口，整条顶栏作为拖拽区（子元素按钮点击不受影响）
+    <header className={styles.topbar} data-tauri-drag-region>
       <div className={styles.brand}>
         <BrandMark />
         <span>DayCell</span>

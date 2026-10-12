@@ -66,7 +66,8 @@ async function main(): Promise<void> {
   // 策略见 ADR-0002（v8.19 起 autoUpdate）：新 SW 安装即 skipWaiting 激活（由 vite-plugin-pwa
   // 生成的 sw.js 自带），下次导航/刷新即用新版，PWA 常驻用户不再卡旧版；纯 precache 无
   // runtime caching，激活不中断已加载页面。注册失败静默忽略（离线是增强，不是前提）。
-  if ('serviceWorker' in navigator) {
+  // Tauri 桌面壳（VITE_TAURI=1）由壳加载本地产物，无需 SW。
+  if ('serviceWorker' in navigator && !import.meta.env.VITE_TAURI) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('/sw.js').catch(() => {})
     })

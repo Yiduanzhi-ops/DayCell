@@ -26,6 +26,7 @@
 | 💾 **备份与导出** | 整库 JSON 备份（**合并式导入**，防丢数据）、一键导出 MD（本周 / 本月） |
 | 🔄 **多端同步** | 手机 ↔ 电脑自动互相同步（Gitee 私有仓库，无后端） |
 | 📱 **App 体验** | PWA 可安装 + 离线可用；「使用手册」页有一键生成分享图（含网址二维码） |
+| 🖥️ **macOS 桌面壳** | Tauri 套壳：侧边常驻、**划过屏幕右缘自动展开 / 移出自动收回**（Dock 手感）、`Cmd+Shift+D` 热键、菜单栏托盘、开机自启、宽窗模式（见 [`src-tauri/README.md`](src-tauri/README.md)） |
 
 ## 快速开始
 
@@ -35,6 +36,15 @@ npm run dev      # 本地开发
 npm test         # 跑测试（vitest）
 npm run build    # 构建到 dist/
 ```
+
+### macOS 桌面壳（Tauri）
+
+```bash
+npm run tauri:build   # 构建 DayCell.app / .dmg（需 Rust 工具链）
+npm run tauri:dev     # 桌面壳开发调试（前端热更新）
+```
+
+桌面壳与网页版共用同一份前端代码：划过右缘弹出 360px 面板、移出自动收回；热键 `Cmd+Shift+D` 展开/收起；托盘菜单可锁定面板、切宽窗模式、开机自启。桌面端数据独立存储，多端同步照旧走应用内 Gitee 通道。
 
 ### 部署到 GitHub Pages
 

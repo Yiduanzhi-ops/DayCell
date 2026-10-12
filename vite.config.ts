@@ -5,8 +5,10 @@ import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
   // GitHub Pages 项目页部署在 https://Yiduanzhi-ops.github.io/DayCell/ 子路径下，
-  // 必须显式设置 base，否则构建产物的 /assets/... 绝对路径会指向站点根目录而 404
-  base: '/DayCell/',
+  // 必须显式设置 base，否则构建产物的 /assets/... 绝对路径会指向站点根目录而 404。
+  // Tauri 桌面壳本地加载产物时由 beforeBuildCommand 注入 VITE_BASE=./（相对路径），
+  // 否则 tauri:// 协议下 /DayCell/assets 会 404（ADR 见 src-tauri/README 或 docs）。
+  base: process.env.VITE_BASE || '/DayCell/',
   plugins: [
     react(),
     // PWA（ADR-0002，v7.1 接线）：
@@ -18,6 +20,9 @@ export default defineConfig({
     //  - 不注册任何 runtime caching：v0 运行时零网络请求（PRD §5.4），没有可缓存的东西
     //  - devOptions 保持关闭：开发时 SW 缓存只会干扰调试（ADR-0002 后果节）
     VitePWA({
+      // Tauri 桌面壳（VITE_TAURI=1）不生成/注入 PWA 产物：壳从本地加载，SW 无用且
+      // 自定义协议下注册易出问题；GitHub Pages 构建保持完整 PWA 能力。
+      disable: !!process.env.VITE_TAURI,
       registerType: 'autoUpdate',
       // 注册由 src/main.tsx 手动做（挂载后、window load 时）——不让插件再往 HTML 注入
       // registerSW.js，否则同一个 sw.js 被注册两条路径，行为虽幂等但归属不清
