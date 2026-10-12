@@ -33,7 +33,6 @@ export function NotesView(): JSX.Element {
   const notesPage = useApp((s) => s.notesPage)
   const setNotesPage = useApp((s) => s.setNotesPage)
   const openDayFromNotes = useApp((s) => s.openDayFromNotes)
-  const toggleNotePinned = useApp((s) => s.toggleNotePinned)
   const restore = useApp((s) => s.restoreScrollTo)
   const consumeRestore = useApp((s) => s.consumeRestoreScroll)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -69,13 +68,10 @@ export function NotesView(): JSX.Element {
   }, [restore, consumeRestore])
 
   // 按天分组（notesList 已倒序，顺序遍历即分组+组内有序）。
-  // v8.24 收藏置顶：pinned 的集中成「⭐ 收藏」组放最前（跨日期），其余按日期分组
+  // v8.29：移除「⭐ 收藏」分组与星标（用户拍板，收藏功能下线；core pinned 字段保留兼容）
   const groups = useMemo<Group[]>(() => {
     const out: Group[] = []
-    const pinned = notesList.filter((n) => n.pinned)
-    const rest = notesList.filter((n) => !n.pinned)
-    if (pinned.length > 0) out.push({ date: '__pinned__' as DateKey, lunar: '', items: pinned })
-    for (const n of rest) {
+    for (const n of notesList) {
       const last = out[out.length - 1]
       if (last && last.date === n.date) last.items.push(n)
       else out.push({ date: n.date, lunar: lunarMap.get(n.date) ?? '', items: [n] })
@@ -110,49 +106,22 @@ export function NotesView(): JSX.Element {
             {groups.map((g) => {
               const items = g.items.filter((n) => visible.has(n.id))
               if (items.length === 0) return null
-              const pinnedGroup = g.date === '__pinned__'
-              const { y, m, d } = pinnedGroup ? { y: 0, m: 0, d: 0 } : fromKey(g.date)
+              const { y, m, d } = fromKey(g.date)
               return (
                 <div key={g.date}>
-                  <div className={pinnedGroup ? `${styles.groupTitle} ${styles.pinnedTitle}` : styles.groupTitle}>
-                    {pinnedGroup ? (
-                      <span className={styles.groupDate}>⭐ 收藏</span>
-                    ) : (
-                      <>
-                        <span className={styles.groupDate}>
-                          {m}月{d}日
-                        </span>
-                        <span className={styles.groupSub}>
-                          {y} 年 · 周{DOW[dowOf(g.date)]}
-                          {g.lunar ? ` · ${g.lunar}` : ''}
-                        </span>
-                      </>
-                    )}
+                  <div className={styles.groupTitle}>
+                    <span className={styles.groupDate}>
+                      {m}月{d}日
+                    </span>
+                    <span className={styles.groupSub}>
+                      {y} 年 · 周{DOW[dowOf(g.date)]}
+                      {g.lunar ? ` · ${g.lunar}` : ''}
+                    </span>
                     <span className={styles.groupCount}>{g.items.length} 条</span>
                   </div>
                   {items.map((n) => (
                     <button key={n.id} type="button" className={styles.item} onClick={() => onItem(n)}>
-                      <span className={styles.itemTop}>
-                        <span className={styles.itemText}>{n.text}</span>
-                        <span
-                          className={n.pinned ? `${styles.star} ${styles.starOn}` : styles.star}
-                          role="button"
-                          tabIndex={0}
-                          aria-label={n.pinned ? '取消收藏' : '收藏'}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            void toggleNotePinned(n.id)
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.stopPropagation()
-                              void toggleNotePinned(n.id)
-                            }
-                          }}
-                        >
-                          {n.pinned ? '★' : '☆'}
-                        </span>
-                      </span>
+                      <span className={styles.itemText}>{n.text}</span>
                       <span className={styles.itemTime}>{hhmm(n.createdAt)}</span>
                     </button>
                   ))}

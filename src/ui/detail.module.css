@@ -61,15 +61,8 @@
 }
 .tedit:focus { box-shadow: 0 0 0 3px var(--accent-soft); }
 .done .ttxt { color: var(--ink-3); text-decoration: line-through; text-decoration-color: var(--ink-4); }
-/* v8.27：纪念日当作待办展示在当天（只读条目：不可勾选/编辑/删除），置顶在待办列表最上方 */
+/* v8.27：纪念日当作待办展示在当天（可勾选，v8.29 起与普通待办同款圆圈勾选态） */
 .anniItem { align-items: center; }
-.anniIcon {
-  flex: 0 0 auto;
-  font-size: 13.5px; /* 与 .ttxt 文字同号（v8.27.1：原 11px 太小，放大） */
-  line-height: 1.5;
-  color: var(--accent);
-  padding-top: 1px;
-}
 .anniTag {
   flex: 0 0 auto; font-size: 10.5px; color: var(--ink-3);
   background: var(--accent-soft); border-radius: 4px;

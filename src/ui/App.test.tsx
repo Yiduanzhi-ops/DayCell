@@ -253,6 +253,27 @@ describe('App 冒烟', () => {
     expect(localStorage.getItem('daycell-theme')).toBe('dark')
   })
 
+  it('v8.29 纪念日待办可勾选：圆圈勾掉划线置灰、再点取消恢复', async () => {
+    const store = await renderApp()
+    // 创建一个 09-29 的每年纪念日（today=2026-09-29 命中）
+    await store.getState().createAnniversary({ title: '发工资日', date: '2025-09-29', repeat: 'yearly', isLunar: false })
+
+    await waitFor(() => expect(document.body.textContent).toContain('发工资日'))
+    // 与普通待办同款勾选圆圈（可点按钮，非只读 ◷）
+    const chk = screen.getByRole('button', { name: '标记完成：发工资日' })
+    expect(chk).toHaveAttribute('aria-pressed', 'false')
+
+    // 勾掉 → 划线置灰（annivDones 持久化到当天×该纪念日）
+    fireEvent.click(chk)
+    await waitFor(() => expect(screen.getByRole('button', { name: '取消标记：发工资日' })).toHaveAttribute('aria-pressed', 'true'))
+    expect(store.getState().detail?.annivDones).toContain(store.getState().annivList[0].id)
+
+    // 再点 → 取消勾选
+    fireEvent.click(screen.getByRole('button', { name: '取消标记：发工资日' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: '标记完成：发工资日' })).toHaveAttribute('aria-pressed', 'false'))
+    expect(store.getState().detail?.annivDones).not.toContain(store.getState().annivList[0].id)
+  })
+
   it('v7.5 纪念日设置：从菜单进入、新增每周纪念日、列表显示', async () => {
     const store = await renderApp()
     fireEvent.click(screen.getByRole('button', { name: '菜单' }))
@@ -343,7 +364,7 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     expect(document.body.textContent).not.toContain('想法第 11 条')
   })
 
-  it('v8.24 收藏：点星标收藏旧想法 → 置顶到「⭐ 收藏」组；再点取消恢复时间序', async () => {
+  it('v8.29 想法列表按日期分组展示，收藏星标已下线', async () => {
     const store = await renderApp()
     await store.getState().createNote('最新的念头')
     await store.getState().shiftDay(-1) // → 9/28
@@ -351,25 +372,12 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
 
     fireEvent.click(screen.getByRole('tab', { name: '想法' }))
     await waitFor(() => expect(document.body.textContent).toContain('共 2 条想法'))
-    // 默认时间倒序：最新在最上，没有收藏组
+    // 按日期分组：两天各自成组
+    expect(document.body.textContent).toContain('9月28日')
+    expect(document.body.textContent).toContain('9月29日')
+    // 收藏星标已下线：没有「⭐ 收藏」分组、没有收藏按钮
     expect(document.body.textContent).not.toContain('⭐ 收藏')
-
-    // 点旧想法（想收藏的念头，时间倒序在列表下方）的星标按钮（收藏）
-    const stars = screen.getAllByRole('button', { name: '收藏' })
-    fireEvent.click(stars[stars.length - 1])
-    await waitFor(() => expect(document.body.textContent).toContain('⭐ 收藏'))
-    // 收藏组在最前：先出现收藏组标题，再出现「想收藏的念头」
-    const starIdx = document.body.textContent!.indexOf('⭐ 收藏')
-    const pinnedIdx = document.body.textContent!.indexOf('想收藏的念头')
-    const latestIdx = document.body.textContent!.indexOf('最新的念头')
-    expect(starIdx).toBeGreaterThanOrEqual(0)
-    expect(pinnedIdx).toBeLessThan(latestIdx)
-    expect(pinnedIdx).toBeGreaterThan(starIdx)
-
-    // 取消收藏（按钮 label 变为 取消收藏）
-    fireEvent.click(screen.getByRole('button', { name: '取消收藏' }))
-    await waitFor(() => expect(document.body.textContent).not.toContain('⭐ 收藏'))
-    expect(document.body.textContent).toContain('最新的念头')
-    expect(document.body.textContent).toContain('想收藏的念头')
+    expect(screen.queryByRole('button', { name: '收藏' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '取消收藏' })).not.toBeInTheDocument()
   })
 })

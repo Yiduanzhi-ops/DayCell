@@ -117,6 +117,8 @@ export interface DayDetail {
   notes: NoteRecord[]
   expenses: ExpenseRecord[]
   anniversaries: AnniversaryRecord[]
+  /** v8.29 当天已勾选的纪念日 id（当作待办勾掉后不再打扰；与 anniversaries 对应） */
+  annivDones: string[]
   /** 农历不可用为 null（PRD E4），UI 只渲染公历 */
   lunar: LunarInfo | null
   /** 前一天可顺延的待办数。> 0 时显示横幅（PRD D5 / E10）；顺带返回，省一次查询 */
@@ -576,13 +578,15 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
       // ⚠️ 区间开成 [date-1, date]：一次查询同时拿到「今天的内容」和
       //    「昨天有几条待办可顺延」。不要为了后者再发一次 byDateAll。
       // v8.20 加 habits 全量 + 打卡集合：日详情带当日习惯（侧页与落地一致渲染）。
-      const [data, annivTitles, catMap, annivRecs, habits, done] = await Promise.all([
+      // v8.29 加纪念日勾选集合（annivDones）。
+      const [data, annivTitles, catMap, annivRecs, habits, done, annivDone] = await Promise.all([
         store.byDateAll(prev, date),
         anniversaryTitles(date, date),
         catNames(),
         anniversaryRecordsOn(date),
         store.all<HabitRecord>('habits'),
         repos.checkins.doneOn(date),
+        repos.annivChecks.doneOn(date),
       ])
 
       const buckets = bucketize(data)
@@ -600,6 +604,7 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
         notes: today.notes,
         expenses: today.expenses,
         anniversaries: annivRecs,
+        annivDones: [...annivDone],
         lunar: info,
         prevDayRollable: yesterday.todos.filter(isRollable).length,
         habits: buildHabitItems(habits, done, date),

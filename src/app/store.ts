@@ -241,6 +241,8 @@ export interface AppState {
   deleteHabit(id: string): Promise<boolean>
   /** 打卡/取消（纯勾选）；成功后刷新今日习惯 */
   toggleHabit(date: DateKey, habitId: string): Promise<void>
+  /** v8.29 纪念日勾选（当作待办勾掉/取消）；成功后刷新当日 detail */
+  toggleAnnivDone(date: DateKey, annivId: string): Promise<void>
 
   // ---- v8.1：坚果云同步 ----
   openSync(): void
@@ -1227,6 +1229,17 @@ export function createAppStore(
         set({ dataVer: get().dataVer + 1 })
         await get().refresh()
         if (done) get().showToast('打卡成功')
+      } catch (e) {
+        get().showToast(errMsg(e))
+      }
+    },
+
+    /** v8.29 纪念日勾选（当作待办勾掉）：toggle 后刷新，当日 detail 的 annivDones 更新 */
+    async toggleAnnivDone(date, annivId) {
+      try {
+        await repos.annivChecks.toggle(date, annivId)
+        set({ dataVer: get().dataVer + 1 })
+        await get().refresh()
       } catch (e) {
         get().showToast(errMsg(e))
       }

@@ -82,6 +82,7 @@ describe('parseBackup', () => {
       subtasks: [],
       habits: [],
       checkins: [],
+      annivchecks: [],
       settings: [],
     },
   })
@@ -149,6 +150,7 @@ describe('mergeBackup（合并导入）', () => {
       subtasks: [],
       habits: [],
       checkins: [],
+      annivchecks: [],
         settings: [],
       },
     }
@@ -174,7 +176,7 @@ describe('mergeBackup（合并导入）', () => {
       exportedAt: 1,
       schemaVersion: 1,
       data: {
-        todos: [], notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], subtasks: [], habits: [], checkins: [],
+        todos: [], notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], subtasks: [], habits: [], checkins: [], annivchecks: [],
         settings: [
           { key: 'onboarded', value: true, updatedAt: 9_999 },
           { key: 'weekStartsOn', value: 0, updatedAt: 1 },
@@ -196,7 +198,7 @@ describe('mergeBackup（合并导入）', () => {
       schemaVersion: 1,
       data: {
         todos: [{ ...local }],
-        notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], subtasks: [], habits: [], checkins: [], settings: [],
+        notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], subtasks: [], habits: [], checkins: [], annivchecks: [], settings: [],
       },
     }
     const stats = await mergeBackup(store, file)

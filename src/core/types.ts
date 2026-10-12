@@ -176,6 +176,18 @@ export interface CheckinRecord extends CoreRecord {
   date: DateKey
 }
 
+/**
+ * v8.29 纪念日勾选：date 上某个纪念日已"勾掉"（当作待办完成后不再打扰）。
+ * 与 CheckinRecord 同模式：date + annivId 唯一；取消勾选 = 置墓碑（永不物理删除）。
+ * 记录挂在"某一天 × 某纪念日"，不写回全局 AnniversaryRecord（它跨日期共享，done 属于当天）。
+ */
+export interface AnnivCheckRecord extends CoreRecord {
+  type: 'anniv-check'
+  annivId: string
+  /** 勾选日期（定宽 'YYYY-MM-DD'） */
+  date: DateKey
+}
+
 export interface SettingRecord {
   key: SettingKey
   value: unknown
@@ -189,7 +201,7 @@ export type SettingKey =
   | 'onboarded'
   | 'weekStartsOn'
 
-/** 十个 store（PRD §6.3，v7.9 加 goals/stages，v8.0 加 habits/checkins） */
+/** 十一个 store（PRD §6.3，v7.9 加 goals/stages，v8.0 加 habits/checkins，v8.29 加 annivchecks） */
 export type StoreName =
   | 'todos'
   | 'notes'
@@ -201,6 +213,7 @@ export type StoreName =
   | 'subtasks'
   | 'habits'
   | 'checkins'
+  | 'annivchecks'
   | 'settings'
 
 /** 存放带归属日内容记录的三个 store */
@@ -219,6 +232,7 @@ export const ALL_STORES: readonly StoreName[] = [
   'subtasks',
   'habits',
   'checkins',
+  'annivchecks',
   'settings',
 ]
 
@@ -246,5 +260,6 @@ export interface RecordTable {
   subtasks: SubtaskRecord[]
   habits: HabitRecord[]
   checkins: CheckinRecord[]
+  annivchecks: AnnivCheckRecord[]
   settings: SettingRecord[]
 }

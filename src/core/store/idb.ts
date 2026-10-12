@@ -54,7 +54,7 @@ export interface IdbDeps {
  * v8.0 新增 habits/checkins 两个 store、v8.5 新增 subtasks，库版本逐级升到 4 让**已安装用户**
  * 也能触发 upgrade 补建空表；SCHEMA_VERSION 保持 1，旧备份仍可导入。
  */
-export const DB_VERSION = 4
+export const DB_VERSION = 5
 
 type Row = Record<string, unknown> & CoreRecord & { date?: DateKey; catId?: string }
 
@@ -269,6 +269,12 @@ export async function createIdbStore(deps: IdbDeps): Promise<RecordStore> {
         if (oldVersion < 4) {
           const subtasks = database.createObjectStore('subtasks', { keyPath: 'id' })
           subtasks.createIndex('byUpdated', 'updatedAt')
+        }
+        // v8.29：新增 annivchecks（纪念日勾选，date + annivId 唯一，按日期建索引）
+        if (oldVersion < 5) {
+          const annivchecks = database.createObjectStore('annivchecks', { keyPath: 'id' })
+          annivchecks.createIndex('byDate', 'date')
+          annivchecks.createIndex('byUpdated', 'updatedAt')
         }
         void transaction
       },

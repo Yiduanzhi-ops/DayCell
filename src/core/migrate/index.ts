@@ -79,6 +79,7 @@ export function emptyTables(): RecordTable {
     subtasks: [],
     habits: [],
     checkins: [],
+    annivchecks: [],
     settings: [],
   }
 }
@@ -103,6 +104,7 @@ function cloneTables(t: RecordTable | undefined): RecordTable {
     subtasks: cloneArr(t.subtasks),
     habits: cloneArr(t.habits),
     checkins: cloneArr(t.checkins),
+    annivchecks: cloneArr(t.annivchecks),
     settings: cloneArr(t.settings),
   }
 }

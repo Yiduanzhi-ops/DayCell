@@ -104,24 +104,6 @@
 }
 .item:active { background: var(--bg-hover); }
 
-/* ---- v8.24 收藏星标（嵌在想法框内右上，无边框、低调小号） ---- */
-.star {
-  flex: 0 0 auto;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--ink-4);
-  padding: 1px 2px;
-  cursor: pointer;
-  user-select: none;
-}
-.starOn {
-  color: #f5b301;
-}
-.pinnedTitle .groupDate {
-  color: #f5b301;
-  font-weight: 700;
-}
-
 /* ---- 分页 ---- */
 .pager {
   display: flex;

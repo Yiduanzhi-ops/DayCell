@@ -37,12 +37,15 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
   const openForm = useApp((s) => s.openForm)
   const toggleTodo = useApp((s) => s.toggleTodo)
   const deleteTodo = useApp((s) => s.deleteTodo)
+  const toggleAnnivDone = useApp((s) => s.toggleAnnivDone)
 
   const todos = (cached ?? detail)?.todos ?? []
   // v7.6：已完成的自动沉底；未完成保持原序（Array.prototype.sort 稳定）
   const sorted = [...todos].sort((a, b) => Number(a.done) - Number(b.done))
-  // v8.27：当天命中的纪念日当作待办展示在待办列表末尾（只读，见下方 anniItem）
+  // v8.27：当天命中的纪念日当作待办展示在待办列表最上方（置顶）
+  // v8.29：可勾选——勾选态存 annivchecks（annivDones），划线置灰，与普通待办同款圆圈
   const annis = (cached ?? detail)?.anniversaries ?? []
+  const annivDones = new Set((cached ?? detail)?.annivDones ?? [])
   const { done, total } = todoProgress(sorted)
   /** 正在就地编辑的待办 id（v7 / US-13）。同一时刻最多一条 */
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -65,13 +68,23 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
       <div className={styles.tlist}>
         {sorted.length > 0 || annis.length > 0 ? (
           <>
-          {annis.map((a) => (
-            <div key={`anni-${a.id}`} className={`${styles.titem} ${styles.anniItem}`}>
-              <span className={styles.anniIcon} aria-hidden="true">◷</span>
-              <span className={styles.ttxt}>{a.title}</span>
-              <span className={styles.anniTag}>纪念日</span>
-            </div>
-          ))}
+          {annis.map((a) => {
+            const aDone = annivDones.has(a.id)
+            return (
+              <div key={`anni-${a.id}`} className={`${styles.titem} ${styles.anniItem} ${aDone ? styles.done : ''}`}>
+                <button
+                  className={styles.chk}
+                  aria-label={aDone ? `取消标记：${a.title}` : `标记完成：${a.title}`}
+                  aria-pressed={aDone}
+                  onClick={() => void toggleAnnivDone(k, a.id)}
+                >
+                  {aDone && <Check />}
+                </button>
+                <span className={styles.ttxt}>{a.title}</span>
+                <span className={styles.anniTag}>纪念日</span>
+              </div>
+            )
+          })}
           {sorted.map((t) => (
             <div
               key={t.id}

@@ -56,6 +56,7 @@ export function mergeTables(local: RecordTable, remote: RecordTable): RecordTabl
     subtasks: mergeByUpdated(local.subtasks, remote.subtasks),
     habits: mergeByUpdated(local.habits, remote.habits),
     checkins: mergeByUpdated(local.checkins, remote.checkins),
+    annivchecks: mergeByUpdated(local.annivchecks, remote.annivchecks),
     settings: mergeSettings(local.settings, remote.settings),
   }
 }

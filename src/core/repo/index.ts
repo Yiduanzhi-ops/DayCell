@@ -11,6 +11,7 @@
 
 import type {
   AnniversaryRecord,
+  AnnivCheckRecord,
   CategoryRecord,
   CheckinRecord,
   CoreRecord,
@@ -154,6 +155,14 @@ export interface AnniversaryRepo {
   softDelete(id: string): Promise<void>
 }
 
+/** 纪念日勾选（v8.29）：date + annivId 唯一；toggle 幂等，与 CheckinRepo 同模式 */
+export interface AnnivCheckRepo {
+  /** date 上已勾选的纪念日 id 集合（含墓碑判断后的活记录） */
+  doneOn(date: DateKey): Promise<Set<string>>
+  /** 切换勾选：返回切换后是否已勾选。取消 = 置墓碑（永不物理删除） */
+  toggle(date: DateKey, annivId: string): Promise<boolean>
+}
+
 // ---------------------------------------------------------------------------
 // 分类
 // ---------------------------------------------------------------------------
@@ -283,6 +292,7 @@ export interface Repos {
   notes: NoteRepo
   expenses: ExpenseRepo
   anniversaries: AnniversaryRepo
+  annivChecks: AnnivCheckRepo
   categories: CategoryRepo
   goals: GoalRepo
   stages: StageRepo
@@ -297,7 +307,7 @@ export function createRepos(deps: RepoDeps): Repos {
   const now = deps.now ?? systemClock
   const idGen = deps.idGen ?? createIdGen()
 
-  type MutableStore = 'todos' | 'notes' | 'expenses' | 'anniversaries' | 'categories' | 'goals' | 'stages' | 'subtasks' | 'habits' | 'checkins'
+  type MutableStore = 'todos' | 'notes' | 'expenses' | 'anniversaries' | 'categories' | 'goals' | 'stages' | 'subtasks' | 'habits' | 'checkins' | 'annivchecks'
 
   /** 取一条活记录；不存在或已是墓碑都算 NotFound（PRD E19：可能已被其他标签页删除） */
   const mustGet = async <T extends CoreRecord>(storeName: MutableStore, id: string): Promise<T> => {
@@ -885,12 +895,47 @@ export function createRepos(deps: RepoDeps): Repos {
     },
   }
 
+  // v8.29 纪念日勾选（与 checkins 同模式：date + annivId 唯一，墓碑制）
+  const annivChecks: AnnivCheckRepo = {
+    async doneOn(date) {
+      unwrap(parseDateKey(date))
+      const all = await store.all<AnnivCheckRecord>('annivchecks', { includeDeleted: true })
+      const out = new Set<string>()
+      for (const c of all) {
+        if (!c.deleted && c.date === date) out.add(c.annivId)
+      }
+      return out
+    },
+
+    async toggle(date, annivId) {
+      unwrap(parseDateKey(date))
+      const all = await store.all<AnnivCheckRecord>('annivchecks', { includeDeleted: true })
+      const rec = all.find((c) => c.annivId === annivId && c.date === date)
+      if (rec) {
+        const next = { ...rec, deleted: !rec.deleted }
+        await store.put<AnnivCheckRecord>('annivchecks', next)
+        return rec.deleted
+      }
+      const ts = now()
+      await store.put<AnnivCheckRecord>('annivchecks', {
+        id: idGen.next(),
+        type: 'anniv-check',
+        annivId,
+        date,
+        createdAt: ts,
+        updatedAt: ts,
+        deleted: false,
+      })
+      return true
+    },
+  }
+
   const settings: SettingRepo = {
     get: (key, fallback) => store.getSetting(key, fallback),
     set: (key, value) => store.putSetting(key, value),
   }
 
-  return { todos, notes, expenses, anniversaries, categories, goals, stages, subtasks, habits, checkins, settings }
+  return { todos, notes, expenses, anniversaries, annivChecks, categories, goals, stages, subtasks, habits, checkins, settings }
 }
 
 /** 便捷入口：从 store 里读金额时用，避免 UI 层出现 /100（ADR-0003） */
