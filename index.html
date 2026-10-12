@@ -74,13 +74,6 @@
     transform-origin: center;
     animation: sp-grow 0.6s 0.24s cubic-bezier(0.25, 0.8, 0.35, 1) both;
   }
-  .sp-author {
-    margin-top: 20px;
-    font-size: 11px;
-    color: #767676; /* ink-3：文字对比度下限 4.54:1（PRD §5.5） */
-    letter-spacing: 0.12em;
-    animation: sp-rise 0.5s 0.36s cubic-bezier(0.25, 0.8, 0.35, 1) both;
-  }
   @keyframes sp-rise {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: none; }
@@ -90,14 +83,13 @@
     to { opacity: 1; transform: none; }
   }
   @media (prefers-reduced-motion: reduce) {
-    .sp-brand, .sp-name, .sp-rule, .sp-author, .sp-logo { animation: none; }
+    .sp-brand, .sp-name, .sp-rule, .sp-logo { animation: none; }
   }
   /* v7.5 夜间模式：splash 深色变体（data-theme 由 head 内联脚本在 splash 前同步设置） */
   html[data-theme='dark'] #splash { background: #141518; }
   html[data-theme='dark'] .sp-brand { color: #F2F3F5; }
   html[data-theme='dark'] .sp-name { color: #B4BAC4; }
   html[data-theme='dark'] .sp-rule { background: #7C9BFF; }
-  html[data-theme='dark'] .sp-author { color: #8E95A0; }
 </style>
 </head>
 <body>
@@ -108,7 +100,6 @@
   <div class="sp-brand">DayCell</div>
   <div class="sp-name">人生小格</div>
   <div class="sp-rule"></div>
-  <div class="sp-author">以端枳 作品</div>
 </div>
 <div id="root"></div>
 <script>

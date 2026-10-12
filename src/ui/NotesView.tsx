@@ -131,24 +131,30 @@ export function NotesView(): JSX.Element {
                     <span className={styles.groupCount}>{g.items.length} 条</span>
                   </div>
                   {items.map((n) => (
-                    <div key={n.id} className={styles.itemRow}>
-                      <button type="button" className={styles.item} onClick={() => onItem(n)}>
+                    <button key={n.id} type="button" className={styles.item} onClick={() => onItem(n)}>
+                      <span className={styles.itemTop}>
                         <span className={styles.itemText}>{n.text}</span>
-                        <span className={styles.itemTime}>{hhmm(n.createdAt)}</span>
-                      </button>
-                      <button
-                        type="button"
-                        className={n.pinned ? `${styles.star} ${styles.starOn}` : styles.star}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          void toggleNotePinned(n.id)
-                        }}
-                        aria-label={n.pinned ? '取消收藏' : '收藏'}
-                        aria-pressed={n.pinned ? true : undefined}
-                      >
-                        {n.pinned ? '★' : '☆'}
-                      </button>
-                    </div>
+                        <span
+                          className={n.pinned ? `${styles.star} ${styles.starOn}` : styles.star}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={n.pinned ? '取消收藏' : '收藏'}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            void toggleNotePinned(n.id)
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.stopPropagation()
+                              void toggleNotePinned(n.id)
+                            }
+                          }}
+                        >
+                          {n.pinned ? '★' : '☆'}
+                        </span>
+                      </span>
+                      <span className={styles.itemTime}>{hhmm(n.createdAt)}</span>
+                    </button>
                   ))}
                 </div>
               )

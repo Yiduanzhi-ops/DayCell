@@ -47,6 +47,7 @@
 }
 .card:hover { border-color: color-mix(in srgb, var(--accent) 28%, var(--line)); }
 .card h2 {
+  margin: 0; /* 无全局 reset，h2 浏览器默认上下 margin 会造成卡片内空行 */
   font-size: 16px;
   font-weight: 650;
   letter-spacing: -0.01em;
