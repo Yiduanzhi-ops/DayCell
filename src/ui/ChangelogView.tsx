@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.26'
+const CURRENT_VERSION = 'v8.27'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.27',
+    date: '2026-10-12',
+    items: [
+      '纪念日当作待办展示在当天：当天命中的纪念日会出现在待办列表末尾（◷ 标记 + 「纪念日」标签），只读提醒、不可误删',
+      '今日习惯文字大小与待办统一：习惯名称字号、字重、行高与待办一致，界面更协调',
+    ],
+  },
   {
     version: 'v8.26',
     date: '2026-10-12',

@@ -41,6 +41,8 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
   const todos = (cached ?? detail)?.todos ?? []
   // v7.6：已完成的自动沉底；未完成保持原序（Array.prototype.sort 稳定）
   const sorted = [...todos].sort((a, b) => Number(a.done) - Number(b.done))
+  // v8.27：当天命中的纪念日当作待办展示在待办列表末尾（只读，见下方 anniItem）
+  const annis = (cached ?? detail)?.anniversaries ?? []
   const { done, total } = todoProgress(sorted)
   /** 正在就地编辑的待办 id（v7 / US-13）。同一时刻最多一条 */
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -61,8 +63,9 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
         </button>
       </div>
       <div className={styles.tlist}>
-        {sorted.length > 0 ? (
-          sorted.map((t) => (
+        {sorted.length > 0 || annis.length > 0 ? (
+          <>
+          {sorted.map((t) => (
             <div
               key={t.id}
               className={[
@@ -98,7 +101,15 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
                 </button>
               )}
             </div>
-          ))
+          ))}
+          {annis.map((a) => (
+            <div key={`anni-${a.id}`} className={`${styles.titem} ${styles.anniItem}`}>
+              <span className={styles.anniIcon} aria-hidden="true">◷</span>
+              <span className={styles.ttxt}>{a.title}</span>
+              <span className={styles.anniTag}>纪念日</span>
+            </div>
+          ))}
+          </>
         ) : edit === 'todo' ? null : (
           <div className={styles.emptySm}>{dayWord}还没有待办</div>
         )}

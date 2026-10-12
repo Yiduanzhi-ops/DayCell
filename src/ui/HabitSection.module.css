@@ -63,7 +63,8 @@
 .checkOn { background: var(--accent, #2E4BA6); border-color: var(--accent, #2E4BA6); }
 .checkOn svg { opacity: 1; }
 
-.name { flex: 1; font-size: 14px; font-weight: 600; }
+/* v8.27：字号与待办 .ttxt 统一（13.5px / 400 / 1.5），用户反馈原 14px+600 偏大 */
+.name { flex: 1; font-size: 13.5px; font-weight: 400; line-height: 1.5; min-width: 0; word-break: break-word; }
 .row.on .name { color: var(--ink-3, #767676); }
 .freq {
   font-size: 10.5px;
