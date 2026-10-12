@@ -105,6 +105,8 @@ export interface NoteRepo {
   byDate(date: DateKey): Promise<NoteRecord[]>
   create(date: DateKey, text: string): Promise<NoteRecord>
   setText(id: string, text: string): Promise<NoteRecord>
+  /** v8.24 想法收藏：pinned=true 收藏；false 取消收藏 */
+  setPinned(id: string, pinned: boolean): Promise<NoteRecord>
   softDelete(id: string): Promise<void>
 }
 
@@ -417,6 +419,12 @@ export function createRepos(deps: RepoDeps): Repos {
     async setText(id, text) {
       const rec = await mustGet<NoteRecord>('notes', id)
       return store.put<NoteRecord>('notes', { ...rec, text: unwrap(parseNoteText(text)) })
+    },
+
+    async setPinned(id, pinned) {
+      const rec = await mustGet<NoteRecord>('notes', id)
+      // pinned 存 true；取消收藏时清掉字段（undefined 不出库）
+      return store.put<NoteRecord>('notes', { ...rec, pinned: pinned ? true : undefined })
     },
 
     softDelete: softDelete('notes'),

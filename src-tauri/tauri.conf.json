@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "DayCell",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "identifier": "com.yiduanzhi.daycell",
   "build": {
     "frontendDist": "../dist",
@@ -15,14 +15,14 @@
       {
         "label": "main",
         "title": "DayCell",
-        "width": 52,
-        "height": 52,
+        "width": 414,
+        "height": 896,
         "resizable": false,
         "fullscreen": false,
         "decorations": false,
         "alwaysOnTop": false,
         "shadow": true,
-        "visible": true,
+        "visible": false,
         "backgroundColor": "#101014"
       }
     ],

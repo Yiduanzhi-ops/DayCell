@@ -68,14 +68,19 @@
 }
 
 /* ---- 想法条目 ---- */
+.itemRow {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+  margin-bottom: 8px;
+}
 .item {
-  display: block;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   text-align: left;
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 9px 12px;
-  margin-bottom: 8px;
   background: var(--bg);
   color: var(--ink-1);
 }
@@ -95,6 +100,27 @@
   margin-top: 5px;
 }
 .item:active { background: var(--bg-hover); }
+
+/* ---- v8.24 收藏星标 ---- */
+.star {
+  flex: 0 0 38px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--ink-4);
+  font-size: 16px;
+  line-height: 1;
+}
+.starOn {
+  color: #f5b301;
+  border-color: rgba(245, 179, 1, 0.45);
+  background: rgba(245, 179, 1, 0.08);
+}
+.star:active { background: var(--bg-hover); }
+.pinnedTitle .groupDate {
+  color: #f5b301;
+  font-weight: 700;
+}
 
 /* ---- 分页 ---- */
 .pager {

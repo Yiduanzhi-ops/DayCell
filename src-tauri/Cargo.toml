@@ -1,6 +1,6 @@
 [package]
 name = "daycell"
-version = "1.1.0"
+version = "1.2.0"
 description = "DayCell 桌面壳：logo 悬浮球 + 常驻面板的 PWA"
 authors = ["yiduanzhi"]
 license = ""
@@ -26,4 +26,3 @@ tauri-plugin-autostart = "2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
-objc2-app-kit = "0.3"

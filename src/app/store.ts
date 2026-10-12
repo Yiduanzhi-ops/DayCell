@@ -166,6 +166,8 @@ export interface AppState {
   openDayFromNotes(k: DateKey, scrollTop?: number): void
   /** v8.13 想法列表翻页（NotesView 分页控件调用） */
   setNotesPage(p: number): void
+  /** v8.24 想法收藏：切换星标（pinned），刷新列表并保持收藏置顶 */
+  toggleNotePinned(id: string): Promise<void>
   /** 返回来源视图。没有来源时返回 false（Esc 等路径靠它判断有没有事发生） */
   back(): boolean
   onPopstate(): void
@@ -553,6 +555,20 @@ export function createAppStore(
     setNotesPage(p) {
       if (get().notesPage === p) return
       set({ notesPage: p })
+    },
+
+    async toggleNotePinned(id) {
+      try {
+        const n = get().notesList.find((x) => x.id === id)
+        if (!n) return
+        await repos.notes.setPinned(id, !n.pinned)
+        set({ dataVer: get().dataVer + 1 })
+        const notesList = await aggregates.notesAll()
+        set({ notesList })
+        get().showToast(n.pinned ? '已取消收藏' : '已收藏')
+      } catch (e) {
+        get().showToast(errMsg(e))
+      }
     },
 
     back() {

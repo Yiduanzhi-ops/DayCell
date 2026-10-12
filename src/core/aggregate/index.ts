@@ -638,7 +638,13 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
       return all
         .filter((r) => !r.deleted)
         .map((r) => ({ ...r }))
-        .sort((a, b) => (a.date === b.date ? b.createdAt - a.createdAt : b.date.localeCompare(a.date)))
+        .sort((a, b) => {
+          // v8.24 收藏置顶：pinned 优先；同收藏态再按 date 降序、同日 createdAt 降序
+          const ap = a.pinned ? 1 : 0
+          const bp = b.pinned ? 1 : 0
+          if (ap !== bp) return bp - ap
+          return a.date === b.date ? b.createdAt - a.createdAt : b.date.localeCompare(a.date)
+        })
     },
 
     invalidate() {

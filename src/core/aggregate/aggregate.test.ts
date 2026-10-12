@@ -613,4 +613,23 @@ describe('notesAll — v8.13 想法列表数据源', () => {
   it('没有想法时返回空数组', async () => {
     expect(await agg.notesAll()).toEqual([])
   })
+
+  it('v8.24 收藏置顶：pinned 的排最前（跨日期），同收藏态再按时间倒序', async () => {
+    await repos.notes.create(k('2026-09-26'), '旧想法-准备收藏')
+    clock.advance(5000)
+    const mid = await repos.notes.create(k('2026-09-28'), '中间想法-收藏')
+    clock.advance(5000)
+    await repos.notes.create(k('2026-09-29'), '最新想法')
+
+    // 收藏中间那条（日期不是最新的）→ 应置顶
+    await repos.notes.setPinned(mid.id, true)
+    const all = await agg.notesAll()
+    expect(all.map((n) => n.text)).toEqual(['中间想法-收藏', '最新想法', '旧想法-准备收藏'])
+
+    // 取消收藏 → 恢复时间倒序
+    await repos.notes.setPinned(mid.id, false)
+    const again = await agg.notesAll()
+    expect(again.map((n) => n.text)).toEqual(['最新想法', '中间想法-收藏', '旧想法-准备收藏'])
+    expect(again.every((n) => !n.pinned)).toBe(true)
+  })
 })
