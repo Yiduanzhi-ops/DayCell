@@ -56,6 +56,9 @@
   gap: 8px;
   flex-wrap: wrap;
 }
+.card p {
+  margin: 0; /* p 默认上下 margin 同样会压出空行（summary 阐述行） */
+}
 .card .meta {
   margin-top: 7px;
   color: var(--ink-2);
