@@ -542,6 +542,7 @@ name = "daycell"
 version = "1.1.0"
 dependencies = [
  "log",
+ "objc2",
  "objc2-app-kit",
  "serde",
  "serde_json",

@@ -33,6 +33,28 @@ const M_WIDE: u8 = 2;
 
 static MODE: AtomicU8 = AtomicU8::new(M_BALL);
 
+/// 悬浮球跨 Space 置顶：macOS 全屏应用（浏览器/视频/PPT）独占一个 Space，
+/// 普通置顶窗口会被留在桌面 Space（这就是"全屏时看不到球"的原因）。
+/// CanJoinAllSpaces | FullScreenAuxiliary 让球在所有 Space（含全屏应用之上）永远可见可点；
+/// 面板/宽窗态恢复默认行为（普通窗口，保证可输入）。
+#[cfg(target_os = "macos")]
+fn set_float_behavior(win: &tauri::WebviewWindow, float: bool) {
+    use objc2::{msg_send, MainThreadMarker};
+    let _mtm = MainThreadMarker::new().expect("collectionBehavior 须在主线程设置");
+    if let Ok(ptr) = win.ns_window() {
+        let obj = ptr as *mut objc2::runtime::AnyObject;
+        unsafe {
+            // NSWindowCollectionBehaviorCanJoinAllSpaces=1<<8 | FullScreenAuxiliary=1<<9
+            let behavior: u64 = if float { (1 << 8) | (1 << 9) } else { 0 };
+            let _: () = msg_send![obj, setCollectionBehavior: behavior];
+            eprintln!("[diag] float_behavior={} ptr={:?}", float, ptr);
+        }
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn set_float_behavior(_win: &tauri::WebviewWindow, _float: bool) {}
+
 /// 应用窗口模式（改尺寸 + 位置）。focus=true 时把窗口带到前台。
 ///
 /// 尺寸/位置常量都是「逻辑 pt」（与手机/网页 CSS 一致，保证视觉尺寸等于手机屏）。
@@ -87,6 +109,8 @@ fn apply_mode(app: &AppHandle, mode: u8, focus: bool) {
     );
     // 悬浮球必须置顶（随时可点、不被全屏窗口盖住）；面板/宽窗正常层级
     let _ = win.set_always_on_top(mode == M_BALL);
+    // 球态跨 Space 置顶（全屏 App 下也可见可点），面板态恢复普通窗口
+    set_float_behavior(&win, mode == M_BALL);
     // Tauri 对不可调整大小的窗口会忽略 set_size，动态伸缩前必须先解锁
     let _ = win.set_resizable(true);
     let _ = win.set_size(PhysicalSize::new(w, h));
