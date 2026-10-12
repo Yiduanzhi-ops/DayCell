@@ -8,11 +8,27 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.24'
+const CURRENT_VERSION = 'v8.26'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.26',
+    date: '2026-10-12',
+    items: [
+      '目标卡片空行彻底修复：阐述行（p 标签）的默认底部间距一并归零，带阐述的目标卡片不再多出空行',
+    ],
+  },
+  {
+    version: 'v8.25',
+    date: '2026-10-12',
+    items: [
+      '启动页去掉「以端枳 作品」署名，只保留 logo 与品牌名',
+      '目标列表卡片消除空行：标题默认外边距归零，卡片更紧凑',
+      '想法星标改为嵌入想法框内右上：无边框、低调小号，收藏后点亮金色',
+    ],
+  },
   {
     version: 'v8.24',
     date: '2026-10-12',
