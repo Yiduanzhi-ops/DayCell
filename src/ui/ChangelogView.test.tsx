@@ -37,16 +37,16 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v8.27')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v8.28')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v8.27')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v8.28')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v8.27，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v8.28，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v8.27')
-    expect(screen.getByText('纪念日当作待办展示在当天：当天命中的纪念日会出现在待办列表末尾（◷ 标记 + 「纪念日」标签），只读提醒、不可误删')).toBeInTheDocument()
+    expect(vers[0].textContent).toBe('v8.28')
+    expect(screen.getByText('纪念日待办置顶：当天纪念日固定显示在待办列表最上方，一眼看到今天是什么日子')).toBeInTheDocument()
   })
 
   it('历史版本（v8.2 同步、v7.9 目标、v7.5 菜单）要点存在', async () => {

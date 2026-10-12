@@ -65,6 +65,13 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
       <div className={styles.tlist}>
         {sorted.length > 0 || annis.length > 0 ? (
           <>
+          {annis.map((a) => (
+            <div key={`anni-${a.id}`} className={`${styles.titem} ${styles.anniItem}`}>
+              <span className={styles.anniIcon} aria-hidden="true">◷</span>
+              <span className={styles.ttxt}>{a.title}</span>
+              <span className={styles.anniTag}>纪念日</span>
+            </div>
+          ))}
           {sorted.map((t) => (
             <div
               key={t.id}
@@ -100,13 +107,6 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
                   ×
                 </button>
               )}
-            </div>
-          ))}
-          {annis.map((a) => (
-            <div key={`anni-${a.id}`} className={`${styles.titem} ${styles.anniItem}`}>
-              <span className={styles.anniIcon} aria-hidden="true">◷</span>
-              <span className={styles.ttxt}>{a.title}</span>
-              <span className={styles.anniTag}>纪念日</span>
             </div>
           ))}
           </>
