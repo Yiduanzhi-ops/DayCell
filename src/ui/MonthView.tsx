@@ -4,21 +4,52 @@
  *
  * 格子固定三行（v7.1，用户拍板）：
  *   行1  日期圆 + 农历/节日标签
- *   行2  **花费**（独立一行，只要有花费就显示——不再被待办 gate 住；
- *        当天有纪念日徽章时徽章优先占用此行，花费让位）
+ *   行2  纪念日徽章（v8.4 起月格不再显示支出金额；徽章优先占用此行）
  *   行3  待办进度 ✓done/total（左）+ **想法点（右下角）**
- * 邻月补齐格只显示行1（密度信息属于本月，淡化格再带花费是噪音）。
+ * 邻月补齐格只显示行1（密度信息属于本月，淡化格再带内容是噪音）。
+ *
+ * v8.34：月视图接入**三页轨道滑动**（与日视图同机制）——左滑/右滑丝滑切换上一月/下一月，
+ * 途中可见两侧真实月内容；原左右箭头保留。三屏：中间屏 = 当前月（monthCache 优先 + store.month 兜底）；
+ * 两侧屏 = 上一/下一月（monthCache 只读，dataVer 过期显骨架，预取落地自动填充）。
  */
 import { useEffect, useRef } from 'react'
 import type { JSX } from 'react'
-import { fromKey, isSameMonth } from '@core'
+import { addMonths, fromKey, isSameMonth, monthOf } from '@core'
+import type { DateKey } from '@core'
 import { useApp } from '@/app/context'
+import { SwipeTrack } from './SwipeTrack'
+import swipeStyles from './SwipeTrack.module.css'
 import styles from './MonthView.module.css'
 
 const WK_HEAD = ['一', '二', '三', '四', '五', '六', '日'] as const
 
 export function MonthView(): JSX.Element {
-  const month = useApp((s) => s.month)
+  const selected = useApp((s) => s.selected)
+  const shift = useApp((s) => s.shift)
+  const prefetchMonth = useApp((s) => s.prefetchMonth)
+
+  return (
+    <SwipeTrack
+      current={selected}
+      prevOf={(k) => addMonths(k, -1)}
+      nextOf={(k) => addMonths(k, 1)}
+      prefetch={prefetchMonth}
+      flip={shift}
+      testId="month-scroll"
+      renderPage={(k, role) => <MonthPage monthKey={k} role={role} />}
+    />
+  )
+}
+
+/** 单月完整视图（v8.34 三屏共用）：中间屏 = 当前月（可交互）；两侧屏 = 相邻月（只读预览）。
+ *  数据源 = monthCache.get(monthOf(k))（滑动预取/refresh 写入）；中间屏兜底 store.month。
+ *  dataVer 过期（写操作/同步后）：侧屏无兜底 → 骨架；中间屏兜底 s.month（refresh 聚合的最新数据）。 */
+function MonthPage({ monthKey, role }: { monthKey: DateKey; role: 'center' | 'side' }): JSX.Element {
+  const cached = useApp((s) => {
+    const e = s.monthCache.get(monthOf(monthKey))
+    return e && e.ver >= s.dataVer ? e.detail : undefined
+  })
+  const current = useApp((s) => (role === 'center' ? s.month : undefined))
   const selected = useApp((s) => s.selected)
   const today = useApp((s) => s.today)
   const selectFromCalendar = useApp((s) => s.selectFromCalendar)
@@ -34,13 +65,23 @@ export function MonthView(): JSX.Element {
     }
   }, [restore, consumeRestore])
 
-  const days = month?.days ?? []
+  const data = cached ?? current
+  if (!data) {
+    return (
+      <div className={swipeStyles.skels}>
+        <div className={swipeStyles.skel} />
+        <div className={swipeStyles.skel} />
+        <div className={swipeStyles.skel} />
+      </div>
+    )
+  }
+
+  const days = data.days
 
   return (
     <>
-      {/* v8.4：移除「本月消费」汇总条（用户拍板：周/月视图不再显示支出相关文字） */}
       <div className={styles.mbar}>
-        <span>{month?.summary.daysWithRecords ?? 0} 天有记录</span>
+        <span>{data.summary.daysWithRecords ?? 0} 天有记录</span>
       </div>
       <div className={styles.wkhead}>
         {WK_HEAD.map((w, i) => (
@@ -58,8 +99,7 @@ export function MonthView(): JSX.Element {
               + (d.label.text ? ` ${d.label.text}` : '')
               + (d.todoTotal ? ` 待办${d.todoDone}/${d.todoTotal}` : '')
               + (d.noteCount ? ` ${d.noteCount}条想法` : '')
-            // 行2：纪念日徽章（v8.4 起月格不再显示支出金额；
-            // v8.8 修复手机窄屏截断：徽章留在格内，一行放不下自然换行，最多 3 行，不漂移）
+            // 行2：纪念日徽章（v8.8 修复手机窄屏截断：徽章留在格内，一行放不下自然换行，最多 3 行，不漂移）
             const showAnni = d.anniversaries.length > 0
             // 行3：有待办或有想法才渲染；想法点靠 margin-left:auto 恒在右下角
             const showRow3 = !out && (d.todoTotal > 0 || d.noteCount > 0)

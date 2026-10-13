@@ -21,10 +21,12 @@ import {
   isDayCellError,
   mergeBackup,
   monthKeys,
+  monthOf,
   parseBackup,
   rangeKeys,
   renderRangeMd,
   serializeBackup,
+  startOfWeek,
   today as todayKey,
   weekKeys,
   type AnniversaryInput,
@@ -79,6 +81,18 @@ export interface DayCacheEntry {
   ver: number
 }
 
+/** v8.34：weekCache 条目（同 dayCache 机制：dataVer 过期即骨架）。key = startOfWeek 归一的周锚点 */
+export interface WeekCacheEntry {
+  detail: { days: WeekDay[]; total: WeekTotal }
+  ver: number
+}
+
+/** v8.34：monthCache 条目（同 dayCache 机制）。key = MonthKey（'YYYY-MM'） */
+export interface MonthCacheEntry {
+  detail: { days: DayAggregate[]; summary: MonthSummary }
+  ver: number
+}
+
 export interface AppState {
   today: DateKey
   view: View
@@ -95,6 +109,11 @@ export interface AppState {
    * v8.19：条目携带聚合时的 dataVer——任何写操作/同步后 dataVer 递增，旧条目 ver < dataVer 视为
    * 过期，滑动途中不显示（显示骨架），等 prefetchDay 重新聚合后再显示，杜绝"途中旧数据、松手跳变"。 */
   dayCache: ReadonlyMap<DateKey, DayCacheEntry>
+  /** v8.34 周视图滑动翻页：相邻周聚合内存缓存（key = startOfWeek 归一周锚点）。
+   *  与 dayCache 同机制：只存内存、条目带 dataVer、过期不显示（骨架），由 prefetchWeek 重新聚合。 */
+  weekCache: ReadonlyMap<string, WeekCacheEntry>
+  /** v8.34 月视图滑动翻页：相邻月聚合内存缓存（key = MonthKey）。机制同上 */
+  monthCache: ReadonlyMap<string, MonthCacheEntry>
   /** v8.19 数据版本：写操作/同步成功后 +1，用于判定 dayCache 条目是否过期 */
   dataVer: number
   week: { days: WeekDay[]; total: WeekTotal } | null
@@ -160,6 +179,10 @@ export interface AppState {
   shiftDay(dir: 1 | -1): void
   /** v8.12 日视图滑动翻页：预取某日 detail 入 dayCache（命中直接返回；未命中聚合写入）。手势/换日预取相邻日用 */
   prefetchDay(k: DateKey): Promise<void>
+  /** v8.34 周视图滑动翻页：预取某周聚合入 weekCache（入参为该周内任意日期锚点，按 startOfWeek 归一 key） */
+  prefetchWeek(k: DateKey): Promise<void>
+  /** v8.34 月视图滑动翻页：预取某月聚合入 monthCache（入参为该月内任意日期，按 monthOf 归一 key） */
+  prefetchMonth(k: DateKey): Promise<void>
   /** 点周/月的格子。窄屏跳进日视图并记来源；宽屏只切换右栏 */
   selectFromCalendar(k: DateKey, scrollTop?: number): void
   /** v8.13 想法 tab：点条目跳进该日日视图。窄屏记来源（返回回想法列表+页码+滚动位）；宽屏直接切日视图 */
@@ -348,6 +371,8 @@ export function createAppStore(
 
     detail: null,
     dayCache: new Map(),
+    weekCache: new Map(),
+    monthCache: new Map(),
     dataVer: 0,
     week: null,
     month: null,
@@ -426,9 +451,20 @@ export function createAppStore(
         const cache = new Map(get().dayCache)
         cache.set(selected, { detail: dayDetail, ver: get().dataVer })
 
+        // v8.34：selected 的周/月聚合同步写入缓存（轨道三页数据源；与 dayCache 同策略：保留旧条目，
+        // 相邻周/月由 prefetchWeek/prefetchMonth 每次滑动重新聚合，永远最新）
+        const wcache = new Map(get().weekCache)
+        if (week) wcache.set(startOfWeek(selected), { detail: week, ver: get().dataVer })
+        const mcache = new Map(get().monthCache)
+        if (monthDays && monthSum) {
+          mcache.set(monthOf(selected), { detail: { days: monthDays, summary: monthSum }, ver: get().dataVer })
+        }
+
         const patch: Partial<AppState> = {
           detail: dayDetail,
           dayCache: cache,
+          weekCache: wcache,
+          monthCache: mcache,
           week,
           month: monthDays ? { days: monthDays, summary: monthSum! } : null,
           habitDay,
@@ -503,6 +539,24 @@ export function createAppStore(
       // 无清空竞态：refresh 只写 selected，prefetch 写相邻日，各自 key 互不覆盖。
       const d = await aggregates.aggregateDayDetail(k)
       set({ dayCache: new Map(get().dayCache).set(k, { detail: d, ver: get().dataVer }) })
+    },
+
+    async prefetchWeek(k) {
+      // v8.34：周视图滑动预取。总是重新聚合（同 prefetchDay 的 v8.18 理由：缓存可能陈旧）。
+      // key 归一 startOfWeek（周一起始，与 store 换周/聚合口径一致），入参为该周内任意日期。
+      const d = await aggregates.aggregateWeek(k)
+      set({ weekCache: new Map(get().weekCache).set(startOfWeek(k), { detail: d, ver: get().dataVer }) })
+    },
+
+    async prefetchMonth(k) {
+      // v8.34：月视图滑动预取。key 归一 monthOf（'YYYY-MM'）
+      const [days, sum] = await Promise.all([aggregates.aggregateMonth(k), aggregates.monthSummary(k)])
+      set({
+        monthCache: new Map(get().monthCache).set(monthOf(k), {
+          detail: { days, summary: sum },
+          ver: get().dataVer,
+        }),
+      })
     },
 
     selectFromCalendar(k, scrollTop = 0) {

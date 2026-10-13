@@ -158,10 +158,11 @@ describe('App 冒烟', () => {
   it('切月视图出 42 格；点「今天」标签回到今天（v7 / D19）', async () => {
     const store = await renderApp()
     fireEvent.click(screen.getByRole('tab', { name: '月' }))
-    await waitFor(() => expect(screen.getAllByRole('gridcell')).toHaveLength(42))
+    // v8.34 三页轨道：月视图同时渲染上/下月三屏，中间屏（month-center）才是当前月 42 格
+    await waitFor(() => expect(within(screen.getByTestId('month-center')).getAllByRole('gridcell')).toHaveLength(42))
 
     // 月视图里点一个非今天的格子（宽屏：右栏换日，selected 跟着走）
-    fireEvent.click(screen.getByLabelText(/10月1日/))
+    fireEvent.click(within(screen.getByTestId('month-center')).getByLabelText(/10月1日/))
     await waitFor(() => expect(store.getState().selected).toBe('2026-10-01'))
 
     // 点「今天」标签：v7 起恒复位到今天（日视图 = 今天）
@@ -182,8 +183,8 @@ describe('App 冒烟', () => {
     await waitFor(() => expect(store.getState().detail?.notes).toHaveLength(1))
 
     fireEvent.click(screen.getByRole('tab', { name: '月' }))
-    await waitFor(() => expect(screen.getAllByRole('gridcell')).toHaveLength(42))
-    const cell = screen.getByLabelText(/2026年9月29日/)
+    await waitFor(() => expect(within(screen.getByTestId('month-center')).getAllByRole('gridcell')).toHaveLength(42))
+    const cell = within(screen.getByTestId('month-center')).getByLabelText(/2026年9月29日/)
     // v8.4：支出数据仍在（历史兼容），但月格不再渲染金额行
     expect(cell.textContent).not.toContain('¥')
     expect(cell.textContent).not.toContain('129')
@@ -194,6 +195,80 @@ describe('App 冒烟', () => {
     expect(nind!.textContent).toBe('')
     // 无待办 → 不渲染进度 chip
     expect(cell.querySelector('[class*="prog"]')).toBeNull()
+  })
+
+  it('v8.34 周视图滑动：左滑下一周、右滑回本周、短滑回弹不翻（箭头仍可用）', async () => {
+    const store = await renderApp()
+    fireEvent.click(screen.getByRole('tab', { name: '周' }))
+    const scroller = screen.getByTestId('week-scroll')
+    // 本周（2026-09-28 ~ 10-04，TODAY=09-29）：中间屏含 9/29
+    await waitFor(() =>
+      expect(within(screen.getByTestId('week-center')).getAllByText(/9\/29/).length).toBeGreaterThan(0),
+    )
+
+    // 左滑（dx=-120）→ 预取 → 过渡 → 换下一周（selected=10/06），中间屏变下周（含 10/6）
+    fireEvent.touchStart(scroller, { touches: [{ clientX: 260, clientY: 150 }] })
+    fireEvent.touchMove(scroller, { touches: [{ clientX: 140, clientY: 158 }] })
+    fireEvent.touchEnd(scroller)
+    // 等目标页预取完成、transitionend 监听注册后再派发过渡结束（jsdom 无真 CSS transition）
+    await new Promise((r) => setTimeout(r, 120))
+    fireEvent.transitionEnd(scroller)
+    await waitFor(() => expect(store.getState().selected).toBe('2026-10-06'))
+    await waitFor(() =>
+      expect(within(screen.getByTestId('week-center')).getAllByText(/10\/6/).length).toBeGreaterThan(0),
+    )
+    await new Promise((r) => setTimeout(r, 400))
+
+    // 右滑（dx=+120）→ 回本周（selected=TODAY）
+    fireEvent.touchStart(scroller, { touches: [{ clientX: 140, clientY: 150 }] })
+    fireEvent.touchMove(scroller, { touches: [{ clientX: 260, clientY: 158 }] })
+    fireEvent.touchEnd(scroller)
+    await new Promise((r) => setTimeout(r, 120))
+    fireEvent.transitionEnd(scroller)
+    await waitFor(() => expect(store.getState().selected).toBe(TODAY))
+    await new Promise((r) => setTimeout(r, 400))
+
+    // 短滑（dx=30，低于阈值）→ 回弹，selected 不变
+    fireEvent.touchStart(scroller, { touches: [{ clientX: 260, clientY: 150 }] })
+    fireEvent.touchMove(scroller, { touches: [{ clientX: 230, clientY: 156 }] })
+    fireEvent.touchEnd(scroller)
+    await new Promise((r) => setTimeout(r, 50))
+    expect(store.getState().selected).toBe(TODAY)
+  })
+
+  it('v8.34 月视图滑动：左滑下一月、右滑回本月、短滑回弹不翻（箭头仍可用）', async () => {
+    const store = await renderApp()
+    fireEvent.click(screen.getByRole('tab', { name: '月' }))
+    const scroller = screen.getByTestId('month-scroll')
+    const center = (): HTMLElement => screen.getByTestId('month-center')
+    await waitFor(() => expect(within(center()).getAllByRole('gridcell')).toHaveLength(42))
+    expect(within(center()).getByLabelText(/2026年9月29日/)).toBeInTheDocument()
+
+    // 左滑 → 下一月（selected=10/29）：中间屏变 10 月网格（含今天 10/13，9 月网格不含）
+    fireEvent.touchStart(scroller, { touches: [{ clientX: 260, clientY: 150 }] })
+    fireEvent.touchMove(scroller, { touches: [{ clientX: 140, clientY: 158 }] })
+    fireEvent.touchEnd(scroller)
+    await new Promise((r) => setTimeout(r, 120))
+    fireEvent.transitionEnd(scroller)
+    await waitFor(() => expect(store.getState().selected).toBe('2026-10-29'))
+    await waitFor(() => expect(within(center()).getByLabelText(/2026年10月13日/)).toBeInTheDocument())
+    await new Promise((r) => setTimeout(r, 400))
+
+    // 右滑 → 回本月（selected=TODAY）
+    fireEvent.touchStart(scroller, { touches: [{ clientX: 140, clientY: 150 }] })
+    fireEvent.touchMove(scroller, { touches: [{ clientX: 260, clientY: 158 }] })
+    fireEvent.touchEnd(scroller)
+    await new Promise((r) => setTimeout(r, 120))
+    fireEvent.transitionEnd(scroller)
+    await waitFor(() => expect(store.getState().selected).toBe(TODAY))
+    await new Promise((r) => setTimeout(r, 400))
+
+    // 短滑 → 回弹，selected 不变
+    fireEvent.touchStart(scroller, { touches: [{ clientX: 260, clientY: 150 }] })
+    fireEvent.touchMove(scroller, { touches: [{ clientX: 230, clientY: 156 }] })
+    fireEvent.touchEnd(scroller)
+    await new Promise((r) => setTimeout(r, 50))
+    expect(store.getState().selected).toBe(TODAY)
   })
 
   it('v7.5 今天视图顶栏不再显示日期与周几（内容区保留完整日期）', async () => {

@@ -42,9 +42,8 @@
   align-items: center;
   gap: 11px;
   padding: 6px 0;
-  border-bottom: 1px solid var(--line-2);
+  /* v8.34：去掉每条习惯之间的分隔横线（保留区块整体外边框） */
 }
-.row:last-child { border-bottom: none; }
 
 .check {
   width: 22px;

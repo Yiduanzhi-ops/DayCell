@@ -8,11 +8,20 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.33'
+const CURRENT_VERSION = 'v8.34'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.34',
+    date: '2026-10-13',
+    items: [
+      '周视图、月视图新增左右滑动切换：与日视图同款「三页轨道」丝滑机制，滑动途中可同时看到上/下一天的数据',
+      '左滑进入下一周/下一个月，右滑回到上一周/上一个月；短滑回弹不翻页，桌面与手机都保留原有左右箭头',
+      '习惯模块去掉每条习惯之间的分隔横线，只保留区块外框，观感更简洁',
+    ],
+  },
   {
     version: 'v8.33',
     date: '2026-10-13',

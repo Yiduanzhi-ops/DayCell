@@ -1,0 +1,57 @@
+/* v8.34 通用三页轨道（周/月滑动共用；样式与 DayView 轨道同源） */
+.trackWrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+}
+.track {
+  /* 三页轨道硬约束：flex: 0 0 300% + width: 300%（被压回 100% 会三页各缩 1/3；
+     display:flex 必须保留，否则三页垂直堆叠首屏空白） */
+  display: flex;
+  flex: 0 0 300%;
+  width: 300%;
+  min-height: 0;
+  will-change: transform;
+  /* 初始位置 = 中间页（JS effect 再设一次同值；防首帧显示左页闪一下） */
+  transform: translateX(-33.3333%);
+  /* 允许垂直滚动、禁止浏览器默认横向手势（横向由 JS 接管） */
+  touch-action: pan-y;
+}
+.tpage {
+  flex: 0 0 33.3333%;
+  width: 33.3333%;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+/* 两侧页容器：禁交互（滑动途中不误触），视觉与中间页完全一致 */
+.readonly {
+  pointer-events: none;
+}
+/* 轻骨架：数据未就绪时占位（预取落地后自动填充） */
+.skels {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+}
+.skel {
+  height: 14px;
+  border-radius: 6px;
+  background: var(--line);
+  opacity: 0.45;
+  animation: skelPulse 1.2s ease-in-out infinite;
+}
+@keyframes skelPulse {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
