@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.34'
+const CURRENT_VERSION = 'v8.35'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.35',
+    date: '2026-10-14',
+    items: [
+      '修复滑动翻页「闪一下旧页面」：落地瞬间中间屏改直读当前周/月（与日视图同模式），重排复位时视口已是目标页，不再闪现上一页内容',
+      '日/周/月三视图滑动切换现在都丝滑无缝',
+    ],
+  },
   {
     version: 'v8.34',
     date: '2026-10-13',

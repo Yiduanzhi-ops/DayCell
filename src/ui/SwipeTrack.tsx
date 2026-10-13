@@ -213,7 +213,10 @@ export function SwipeTrack<K>({
       <div className={styles.track} ref={trackRef} data-testid={testId}>
         <div className={`${styles.tpage} ${styles.readonly}`}>{renderPage(pages[0], 'side')}</div>
         <div className={styles.tpage} data-testid={testId ? `${testId.replace(/-scroll$/, '')}-center` : undefined}>
-          {renderPage(pages[1], 'center')}
+          {/* 中间屏跟随 current（store 当前值），不依赖 pages 数组：
+              翻页时 selected 先变 → 中间屏立即渲染新页，重排 effect 再同步复位 transform，
+              避免「复位瞬间视口还是旧页」的内容闪动（与 DayView 中间屏直读 selected 同模式）。 */}
+          {renderPage(current, 'center')}
         </div>
         <div className={`${styles.tpage} ${styles.readonly}`}>{renderPage(pages[2], 'side')}</div>
       </div>
