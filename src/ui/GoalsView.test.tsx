@@ -10,7 +10,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from 'vitest'
 import '@testing-library/jest-dom/vitest'
-import { render, screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, cleanup, act, within } from '@testing-library/react'
 import { createMemoryStore, type DateKey } from '@core'
 import { initCore } from '@/app/bootstrap'
 import { createAppStore } from '@/app/store'
@@ -82,7 +82,7 @@ describe('目标模块（v7.9）', () => {
     fireEvent.click(screen.getByRole('button', { name: '＋ 添加阶段' }))
     fireEvent.change(screen.getByPlaceholderText('如：刷题阶段'), { target: { value: '基础学习' } })
     fireEvent.click(screen.getByRole('button', { name: '添加' }))
-    await waitFor(() => expect(screen.getByText('基础学习')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getAllByText('基础学习').length).toBeGreaterThan(0))
     expect(screen.getByText('当前')).toBeInTheDocument()
 
     // 第二个阶段 → 未开始
@@ -113,13 +113,13 @@ describe('目标模块（v7.9）', () => {
       fireEvent.click(screen.getByRole('button', { name: '＋ 添加阶段' }))
       fireEvent.change(screen.getByPlaceholderText('如：刷题阶段'), { target: { value: name } })
       fireEvent.click(screen.getByRole('button', { name: '添加' }))
-      await waitFor(() => screen.getByText(name))
+      await waitFor(() => expect(screen.getAllByText(name).length).toBeGreaterThan(0))
     }
     // 当前是第一个
     expect(screen.getByText('当前')).toBeInTheDocument()
 
     // 展开第二个阶段行 → 设为当前
-    fireEvent.click(screen.getByText('刷题阶段'))
+    fireEvent.click(screen.getAllByRole('button', { name: /刷题阶段/ })[0])
     fireEvent.click(screen.getByRole('button', { name: '设为当前' }))
     await waitFor(() => {
       // 互斥后仍然只有一个「当前」徽标
@@ -166,7 +166,7 @@ describe('目标模块（v7.9）', () => {
     fireEvent.click(screen.getByRole('button', { name: '＋ 添加阶段' }))
     fireEvent.change(screen.getByPlaceholderText('如：刷题阶段'), { target: { value: '基础学习' } })
     fireEvent.click(screen.getByRole('button', { name: '添加' }))
-    await waitFor(() => screen.getByText('基础学习'))
+    await waitFor(() => expect(screen.getAllByText('基础学习').length).toBeGreaterThan(0))
 
     fireEvent.click(screen.getByRole('button', { name: '删除目标' }))
     // 删除 = 级联事务 + 列表刷新，异步链较长
@@ -213,12 +213,12 @@ describe('目标模块（v7.9）', () => {
     fireEvent.click(screen.getByRole('button', { name: '＋ 添加子任务' }))
     fireEvent.change(screen.getByPlaceholderText('如：做完教案第 3 章'), { target: { value: '做完教案' } })
     fireEvent.click(screen.getByRole('button', { name: '添加' }))
-    await waitFor(() => screen.getByText('做完教案'))
+    await waitFor(() => expect(screen.getAllByText('做完教案').length).toBeGreaterThan(0))
 
     fireEvent.click(screen.getByRole('button', { name: '＋ 添加子任务' }))
     fireEvent.change(screen.getByPlaceholderText('如：做完教案第 3 章'), { target: { value: '刷一套题' } })
     fireEvent.click(screen.getByRole('button', { name: '添加' }))
-    await screen.findByText('刷一套题')
+    await waitFor(() => expect(screen.getAllByText('刷一套题').length).toBeGreaterThan(0))
 
     // 进度文案出现
     expect(screen.getByText('已完成 0/2')).toBeInTheDocument()
@@ -230,8 +230,8 @@ describe('目标模块（v7.9）', () => {
     expect(rows[0]).toHaveAttribute('aria-label', '标记完成：做完教案')
     expect(rows[1]).toHaveAttribute('aria-label', '取消完成：刷一套题')
 
-    // 点文字就地编辑
-    fireEvent.click(screen.getByText('做完教案'))
+    // 点文字就地编辑（列表行内的标题文本，图表区同名不参与）
+    fireEvent.click(screen.getAllByText('做完教案')[0])
     const input = screen.getByDisplayValue('做完教案')
     fireEvent.change(input, { target: { value: '做完教案 v2' } })
     fireEvent.keyDown(input, { key: 'Enter' })
@@ -240,6 +240,47 @@ describe('目标模块（v7.9）', () => {
     // 删除
     fireEvent.click(screen.getByRole('button', { name: '删除子任务：刷一套题' }))
     await waitFor(() => expect(screen.queryByText('刷一套题')).not.toBeInTheDocument())
+  })
+
+  it('v8.32 完成情况：横向进度条（无总览，只有图），置于视图底部——子任务与阶段各自展示', async () => {
+    await renderApp()
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => screen.getByText(/进行中的目标/))
+
+    fireEvent.click(screen.getByRole('button', { name: '＋ 新建目标' }))
+    fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
+    await screen.findByText('复习考公')
+
+    fireEvent.click(screen.getByText('复习考公'))
+    await waitFor(() => screen.getByText(/还没有子任务/))
+
+    // 两条子任务（无进度）→ 底部完成情况卡片出现，各自 0%
+    for (const t of ['做完教案', '刷一套题']) {
+      fireEvent.click(screen.getByRole('button', { name: '＋ 添加子任务' }))
+      fireEvent.change(screen.getByPlaceholderText('如：做完教案第 3 章'), { target: { value: t } })
+      fireEvent.click(screen.getByRole('button', { name: '添加' }))
+      await waitFor(() => expect(screen.getAllByText(t).length).toBeGreaterThan(0))
+    }
+    const chart = screen.getByLabelText('完成情况')
+    expect(within(chart).getAllByText('0%')).toHaveLength(2)
+
+    // 勾选一条 → 该条按 done 口径记 100%
+    fireEvent.click(screen.getByRole('checkbox', { name: '标记完成：刷一套题' }))
+    await waitFor(() => expect(within(chart).getByText('100%')).toBeInTheDocument())
+    expect(within(chart).getAllByText('0%')).toHaveLength(1)
+
+    // 切到阶段视图：无阶段不渲染卡片；加一个阶段后按阶段 pct 展示 0%
+    fireEvent.click(screen.getByRole('tab', { name: '阶段' }))
+    await waitFor(() => screen.getByText('阶段列表'))
+    expect(screen.queryByLabelText('完成情况')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '＋ 添加阶段' }))
+    fireEvent.change(screen.getByPlaceholderText('如：刷题阶段'), { target: { value: '基础学习' } })
+    fireEvent.click(screen.getByRole('button', { name: '添加' }))
+    await waitFor(() => expect(screen.getAllByText('基础学习').length).toBeGreaterThan(0))
+    const stageChart = screen.getByLabelText('完成情况')
+    expect(within(stageChart).getByText('基础学习')).toBeInTheDocument()
+    expect(within(stageChart).getByText('0%')).toBeInTheDocument()
   })
 
   it('子任务描述 v8.9：无描述显占位 → 就地编辑 → 常驻显示在标题下方 → Escape 取消', async () => {
@@ -257,7 +298,7 @@ describe('目标模块（v7.9）', () => {
     fireEvent.click(screen.getByRole('button', { name: '＋ 添加子任务' }))
     fireEvent.change(screen.getByPlaceholderText('如：做完教案第 3 章'), { target: { value: '做题' } })
     fireEvent.click(screen.getByRole('button', { name: '添加' }))
-    await waitFor(() => screen.getByText('做题'))
+    await waitFor(() => expect(screen.getAllByText('做题').length).toBeGreaterThan(0))
 
     // 无描述 → 显示占位
     expect(screen.getByText(/添加描述/)).toBeInTheDocument()
@@ -270,7 +311,7 @@ describe('目标模块（v7.9）', () => {
     await waitFor(() => screen.getByText(/每天 30 分钟/))
     expect(screen.getByText(/先做 3 题/)).toBeInTheDocument()
     // 标题仍在
-    expect(screen.getByText('做题')).toBeInTheDocument()
+    expect(screen.getAllByText('做题').length).toBeGreaterThan(0)
 
     // 再点描述 → 改内容 → Escape 取消不保存
     fireEvent.click(screen.getByText(/每天 30 分钟/))
@@ -305,7 +346,7 @@ describe('目标模块（v7.9）', () => {
     fireEvent.click(screen.getByRole('button', { name: '＋ 添加子任务' }))
     fireEvent.change(screen.getByPlaceholderText('如：做完教案第 3 章'), { target: { value: '做题' } })
     fireEvent.click(screen.getByRole('button', { name: '添加' }))
-    await waitFor(() => screen.getByText('做题'))
+    await waitFor(() => expect(screen.getAllByText('做题').length).toBeGreaterThan(0))
 
     // 无进度 → 显示占位
     expect(screen.getByText('＋ 添加进度')).toBeInTheDocument()
@@ -319,10 +360,10 @@ describe('目标模块（v7.9）', () => {
     await act(async () => {
       fireEvent.blur(note)
     })
-    await waitFor(() => screen.getByText('40%'))
+    await waitFor(() => expect(screen.getAllByText('40%').length).toBeGreaterThan(0))
     expect(screen.getByText('做到一半')).toBeInTheDocument()
     // 标题仍在
-    expect(screen.getByText('做题')).toBeInTheDocument()
+    expect(screen.getAllByText('做题').length).toBeGreaterThan(0)
 
     // 再点进度 → 改内容 → Escape 取消不保存
     fireEvent.click(screen.getByText('做到一半'))
@@ -331,7 +372,7 @@ describe('目标模块（v7.9）', () => {
     fireEvent.change(pct2, { target: { value: '90' } })
     fireEvent.change(note2, { target: { value: '快完了' } })
     fireEvent.keyDown(note2, { key: 'Escape' })
-    await waitFor(() => screen.getByText('40%'))
+    await waitFor(() => expect(screen.getAllByText('40%').length).toBeGreaterThan(0))
     expect(screen.queryByText('快完了')).not.toBeInTheDocument()
 
     // 清空 → 回到占位
@@ -362,7 +403,7 @@ describe('目标模块（v7.9）', () => {
     fireEvent.click(screen.getByRole('button', { name: '＋ 添加子任务' }))
     fireEvent.change(screen.getByPlaceholderText('如：做完教案第 3 章'), { target: { value: '做题' } })
     fireEvent.click(screen.getByRole('button', { name: '添加' }))
-    await waitFor(() => screen.getByText('做题'))
+    await waitFor(() => expect(screen.getAllByText('做题').length).toBeGreaterThan(0))
 
     // 进入编辑态，输入百分比
     fireEvent.click(screen.getByText('＋ 添加进度'))
@@ -378,7 +419,7 @@ describe('目标模块（v7.9）', () => {
     await act(async () => {
       fireEvent.blur(note)
     })
-    await waitFor(() => screen.getByText('40%'))
+    await waitFor(() => expect(screen.getAllByText('40%').length).toBeGreaterThan(0))
     expect(screen.getByText('做到一半')).toBeInTheDocument()
   })
 

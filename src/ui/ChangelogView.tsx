@@ -8,11 +8,20 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.31'
+const CURRENT_VERSION = 'v8.32'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.32',
+    date: '2026-10-13',
+    items: [
+      '目标详情页新增「完成情况」图表：横向进度条，置于视图底部，子任务/阶段各自展示',
+      '完成度口径：勾选完成记 100%，否则用手填进度，都没有记 0%',
+      '习惯模块文字再调小一档，标题与行距一并拉齐待办区块',
+    ],
+  },
   {
     version: 'v8.31',
     date: '2026-10-13',

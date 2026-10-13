@@ -819,6 +819,31 @@ function GoalDetail({
         </>
       )}
 
+      {/* v8.32 完成情况：横向进度条（无总览，只有图），置于视图内容**最底部**。
+          口径：勾选完成记 100，否则用手填进度（阶段 pct / 子任务 progress.pct），都没有记 0 */}
+      {(viewMode === 'stages' ? stages : subtasks).length > 0 && (
+        <div className={styles.progChart} aria-label="完成情况">
+          {(viewMode === 'stages' ? stages : subtasks).map((it) => {
+            const pct = it.done
+              ? 100
+              : viewMode === 'stages'
+                ? ((it as StageRecord).pct ?? 0)
+                : ((it as SubtaskRecord).progress?.pct ?? 0)
+            return (
+              <div key={it.id} className={styles.progRow}>
+                <div className={styles.progHead}>
+                  <span className={styles.progName}>{it.title}</span>
+                  <span className={styles.progPct}>{pct}%</span>
+                </div>
+                <div className={styles.progTrack}>
+                  <div className={styles.progFill} style={{ width: `${pct}%` }} />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       {stageSheet !== null && (
         <StageSheet
           editing={stageSheet === 'new' ? null : stageSheet}
