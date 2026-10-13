@@ -10,7 +10,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from 'vitest'
 import '@testing-library/jest-dom/vitest'
-import { render, screen, fireEvent, waitFor, cleanup, act, within } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react'
 import { createMemoryStore, type DateKey } from '@core'
 import { initCore } from '@/app/bootstrap'
 import { createAppStore } from '@/app/store'
@@ -242,7 +242,7 @@ describe('目标模块（v7.9）', () => {
     await waitFor(() => expect(screen.queryByText('刷一套题')).not.toBeInTheDocument())
   })
 
-  it('v8.32 完成情况：横向进度条（无总览，只有图），置于视图底部——子任务与阶段各自展示', async () => {
+  it('v8.32 完成情况：横向进度条下沉到每个子任务/阶段行内（进度描述上方，空条常显）', async () => {
     await renderApp()
     fireEvent.click(screen.getByRole('tab', { name: '目标' }))
     await waitFor(() => screen.getByText(/进行中的目标/))
@@ -255,32 +255,28 @@ describe('目标模块（v7.9）', () => {
     fireEvent.click(screen.getByText('复习考公'))
     await waitFor(() => screen.getByText(/还没有子任务/))
 
-    // 两条子任务（无进度）→ 底部完成情况卡片出现，各自 0%
+    // 两条子任务（无进度）→ 行内进度条各显 0% 空条（位于「＋ 添加进度」上方）
     for (const t of ['做完教案', '刷一套题']) {
       fireEvent.click(screen.getByRole('button', { name: '＋ 添加子任务' }))
       fireEvent.change(screen.getByPlaceholderText('如：做完教案第 3 章'), { target: { value: t } })
       fireEvent.click(screen.getByRole('button', { name: '添加' }))
       await waitFor(() => expect(screen.getAllByText(t).length).toBeGreaterThan(0))
     }
-    const chart = screen.getByLabelText('完成情况')
-    expect(within(chart).getAllByText('0%')).toHaveLength(2)
+    expect(screen.getAllByText('0%')).toHaveLength(2)
 
     // 勾选一条 → 该条按 done 口径记 100%
     fireEvent.click(screen.getByRole('checkbox', { name: '标记完成：刷一套题' }))
-    await waitFor(() => expect(within(chart).getByText('100%')).toBeInTheDocument())
-    expect(within(chart).getAllByText('0%')).toHaveLength(1)
+    await waitFor(() => expect(screen.getAllByText('100%').length).toBeGreaterThan(0))
+    expect(screen.getAllByText('0%')).toHaveLength(1)
 
-    // 切到阶段视图：无阶段不渲染卡片；加一个阶段后按阶段 pct 展示 0%
+    // 阶段视图：无 pct 的阶段也显示空条（「进度 —」保留在行脚）
     fireEvent.click(screen.getByRole('tab', { name: '阶段' }))
     await waitFor(() => screen.getByText('阶段列表'))
-    expect(screen.queryByLabelText('完成情况')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '＋ 添加阶段' }))
     fireEvent.change(screen.getByPlaceholderText('如：刷题阶段'), { target: { value: '基础学习' } })
     fireEvent.click(screen.getByRole('button', { name: '添加' }))
     await waitFor(() => expect(screen.getAllByText('基础学习').length).toBeGreaterThan(0))
-    const stageChart = screen.getByLabelText('完成情况')
-    expect(within(stageChart).getByText('基础学习')).toBeInTheDocument()
-    expect(within(stageChart).getByText('0%')).toBeInTheDocument()
+    expect(screen.getByText(/^进度/)).toBeInTheDocument()
   })
 
   it('子任务描述 v8.9：无描述显占位 → 就地编辑 → 常驻显示在标题下方 → Escape 取消', async () => {

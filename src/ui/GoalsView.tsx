@@ -280,11 +280,10 @@ function StageRow({
         <span className={styles.stageName}>{stage.title}</span>
         {badge}
       </div>
-      {stage.pct !== undefined && (
-        <div className={styles.bar}>
-          <i style={{ width: `${stage.pct}%` }} />
-        </div>
-      )}
+      {/* v8.32 空条口径：无 pct 也显示 0% 空条；done 记 100 */}
+      <div className={styles.bar}>
+        <i style={{ width: `${stage.done ? 100 : (stage.pct ?? 0)}%` }} />
+      </div>
       <div className={styles.stageFoot}>
         <span>进度 {stage.pct !== undefined ? `${stage.pct}%` : '—'}</span>
         <span className={styles.sp} />
@@ -473,6 +472,16 @@ function SubtaskRow({
             {subtask.desc || '＋ 添加描述'}
           </div>
         )}
+        {/* v8.32 行内横向进度条：进度描述上面一行（描述之下）。口径：勾选完成 100 / 手填 pct / 0 空条 */}
+        <div className={styles.subBarRow}>
+          <div className={styles.subBarTrack}>
+            <div
+              className={styles.subBarFill}
+              style={{ width: `${subtask.done ? 100 : (subtask.progress?.pct ?? 0)}%` }}
+            />
+          </div>
+          <span className={styles.subBarPct}>{subtask.done ? 100 : (subtask.progress?.pct ?? 0)}%</span>
+        </div>
         {/* v8.10 当前进度：与描述同级，描述在上、进度在下（C 形态：文本 + 百分比） */}
         {progEditing ? (
           // 容器级失焦保存（v8.10.1 修复）：焦点在编辑区内移动（百分比→描述）不保存，
@@ -817,31 +826,6 @@ function GoalDetail({
             ))
           )}
         </>
-      )}
-
-      {/* v8.32 完成情况：横向进度条（无总览，只有图），置于视图内容**最底部**。
-          口径：勾选完成记 100，否则用手填进度（阶段 pct / 子任务 progress.pct），都没有记 0 */}
-      {(viewMode === 'stages' ? stages : subtasks).length > 0 && (
-        <div className={styles.progChart} aria-label="完成情况">
-          {(viewMode === 'stages' ? stages : subtasks).map((it) => {
-            const pct = it.done
-              ? 100
-              : viewMode === 'stages'
-                ? ((it as StageRecord).pct ?? 0)
-                : ((it as SubtaskRecord).progress?.pct ?? 0)
-            return (
-              <div key={it.id} className={styles.progRow}>
-                <div className={styles.progHead}>
-                  <span className={styles.progName}>{it.title}</span>
-                  <span className={styles.progPct}>{pct}%</span>
-                </div>
-                <div className={styles.progTrack}>
-                  <div className={styles.progFill} style={{ width: `${pct}%` }} />
-                </div>
-              </div>
-            )
-          })}
-        </div>
       )}
 
       {stageSheet !== null && (

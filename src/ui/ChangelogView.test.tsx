@@ -37,16 +37,16 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v8.32')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v8.33')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v8.32')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v8.33')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v8.32，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v8.33，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v8.32')
-    expect(screen.getByText('目标详情页新增「完成情况」图表：横向进度条，置于视图底部，子任务/阶段各自展示')).toBeInTheDocument()
+    expect(vers[0].textContent).toBe('v8.33')
+    expect(screen.getByText('目标完成情况改为「行内横向进度条」：下沉到每个子任务/阶段内部，位于进度描述上方')).toBeInTheDocument()
   })
 
   it('历史版本（v8.2 同步、v7.9 目标、v7.5 菜单）要点存在', async () => {

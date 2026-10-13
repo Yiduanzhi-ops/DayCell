@@ -8,11 +8,20 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.32'
+const CURRENT_VERSION = 'v8.33'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.33',
+    date: '2026-10-13',
+    items: [
+      '目标完成情况改为「行内横向进度条」：下沉到每个子任务/阶段内部，位于进度描述上方',
+      '进度条空条常显：勾选完成记 100%，手填进度按数值，都没填显示 0% 空条',
+      '移除目标详情底部的「完成情况」卡片（v8.32 形态），进度图不再重复展示',
+    ],
+  },
   {
     version: 'v8.32',
     date: '2026-10-13',

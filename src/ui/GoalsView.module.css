@@ -600,49 +600,31 @@
   font-weight: 500;
 }
 
-/* ---- v8.32 完成情况：横向进度条（无总览，只有图） ---- */
-.progChart {
-  margin-top: 14px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--bg);
-  padding: 12px 14px 2px;
-}
-.progRow {
-  margin-bottom: 12px;
-}
-.progHead {
+/* ---- v8.32 子任务行内横向进度条：进度描述上面一行，空条常显 ---- */
+.subBarRow {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  align-items: center;
   gap: 8px;
-  margin-bottom: 6px;
+  margin-top: 6px;
 }
-.progName {
+.subBarTrack {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13px;
-  color: var(--ink-2);
-}
-.progPct {
-  flex: 0 0 auto;
-  font-size: 11.5px;
-  color: var(--ink-3);
-  font-variant-numeric: tabular-nums;
-}
-.progTrack {
-  height: 6px;
+  height: 5px;
   border-radius: 99px;
-  background: var(--bg-hover);
+  background: var(--line-2);
   overflow: hidden;
 }
-.progFill {
+.subBarFill {
   height: 100%;
   border-radius: 99px;
   background: var(--accent);
+}
+.subBarPct {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
 }
 
 /* 子任务行 */
