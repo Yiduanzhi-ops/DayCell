@@ -1,9 +1,9 @@
 /**
  * 想法 tab（v8.13）：全量想法列表。
  *  - 数据源 store.notesList（aggregates.notesAll：date 降序、同日 createdAt 降序）
- *  - 按天分组（组标题 = 公历 + 周几 + 农历 + 条数），条目两行省略 + 右下时间
+ *  - 按天分组（组标题 = 公历 + 周几 + 农历 + 条数），条目两行省略
  *  - 分页 10 条/页（跨组分页，底部「‹ 上一页 / 1 / N / 下一页 ›」）
- *  - 点击条目 → 进该日日视图（编辑/删除都在日视图做，交互复用）
+ *  - v8.31：点击条目**原地编辑**（不再跳日视图），右侧删除（带确认）+ 星标收藏，不显示时刻
  *  - 返回语义：窄屏记来源（view='notes' + 页码 + 滚动位），返回精确还原
  */
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react'
@@ -14,13 +14,6 @@ import styles from './NotesView.module.css'
 /** v8.13：10 条一页（用户拍板） */
 const PAGE_SIZE = 10
 const DOW = ['日', '一', '二', '三', '四', '五', '六']
-
-/** createdAt → 'HH:MM'（与 NoteSection 一致；UI 层允许用 Date） */
-const hhmm = (ms: number): string => {
-  const d = new Date(ms)
-  const p = (n: number): string => String(n).padStart(2, '0')
-  return `${p(d.getHours())}:${p(d.getMinutes())}`
-}
 
 interface Group {
   date: DateKey
@@ -34,12 +27,14 @@ export function NotesView(): JSX.Element {
   const notesList = useApp((s) => s.notesList)
   const notesPage = useApp((s) => s.notesPage)
   const setNotesPage = useApp((s) => s.setNotesPage)
-  const openDayFromNotes = useApp((s) => s.openDayFromNotes)
   const toggleNotePinned = useApp((s) => s.toggleNotePinned)
+  const deleteNote = useApp((s) => s.deleteNote)
   const restore = useApp((s) => s.restoreScrollTo)
   const consumeRestore = useApp((s) => s.consumeRestoreScroll)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [lunarMap, setLunarMap] = useState<ReadonlyMap<string, string>>(new Map())
+  /** v8.31：正在原地编辑的想法 id（同一时刻最多一条） */
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   // 农历：loadLunar 有模块级缓存（bootstrap 已加载过则直接命中）；
   // 只对当前列表涉及的日期算一次，失败静默降级（组标题省略农历，PRD E4 精神）
@@ -94,8 +89,8 @@ export function NotesView(): JSX.Element {
     [notesList, from, total],
   )
 
-  const onItem = (n: NoteRecord): void => {
-    openDayFromNotes(n.date, scrollRef.current?.scrollTop ?? 0)
+  const onDelete = (n: NoteRecord): void => {
+    if (window.confirm(`删除这条想法？`)) void deleteNote(n.id)
   }
 
   return (
@@ -132,32 +127,61 @@ export function NotesView(): JSX.Element {
                     })()
                   )}
                   <div className={g.pinned ? `${styles.gbox} ${styles.gboxPin}` : styles.gbox}>
-                    {items.map((n) => (
-                      <button key={n.id} type="button" className={styles.item} onClick={() => onItem(n)}>
-                        <span className={styles.itemTop}>
-                          <span className={styles.itemText}>{n.text}</span>
-                          <span
-                            className={n.pinned ? `${styles.star} ${styles.starOn}` : styles.star}
-                            role="button"
-                            tabIndex={0}
-                            aria-label={n.pinned ? '取消收藏' : '收藏'}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              void toggleNotePinned(n.id)
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.stopPropagation()
-                                void toggleNotePinned(n.id)
-                              }
-                            }}
-                          >
-                            {n.pinned ? '★' : '☆'}
+                    {items.map((n) =>
+                      editingId === n.id ? (
+                        <NoteEdit key={n.id} note={n} onDone={() => setEditingId(null)} />
+                      ) : (
+                        <div
+                          key={n.id}
+                          className={styles.item}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`编辑想法：${n.text}`}
+                          onClick={() => setEditingId(n.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
+                              setEditingId(n.id)
+                            }
+                          }}
+                        >
+                          <span className={styles.itemTop}>
+                            <span className={styles.itemText}>{n.text}</span>
+                            <span className={styles.itemActs}>
+                              <button
+                                type="button"
+                                className={styles.del}
+                                aria-label="删除这条想法"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onDelete(n)
+                                }}
+                              >
+                                ×
+                              </button>
+                              <span
+                                className={n.pinned ? `${styles.star} ${styles.starOn}` : styles.star}
+                                role="button"
+                                tabIndex={0}
+                                aria-label={n.pinned ? '取消收藏' : '收藏'}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  void toggleNotePinned(n.id)
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.stopPropagation()
+                                    void toggleNotePinned(n.id)
+                                  }
+                                }}
+                              >
+                                {n.pinned ? '★' : '☆'}
+                              </span>
+                            </span>
                           </span>
-                        </span>
-                        <span className={styles.itemTime}>{hhmm(n.createdAt)}</span>
-                      </button>
-                    ))}
+                        </div>
+                      ),
+                    )}
                   </div>
                 </div>
               )
@@ -189,5 +213,56 @@ export function NotesView(): JSX.Element {
         )}
       </div>
     </section>
+  )
+}
+
+/**
+ * 就地编辑一条想法（v8.31，交互与日视图 NoteSection 一致）：
+ * 裸回车换行、⌘/Ctrl+Enter 或「保存」提交、Esc 取消、失焦「有改动即保存」。
+ */
+function NoteEdit({ note, onDone }: { note: NoteRecord; onDone: () => void }): JSX.Element {
+  const updateNoteText = useApp((s) => s.updateNoteText)
+  const [v, setV] = useState(note.text)
+  const done = useRef(false)
+
+  const finish = (save: boolean): void => {
+    if (done.current) return
+    done.current = true
+    if (save && v !== note.text) void updateNoteText(note.id, v)
+    onDone()
+  }
+
+  return (
+    <div className={styles.nedit}>
+      <textarea
+        className={styles.neditArea}
+        rows={3}
+        value={v}
+        autoFocus
+        aria-label="编辑想法"
+        onChange={(e) => setV(e.target.value)}
+        onBlur={() => finish(true)}
+        onKeyDown={(e) => {
+          if (e.nativeEvent.isComposing) return
+          if (e.key === 'Escape') {
+            e.preventDefault()
+            finish(false)
+            return
+          }
+          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault()
+            finish(true)
+          }
+        }}
+      />
+      <div className={styles.acts}>
+        <button className={styles.cancel} onClick={() => finish(false)}>
+          取消
+        </button>
+        <button className={styles.save} onClick={() => finish(true)}>
+          保存
+        </button>
+      </div>
+    </div>
   )
 }

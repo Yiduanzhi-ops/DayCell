@@ -80,7 +80,7 @@
   flex: 0 0 auto;
 }
 
-/* ---- 想法条目（组内行，hairline 分隔，无独立边框） ---- */
+/* ---- 想法条目（组内行，hairline 分隔，无独立边框；v8.31 点击原地编辑） ---- */
 .item {
   display: block;
   width: 100%;
@@ -91,6 +91,7 @@
   padding: 12px;
   background: transparent;
   color: var(--ink-1);
+  cursor: pointer;
 }
 .item:last-child {
   border-bottom: none;
@@ -111,14 +112,30 @@
   font-size: 13px;
   line-height: 1.5;
 }
-.itemTime {
-  display: block;
-  text-align: right;
-  font-size: 11px;
-  color: var(--ink-4);
-  margin-top: 5px;
-}
 .item:active { background: var(--bg-hover); }
+
+/* 右侧操作区：删除 + 星标（v8.31 删除在收藏前） */
+.itemActs {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.del {
+  font-size: 15px;
+  line-height: 1;
+  color: var(--ink-4);
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: none;
+  background: none;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+}
+.del:hover { color: #c0392b; background: var(--bg-hover); }
 
 /* v8.24 收藏星标（嵌在想法框内右上，低调小号）；v8.30 恢复——功能保留，仅标题去除 */
 .star {
@@ -132,6 +149,62 @@
 }
 .starOn {
   color: #f5b301;
+}
+
+/* ---- 就地编辑态（v8.31，交互与日视图想法一致：Esc 取消 / ⌘+Enter 或保存提交 / 失焦有改动即保存） ---- */
+.nedit {
+  padding: 10px 12px 12px;
+  border-bottom: 1px solid var(--line-2);
+}
+.nedit:last-child {
+  border-bottom: none;
+}
+.neditArea {
+  display: block;
+  width: 100%;
+  min-height: 66px;
+  resize: none;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 8px 9px;
+  font-family: inherit;
+}
+.neditArea:focus {
+  outline: none;
+  border-color: var(--accent-line);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.acts {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+.cancel {
+  font-size: 11.5px;
+  color: var(--ink-2);
+  padding: 5px 11px;
+  border-radius: 6px;
+  border: none;
+  background: none;
+  min-height: 32px;
+  cursor: pointer;
+}
+.cancel:hover { background: var(--bg-hover); }
+.save {
+  font-size: 11.5px;
+  color: #fff;
+  background: var(--accent-strong);
+  border: none;
+  border-radius: 6px;
+  padding: 5px 13px;
+  min-height: 32px;
+  cursor: pointer;
 }
 
 /* ---- 分页 ---- */

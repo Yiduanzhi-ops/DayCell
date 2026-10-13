@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>DayCell 苹果官网风 UI 原型 v3</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='4' width='56' height='56' rx='14' fill='%230066CC'/%3E%3Crect x='18' y='18' width='28' height='28' rx='7' fill='none' stroke='white' stroke-width='5'/%3E%3C/svg%3E"/>
+<style>
+/* ============ token（apple.com 官网语言 v3） ============
+   真实官网：浅色为主、产品视觉为主体、UI 退让、文字链接、留白呼吸
+   弃用 v2 的黑底 hero / 全大写眉标 / 蓝色胶囊堆砌（AI 痕迹） */
+:root{
+  --white:#FFFFFF;
+  --parchment:#FBFBFD;        /* 米白背景 */
+  --panel:#F5F5F7;            /* 淡灰圆角面板（官网产品坐垫） */
+  --panel-2:#EBEBF0;
+  --ink-1:#1D1D1F;
+  --ink-2:#6E6E73;
+  --ink-3:#86868B;
+  --blue:#0066CC;             /* Action Blue：仅链接/关键交互 */
+  --hairline:#E3E3E8;
+  --link-blue:#0066CC;
+}
+[data-theme="dark"]{
+  --white:#0A0A0C;
+  --parchment:#0D0D10;
+  --panel:#1C1C1F;
+  --panel-2:#26262B;
+  --ink-1:#F5F5F7;
+  --ink-2:#A1A1A6;
+  --ink-3:#86868B;
+  --blue:#2997FF;
+  --hairline:rgba(255,255,255,0.14);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  background:var(--white);color:var(--ink-1);min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+  transition:background .45s ease,color .45s ease;
+}
+button{font:inherit;border:0;background:none;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+
+/* 预览工具栏 */
+.topbar-preview{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:20px 24px;max-width:1180px;margin:0 auto;gap:16px;
+}
+.preview-brand{display:flex;align-items:center;gap:10px}
+.preview-brand .mark{width:22px;height:22px;border-radius:7px;background:var(--blue)}
+.preview-brand .mark::after{content:"";display:block;width:10px;height:10px;margin:6px;border:2px solid #fff;border-radius:2.5px}
+.preview-brand b{font-size:15px;font-weight:600;letter-spacing:-0.01em}
+.preview-brand span{font-size:12px;color:var(--ink-2);margin-left:2px}
+.preview-ctrl{display:flex;align-items:center;gap:10px}
+.seg{display:flex;border:1px solid var(--hairline);border-radius:99px;padding:3px}
+.seg button{font-size:12.5px;color:var(--ink-2);padding:6px 14px;border-radius:99px;transition:color .2s,background .2s}
+.seg button.on{background:var(--blue);color:#fff;font-weight:600}
+.tag{font-size:12px;color:var(--ink-2);border:1px solid var(--hairline);border-radius:99px;padding:6px 12px}
+
+/* 舞台 */
+.stage{max-width:1180px;margin:0 auto;padding:8px 20px 48px;display:grid;grid-template-columns:1fr;gap:40px;align-items:start}
+@media (min-width:980px){ .stage{grid-template-columns:minmax(0,410px) minmax(0,1fr)} }
+
+/* 手机壳 */
+.phone-wrap{display:flex;justify-content:center}
+.phone{
+  width:min(393px,100%);aspect-ratio:393/852;background:#0b0b0d;border-radius:54px;padding:12px;
+  box-shadow:0 30px 60px rgba(0,0,0,0.28),0 4px 14px rgba(0,0,0,0.1),inset 0 0 0 2px rgba(255,255,255,0.06);
+}
+.screen{width:100%;height:100%;border-radius:42px;overflow:hidden;background:var(--parchment);position:relative;display:flex;flex-direction:column;transition:background .45s ease}
+.island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:116px;height:30px;background:#000;border-radius:20px;z-index:60}
+.statusline{position:absolute;top:17px;left:0;right:0;z-index:59;display:flex;justify-content:space-between;align-items:center;padding:0 26px;font-size:12px;font-weight:600;color:var(--ink-1)}
+.statusline .dots{display:flex;gap:4px;align-items:center}
+.statusline .dots i{width:12px;height:4px;border-radius:2px;background:var(--ink-1)}
+
+.app{flex:1;display:flex;flex-direction:column;min-height:0;padding-top:50px}
+.viewport{flex:1;overflow:hidden;position:relative}
+.view{position:absolute;inset:0;overflow-y:auto;padding:0 0 120px;opacity:0;visibility:hidden;transform:translateX(14px);transition:opacity .34s cubic-bezier(0.32,0.72,0,1),transform .34s cubic-bezier(0.32,0.72,0,1),visibility 0s .34s;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.view.on{opacity:1;visibility:visible;transform:none;transition:opacity .34s cubic-bezier(0.32,0.72,0,1),transform .34s cubic-bezier(0.32,0.72,0,1)}
+.view::-webkit-scrollbar{width:0;height:0}
+
+/* 官网 hero：浅色、居中、呼吸感，链接代替按钮 */
+.hero{text-align:center;padding:52px 26px 46px}
+.hero .date{
+  font-size:56px;font-weight:600;line-height:1.04;letter-spacing:-0.035em;
+  font-variant-numeric:tabular-nums;font-optical-sizing:auto;
+}
+.hero .date .wd{display:block;font-size:17px;font-weight:500;letter-spacing:0.02em;color:var(--ink-2);margin-bottom:10px;line-height:1.2}
+.hero p.sub{margin:14px auto 0;max-width:280px;font-size:15.5px;line-height:1.5;color:var(--ink-2);letter-spacing:0.002em}
+.hero .link{
+  display:inline-block;margin-top:26px;font-size:15px;font-weight:500;color:var(--link-blue);
+  text-decoration:none;letter-spacing:-0.005em;
+}
+.hero .link::after{content:" ›";font-weight:600}
+.hero .link:active{opacity:.6}
+.hero h1{font-size:42px;font-weight:600;line-height:1.08;letter-spacing:-0.03em}
+.hero .big-num{font-size:64px;font-weight:600;line-height:1;letter-spacing:-0.04em;font-variant-numeric:tabular-nums}
+
+/* 淡灰圆角面板（官网产品坐垫） */
+.panel{background:var(--panel);border-radius:24px;padding:26px 22px;margin:0 20px 18px}
+.panel h3{font-size:17px;font-weight:600;letter-spacing:-0.015em;display:flex;align-items:center;gap:7px}
+.panel h3 .ic{width:22px;height:22px;border-radius:6.5px;display:flex;align-items:center;justify-content:center;color:var(--blue);background:rgba(0,102,204,0.1)}
+.panel h3 .ic svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.panel .cnt{margin-top:4px;font-size:12.5px;color:var(--ink-3)}
+.panel .items{margin-top:14px}
+.pitem{display:flex;align-items:center;gap:12px;padding:11px 0}
+.pitem + .pitem{border-top:1px solid var(--hairline)}
+.pitem .txt{font-size:15px;color:var(--ink-1);flex:1;min-width:0}
+.pitem.done .txt{color:var(--ink-3);text-decoration:line-through;text-decoration-color:rgba(134,134,139,0.4)}
+.pitem .freq{font-size:11.5px;color:var(--ink-3);white-space:nowrap}
+.circle{width:22px;height:22px;flex:0 0 auto;border-radius:50%;border:1.5px solid #C9C9CE;position:relative;transition:all .25s cubic-bezier(0.32,0.72,0,1)}
+.pitem.done .circle{border-color:var(--blue);background:var(--blue)}
+.pitem.done .circle::after{content:"";position:absolute;left:6.5px;top:4px;width:6px;height:9.5px;border:solid #fff;border-width:0 1.8px 1.8px 0;transform:rotate(42deg)}
+.dot{width:22px;height:22px;flex:0 0 auto;border-radius:50%;border:1.5px solid #C9C9CE;position:relative;transition:all .25s cubic-bezier(0.32,0.72,0,1)}
+.pitem.hdone .dot{border-color:var(--blue);background:rgba(0,102,204,0.12)}
+.pitem.hdone .dot::after{content:"";position:absolute;inset:0;margin:6.5px;border-radius:50%;background:var(--blue)}
+.panel .more{display:block;margin-top:16px;font-size:13.5px;font-weight:500;color:var(--link-blue);text-decoration:none;text-align:center}
+.panel .more::after{content:" ›"}
+
+/* 想法视图：引用式大排版 */
+.quote-panel{margin:0 20px 20px;padding:34px 26px;border-radius:24px;background:var(--panel);position:relative}
+.quote-panel .q{font-size:20px;line-height:1.55;font-weight:500;letter-spacing:-0.01em;color:var(--ink-1)}
+.quote-panel .q-meta{margin-top:14px;font-size:12.5px;color:var(--ink-3);display:flex;align-items:center;gap:8px}
+.quote-panel .star{color:#C9C9CE;font-size:15px;margin-left:auto}
+.quote-panel .star.on{color:var(--blue)}
+.sec-label{font-size:12px;font-weight:600;color:var(--ink-3);padding:20px 22px 8px}
+.note-row{display:flex;gap:12px;align-items:flex-start;padding:14px 22px}
+.note-row .tm{font-size:12px;color:var(--ink-3);width:40px;flex:0 0 auto;padding-top:2px;font-variant-numeric:tabular-nums}
+.note-row .bd{font-size:15px;line-height:1.5;flex:1;min-width:0;color:var(--ink-1)}
+.note-row .st2{color:#C9C9CE;font-size:13px;margin-top:1px}
+.note-row .st2.on{color:var(--blue)}
+
+/* 目标视图 */
+.ghead{margin:36px 22px 6px;display:flex;align-items:baseline;justify-content:space-between}
+.ghead h2{font-size:22px;font-weight:600;letter-spacing:-0.02em}
+.ghead span{font-size:12.5px;color:var(--ink-3)}
+.gpanel{background:var(--panel);border-radius:24px;padding:24px 22px;margin:12px 20px 0}
+.gpanel + .gpanel{margin-top:14px}
+.gpanel .row1{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.gpanel .nm{font-size:17px;font-weight:600;letter-spacing:-0.015em}
+.gpanel .pct{font-size:28px;font-weight:600;letter-spacing:-0.03em;font-variant-numeric:tabular-nums;color:var(--blue)}
+.gpanel .pct.gray{color:var(--ink-2)}
+.gpanel .st{margin-top:4px;font-size:12.5px;color:var(--ink-3)}
+.gpanel .bar{margin-top:14px;height:5px;border-radius:99px;background:rgba(0,0,0,0.08)}
+[data-theme="dark"] .gpanel .bar{background:rgba(255,255,255,0.12)}
+.gpanel .bar i{display:block;height:100%;border-radius:99px;background:var(--blue)}
+.gpanel .bar i.green{background:#34C759}
+.gpanel .meta{margin-top:12px;font-size:12px;color:var(--ink-3);display:flex;justify-content:space-between}
+.gpanel .meta a{color:var(--link-blue);text-decoration:none;font-weight:500}
+
+/* 周视图：官网式大数字日导航 */
+.whead{margin:40px 22px 18px;text-align:left}
+.whead h1{font-size:36px;font-weight:600;letter-spacing:-0.03em;line-height:1.1}
+.whead p{margin-top:6px;font-size:14px;color:var(--ink-3)}
+.wscroll{margin:0 0 18px;padding:0 20px;display:flex;gap:10px;overflow-x:auto;scrollbar-width:none}
+.wscroll::-webkit-scrollbar{display:none}
+.wday{flex:0 0 auto;width:64px;padding:14px 0 10px;border-radius:18px;background:var(--panel);text-align:center}
+.wday.today{background:var(--blue)}
+.wday .wd2{font-size:11px;color:var(--ink-3);font-weight:500}
+.wday .d2{font-size:26px;font-weight:600;letter-spacing:-0.02em;line-height:1.15;margin-top:2px;font-variant-numeric:tabular-nums}
+.wday.today .wd2{color:rgba(255,255,255,0.75)}
+.wday.today .d2{color:#fff}
+.week-sum{margin:0 20px}
+.wsum-row{display:flex;align-items:center;gap:14px;padding:13px 0;border-bottom:1px solid var(--hairline)}
+.wsum-row:last-child{border-bottom:0}
+.wsum-row .day{font-size:13.5px;font-weight:500;width:76px;flex:0 0 auto;color:var(--ink-2)}
+.wsum-row .info{font-size:13px;color:var(--ink-1)}
+
+/* 月视图：精致月历 */
+.mhead{margin:36px 22px 4px;display:flex;align-items:center;justify-content:space-between}
+.mhead h1{font-size:32px;font-weight:600;letter-spacing:-0.03em;line-height:1.1}
+.mhead .nav{display:flex;gap:6px}
+.mhead .nav button{width:30px;height:30px;border-radius:50%;color:var(--ink-2);font-size:15px;border:1px solid var(--hairline);display:flex;align-items:center;justify-content:center}
+.mhead .nav button:active{background:var(--panel)}
+.cal{background:var(--panel);border-radius:24px;margin:14px 20px 0;padding:16px 14px}
+.cal .wd{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:10.5px;color:var(--ink-3);font-weight:500;padding-bottom:8px}
+.cal .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.cal .cell{aspect-ratio:1;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}
+.cal .cell .n{font-size:13.5px;color:var(--ink-1);font-variant-numeric:tabular-nums}
+.cal .cell.muted .n{color:var(--ink-3)}
+.cal .cell.today{background:var(--blue)}
+.cal .cell.today .n{color:#fff;font-weight:600}
+.cal .cell.ann .n{color:var(--blue);font-weight:600}
+.cal .cell .dot-ann{width:4px;height:4px;border-radius:50%;background:var(--blue);margin-top:2px}
+.cal .cell.today .dot-ann{background:#fff}
+.ann-list{margin:20px 22px 0}
+.ann-item{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--hairline)}
+.ann-item:last-child{border-bottom:0}
+.ann-item .badge{font-size:11px;font-weight:600;color:var(--blue);background:rgba(0,102,204,0.1);border-radius:99px;padding:3px 10px;flex:0 0 auto;margin-top:1px}
+.ann-item .t{font-size:14.5px;color:var(--ink-1);flex:1}
+
+/* 顶部导航 */
+.topnav{position:absolute;top:50px;left:0;right:0;z-index:40;display:flex;align-items:center;justify-content:space-between;padding:8px 22px;background:transparent}
+.brandchip{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;letter-spacing:-0.01em;color:var(--ink-1)}
+.brandchip .mark{width:17px;height:17px;border-radius:5px;background:var(--blue);position:relative}
+.brandchip .mark::after{content:"";position:absolute;inset:0;margin:3.5px;border:1.5px solid #fff;border-radius:2px}
+.menu-btn{width:34px;height:34px;border-radius:99px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4.5px;background:var(--parchment);border:1px solid var(--hairline)}
+.menu-btn i{width:14px;height:1.5px;border-radius:2px;background:var(--ink-1)}
+
+/* 底部 tab */
+.tabbar{position:absolute;left:0;right:0;bottom:0;z-index:50;display:flex;align-items:stretch;justify-content:space-around;padding:7px 8px 15px;background:var(--parchment);border-top:1px solid var(--hairline);transition:background .45s ease}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 2px;border-radius:12px;color:var(--ink-3);min-width:0}
+.tab svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.tab span{font-size:10px;font-weight:500}
+.tab.on{color:var(--blue)}
+.tab.on span{font-weight:650}
+
+/* 菜单 sheet */
+.sheet-scrim{position:absolute;inset:0;z-index:70;background:rgba(0,0,0,0.18);opacity:0;visibility:hidden;transition:opacity .3s ease,visibility 0s .3s}
+.sheet{position:absolute;top:62px;right:14px;z-index:80;min-width:236px;background:var(--parchment);border:1px solid var(--hairline);border-radius:16px;box-shadow:0 16px 40px rgba(0,0,0,0.16);padding:6px;opacity:0;visibility:hidden;transform:translateY(-8px) scale(0.97);transform-origin:top right;transition:opacity .28s cubic-bezier(0.32,0.72,0,1),transform .28s cubic-bezier(0.32,0.72,0,1),visibility 0s .28s}
+.sheet.open,.sheet-scrim.on{opacity:1;visibility:visible}
+.sheet.open{transform:none}
+.sheet-item{display:flex;align-items:center;gap:12px;width:100%;padding:12px 13px;border-radius:11px;font-size:14.5px;font-weight:500;color:var(--ink-1);text-align:left}
+.sheet-item:active{background:var(--panel)}
+.sheet-item svg{width:17px;height:17px;stroke:var(--ink-2);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+.sheet-div{border-top:1px solid var(--hairline);margin:5px 8px}
+.switch{width:40px;height:24px;border-radius:99px;background:#C7C7CC;position:relative;flex:0 0 auto;margin-left:auto;transition:background .25s}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.16);transition:transform .25s cubic-bezier(0.32,0.72,0,1)}
+.switch.on{background:var(--blue)}
+.switch.on::after{transform:translateX(16px)}
+
+/* 设计说明 */
+.dnotes h2{font-size:30px;line-height:1.1;font-weight:600;letter-spacing:-0.03em;margin-bottom:10px}
+.dnotes .sub{font-size:14.5px;color:var(--ink-2);line-height:1.75;margin-bottom:24px;max-width:560px}
+.pcard{border-bottom:1px solid var(--hairline);padding:16px 0 18px}
+.pcard h4{font-size:15px;font-weight:650;letter-spacing:-0.01em;margin-bottom:7px;display:flex;align-items:baseline;gap:9px}
+.pcard h4 .no{font-size:12px;font-weight:650;color:var(--blue);flex:0 0 auto}
+.pcard p{font-size:13px;line-height:1.75;color:var(--ink-2)}
+.pcard code{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;background:var(--panel);padding:1.5px 6px;border-radius:5px;color:var(--ink-1)}
+.src{font-size:11px;color:var(--ink-3);margin-top:8px;line-height:1.6}
+.hint{margin-top:22px;padding:14px 16px;border-radius:14px;background:var(--panel);font-size:12.5px;color:var(--ink-2);line-height:1.7}
+@media (prefers-reduced-motion:reduce){
+  *{transition-duration:.01ms!important}
+  .view{transform:none}
+  .sheet{transform:none}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar-preview">
+  <div class="preview-brand"><span class="mark"></span><b>DayCell</b><span>苹果官网风 UI 原型 · v3</span></div>
+  <div class="preview-ctrl">
+    <span class="tag">原型预览</span>
+    <div class="seg" id="themeSeg"><button data-theme="light" class="on">浅色</button><button data-theme="dark">深色</button></div>
+  </div>
+</header>
+
+<main class="stage">
+
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="screen" id="screen">
+        <div class="island"></div>
+        <div class="statusline"><span>9:41</span><span class="dots"><i></i><i></i><i></i></span></div>
+
+        <div class="app">
+          <div class="topnav">
+            <div class="brandchip"><span class="mark"></span>DayCell</div>
+            <button class="menu-btn" id="menuBtn" aria-label="菜单"><i></i><i></i><i></i></button>
+          </div>
+
+          <div class="viewport">
+
+            <!-- 今日：官网式 hero（浅色大日期）+ 淡灰面板 -->
+            <section class="view on" id="view-today">
+              <div class="hero">
+                <div class="date"><span class="wd">星期一</span>10月12日</div>
+                <p class="sub">把每个今天收好，人生就有了页码</p>
+                <a class="link" href="javascript:void(0)">写下今天</a>
+              </div>
+
+              <div class="panel">
+                <h3><span class="ic"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>待办<span class="cnt">2 项</span></h3>
+                <div class="items">
+                  <div class="pitem done"><span class="circle"></span><span class="txt">整理行测错题本</span></div>
+                  <div class="pitem"><span class="circle"></span><span class="txt">预约周末体检</span></div>
+                </div>
+                <a class="more" href="javascript:void(0)">添加待办</a>
+              </div>
+
+              <div class="panel">
+                <h3><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6.2 4.6 2.4 7.4-6.2-4.6-6.2 4.6 2.4-7.4L2 9.4h7.6z"/></svg></span>习惯<span class="cnt">2/3 已完成</span></h3>
+                <div class="items">
+                  <div class="pitem hdone"><span class="dot"></span><span class="txt">喝够 8 杯水</span><span class="freq">每日</span></div>
+                  <div class="pitem hdone"><span class="dot"></span><span class="txt">晨间拉伸</span><span class="freq">每日</span></div>
+                  <div class="pitem"><span class="dot"></span><span class="txt">阅读 30 分钟</span><span class="freq">周一-五</span></div>
+                </div>
+                <a class="more" href="javascript:void(0)">添加习惯</a>
+              </div>
+
+              <div class="panel">
+                <h3><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 4.6 5 .4-3.8 3.3 1.2 4.9-4.3-2.6-4.3 2.6 1.2-4.9-3.8-3.3 5-.4z"/></svg></span>想法</h3>
+                <div class="items">
+                  <div class="pitem" style="border-top:0"><span class="txt" style="color:var(--ink-2);font-size:14px;line-height:1.5">目标页加一条进度曲线，会不会更直观？</span></div>
+                </div>
+                <a class="more" href="javascript:void(0)">写一条想法</a>
+              </div>
+            </section>
+
+            <!-- 目标 -->
+            <section class="view" id="view-goals">
+              <div class="ghead"><h2>目标</h2><span>2 个进行中 · 1 个已完成</span></div>
+
+              <div class="gpanel">
+                <div class="row1"><span class="nm">复习考公</span><span class="pct">45%</span></div>
+                <div class="st">阶段 · 强化刷题，正确率稳步提升</div>
+                <div class="bar"><i style="width:45%"></i></div>
+                <div class="meta"><span>3 个子任务 · 2 个阶段</span><a href="javascript:void(0)">查看详情</a></div>
+              </div>
+
+              <div class="gpanel">
+                <div class="row1"><span class="nm">备考教案</span><span class="pct">20%</span></div>
+                <div class="st">阶段 · 框架搭建，提纲已定</div>
+                <div class="bar"><i style="width:20%"></i></div>
+                <div class="meta"><span>1 个子任务 · 3 个阶段</span><a href="javascript:void(0)">查看详情</a></div>
+              </div>
+
+              <div class="gpanel">
+                <div class="row1"><span class="nm">每天多喝水</span><span class="pct gray">100%</span></div>
+                <div class="st">阶段 · 养成期，连续 30 天</div>
+                <div class="bar"><i class="green" style="width:100%"></i></div>
+                <div class="meta"><span>已完成 · 2 个子任务</span><a href="javascript:void(0)">恢复进行中</a></div>
+              </div>
+            </section>
+
+            <!-- 想法 -->
+            <section class="view" id="view-notes">
+              <div class="hero">
+                <h1>想法</h1>
+                <p class="sub">随手留下，值得回味的都在这里</p>
+              </div>
+
+              <div class="quote-panel">
+                <div class="q">目标页加一条进度曲线，沉淀每一阶段的复盘。</div>
+                <div class="q-meta"><span>今天 · 08:42</span><span class="star on">★</span></div>
+              </div>
+
+              <div class="sec-label">今天</div>
+              <div class="note-row"><span class="tm">07:20</span><span class="bd">多喝水：定个整点提醒，比待办更轻</span><span class="st2">☆</span></div>
+
+              <div class="sec-label">昨天</div>
+              <div class="note-row"><span class="tm">21:05</span><span class="bd">本周复盘：刷题量够，错题消化不够</span><span class="st2 on">★</span></div>
+              <div class="note-row"><span class="tm">12:30</span><span class="bd">教案框架可以复用考公的笔记结构</span><span class="st2">☆</span></div>
+            </section>
+
+            <!-- 周 -->
+            <section class="view" id="view-week">
+              <div class="whead">
+                <h1>本周</h1>
+                <p>10月6日 – 10月12日</p>
+              </div>
+              <div class="wscroll">
+                <div class="wday"><span class="wd2">二</span><div class="d2">6</div></div>
+                <div class="wday"><span class="wd2">三</span><div class="d2">7</div></div>
+                <div class="wday"><span class="wd2">四</span><div class="d2">8</div></div>
+                <div class="wday"><span class="wd2">五</span><div class="d2">9</div></div>
+                <div class="wday"><span class="wd2">六</span><div class="d2">10</div></div>
+                <div class="wday"><span class="wd2">日</span><div class="d2">11</div></div>
+                <div class="wday today"><span class="wd2">一</span><div class="d2">12</div></div>
+              </div>
+              <div class="week-sum">
+                <div class="wsum-row"><span class="day">周二 · 6日</span><span class="info">待办 3 · 想法 1</span></div>
+                <div class="wsum-row"><span class="day">周三 · 7日</span><span class="info">习惯 2/3 · 想法 2</span></div>
+                <div class="wsum-row"><span class="day">周四 · 8日</span><span class="info">待办 5</span></div>
+                <div class="wsum-row"><span class="day">周五 · 9日</span><span class="info">想法 1</span></div>
+                <div class="wsum-row"><span class="day">周六 · 10日</span><span class="info">习惯 3/3</span></div>
+                <div class="wsum-row"><span class="day">周日 · 11日</span><span class="info">待办 2 · 想法 1</span></div>
+                <div class="wsum-row"><span class="day">周一 · 12日</span><span class="info" style="color:var(--blue);font-weight:600">今天 · 待办 1 · 习惯 2</span></div>
+              </div>
+            </section>
+
+            <!-- 月 -->
+            <section class="view" id="view-month">
+              <div class="mhead"><h1>十月</h1><div class="nav"><button aria-label="上月">‹</button><button aria-label="下月">›</button></div></div>
+              <div class="cal">
+                <div class="wd"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+                <div class="grid">
+                  <div class="cell muted"><span class="n">28</span></div><div class="cell muted"><span class="n">29</span></div><div class="cell muted"><span class="n">30</span></div>
+                  <div class="cell"><span class="n">1</span></div><div class="cell"><span class="n">2</span></div><div class="cell"><span class="n">3</span></div><div class="cell"><span class="n">4</span></div>
+                  <div class="cell"><span class="n">5</span></div><div class="cell"><span class="n">6</span></div><div class="cell"><span class="n">7</span></div><div class="cell"><span class="n">8</span></div><div class="cell"><span class="n">9</span></div><div class="cell"><span class="n">10</span></div>
+                  <div class="cell ann"><span class="n">11</span><span class="dot-ann"></span></div>
+                  <div class="cell today"><span class="n">12</span></div>
+                  <div class="cell"><span class="n">13</span></div><div class="cell"><span class="n">14</span></div><div class="cell"><span class="n">15</span></div><div class="cell"><span class="n">16</span></div><div class="cell"><span class="n">17</span></div><div class="cell"><span class="n">18</span></div>
+                  <div class="cell"><span class="n">19</span></div><div class="cell"><span class="n">20</span></div><div class="cell ann"><span class="n">21</span><span class="dot-ann"></span></div><div class="cell"><span class="n">22</span></div><div class="cell"><span class="n">23</span></div><div class="cell"><span class="n">24</span></div><div class="cell"><span class="n">25</span></div>
+                  <div class="cell"><span class="n">26</span></div><div class="cell"><span class="n">27</span></div><div class="cell"><span class="n">28</span></div><div class="cell"><span class="n">29</span></div><div class="cell"><span class="n">30</span></div><div class="cell"><span class="n">31</span></div><div class="cell muted"><span class="n">1</span></div>
+                </div>
+              </div>
+              <div class="ann-list">
+                <div class="ann-item"><span class="badge">每年</span><span class="t">10月11日 · 入职纪念日，给自己的一封信</span></div>
+                <div class="ann-item"><span class="badge">每月</span><span class="t">21日 · 发薪日，顺手做当月支出复盘</span></div>
+              </div>
+            </section>
+          </div>
+
+          <div class="sheet-scrim" id="scrim"></div>
+          <div class="sheet" id="sheet">
+            <button class="sheet-item" data-action="theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>夜间模式<span class="switch" id="nightSwitch"></span></button>
+            <button class="sheet-item" data-action="export"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>导出备份</button>
+            <button class="sheet-item" data-action="import"><svg viewBox="0 0 24 24"><path d="M12 21V9m0 0l-4 4m4-4l4 4"/><path d="M4 7V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2"/></svg>导入备份</button>
+            <button class="sheet-item" data-action="md"><svg viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="16" rx="2"/><path d="M9 9h6M9 13h6"/></svg>一键导出 MD</button>
+            <button class="sheet-item" data-action="anniv"><svg viewBox="0 0 24 24"><path d="M4 19V9a8 8 0 0 1 16 0v10"/><path d="M2 19h20"/><path d="M12 9v10"/></svg>纪念日设置</button>
+          </div>
+
+          <nav class="tabbar">
+            <button class="tab" data-view="goals"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg><span>目标</span></button>
+            <button class="tab" data-view="notes"><svg viewBox="0 0 24 24"><path d="M12 4l1.6 3.4 3.7.4-2.7 2.6.7 3.7-3.3-1.9-3.3 1.9.7-3.7-2.7-2.6 3.7-.4z"/></svg><span>想法</span></button>
+            <button class="tab on" data-view="today"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M4 10h16"/></svg><span>今天</span></button>
+            <button class="tab" data-view="week"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4 10h16M10 4v16"/></svg><span>周</span></button>
+            <button class="tab" data-view="month"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="14" rx="3"/><path d="M4 11h16M9 4v4M15 4v4"/></svg><span>月</span></button>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <aside class="dnotes">
+    <h2>苹果官网风 · v3</h2>
+    <p class="sub">吸取 v2 教训：不要黑底 hero、不要全大写英文眉标、不要蓝色胶囊按钮——那是 AI 模板味。真实 apple.com 是浅色、留白、文字链接、产品（内容）说话。</p>
+
+    <div class="pcard"><h4><span class="no">01</span>浅色为主，深色只做点缀</h4>
+      <p>整机米白底 <code>#FBFBFD</code>，hero 不再压黑块。深色仅在夜间模式下整体切换，白天界面和官网一样是白色呼吸。</p></div>
+
+    <div class="pcard"><h4><span class="no">02</span>产品（内容）坐进淡灰圆角面板</h4>
+      <p>官网的招牌动作是「产品坐在 <code>#F5F5F7</code> 圆角面板上」——今天的待办/习惯/想法、目标卡、月历全部沿用：内容为主体，面板只是坐垫。</p></div>
+
+    <div class="pcard"><h4><span class="no">03</span>文字链接代替按钮</h4>
+      <p>官网几乎不用实心按钮，交互入口是蓝色文字链「写下今天 ›」「添加待办 ›」。唯一实心蓝只留给「今天」日期选中态。</p></div>
+
+    <div class="pcard"><h4><span class="no">04</span>大数字排印</h4>
+      <p>今日日期 56px / 600 / <code>-0.035em</code> 负字距；周视图是 7 个大数字日卡；目标进度用 28px 百分比。数字本身就是视觉。</p></div>
+
+    <div class="pcard"><h4><span class="no">05</span>克制的中文排印</h4>
+      <p>不再用「TODAY · 2026.10.12」式英文眉标，中文界面只说中文：「星期一」「本周」「十月」；层级靠字号与留白，不靠标签。</p></div>
+
+    <div class="pcard"><h4><span class="no">06</span>想法视图引用化</h4>
+      <p>最近一条想法用大字号引用式排版（20px / 1.55 行高）置顶，像官网的 headline，其余按日期列表。星标保持低调。</p></div>
+
+    <div class="hint">设计语言依据：apple.com 官网实际页面（2026-10 抓取）、VoltAgent awesome-design-md/apple、design.withfudge.com 分析。此为视觉原型（示例数据），5 个 tab 与明暗切换可点。</div>
+  </aside>
+</main>
+
+<script>
+(function(){
+  'use strict';
+  var views = Array.prototype.slice.call(document.querySelectorAll('.view'));
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
+  var menuBtn = document.getElementById('menuBtn');
+  var sheet = document.getElementById('sheet');
+  var scrim = document.getElementById('scrim');
+  var nightSwitch = document.getElementById('nightSwitch');
+
+  function setTheme(t){
+    document.documentElement.setAttribute('data-theme', t);
+    Array.prototype.forEach.call(document.querySelectorAll('#themeSeg button'), function(b){
+      b.classList.toggle('on', b.getAttribute('data-theme') === t);
+    });
+    nightSwitch.classList.toggle('on', t === 'dark');
+  }
+  document.querySelectorAll('#themeSeg button').forEach(function(b){
+    b.addEventListener('click', function(){ setTheme(b.getAttribute('data-theme')); });
+  });
+
+  function go(v){
+    views.forEach(function(el){ el.classList.toggle('on', el.id === 'view-' + v); });
+    tabs.forEach(function(t){ t.classList.toggle('on', t.getAttribute('data-view') === v); });
+  }
+  tabs.forEach(function(t){
+    t.addEventListener('click', function(){ go(t.getAttribute('data-view')); });
+  });
+
+  function closeSheet(){ sheet.classList.remove('open'); scrim.classList.remove('on'); }
+  menuBtn.addEventListener('click', function(){ sheet.classList.add('open'); scrim.classList.add('on'); });
+  scrim.addEventListener('click', closeSheet);
+  document.querySelectorAll('.sheet-item').forEach(function(item){
+    item.addEventListener('click', function(){
+      var a = item.getAttribute('data-action');
+      if (a === 'theme'){ setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); }
+      else {
+        item.style.opacity = '0.5';
+        setTimeout(function(){ item.style.opacity = '1'; }, 260);
+      }
+      setTimeout(closeSheet, 240);
+    });
+  });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeSheet(); });
+})();
+</script>
+</body>
+</html>

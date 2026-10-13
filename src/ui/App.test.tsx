@@ -9,7 +9,7 @@
  * 这里只验证"渲染 + 事件接线"没有断。
  */
 // @vitest-environment jsdom
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react'
 import { createMemoryStore, type DateKey } from '@core'
@@ -340,10 +340,27 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     await waitFor(() => expect(document.body.textContent).toContain('共 2 条想法'))
     expect(document.body.textContent).toContain('十月一日记的念头')
 
-    // 点击条目 → 进入对应日日视图（9/30，想法在 shiftDay 后创建）
+    // v8.31：点击条目 → 原地出现编辑框（不再跳日视图）
     fireEvent.click(screen.getByRole('button', { name: /九月三十日的念头/ }))
-    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 30 日'))
-    expect(document.body.textContent).toContain('九月三十日的念头')
+    await waitFor(() => expect(screen.getByLabelText('编辑想法')).toBeInTheDocument())
+    expect(document.body.textContent).not.toContain('2026 年 9 月 30 日')
+
+    // 修改文本并保存 → 列表文本更新、编辑框收起
+    fireEvent.change(screen.getByLabelText('编辑想法'), { target: { value: '改过的念头' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(document.body.textContent).toContain('改过的念头'))
+    expect(screen.queryByLabelText('编辑想法')).not.toBeInTheDocument()
+
+    // 删除需确认：confirm 取消不删、确认后删除
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    fireEvent.click(screen.getAllByRole('button', { name: '删除这条想法' })[0])
+    await waitFor(() => expect(document.body.textContent).toContain('改过的念头'))
+    expect(confirmSpy).toHaveBeenCalled()
+    confirmSpy.mockReturnValue(true)
+    fireEvent.click(screen.getAllByRole('button', { name: '删除这条想法' })[0])
+    await waitFor(() => expect(document.body.textContent).toContain('共 1 条想法'))
+    expect(document.body.textContent).not.toContain('改过的念头')
+    confirmSpy.mockRestore()
   })
 
   it('10 条一页：11 条想法分两页，下一页看到第 11 条', async () => {

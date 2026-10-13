@@ -8,11 +8,20 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.30'
+const CURRENT_VERSION = 'v8.31'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.31',
+    date: '2026-10-13',
+    items: [
+      '想法列表条目去掉时刻显示；点击想法原地编辑（不再跳转日视图）',
+      '想法条目新增删除按钮（带确认），位于收藏星标之前',
+      '今日视图习惯区块背景与待办/想法区块统一（白底细边框）',
+    ],
+  },
   {
     version: 'v8.30',
     date: '2026-10-12',

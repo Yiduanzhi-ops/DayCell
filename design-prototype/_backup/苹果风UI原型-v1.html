@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>DayCell 苹果风 UI 原型</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='4' width='56' height='56' rx='14' fill='%230071E3'/%3E%3Crect x='18' y='18' width='28' height='28' rx='7' fill='none' stroke='white' stroke-width='5'/%3E%3C/svg%3E"/>
+<style>
+/* ============ 设计 token（apple-design 风格） ============ */
+:root{
+  --bg:#F5F5F7;
+  --surface:rgba(255,255,255,0.66);
+  --surface-strong:rgba(255,255,255,0.82);
+  --surface-solid:#FFFFFF;
+  --ink-1:#1D1D1F;
+  --ink-2:#6E6E73;
+  --ink-3:#86868B;
+  --accent:#0071E3;
+  --accent-soft:rgba(0,113,227,0.10);
+  --line:rgba(0,0,0,0.06);
+  --line-strong:rgba(0,0,0,0.12);
+  --shadow:0 10px 30px rgba(0,0,0,0.08);
+  --shadow-tab:0 -4px 24px rgba(0,0,0,0.06);
+  --blur:22px;
+  --r-lg:20px;
+  --r-md:14px;
+  --ease:cubic-bezier(0.32,0.72,0,1);
+}
+[data-theme="dark"]{
+  --bg:#000;
+  --surface:rgba(28,28,30,0.72);
+  --surface-strong:rgba(28,28,30,0.86);
+  --surface-solid:#1C1C1E;
+  --ink-1:#F5F5F7;
+  --ink-2:#A1A1A6;
+  --ink-3:#86868B;
+  --accent:#0A84FF;
+  --accent-soft:rgba(10,132,255,0.16);
+  --line:rgba(255,255,255,0.08);
+  --line-strong:rgba(255,255,255,0.16);
+  --shadow:0 10px 30px rgba(0,0,0,0.4);
+  --shadow-tab:0 -4px 24px rgba(0,0,0,0.35);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  background:
+    radial-gradient(1200px 500px at 80% -10%, rgba(0,113,227,0.08), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(0,113,227,0.05), transparent 60%),
+    var(--bg);
+  color:var(--ink-1);
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+  transition:background .4s ease,color .4s ease;
+}
+button{font:inherit;border:0;background:none;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:active{opacity:.82}
+
+/* ============ 顶部预览工具栏 ============ */
+.topbar-preview{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 20px;max-width:1180px;margin:0 auto;gap:16px;
+}
+.preview-brand{display:flex;align-items:center;gap:10px}
+.preview-brand .mark{width:26px;height:26px;border-radius:7px;background:var(--accent)}
+.preview-brand .mark::after{content:"";display:block;width:12px;height:12px;margin:7px;border:2px solid #fff;border-radius:3px}
+.preview-brand b{font-size:15px;font-weight:650;letter-spacing:-0.01em}
+.preview-brand span{font-size:12px;color:var(--ink-2);margin-left:2px}
+.preview-ctrl{display:flex;align-items:center;gap:10px}
+.seg{
+  display:flex;background:var(--surface);border:1px solid var(--line);
+  border-radius:99px;padding:3px;backdrop-filter:blur(var(--blur));
+}
+.seg button{
+  font-size:12.5px;color:var(--ink-2);padding:6px 14px;border-radius:99px;
+  transition:color .25s,background .25s;
+}
+.seg button.on{background:var(--surface-solid);color:var(--ink-1);box-shadow:0 1px 4px rgba(0,0,0,0.08);font-weight:600}
+.tag{
+  font-size:12px;color:var(--ink-2);background:var(--surface);
+  border:1px solid var(--line);border-radius:99px;padding:6px 12px;
+  backdrop-filter:blur(var(--blur));
+}
+
+/* ============ 舞台布局 ============ */
+.stage{
+  max-width:1180px;margin:0 auto;padding:6px 20px 40px;
+  display:grid;grid-template-columns:1fr;gap:34px;align-items:start;
+}
+@media (min-width:980px){ .stage{grid-template-columns:minmax(0,420px) minmax(0,1fr)} }
+
+/* ============ 手机壳 ============ */
+.phone-wrap{display:flex;justify-content:center}
+.phone{
+  width:min(393px,100%);aspect-ratio:393/852;
+  background:#0b0b0d;border-radius:54px;padding:12px;
+  box-shadow:0 30px 60px rgba(0,0,0,0.28),0 4px 14px rgba(0,0,0,0.12),inset 0 0 0 2px rgba(255,255,255,0.06);
+  position:relative;
+}
+.screen{
+  width:100%;height:100%;border-radius:42px;overflow:hidden;
+  background:var(--bg);position:relative;
+  display:flex;flex-direction:column;
+  transition:background .4s ease;
+}
+/* 灵动岛 */
+.island{
+  position:absolute;top:11px;left:50%;transform:translateX(-50%);
+  width:116px;height:30px;background:#000;border-radius:20px;z-index:60;
+}
+.statusline{
+  position:absolute;top:17px;left:0;right:0;z-index:59;
+  display:flex;justify-content:space-between;align-items:center;
+  padding:0 26px;font-size:12px;font-weight:600;color:var(--ink-1);
+}
+.statusline .dots{display:flex;gap:4px;align-items:center}
+.statusline .dots i{width:12px;height:4px;border-radius:2px;background:var(--ink-1)}
+
+/* ============ App 内容区 ============ */
+.app{
+  flex:1;display:flex;flex-direction:column;min-height:0;
+  padding-top:58px;
+}
+.viewport{flex:1;overflow:hidden;position:relative}
+.view{
+  position:absolute;inset:0;overflow-y:auto;padding:14px 18px 128px;
+  opacity:0;visibility:hidden;transform:translateX(14px);
+  transition:opacity .32s var(--ease),transform .32s var(--ease),visibility 0s .32s;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+}
+.view.on{opacity:1;visibility:visible;transform:none;transition:opacity .32s var(--ease),transform .32s var(--ease)}
+/* 滚动条隐藏 */
+.view::-webkit-scrollbar{width:0;height:0}
+
+/* 大标题（负字距 + 紧行高，苹果排印） */
+.hero{margin:6px 0 22px}
+.hero h1{
+  font-size:33px;line-height:1.08;font-weight:700;
+  letter-spacing:-0.025em;font-optical-sizing:auto;
+}
+.hero p{margin-top:5px;font-size:14.5px;color:var(--ink-2);letter-spacing:-0.005em}
+
+/* 区块标题 */
+.sec-title{
+  font-size:13px;font-weight:600;color:var(--ink-2);
+  letter-spacing:0.02em;margin:24px 0 10px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.sec-title .more{font-size:12px;color:var(--accent);font-weight:500}
+
+/* 今日：待办行 */
+.todo{display:flex;align-items:center;gap:12px;padding:11px 2px}
+.todo .dot{
+  width:23px;height:23px;flex:0 0 auto;border-radius:50%;
+  border:1.5px solid var(--line-strong);position:relative;transition:border-color .2s,background .2s;
+}
+.todo.done .dot{border-color:var(--accent);background:var(--accent)}
+.todo.done .dot::after{
+  content:"";position:absolute;left:6.5px;top:3px;width:6px;height:11px;
+  border:solid #fff;border-width:0 2px 2px 0;transform:rotate(42deg);
+}
+.todo .txt{font-size:15.5px;color:var(--ink-1);flex:1;min-width:0;letter-spacing:-0.005em}
+.todo.done .txt{color:var(--ink-3);text-decoration:line-through;text-decoration-color:rgba(134,134,139,0.5)}
+
+/* 习惯行（圆点 + 柔光） */
+.habit{display:flex;align-items:center;gap:12px;padding:11px 2px}
+.habit .ring{
+  width:25px;height:25px;flex:0 0 auto;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  border:1.5px solid var(--line-strong);transition:all .25s var(--ease);
+}
+.habit.done .ring{border-color:var(--accent);background:var(--accent-soft)}
+.habit.done .ring::after{
+  content:"";width:7px;height:7px;border-radius:50%;background:var(--accent);
+}
+.habit .txt{font-size:15.5px;flex:1;min-width:0;letter-spacing:-0.005em}
+.habit .freq{font-size:12px;color:var(--ink-3);font-weight:500}
+
+/* 想法卡片 */
+.idea{
+  background:var(--surface-strong);border:1px solid var(--line);
+  border-radius:var(--r-md);padding:13px 15px;margin-bottom:9px;
+  box-shadow:0 1px 2px rgba(0,0,0,0.02);
+  backdrop-filter:blur(var(--blur));
+}
+.idea .time{font-size:11.5px;color:var(--ink-3);margin-bottom:4px;font-weight:500}
+.idea .body{font-size:14.5px;line-height:1.5;color:var(--ink-1);letter-spacing:-0.005em}
+
+/* 目标卡片 */
+.goal{
+  background:var(--surface-strong);border:1px solid var(--line);
+  border-radius:var(--r-lg);padding:17px 18px;margin-bottom:12px;
+  box-shadow:var(--shadow);backdrop-filter:blur(var(--blur));
+  transition:transform .3s var(--ease),box-shadow .3s var(--ease);
+}
+.goal:active{transform:scale(0.985)}
+.goal h3{font-size:17px;font-weight:650;letter-spacing:-0.015em;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{font-size:10.5px;font-weight:650;letter-spacing:0.03em;border-radius:99px;padding:3px 9px;background:var(--accent-soft);color:var(--accent)}
+.pill.done{background:rgba(46,125,79,0.12);color:#2E7D4F}
+.goal .stage-name{margin-top:7px;font-size:13.5px;color:var(--ink-2)}
+.progress{margin-top:11px;height:5px;border-radius:99px;background:var(--line)}
+.progress i{display:block;height:100%;border-radius:99px;background:var(--accent);width:45%}
+.goal .meta{margin-top:10px;font-size:12.5px;color:var(--ink-3);display:flex;justify-content:space-between;align-items:center}
+.goal .act{font-size:12.5px;color:var(--accent);font-weight:600}
+
+/* 想法列表（tab） */
+.note-row{
+  display:flex;gap:12px;padding:13px 2px;align-items:flex-start;
+  border-bottom:1px solid var(--line);
+}
+.note-row:last-child{border-bottom:0}
+.note-row .tm{font-size:12px;color:var(--ink-3);font-weight:500;width:44px;flex:0 0 auto;padding-top:1px}
+.note-row .nt{font-size:15px;line-height:1.5;flex:1;min-width:0;letter-spacing:-0.005em}
+.star{flex:0 0 auto;color:var(--ink-3);font-size:13px;padding:6px;margin-top:-2px}
+.star.on{color:#F5A623}
+.group-title{font-size:13px;font-weight:650;color:var(--accent);margin:16px 0 4px;display:flex;align-items:center;gap:6px}
+.group-title svg{width:13px;height:13px}
+
+/* 周视图：竖排七天 */
+.week{display:flex;flex-direction:column;gap:9px}
+.wday{
+  display:flex;align-items:center;gap:14px;padding:13px 14px;
+  border-radius:var(--r-md);border:1px solid var(--line);
+  background:var(--surface);
+}
+.wday .d{width:42px;flex:0 0 auto;text-align:center}
+.wday .d b{font-size:16px;font-weight:700;letter-spacing:-0.02em;display:block}
+.wday .d span{font-size:11px;color:var(--ink-3)}
+.wday.today{background:var(--accent);border-color:var(--accent)}
+.wday.today .d b,.wday.today .d span{color:#fff}
+.wday .info{font-size:12.5px;color:var(--ink-2);line-height:1.5}
+.wday.today .info{color:rgba(255,255,255,0.9)}
+
+/* 月视图 */
+.month-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.month-head b{font-size:17px;font-weight:650;letter-spacing:-0.015em}
+.month-head .nav{display:flex;gap:6px}
+.month-head .nav button{
+  width:32px;height:32px;border-radius:50%;border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;color:var(--ink-2);font-size:15px;
+}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.cal .wd{font-size:11px;color:var(--ink-3);text-align:center;padding:4px 0;font-weight:500}
+.cal .cell{
+  aspect-ratio:1;border-radius:11px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;position:relative;gap:1px;
+}
+.cal .cell .n{font-size:14px;font-weight:500;color:var(--ink-1)}
+.cal .cell.muted .n{color:var(--ink-3)}
+.cal .cell.today{background:var(--accent)}
+.cal .cell.today .n{color:#fff;font-weight:650}
+.cal .cell.ann{background:var(--accent-soft)}
+.cal .cell .ann-n{font-size:8.5px;color:var(--accent);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1}
+.cal .cell.today .ann-n{color:#fff}
+
+/* ============ 顶部毛玻璃栏 ============ */
+.topnav{
+  position:absolute;top:58px;left:0;right:0;z-index:40;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 18px;
+  background:linear-gradient(to bottom,var(--bg) 60%,transparent);
+}
+.brandchip{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:650;letter-spacing:-0.015em}
+.brandchip .mark{width:20px;height:20px;border-radius:6px;background:var(--accent);position:relative}
+.brandchip .mark::after{content:"";position:absolute;inset:0;margin:4px;border:1.6px solid #fff;border-radius:2.4px}
+.menu-btn{
+  width:34px;height:34px;border-radius:10px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:4px;
+  background:var(--surface);border:1px solid var(--line);backdrop-filter:blur(var(--blur));
+}
+.menu-btn i{width:15px;height:1.6px;border-radius:2px;background:var(--ink-1);transition:transform .25s var(--ease)}
+
+/* ============ 底部毛玻璃 tab ============ */
+.tabbar{
+  position:absolute;left:0;right:0;bottom:0;z-index:50;
+  display:flex;align-items:stretch;justify-content:space-around;
+  padding:8px 8px 16px;
+  background:var(--surface);
+  backdrop-filter:blur(var(--blur)) saturate(180%);
+  border-top:1px solid var(--line);
+  box-shadow:var(--shadow-tab);
+}
+.tab{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:5px 2px;border-radius:12px;color:var(--ink-3);min-width:0;
+  transition:color .2s;
+}
+.tab svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tab span{font-size:10px;font-weight:500;letter-spacing:0.01em}
+.tab.on{color:var(--accent)}
+.tab.on span{font-weight:650}
+
+/* ============ 菜单 sheet（毛玻璃，从右上按钮空间展开） ============ */
+.sheet-scrim{
+  position:absolute;inset:0;z-index:70;background:rgba(0,0,0,0.25);
+  opacity:0;visibility:hidden;transition:opacity .3s ease,visibility 0s .3s;
+}
+.sheet{
+  position:absolute;top:70px;right:14px;z-index:80;min-width:238px;
+  background:var(--surface-strong);
+  backdrop-filter:blur(30px) saturate(180%);
+  border:1px solid var(--line-strong);border-radius:20px;
+  box-shadow:0 24px 48px rgba(0,0,0,0.2);
+  padding:6px;overflow:hidden;
+  opacity:0;visibility:hidden;transform:translateY(-8px) scale(0.97);
+  transform-origin:top right;
+  transition:opacity .28s var(--ease),transform .28s var(--ease),visibility 0s .28s;
+}
+.sheet.open,.sheet-scrim.on{opacity:1;visibility:visible}
+.sheet.open{transform:none;transition:opacity .28s var(--ease),transform .28s var(--ease)}
+.sheet-item{
+  display:flex;align-items:center;gap:12px;width:100%;
+  padding:12px 13px;border-radius:13px;font-size:14.5px;font-weight:500;
+  color:var(--ink-1);letter-spacing:-0.005em;text-align:left;
+}
+.sheet-item:active{background:var(--line)}
+.sheet-item svg{width:18px;height:18px;stroke:var(--ink-2);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+.sheet-item .sp{margin-left:auto;color:var(--ink-3)}
+.sheet-div{border-top:1px solid var(--line);margin:5px 8px}
+.switch{width:40px;height:24px;border-radius:99px;background:var(--line-strong);position:relative;transition:background .25s;flex:0 0 auto;margin-left:auto}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.2);transition:transform .25s var(--ease)}
+.switch.on{background:var(--accent)}
+.switch.on::after{transform:translateX(16px)}
+
+/* ============ 右侧设计说明 ============ */
+.dnotes h2{
+  font-size:26px;line-height:1.1;font-weight:700;letter-spacing:-0.03em;
+  margin-bottom:8px;
+}
+.dnotes .sub{font-size:14px;color:var(--ink-2);line-height:1.7;margin-bottom:22px}
+.pcard{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);
+  padding:16px 17px;margin-bottom:11px;backdrop-filter:blur(var(--blur));
+}
+.pcard h4{font-size:14px;font-weight:650;letter-spacing:-0.01em;display:flex;gap:9px;align-items:center;margin-bottom:7px}
+.pcard h4 .no{
+  width:21px;height:21px;flex:0 0 auto;border-radius:7px;background:var(--accent);
+  color:#fff;font-size:11.5px;font-weight:650;display:flex;align-items:center;justify-content:center;
+}
+.pcard p{font-size:13px;line-height:1.65;color:var(--ink-2)}
+.pcard code{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;background:var(--line);padding:1px 5px;border-radius:5px;color:var(--ink-1)}
+.diff{
+  background:var(--accent-soft);border:1px solid rgba(0,113,227,0.25);
+  border-radius:var(--r-md);padding:15px 17px;margin-top:18px;
+}
+.diff h4{font-size:14px;font-weight:650;letter-spacing:-0.01em;color:var(--accent);margin-bottom:8px}
+.diff ul{list-style:none}
+.diff li{font-size:13px;line-height:1.75;color:var(--ink-1);padding-left:16px;position:relative}
+.diff li::before{content:"";position:absolute;left:0;top:9px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+
+/* 提示条 */
+.hint{
+  margin-top:20px;padding:13px 16px;border-radius:var(--r-md);
+  background:var(--surface);border:1px dashed var(--line-strong);font-size:12.5px;color:var(--ink-2);line-height:1.6;
+}
+
+@media (prefers-reduced-motion:reduce){
+  *{transition-duration:.01ms!important;animation-duration:.01ms!important}
+  .view{transform:none}
+  .sheet{transform:none}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar-preview">
+  <div class="preview-brand">
+    <span class="mark"></span>
+    <b>DayCell</b>
+    <span>苹果风 UI 原型 · v0</span>
+  </div>
+  <div class="preview-ctrl">
+    <span class="tag">原型预览</span>
+    <div class="seg" id="themeSeg">
+      <button data-theme="light" class="on">浅色</button>
+      <button data-theme="dark">深色</button>
+    </div>
+  </div>
+</header>
+
+<main class="stage">
+
+  <!-- ============ 手机 mockup ============ -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="screen" id="screen">
+        <div class="island"></div>
+        <div class="statusline">
+          <span>9:41</span>
+          <span class="dots"><i></i><i></i><i></i></span>
+        </div>
+
+        <div class="app">
+          <!-- 顶部毛玻璃栏 -->
+          <div class="topnav">
+            <div class="brandchip"><span class="mark"></span>DayCell</div>
+            <button class="menu-btn" id="menuBtn" aria-label="菜单">
+              <i></i><i></i><i></i>
+            </button>
+          </div>
+
+          <!-- 视图容器 -->
+          <div class="viewport">
+            <!-- 今日 -->
+            <section class="view on" id="view-today">
+              <div class="hero">
+                <h1>10月12日</h1>
+                <p>周一 · 把每个今天收好，人生就有了页码</p>
+              </div>
+
+              <div class="sec-title">待办 <span class="more">2 项</span></div>
+              <div class="todo done"><span class="dot"></span><span class="txt">整理行测错题本</span></div>
+              <div class="todo"><span class="dot"></span><span class="txt">预约周末体检</span></div>
+
+              <div class="sec-title">习惯</div>
+              <div class="habit done"><span class="ring"></span><span class="txt">喝够 8 杯水</span><span class="freq">每日</span></div>
+              <div class="habit done"><span class="ring"></span><span class="txt">晨间拉伸</span><span class="freq">每日</span></div>
+              <div class="habit"><span class="ring"></span><span class="txt">阅读 30 分钟</span><span class="freq">周一 · 周五</span></div>
+
+              <div class="sec-title">想法</div>
+              <div class="idea"><div class="time">08:42</div><div class="body">目标页加一条进度曲线会不会更直观？</div></div>
+            </section>
+
+            <!-- 目标 -->
+            <section class="view" id="view-goals">
+              <div class="hero"><h1>目标</h1><p>2 个进行中 · 1 个已完成</p></div>
+              <div class="goal">
+                <h3>复习考公 <span class="pill">当前 · 强化刷题</span></h3>
+                <div class="stage-name">阶段：强化刷题 · 正确率稳步提升</div>
+                <div class="progress"><i></i></div>
+                <div class="meta"><span>3 个子任务 · 2 个阶段</span><span class="act">查看详情</span></div>
+              </div>
+              <div class="goal">
+                <h3>备考教案 <span class="pill">当前 · 框架搭建</span></h3>
+                <div class="stage-name">阶段：框架搭建 · 提纲已定</div>
+                <div class="progress"><i style="width:20%"></i></div>
+                <div class="meta"><span>1 个子任务 · 3 个阶段</span><span class="act">查看详情</span></div>
+              </div>
+              <div class="goal">
+                <h3>每天多喝水 <span class="pill done">已完成</span></h3>
+                <div class="stage-name">阶段：养成期 · 连续 30 天</div>
+                <div class="progress"><i style="width:100%;background:#2E7D4F"></i></div>
+                <div class="meta"><span>2 个子任务 · 1 个阶段</span><span class="act">恢复进行中</span></div>
+              </div>
+            </section>
+
+            <!-- 想法 -->
+            <section class="view" id="view-notes">
+              <div class="hero"><h1>想法</h1><p>重要念头，随手留下</p></div>
+              <div class="group-title"><svg viewBox="0 0 24 24"><path d="M12 2l2.9 6.3 6.9.9-5 4.8 1.2 6.8L12 17.2 5.9 20.8l1.2-6.8-5-4.8 6.9-.9z"/></svg>收藏</div>
+              <div class="note-row"><span class="tm">08:42</span><span class="nt">目标页加进度曲线，沉淀每阶段的复盘</span><span class="star on">★</span></div>
+              <div class="group-title" style="color:var(--ink-2)">10月12日</div>
+              <div class="note-row"><span class="tm">07:20</span><span class="nt">多喝水：定个整点提醒，比待办更轻</span><span class="star">☆</span></div>
+              <div class="group-title" style="color:var(--ink-2)">10月11日</div>
+              <div class="note-row"><span class="tm">21:05</span><span class="nt">本周复盘：刷题量够，错题消化不够</span><span class="star on">★</span></div>
+              <div class="note-row"><span class="tm">12:30</span><span class="nt">教案框架可以复用考公的笔记结构</span><span class="star">☆</span></div>
+            </section>
+
+            <!-- 周 -->
+            <section class="view" id="view-week">
+              <div class="hero"><h1>本周</h1><p>10月6日 – 10月12日</p></div>
+              <div class="week">
+                <div class="wday"><div class="d"><b>6</b><span>周二</span></div><div class="info">待办 3 · 想法 1</div></div>
+                <div class="wday"><div class="d"><b>7</b><span>周三</span></div><div class="info">习惯 2/3 · 想法 2</div></div>
+                <div class="wday"><div class="d"><b>8</b><span>周四</span></div><div class="info">待办 5</div></div>
+                <div class="wday"><div class="d"><b>9</b><span>周五</span></div><div class="info">想法 1</div></div>
+                <div class="wday"><div class="d"><b>10</b><span>周六</span></div><div class="info">习惯 3/3</div></div>
+                <div class="wday"><div class="d"><b>11</b><span>周日</span></div><div class="info">待办 2 · 想法 1</div></div>
+                <div class="wday today"><div class="d"><b>12</b><span>周一</span></div><div class="info">今天：待办 1 项 · 习惯 2 项</div></div>
+              </div>
+            </section>
+
+            <!-- 月 -->
+            <section class="view" id="view-month">
+              <div class="month-head"><b>2026年10月</b><div class="nav"><button aria-label="上月">‹</button><button aria-label="下月">›</button></div></div>
+              <div class="cal">
+                <span class="wd">一</span><span class="wd">二</span><span class="wd">三</span><span class="wd">四</span><span class="wd">五</span><span class="wd">六</span><span class="wd">日</span>
+                <div class="cell muted"><span class="n">28</span></div><div class="cell muted"><span class="n">29</span></div><div class="cell muted"><span class="n">30</span></div>
+                <div class="cell"><span class="n">1</span></div><div class="cell"><span class="n">2</span></div><div class="cell"><span class="n">3</span></div><div class="cell"><span class="n">4</span></div>
+                <div class="cell"><span class="n">5</span></div><div class="cell"><span class="n">6</span></div><div class="cell"><span class="n">7</span></div><div class="cell"><span class="n">8</span></div><div class="cell"><span class="n">9</span></div><div class="cell"><span class="n">10</span></div><div class="cell ann"><span class="n">11</span><span class="ann-n">入职</span></div>
+                <div class="cell today"><span class="n">12</span></div><div class="cell"><span class="n">13</span></div><div class="cell"><span class="n">14</span></div><div class="cell"><span class="n">15</span></div><div class="cell"><span class="n">16</span></div><div class="cell"><span class="n">17</span></div><div class="cell"><span class="n">18</span></div>
+                <div class="cell"><span class="n">19</span></div><div class="cell"><span class="n">20</span></div><div class="cell ann"><span class="n">21</span><span class="ann-n">发薪日</span></div><div class="cell"><span class="n">22</span></div><div class="cell"><span class="n">23</span></div><div class="cell"><span class="n">24</span></div><div class="cell"><span class="n">25</span></div>
+                <div class="cell"><span class="n">26</span></div><div class="cell"><span class="n">27</span></div><div class="cell"><span class="n">28</span></div><div class="cell"><span class="n">29</span></div><div class="cell"><span class="n">30</span></div><div class="cell"><span class="n">31</span></div><div class="cell muted"><span class="n">1</span></div>
+              </div>
+              <div class="sec-title">纪念日</div>
+              <div class="idea"><div class="time">每年 10月11日</div><div class="body">入职纪念日 · 给自己的一封信</div></div>
+            </section>
+          </div>
+
+          <!-- 菜单 sheet -->
+          <div class="sheet-scrim" id="scrim"></div>
+          <div class="sheet" id="sheet">
+            <button class="sheet-item" data-action="theme">
+              <svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+              夜间模式
+              <span class="switch" id="nightSwitch"></span>
+            </button>
+            <button class="sheet-item" data-action="export">
+              <svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+              导出备份
+            </button>
+            <button class="sheet-item" data-action="import">
+              <svg viewBox="0 0 24 24"><path d="M12 21V9m0 0l-4 4m4-4l4 4"/><path d="M4 7V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2"/></svg>
+              导入备份
+            </button>
+            <button class="sheet-item" data-action="md">
+              <svg viewBox="0 0 24 24"><path d="M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M8 8h.01M8 16h8"/></svg>
+              一键导出 MD
+            </button>
+            <button class="sheet-item" data-action="anniv">
+              <svg viewBox="0 0 24 24"><path d="M4 19V9a8 8 0 0 1 16 0v10"/><path d="M2 19h20"/><path d="M12 9v10"/></svg>
+              纪念日设置
+            </button>
+          </div>
+
+          <!-- 底部 tab -->
+          <nav class="tabbar">
+            <button class="tab" data-view="goals"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg><span>目标</span></button>
+            <button class="tab" data-view="notes"><svg viewBox="0 0 24 24"><path d="M12 4l1.6 3.4 3.7.4-2.7 2.6.7 3.7-3.3-1.9-3.3 1.9.7-3.7-2.7-2.6 3.7-.4z"/></svg><span>想法</span></button>
+            <button class="tab on" data-view="today"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M4 10h16"/></svg><span>今天</span></button>
+            <button class="tab" data-view="week"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4 10h16M10 4v16"/></svg><span>周</span></button>
+            <button class="tab" data-view="month"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="14" rx="3"/><path d="M4 11h16M9 4v4M15 4v4"/></svg><span>月</span></button>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 设计说明 ============ -->
+  <aside class="dnotes">
+    <h2>重设计思路</h2>
+    <p class="sub">把 DayCell 从"工具卡片"拉向"每日生活界面"——沿用现有五视图与全部功能，只重做视觉语言与交互质感。</p>
+
+    <div class="pcard"><h4><span class="no">1</span>毛玻璃层级</h4>
+      <p>顶部导航与底部 Tab 改为 <code>backdrop-filter: blur(22px)</code> 半透明材质，内容滚动穿过而不是被压扁。菜单以毛玻璃 sheet 从右上角按钮原地展开，符合"从哪里来，回哪里去"。</p></div>
+
+    <div class="pcard"><h4><span class="no">2</span>大标题排印</h4>
+      <p>每屏一个大标题（33px、<code>letter-spacing:-0.025em</code>、行高 1.08），层级靠字重与负字距建立，不靠加粗描边。正文保持 0 字距——大小标题各用各的 tracking。</p></div>
+
+    <div class="pcard"><h4><span class="no">3</span>单一强调色</h4>
+      <p>全局只保留一个强调色（浅色 <code>#0071E3</code> / 深色 <code>#0A84FF</code>）：勾选、进度、选中 Tab、按钮。其余全部交给黑白灰 4 级文字层级，颜色克制才显得高级。</p></div>
+
+    <div class="pcard"><h4><span class="no">4</span>spring 动效</h4>
+      <p>视图切换、菜单弹出用 <code>cubic-bezier(0.32,0.72,0,1)</code>（近似 iOS 弹簧），按下即反馈（<code>:active</code> 缩放）。实现时用 spring 库（Motion）替换 CSS transition，支持中途打断与速度继承。</p></div>
+
+    <div class="pcard"><h4><span class="no">5</span>深浅双主题</h4>
+      <p>浅色底 <code>#F5F5F7</code> 深色底 <code>#000</code>，同一套 token 变量自动切换，含毛玻璃与阴影的暗色变体。可保留菜单里的「夜间模式」开关。</p></div>
+
+    <div class="diff"><h4>相对现有 UI 的改动</h4>
+      <ul>
+        <li>顶部工具栏 → 透明毛玻璃，只留 logo 与圆角菜单按钮</li>
+        <li>卡片：去灰边硬线，改为毛玻璃 + 大圆角（20px）+ 轻阴影</li>
+        <li>待办/习惯：去复选框边框，改用细圆点与圆形勾选</li>
+        <li>分隔：用间距分组替代分割线，信息密度降低 30%</li>
+        <li>全部图标重绘为统一线性 SVG，粗细 1.7</li>
+        <li>月视图纪念日：格内淡蓝底 + 小字名称，支持换行展示</li>
+      </ul>
+    </div>
+
+    <div class="hint">这是视觉原型（示例数据）。确认方向后，可逐步把 token 与组件落地到 DayCell 源码，再整体替换样式层。</div>
+  </aside>
+</main>
+
+<script>
+(function(){
+  'use strict';
+  var screen = document.getElementById('screen');
+  var views = Array.prototype.slice.call(document.querySelectorAll('.view'));
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
+  var menuBtn = document.getElementById('menuBtn');
+  var sheet = document.getElementById('sheet');
+  var scrim = document.getElementById('scrim');
+  var nightSwitch = document.getElementById('nightSwitch');
+
+  /* 主题切换 */
+  function setTheme(t){
+    document.documentElement.setAttribute('data-theme', t);
+    Array.prototype.forEach.call(document.querySelectorAll('#themeSeg button'), function(b){
+      b.classList.toggle('on', b.getAttribute('data-theme') === t);
+    });
+    nightSwitch.classList.toggle('on', t === 'dark');
+  }
+  document.querySelectorAll('#themeSeg button').forEach(function(b){
+    b.addEventListener('click', function(){ setTheme(b.getAttribute('data-theme')); });
+  });
+
+  /* 视图切换 */
+  function go(v){
+    views.forEach(function(el){ el.classList.toggle('on', el.id === 'view-' + v); });
+    tabs.forEach(function(t){ t.classList.toggle('on', t.getAttribute('data-view') === v); });
+  }
+  tabs.forEach(function(t){
+    t.addEventListener('click', function(){ go(t.getAttribute('data-view')); });
+  });
+
+  /* 菜单 */
+  function closeSheet(){ sheet.classList.remove('open'); scrim.classList.remove('on'); }
+  menuBtn.addEventListener('click', function(){ sheet.classList.add('open'); scrim.classList.add('on'); });
+  scrim.addEventListener('click', closeSheet);
+  document.querySelectorAll('.sheet-item').forEach(function(item){
+    item.addEventListener('click', function(){
+      var a = item.getAttribute('data-action');
+      if (a === 'theme'){ setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); }
+      else if (a === 'export' || a === 'import' || a === 'md' || a === 'anniv'){
+        /* 原型占位反馈 */
+        item.style.opacity = '0.5';
+        setTimeout(function(){ item.style.opacity = '1'; }, 300);
+      }
+      setTimeout(closeSheet, 240);
+    });
+  });
+  /* 键盘可及：Esc 关闭菜单 */
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeSheet(); });
+})();
+</script>
+</body>
+</html>
