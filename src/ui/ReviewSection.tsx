@@ -99,20 +99,18 @@ export function ReviewSection({ date }: { date?: DateKey }): JSX.Element {
         <span className={styles.line} />
       </div>
       <div className={styles.nlist}>
-        {review ? (
-          editing ? (
-            <ReviewEdit initial={review.text} onDone={() => setEditing(false)} />
-          ) : (
-            <div className={styles.nitem}>
-              <button
-                className={styles.ntxtBtn}
-                aria-label="编辑今天复盘"
-                onClick={() => setEditing(true)}
-              >
-                <span className={styles.ntxt}>{review.text}</span>
-              </button>
-            </div>
-          )
+        {editing ? (
+          <ReviewEdit initial={review?.text ?? ''} onDone={() => setEditing(false)} />
+        ) : review ? (
+          <div className={styles.nitem}>
+            <button
+              className={styles.ntxtBtn}
+              aria-label="编辑今天复盘"
+              onClick={() => setEditing(true)}
+            >
+              <span className={styles.ntxt}>{review.text}</span>
+            </button>
+          </div>
         ) : (
           <button
             className={styles.reviewEmpty}
