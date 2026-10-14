@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.36'
+const CURRENT_VERSION = 'v8.37'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.37',
+    date: '2026-10-14',
+    items: [
+      '修复日视图滑动翻页「落地一闪」：松手过渡改为等目标页内容真正渲染上屏后再播放（2 帧内），过渡第一帧即真实内容，不再先显示骨架再填充',
+      '顺带修复：预取异常不再卡死手势（自动兜底过渡）；快速连滑时清掉上一次回弹残留动画，跟手更稳',
+    ],
+  },
   {
     version: 'v8.36',
     date: '2026-10-14',

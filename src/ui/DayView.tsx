@@ -120,14 +120,20 @@ export function DayView(): JSX.Element {
     }
 
     const settle = (): void => {
-      // 位移不足 → 回弹回中间页
+      // 位移不足 → 回弹回中间页（180ms）。回弹未结束时若有新手势，onStart 已清 transition，
+      // 但 cleanup 可能覆盖新跟手的 transform → 回调里跳过（tracking 为 true 时不清）。
       el.style.transition = 'transform 180ms cubic-bezier(0.22, 1, 0.36, 1)'
       el.style.transform = BASE
-      window.setTimeout(cleanup, 200)
+      window.setTimeout(() => {
+        if (tracking) return
+        cleanup()
+      }, 200)
     }
 
     const onStart = (e: TouchEvent): void => {
       if (swipeBusy.current) return
+      // 清上次回弹/过渡残留的 transition：新手势跟手必须无动画（否则跟手滞后/跳变 = 闪）
+      el.style.transition = 'none'
       const t = e.touches[0]
       startX = t.clientX
       startY = t.clientY
@@ -167,8 +173,13 @@ export function DayView(): JSX.Element {
       swipeBusy.current = true
       // v8.15：先等目标页预取就绪再播过渡（touchstart 已预取过 → 命中缓存微秒返回；
       // 快速滑动时若未完成则短暂等待，避免滑到目标页仍是骨架白屏）。prefetch 期间忽略新手势（swipeBusy）。
+      // v8.37：预取失败（IndexedDB 异常等）不阻塞过渡（.catch 兜底，内容由 refresh 填充），
+      // 否则轨道卡死在半路 + swipeBusy 永真 = 手势锁死。
       const target = addDays(selectedRef.current, dir)
-      void prefetchDay(target).then(() => {
+      void prefetchDay(target)
+        .catch(() => {})
+        .then(() => playTo(target, dir, dx))
+      const playTo = (target: DateKey, dir: 1 | -1, dx: number): void => {
         if (!swipeBusy.current) return // 已被 touchcancel/新会话打断
         if (selectedRef.current !== addDays(target, -dir)) {
           // 等待期间 selected 被其他路径改变（如 Esc 返回）→ 放弃本次过渡，回弹
@@ -176,21 +187,33 @@ export function DayView(): JSX.Element {
           settle()
           return
         }
-        // 过渡目标位移：translateX(百分比) 相对轨道自身宽（300% = 3 屏）→ 显示第3段需 -2 屏 = -66.6667%，
-        // 显示第1段需 0。⚠️ 曾误写 -133.3333%/66.6667%（= ±4/2 屏），滑到屏幕外 → 落地全白（v8.17 修复）。
-        // 左滑：轨道向左一屏（右页进入）；右滑：向右一屏（左页进入）
-        el.style.transition = `transform ${DUR}ms cubic-bezier(0.22, 1, 0.36, 1)`
-        el.style.transform = dx < 0 ? 'translateX(-66.6667%)' : 'translateX(0%)'
-        const finish = (ev: TransitionEvent): void => {
-          if (ev.target !== el) return
-          el.removeEventListener('transitionend', finish)
-          swipeBusy.current = false
-          swipeAnim.current = true
-          shiftDay(dir)
-          // selected 变化 → 上面的重排 effect 负责 setPages + 无动画复位（视觉无跳变）
+        // v8.37 核心修复：prefetch 把数据写进 dayCache 后，React 还需一次渲染提交才把侧屏
+        // 从骨架换成真实内容；若立即播过渡，过渡首帧侧屏还是骨架，途中内容才填充 = 落地"一闪"。
+        // 等 2 帧 rAF（≈32ms，无感）让内容先提交上屏，过渡第一帧即目标页真实内容，消除闪烁。
+        let waited = 0
+        const kick = (): void => {
+          waited += 1
+          if (waited < 2) {
+            requestAnimationFrame(kick)
+            return
+          }
+          // 过渡目标位移：translateX(百分比) 相对轨道自身宽（300% = 3 屏）→ 显示第3段需 -2 屏 = -66.6667%，
+          // 显示第1段需 0。⚠️ 曾误写 -133.3333%/66.6667%（= ±4/2 屏），滑到屏幕外 → 落地全白（v8.17 修复）。
+          // 左滑：轨道向左一屏（右页进入）；右滑：向右一屏（左页进入）
+          el.style.transition = `transform ${DUR}ms cubic-bezier(0.22, 1, 0.36, 1)`
+          el.style.transform = dx < 0 ? 'translateX(-66.6667%)' : 'translateX(0%)'
+          const finish = (ev: TransitionEvent): void => {
+            if (ev.target !== el) return
+            el.removeEventListener('transitionend', finish)
+            swipeBusy.current = false
+            swipeAnim.current = true
+            shiftDay(dir)
+            // selected 变化 → 上面的重排 effect 负责 setPages + 无动画复位（视觉无跳变）
+          }
+          el.addEventListener('transitionend', finish, { once: true })
         }
-        el.addEventListener('transitionend', finish, { once: true })
-      })
+        requestAnimationFrame(kick)
+      }
     }
 
     const onCancel = (): void => {
