@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.38'
+const CURRENT_VERSION = 'v8.39'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.39',
+    date: '2026-10-14',
+    items: [
+      '日视图滑动翻页再加固：低性能手机上 React 渲染慢，固定等 2 帧可能不够，目标页内容还没上屏就播过渡会「落地闪一下」；现在会等目标页内容真正渲染完成再播过渡（无感等待，最多 200ms 兜底），任何设备上滑到新页第一帧就是目标日的真实内容',
+      '提醒：若手机主屏上的 DayCell 一直是旧版，请删除主屏图标后重新「添加到主屏幕」（旧版从未装过离线更新通道），即可收到全部新版本',
+    ],
+  },
   {
     version: 'v8.38',
     date: '2026-10-14',

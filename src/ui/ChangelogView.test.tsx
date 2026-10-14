@@ -37,16 +37,16 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v8.38')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v8.39')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v8.38')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v8.39')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v8.38，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v8.39，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v8.38')
-    expect(screen.getByText('修复手机 PWA 收不到更新：service worker 注册路径写错（请求站点根而非 /DayCell/ 下的 sw.js），导致手机主屏 PWA 一直没有离线更新机制、永远显示旧版')).toBeInTheDocument()
+    expect(vers[0].textContent).toBe('v8.39')
+    expect(screen.getByText('日视图滑动翻页再加固：低性能手机上 React 渲染慢，固定等 2 帧可能不够，目标页内容还没上屏就播过渡会「落地闪一下」；现在会等目标页内容真正渲染完成再播过渡（无感等待，最多 200ms 兜底），任何设备上滑到新页第一帧就是目标日的真实内容')).toBeInTheDocument()
   })
 
   it('历史版本（v8.2 同步、v7.9 目标、v7.5 菜单）要点存在', async () => {

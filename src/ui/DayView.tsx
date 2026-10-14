@@ -189,11 +189,15 @@ export function DayView(): JSX.Element {
         }
         // v8.37 核心修复：prefetch 把数据写进 dayCache 后，React 还需一次渲染提交才把侧屏
         // 从骨架换成真实内容；若立即播过渡，过渡首帧侧屏还是骨架，途中内容才填充 = 落地"一闪"。
-        // 等 2 帧 rAF（≈32ms，无感）让内容先提交上屏，过渡第一帧即目标页真实内容，消除闪烁。
+        // v8.39 加固：固定等 2 帧在低性能真机上可能不够（React 提交慢于 32ms），过渡第一帧
+        // 仍可能是骨架/旧内容 → 落地瞬间"闪一下"；改为轮询目标侧屏骨架是否已消失（内容已提交
+        // 上屏），就绪立即播过渡（无感），最多等 12 帧（≈200ms）兜底极端慢机，不卡手势。
+        const sideEl = el.children[dx < 0 ? 2 : 0] as HTMLElement
         let waited = 0
         const kick = (): void => {
           waited += 1
-          if (waited < 2) {
+          const contentReady = !sideEl.querySelector('[data-testid="day-skel"]')
+          if ((!contentReady && waited < 12) || waited < 2) {
             requestAnimationFrame(kick)
             return
           }
@@ -292,7 +296,7 @@ function DayFull({ date }: { date?: DateKey } = {}): JSX.Element {
   if (!effective) {
     return (
       <div className={styles.pageInner}>
-        <div className={styles.skels}><div className={styles.skel} /><div className={styles.skel} /><div className={styles.skel} /></div>
+        <div className={styles.skels} data-testid="day-skel"><div className={styles.skel} /><div className={styles.skel} /><div className={styles.skel} /></div>
       </div>
     )
   }
