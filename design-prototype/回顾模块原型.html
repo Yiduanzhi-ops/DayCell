@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230a84ff'/%3E%3Ccircle cx='50' cy='42' r='16' fill='white'/%3E%3Crect x='26' y='64' width='48' height='12' rx='6' fill='white' opacity='0.85'/%3E%3C/svg%3E">
+<title>回顾模块原型 · 想法 + 每日复盘</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { background: #1c1c1e; color: #111; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif; }
+  body { padding: 20px 12px 48px; }
+
+  /* 舞台头部 */
+  .head { max-width: 560px; margin: 0 auto 18px; text-align: center; }
+  .head h1 { font-size: 18px; font-weight: 650; color: #f5f5f7; letter-spacing: .01em; }
+  .head p { font-size: 12.5px; color: #98989d; margin-top: 6px; line-height: 1.7; }
+
+  .switcher { max-width: 560px; margin: 0 auto 20px; display: flex; gap: 8px; }
+  .switcher button {
+    flex: 1; height: 44px; border: 1px solid #48484a; border-radius: 12px;
+    background: #2c2c2e; color: #f5f5f7; font-size: 14.5px; font-weight: 600;
+    cursor: pointer;
+  }
+  .switcher button.on { background: #0a84ff; border-color: #0a84ff; color: #fff; }
+
+  .stage { max-width: 560px; margin: 0 auto; }
+  .phone {
+    width: 375px; margin: 0 auto; border-radius: 24px; overflow: hidden;
+    box-shadow: 0 10px 34px rgba(0,0,0,.45); background: #faf9f6; position: relative;
+  }
+  .statusbar { height: 34px; background: #faf9f6; }
+  .view { display: none; }
+  .view.on { display: block; }
+
+  /* ===== 底部 tab ===== */
+  .tabbar {
+    display: flex; align-items: stretch; justify-content: space-around;
+    padding: 7px 8px 15px; background: #faf9f6; border-top: 1px solid #e8e6e0;
+  }
+  .tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 4px 2px; border-radius: 12px; color: #8e8e93; min-width: 0; background: none; border: none; cursor: pointer; font: inherit; }
+  .tab svg { width: 21px; height: 21px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .tab span { font-size: 10px; font-weight: 500; }
+  .tab.on { color: #0a84ff; }
+  .tab.on span { font-weight: 650; }
+  /* 中间今天：圆形强调 */
+  .tab.today { color: #0a84ff; }
+  .tab.today .mid {
+    width: 42px; height: 42px; border-radius: 50%; background: #0a84ff; color: #fff;
+    display: grid; place-items: center; margin-top: -10px; box-shadow: 0 4px 10px rgba(10,132,255,.28);
+  }
+  .tab.today .mid svg { width: 20px; height: 20px; }
+  .tab.today span { color: #0a84ff; font-weight: 650; }
+
+  /* ===== 今日视图 ===== */
+  .scroll { height: 620px; overflow-y: auto; padding: 6px 16px 20px; -webkit-overflow-scrolling: touch; }
+  .hero { padding: 14px 2px 16px; }
+  .hero .d1 { font-size: 13px; font-weight: 600; color: #0a84ff; letter-spacing: .02em; }
+  .hero .big { font-size: 40px; font-weight: 650; letter-spacing: -0.03em; margin-top: 3px; color: #111; }
+  .hero .sub { font-size: 12px; color: #8e8e93; margin-top: 4px; }
+
+  .panel {
+    background: #fff; border: 1px solid #e8e6e0; border-radius: 16px;
+    padding: 14px 14px 12px; margin-top: 12px;
+  }
+  .ph { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; }
+  .ph h3 { font-size: 13px; font-weight: 650; color: #111; display: flex; align-items: center; gap: 6px; }
+  .ph h3 .ic { display: inline-grid; place-items: center; width: 17px; height: 17px; }
+  .ph h3 .ic svg { width: 15px; height: 15px; stroke: #0a84ff; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .ph .cnt { font-size: 11.5px; color: #8e8e93; margin-left: 2px; }
+  .ph .hair { flex: 1; height: 1px; background: #f0efe9; }
+  .ph .more { font-size: 11.5px; color: #0a84ff; font-weight: 600; background: none; border: 1px solid #d6e4ff; border-radius: 8px; padding: 5px 9px; cursor: pointer; }
+  .ph .more.plain { border-color: transparent; padding: 5px 4px; }
+
+  .todo-item, .note-item { display: flex; align-items: flex-start; gap: 9px; padding: 7px 0; }
+  .todo-item .chk { width: 17px; height: 17px; border-radius: 50%; border: 1.6px solid #c7c7cc; flex: 0 0 auto; margin-top: 1px; }
+  .todo-item.done .chk { background: #0a84ff; border-color: #0a84ff; }
+  .todo-item .txt { flex: 1; min-width: 0; font-size: 13.5px; line-height: 1.5; }
+  .todo-item.done .txt { color: #8e8e93; text-decoration: line-through; }
+
+  .note-item .ntxt { flex: 1; min-width: 0; font-size: 13.5px; line-height: 1.55; }
+  .note-item .tm { font-size: 11px; color: #c7c7cc; flex: 0 0 auto; padding-top: 2px; }
+
+  /* 复盘面板 */
+  .review-card {
+    background: #f7f6f2; border: 1px solid #ece9e2; border-radius: 12px;
+    padding: 12px 13px; cursor: pointer; display: block; width: 100%; text-align: left; font: inherit; color: inherit;
+  }
+  .review-card .rtxt { font-size: 13.5px; line-height: 1.6; white-space: pre-wrap; }
+  .review-card .rhint { font-size: 10.5px; color: #c7c7cc; margin-top: 7px; display: flex; align-items: center; gap: 4px; }
+  .review-empty {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 15px 12px; border: 1px dashed #d8d5cd; border-radius: 12px;
+    font-size: 12.5px; color: #8e8e93; background: none; width: 100%; cursor: pointer; font: inherit;
+  }
+  .review-empty b { color: #0a84ff; font-weight: 600; }
+  .edit-note { margin-top: 10px; background: #fff; border: 1px solid #d6e4ff; border-radius: 12px; padding: 10px; }
+  .edit-note textarea { width: 100%; border: none; outline: none; resize: none; font: inherit; font-size: 13.5px; line-height: 1.6; min-height: 58px; color: #111; background: transparent; }
+  .edit-acts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+  .edit-acts button { font-size: 12px; padding: 6px 14px; border-radius: 8px; cursor: pointer; border: none; }
+  .edit-acts .cancel { background: #f2f2f7; color: #48484a; }
+  .edit-acts .save { background: #0a84ff; color: #fff; font-weight: 600; }
+
+  /* 状态切换小开关（演示用） */
+  .demo-toolbar { display: flex; gap: 6px; margin: 12px 2px 2px; }
+  .demo-toolbar button { font-size: 11px; color: #48484a; background: #ece9e2; border: none; border-radius: 7px; padding: 4px 9px; cursor: pointer; }
+  .demo-toolbar button.on { background: #0a84ff; color: #fff; }
+
+  /* ===== 回顾视图（想法 | 复盘）===== */
+  .rv-head { padding: 14px 16px 0; }
+  .rv-nav { display: flex; justify-content: space-between; align-items: center; }
+  .rv-title { font-size: 24px; font-weight: 650; letter-spacing: -0.02em; }
+  .seg {
+    display: flex; background: #ece9e2; border-radius: 9px; padding: 2px; width: 168px;
+  }
+  .seg button { flex: 1; font-size: 12.5px; font-weight: 600; color: #8e8e93; background: none; border: none; border-radius: 7px; padding: 6px 0; cursor: pointer; }
+  .seg button.on { background: #fff; color: #111; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .rv-list { padding: 8px 16px 20px; height: 560px; overflow-y: auto; }
+  .gtitle { display: flex; align-items: baseline; gap: 8px; padding: 16px 2px 8px; }
+  .gtitle .d { font-size: 14px; font-weight: 650; }
+  .gtitle .s { font-size: 11.5px; color: #8e8e93; }
+  .gtitle .n { font-size: 11px; color: #c7c7cc; margin-left: auto; }
+  .rv-row { display: flex; align-items: flex-start; gap: 10px; padding: 11px 4px; border-bottom: 1px solid #eeece6; cursor: pointer; }
+  .rv-row .day { font-size: 13px; font-weight: 600; color: #48484a; width: 74px; flex: 0 0 auto; padding-top: 1px; font-variant-numeric: tabular-nums; }
+  .rv-row .body { flex: 1; min-width: 0; font-size: 13.5px; line-height: 1.55; color: #111; }
+  .rv-row .star { color: #c7c7cc; font-size: 13px; flex: 0 0 auto; padding-top: 1px; }
+  .rv-row .star.on { color: #f5b301; }
+  .rv-row .arrow { color: #c7c7cc; font-size: 14px; flex: 0 0 auto; padding-top: 1px; }
+
+  /* 复盘列表：每天一行，日期 + 摘要 + 箭头 */
+  .rv-sum .rv-row .body { color: #3a3a3c; }
+  .rv-sum .rv-row .body .pre { color: #8e8e93; font-size: 11.5px; display: block; margin-bottom: 2px; }
+  .rv-empty { text-align: center; padding: 40px 20px; color: #8e8e93; font-size: 12.5px; line-height: 1.8; }
+  .pager { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 14px 0 6px; font-size: 12px; color: #8e8e93; }
+  .pager button { border: none; background: none; color: #0a84ff; font-size: 12px; cursor: pointer; padding: 6px 4px; }
+  .pager button:disabled { color: #c7c7cc; }
+
+  /* ===== 周视图 ===== */
+  .wk-head { padding: 16px 16px 2px; display: flex; align-items: baseline; justify-content: space-between; }
+  .wk-title { font-size: 24px; font-weight: 650; letter-spacing: -0.02em; }
+  .wk-nav { font-size: 12px; color: #8e8e93; display: flex; gap: 10px; }
+  .wk-nav button { border: none; background: none; color: #0a84ff; font-size: 15px; cursor: pointer; padding: 2px 6px; }
+  .wk-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 7px; padding: 14px 16px 10px; }
+  .wcell {
+    aspect-ratio: 1 / 1.05; border-radius: 12px; background: #fff; border: 1px solid #e8e6e0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; position: relative; cursor: pointer;
+  }
+  .wcell .wd { font-size: 10px; color: #8e8e93; }
+  .wcell .n { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; }
+  .wcell.today { background: #0a84ff; border-color: #0a84ff; }
+  .wcell.today .wd, .wcell.today .n { color: #fff; }
+  /* v8.42：右上角小圆点 = 当日有复盘 */
+  .wcell .dot {
+    position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; border-radius: 50%;
+    background: #0a84ff;
+  }
+  .wcell.today .dot { background: #fff; }
+  .wcell .dens { display: flex; gap: 2px; margin-top: 2px; }
+  .wcell .dens i { width: 3px; height: 3px; border-radius: 50%; background: #d8d5cd; }
+
+  /* ===== 月视图 ===== */
+  .mo-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; padding: 12px 16px 14px; }
+  .mcell { aspect-ratio: 1 / 1.12; border-radius: 10px; background: #fff; border: 1px solid #eeece6; position: relative; display: flex; align-items: flex-start; justify-content: flex-end; padding: 6px 7px; cursor: pointer; }
+  .mcell .n { font-size: 12.5px; color: #48484a; font-variant-numeric: tabular-nums; }
+  .mcell.today { background: #0a84ff; border-color: #0a84ff; }
+  .mcell.today .n { color: #fff; font-weight: 650; }
+  .mcell .dot {
+    position: absolute; top: 5px; left: 7px; width: 5px; height: 5px; border-radius: 50%; background: #0a84ff;
+  }
+  .mcell.today .dot { background: #fff; }
+  .mcell .dens { position: absolute; bottom: 5px; left: 7px; display: flex; gap: 2px; }
+  .mcell .dens i { width: 3px; height: 3px; border-radius: 50%; background: #d8d5cd; }
+  .mo-dow { display: grid; grid-template-columns: repeat(7, 1fr); padding: 8px 16px 0; font-size: 10px; color: #8e8e93; text-align: right; }
+  .mo-dow span { padding-right: 7px; }
+  .legend { display: flex; gap: 14px; padding: 0 16px 14px; font-size: 11px; color: #8e8e93; align-items: center; }
+  .legend i { width: 6px; height: 6px; border-radius: 50%; background: #0a84ff; display: inline-block; margin-right: 4px; }
+
+  .note { max-width: 560px; margin: 16px auto 0; text-align: center; font-size: 12px; color: #98989d; line-height: 1.7; }
+  .note b { color: #d1d1d6; font-weight: 600; }
+
+  /* 占位 toast */
+  .toast {
+    position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%);
+    background: rgba(40,40,44,.92); color: #f5f5f7; font-size: 12.5px;
+    padding: 9px 16px; border-radius: 10px; z-index: 99; opacity: 0;
+    transition: opacity .25s; pointer-events: none; white-space: nowrap;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>回顾模块原型</h1>
+  <p>底部 tab「想法」改名「回顾」；回顾页内 [想法 | 复盘] 切换；<br>今日视图底部新增「复盘」区块；周/月格子右上角圆点 = 当日有复盘</p>
+</div>
+
+<div class="switcher" id="sceneSwitcher">
+  <button data-scene="today" class="on">今日视图</button>
+  <button data-scene="review">回顾页</button>
+  <button data-scene="week">周视图</button>
+  <button data-scene="month">月视图</button>
+</div>
+
+<div class="stage">
+  <div class="phone">
+    <div class="statusbar"></div>
+
+    <!-- ============ 今日视图 ============ -->
+    <div class="view on" data-view="today">
+      <div class="scroll">
+        <div class="hero">
+          <div class="d1">10 月 14 日 · 周三</div>
+          <div class="big">今天</div>
+          <div class="sub">九月初五 · 距下一次发薪 1 天</div>
+        </div>
+
+        <div class="panel">
+          <div class="ph"><h3><span class="ic"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>待办<span class="cnt">1/3</span></h3><span class="hair"></span><button class="more" onclick="toast('添加待办 · 原型演示')">+ 添加</button></div>
+          <div class="todo-item done"><span class="chk"></span><span class="txt">写周报</span></div>
+          <div class="todo-item done"><span class="chk"></span><span class="txt">买牛奶</span></div>
+          <div class="todo-item"><span class="chk"></span><span class="txt">给客户回电话</span></div>
+        </div>
+
+        <div class="panel">
+          <div class="ph"><h3><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 4.6 5 .4-3.8 3.3 1.2 4.9-4.3-2.6-4.3 2.6 1.2-4.9-3.8-3.3 5-.4z"/></svg></span>想法<span class="cnt">2</span></h3><span class="hair"></span><button class="more plain" onclick="gotoScene('review')">查看全部 →</button></div>
+          <div class="note-item"><span class="ntxt">通勤路上想到的：复盘这个功能要够轻，才能坚持每天写</span><span class="tm">07:20</span></div>
+          <div class="note-item"><span class="ntxt">周会提了新指标，记得明天问清楚口径</span><span class="tm">21:05</span></div>
+        </div>
+
+        <!-- 复盘区块：空态 / 内容态 演示 -->
+        <div class="panel" id="reviewPanel">
+          <div class="ph"><h3><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>复盘</h3><span class="hair"></span></div>
+          <div id="reviewEmpty">
+            <button class="review-empty" onclick="reviewDemo('edit')">今天还没复盘，<b>点这里写</b></button>
+          </div>
+          <div id="reviewContent" style="display:none">
+            <button class="review-card" onclick="reviewEdit()">
+              <span class="rtxt">今天整体状态不错：周报提前写完，回电也顺利。明天要注意的是别把回电拖到下午——上午精力最好，先把难打的客户排前面。</span>
+              <span class="rhint">点卡片就地编辑</span>
+            </button>
+          </div>
+          <div id="reviewEditBox" style="display:none">
+            <div class="edit-note">
+              <textarea id="reviewArea">今天整体状态不错：周报提前写完，回电也顺利。明天要注意的是别把回电拖到下午——上午精力最好，先把难打的客户排前面。</textarea>
+              <div class="edit-acts">
+                <button class="cancel" onclick="reviewCancel()">取消</button>
+                <button class="save" onclick="reviewSave()">保存</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="demo-toolbar">
+          <button id="demoEmpty" class="on" onclick="reviewDemo('empty')">空态</button>
+          <button id="demoFull" onclick="reviewDemo('full')">有内容</button>
+          <button id="demoEdit" onclick="reviewDemo('edit')">编辑态</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ 回顾视图 ============ -->
+    <div class="view" data-view="review">
+      <div class="rv-head">
+        <div class="rv-nav">
+          <div class="rv-title">回顾</div>
+          <div class="seg" id="rvSeg">
+            <button data-rv="notes" class="on" onclick="rvSwitch('notes')">想法</button>
+            <button data-rv="reviews" onclick="rvSwitch('reviews')">复盘</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="rv-list" id="rvNotes">
+        <div class="gtitle"><span class="d">10 月 14 日</span><span class="s">周三</span><span class="n">2 条</span></div>
+        <div class="rv-row">
+          <span class="body">通勤路上想到的：复盘这个功能要够轻，才能坚持每天写</span>
+          <span class="star on">★</span>
+        </div>
+        <div class="rv-row">
+          <span class="body">周会提了新指标，记得明天问清楚口径</span>
+          <span class="star">☆</span>
+        </div>
+        <div class="gtitle"><span class="d">10 月 13 日</span><span class="s">周二</span><span class="n">1 条</span></div>
+        <div class="rv-row">
+          <span class="body">雨天，地铁比平时慢 15 分钟，明早出门要留余量</span>
+          <span class="star">☆</span>
+        </div>
+        <div class="gtitle"><span class="d">10 月 12 日</span><span class="s">周一</span><span class="n">1 条</span></div>
+        <div class="rv-row">
+          <span class="body">给复盘想了个名字候选：回顾 / 日记 / 手记</span>
+          <span class="star">☆</span>
+        </div>
+        <div class="pager">
+          <button disabled>‹ 上一页</button><span>1 / 3</span><button>下一页 ›</button>
+        </div>
+      </div>
+
+      <div class="rv-list rv-sum" id="rvReviews" style="display:none">
+        <div class="gtitle"><span class="d">复盘</span><span class="s">每日一条 · 按天倒序</span></div>
+        <div class="rv-row">
+          <span class="day">10/14 周三</span>
+          <span class="body"><span class="pre">今天整体状态不错：周报提前写完，回电也顺利。明天要注意的是别把回电拖到下午——上午精力最好…</span>今天整体状态不错：周报提前写完，回电也顺利。明天要注意的是别把回电拖到下午——上午精力最好，先把难打的客户排前面。</span>
+          <span class="arrow">›</span>
+        </div>
+        <div class="rv-row">
+          <span class="day">10/13 周二</span>
+          <span class="body"><span class="pre">雨天效率一般，但把卡了两天的联调问题解决了，有推进。</span>雨天效率一般，但把卡了两天的联调问题解决了，有推进。明天开始做复盘列表的原型。</span>
+          <span class="arrow">›</span>
+        </div>
+        <div class="rv-row">
+          <span class="day">10/12 周一</span>
+          <span class="body"><span class="pre">新的一周，目标拆解完成，节奏感回来了。</span>新的一周，目标拆解完成，节奏感回来了。周报的框架也定了，这周按框架走。</span>
+          <span class="arrow">›</span>
+        </div>
+        <div class="rv-row">
+          <span class="day">10/11 周日</span>
+          <span class="body"><span class="pre">休息日，没有复盘。</span><span style="color:#c7c7cc">（无内容）</span></span>
+          <span class="arrow">›</span>
+        </div>
+        <div class="pager">
+          <button disabled>‹ 上一页</button><span>1 / 2</span><button>下一页 ›</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ 周视图 ============ -->
+    <div class="view" data-view="week">
+      <div class="wk-head">
+        <div class="wk-title">10 月 12 日 – 18 日</div>
+        <div class="wk-nav"><button>‹</button><span>本周</span><button>›</button></div>
+      </div>
+      <div class="wk-grid">
+        <div class="wcell"><span class="wd">一</span><span class="n">12</span><span class="dot"></span><span class="dens"><i></i><i></i></span></div>
+        <div class="wcell"><span class="wd">二</span><span class="n">13</span><span class="dot"></span><span class="dens"><i></i><i></i><i></i></span></div>
+        <div class="wcell today"><span class="wd">三</span><span class="n">14</span><span class="dot"></span><span class="dens"><i></i></span></div>
+        <div class="wcell"><span class="wd">四</span><span class="n">15</span><span class="dens"><i></i></span></div>
+        <div class="wcell"><span class="wd">五</span><span class="n">16</span><span class="dens"><i></i><i></i></span></div>
+        <div class="wcell"><span class="wd">六</span><span class="n">17</span></div>
+        <div class="wcell"><span class="wd">日</span><span class="n">18</span></div>
+      </div>
+      <div class="legend"><span><i></i>右上角圆点 = 当日有复盘</span></div>
+    </div>
+
+    <!-- ============ 月视图 ============ -->
+    <div class="view" data-view="month">
+      <div class="wk-head">
+        <div class="wk-title">2026 年 10 月</div>
+        <div class="wk-nav"><button>‹</button><span>本月</span><button>›</button></div>
+      </div>
+      <div class="mo-dow"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+      <div class="mo-grid">
+        <div class="mcell"></div><div class="mcell"></div><div class="mcell"></div>
+        <div class="mcell"><span class="n">1</span></div>
+        <div class="mcell"><span class="n">2</span></div>
+        <div class="mcell"><span class="n">3</span></div>
+        <div class="mcell"><span class="n">4</span></div>
+        <div class="mcell"><span class="n">5</span><span class="dot"></span><span class="dens"><i></i><i></i></span></div>
+        <div class="mcell"><span class="n">6</span><span class="dens"><i></i></span></div>
+        <div class="mcell"><span class="n">7</span><span class="dot"></span></div>
+        <div class="mcell"><span class="n">8</span></div>
+        <div class="mcell"><span class="n">9</span><span class="dot"></span><span class="dens"><i></i></span></div>
+        <div class="mcell"><span class="n">10</span></div>
+        <div class="mcell"><span class="n">11</span><span class="dot"></span></div>
+        <div class="mcell"><span class="n">12</span><span class="dot"></span><span class="dens"><i></i><i></i></span></div>
+        <div class="mcell"><span class="n">13</span><span class="dot"></span><span class="dens"><i></i></span></div>
+        <div class="mcell today"><span class="n">14</span><span class="dot"></span><span class="dens"><i></i></span></div>
+        <div class="mcell"><span class="n">15</span><span class="dens"><i></i></span></div>
+        <div class="mcell"><span class="n">16</span></div>
+        <div class="mcell"><span class="n">17</span></div>
+        <div class="mcell"><span class="n">18</span><span class="dot"></span></div>
+        <div class="mcell"><span class="n">19</span></div>
+        <div class="mcell"><span class="n">20</span></div>
+        <div class="mcell"><span class="n">21</span><span class="dot"></span></div>
+        <div class="mcell"><span class="n">22</span><span class="dens"><i></i></span></div>
+        <div class="mcell"><span class="n">23</span></div>
+        <div class="mcell"><span class="n">24</span></div>
+        <div class="mcell"><span class="n">25</span></div>
+        <div class="mcell"><span class="n">26</span><span class="dot"></span></div>
+        <div class="mcell"><span class="n">27</span></div>
+        <div class="mcell"><span class="n">28</span></div>
+        <div class="mcell"><span class="n">29</span></div>
+        <div class="mcell"><span class="n">30</span></div>
+        <div class="mcell"><span class="n">31</span><span class="dot"></span></div>
+        <div class="mcell"></div>
+      </div>
+      <div class="legend"><span><i></i>右上角圆点 = 当日有复盘</span></div>
+    </div>
+
+    <!-- ============ 底部 tab ============ -->
+    <div class="tabbar" id="tabbar">
+      <button class="tab" data-tab="goals"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 4.6 5 .4-3.8 3.3 1.2 4.9-4.3-2.6-4.3 2.6 1.2-4.9-3.8-3.3 5-.4z"/></svg><span>目标</span></button>
+      <button class="tab on" data-tab="review"><svg viewBox="0 0 24 24"><path d="M4 4h16v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/><path d="M8 9h8M8 13h5"/></svg><span>回顾</span></button>
+      <button class="tab today" data-tab="today"><span class="mid"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span><span>今天</span></button>
+      <button class="tab" data-tab="week"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="M4 10h16M9 5v14"/></svg><span>周</span></button>
+      <button class="tab" data-tab="month"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v5M16 4v5"/></svg><span>月</span></button>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+  原型仅示意交互与视觉，<b>一天一条可编辑</b>、<b>格子右上角圆点 = 有复盘</b>。<br>
+  今日视图：复盘区块在想法下方；回顾页：顶部 [想法 | 复盘] 切换；底部 tab 已改名「回顾」。
+</div>
+
+<script>
+  // ===== 场景切换 =====
+  const sceneBtns = document.querySelectorAll('#sceneSwitcher button')
+  const views = document.querySelectorAll('.view')
+  function gotoScene(scene) {
+    sceneBtns.forEach(function (x) { x.classList.toggle('on', x.dataset.scene === scene) })
+    views.forEach(function (v) { v.classList.toggle('on', v.dataset.view === scene) })
+  }
+  sceneBtns.forEach(function (b) {
+    b.addEventListener('click', function () {
+      gotoScene(b.dataset.scene)
+    })
+  })
+
+  // ===== 今日复盘三态演示 =====
+  var toastTimer = null
+  function toast(msg) {
+    var el = document.getElementById('toastEl')
+    el.textContent = msg
+    el.classList.add('show')
+    clearTimeout(toastTimer)
+    toastTimer = setTimeout(function () { el.classList.remove('show') }, 1600)
+  }
+  function reviewDemo(state) {
+    var empty = document.getElementById('reviewEmpty')
+    var content = document.getElementById('reviewContent')
+    var edit = document.getElementById('reviewEditBox')
+    var tb = document.querySelectorAll('.demo-toolbar button')
+    tb.forEach(function (x) { x.classList.remove('on') })
+    document.getElementById(state === 'empty' ? 'demoEmpty' : state === 'full' ? 'demoFull' : 'demoEdit').classList.add('on')
+    empty.style.display = state === 'empty' ? '' : 'none'
+    content.style.display = state === 'full' ? '' : 'none'
+    edit.style.display = state === 'edit' ? '' : 'none'
+  }
+  function reviewEdit() { reviewDemo('edit') }
+  function reviewCancel() { reviewDemo('full') }
+  function reviewSave() { reviewDemo('full') }
+
+  // ===== 回顾页 [想法 | 复盘] 切换 =====
+  function rvSwitch(which) {
+    var segs = document.querySelectorAll('#rvSeg button')
+    segs.forEach(function (x) { x.classList.toggle('on', x.dataset.rv === which) })
+    document.getElementById('rvNotes').style.display = which === 'notes' ? '' : 'none'
+    document.getElementById('rvReviews').style.display = which === 'reviews' ? '' : 'none'
+  }
+
+  // ===== 底部 tab 演示（仅高亮切换）=====
+  document.getElementById('tabbar').addEventListener('click', function (e) {
+    var tab = e.target.closest('.tab')
+    if (!tab) return
+    document.querySelectorAll('#tabbar .tab').forEach(function (t) { t.classList.remove('on') })
+    tab.classList.add('on')
+    var map = { today: 'today', review: 'review', week: 'week', month: 'month', goals: 'today' }
+    gotoScene(map[tab.dataset.tab])
+  })
+</script>
+<div class="toast" id="toastEl"></div>
+</body>
+</html>
