@@ -13,6 +13,7 @@ import type {
   CategoryRecord,
   ContentRecord,
   CoreRecord,
+  DatedRecord,
   DateKey,
   ExpenseRecord,
   NoteRecord,
@@ -133,7 +134,7 @@ export const emptyContent = (): { todos: TodoRecord[]; notes: NoteRecord[]; expe
 })
 
 /** date 升序、同日 createdAt 升序、再同日按 id 兜底（保证排序稳定） */
-export function sortDated<T extends ContentRecord>(recs: T[]): T[] {
+export function sortDated<T extends DatedRecord>(recs: T[]): T[] {
   return recs.sort((a, b) => {
     if (a.date !== b.date) return a.date < b.date ? -1 : 1
     if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt

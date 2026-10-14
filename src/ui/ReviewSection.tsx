@@ -55,7 +55,7 @@ const ReviewEdit = ({ initial, onDone }: { initial: string; onDone: () => void }
   )
 }
 
-export function ReviewSection({ dayWord, date }: { dayWord: string; date?: DateKey }): JSX.Element {
+export function ReviewSection({ date }: { date?: DateKey }): JSX.Element {
   const selected = useApp((s) => s.selected)
   const k = date ?? selected
   // 缓存优先（v8.40 模式）：滑动翻日落地瞬间 store.detail 仍是旧日，dayCache 里才是当前日

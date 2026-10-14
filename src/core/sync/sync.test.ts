@@ -157,6 +157,7 @@ describe('mergeTables', () => {
       habits: [],
       checkins: [],
       annivchecks: [],
+      reviews: [],
       settings: [{ key: 'accentColor', value: 'red', updatedAt: 100 }],
     }
     const remote: RecordTable = {
@@ -171,6 +172,7 @@ describe('mergeTables', () => {
       habits: [],
       checkins: [],
       annivchecks: [],
+      reviews: [],
       settings: [{ key: 'accentColor', value: 'blue', updatedAt: 200 }],
     }
     const out = mergeTables(local, remote)

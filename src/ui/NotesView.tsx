@@ -6,7 +6,7 @@
  */
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react'
 import { useApp } from '@/app/context'
-import { dowOf, fromKey, loadLunar, lunarFullText, type DateKey, type NoteRecord, type ReviewRecord } from '@core'
+import { dowOf, fromKey, loadLunar, lunarFullText, type DateKey, type NoteRecord } from '@core'
 import styles from './NotesView.module.css'
 
 /** v8.13：10 条一页（用户拍板）；复盘列表同规格（v8.42） */

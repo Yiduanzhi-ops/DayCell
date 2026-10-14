@@ -343,7 +343,7 @@ function DayFull({ date }: { date?: DateKey } = {}): JSX.Element {
       <HabitSection date={date} />
       <NoteSection dayWord={dayWord} date={date} />
       {/* v8.42 复盘：今日视图最下方，每日一条 */}
-      <ReviewSection dayWord={dayWord} date={date} />
+      <ReviewSection date={date} />
 
       {effective.summary.isEmpty && !edit && (
         <div className={styles.empty}>

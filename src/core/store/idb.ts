@@ -12,7 +12,6 @@
 import { openDB, type IDBPDatabase, type IDBPTransaction } from 'idb'
 import type {
   CategoryRecord,
-  ContentRecord,
   CoreRecord,
   DatedRecord,
   DateKey,

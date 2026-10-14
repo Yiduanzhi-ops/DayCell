@@ -10,7 +10,6 @@
 
 import type {
   CategoryRecord,
-  ContentRecord,
   CoreRecord,
   DatedRecord,
   DateKey,
