@@ -104,6 +104,9 @@ export interface AppState {
   restoreScrollTo: number | null
 
   detail: DayDetail | null
+  /** v8.36：detail 对应的日期（refresh 写入）。换日瞬间 detail 仍是旧日的 → DayFull 中间屏
+   *  只在 detailDate === k 时才兜底 detail，杜绝「标题新日、内容旧日」的落地闪动 */
+  detailDate: DateKey | null
   /** v8.12 日视图滑动翻页：相邻日 detail 内存缓存（key=DateKey；滑动轨道三页同屏渲染的数据源）。
    * 只存内存不持久化；selected 的条目由 refresh 权威写入，相邻条目由 prefetchDay 填充。
    * v8.19：条目携带聚合时的 dataVer——任何写操作/同步后 dataVer 递增，旧条目 ver < dataVer 视为
@@ -370,6 +373,7 @@ export function createAppStore(
     restoreScrollTo: null,
 
     detail: null,
+    detailDate: null,
     dayCache: new Map(),
     weekCache: new Map(),
     monthCache: new Map(),
@@ -462,6 +466,7 @@ export function createAppStore(
 
         const patch: Partial<AppState> = {
           detail: dayDetail,
+          detailDate: selected,
           dayCache: cache,
           weekCache: wcache,
           monthCache: mcache,
@@ -508,6 +513,7 @@ export function createAppStore(
       const s = get()
       if (s.selected === s.today) return
       set({ selected: s.today, edit: null, wantFocus: false })
+      void get().prefetchDay(s.today) // v8.36：同 selectFromCalendar
       void get().refresh()
     },
 
@@ -577,6 +583,9 @@ export function createAppStore(
         if (k === s.selected) return
         set({ selected: k, edit: null, wantFocus: false })
       }
+      // v8.36：换日即预取目标日 detail 进 dayCache（fire-and-forget），中间屏尽早命中缓存，
+      // 避免 refresh 完成前兜底旧 detail（detailDate 不匹配已改走骨架）的落地闪动
+      void get().prefetchDay(k)
       void get().refresh()
     },
 
@@ -605,6 +614,7 @@ export function createAppStore(
         if (s.view === 'day' && k === s.selected) return
         set({ selected: k, view: 'day', edit: null, wantFocus: false })
       }
+      void get().prefetchDay(k) // v8.36：同 selectFromCalendar
       void get().refresh()
     },
 
@@ -643,6 +653,7 @@ export function createAppStore(
         // v8.13：从想法列表进日视图返回时，还原当时页码
         notesPage: src.notesPage ?? 1,
       })
+      void get().prefetchDay(src.selected) // v8.36：同 selectFromCalendar
       void get().refresh()
       // 手势返回（popstate）进来时条目已被浏览器弹掉，needPop 为 false，不会二次 back
       if (needPop && canHistory()) history.back()

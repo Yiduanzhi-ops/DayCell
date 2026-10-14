@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.35'
+const CURRENT_VERSION = 'v8.36'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.36',
+    date: '2026-10-14',
+    items: [
+      '修复日视图换日闪旧内容：点周/月格子、想法进日、返回等切换路径落地瞬间不再闪现上一天的待办内容',
+      '换日即预取目标日数据；中间屏只在数据属于当前日时才兜底显示，杜绝「标题新日、内容旧日」的错位闪动',
+    ],
+  },
   {
     version: 'v8.35',
     date: '2026-10-14',

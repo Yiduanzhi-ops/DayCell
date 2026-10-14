@@ -197,6 +197,23 @@ describe('App 冒烟', () => {
     expect(cell.querySelector('[class*="prog"]')).toBeNull()
   })
 
+  it('v8.36 换日（点月格）落地：中间屏不闪旧日内容（标题新日、内容旧日的错位已杜绝）', async () => {
+    const store = await renderApp()
+    // 今天（9/29）造一条待办
+    await store.getState().createTodo('今天的事')
+    await waitFor(() => expect(within(screen.getByTestId('day-center')).getByText('今天的事')).toBeInTheDocument())
+
+    // 切月视图 → 点 10/1 格子（宽屏：右栏换日，selected 变 10/1）
+    fireEvent.click(screen.getByRole('tab', { name: '月' }))
+    await waitFor(() => expect(within(screen.getByTestId('month-center')).getAllByRole('gridcell')).toHaveLength(42))
+    fireEvent.click(within(screen.getByTestId('month-center')).getByLabelText(/10月1日/))
+    await waitFor(() => expect(store.getState().selected).toBe('2026-10-01'))
+
+    // 落地后中间屏是 10/1（标题用 k 恒正确）；旧日内容「今天的事」绝不出现在中间屏
+    await waitFor(() => expect(within(screen.getByTestId('day-center')).getByText('2026 年 10 月 1 日')).toBeInTheDocument())
+    expect(within(screen.getByTestId('day-center')).queryByText('今天的事')).toBeNull()
+  })
+
   it('v8.34 周视图滑动：左滑下一周、右滑回本周、短滑回弹不翻（箭头仍可用）', async () => {
     const store = await renderApp()
     fireEvent.click(screen.getByRole('tab', { name: '周' }))

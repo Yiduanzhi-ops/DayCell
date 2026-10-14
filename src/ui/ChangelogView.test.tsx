@@ -37,16 +37,16 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v8.35')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v8.36')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v8.35')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v8.36')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v8.35，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v8.36，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v8.35')
-    expect(screen.getByText('修复滑动翻页「闪一下旧页面」：落地瞬间中间屏改直读当前周/月（与日视图同模式），重排复位时视口已是目标页，不再闪现上一页内容')).toBeInTheDocument()
+    expect(vers[0].textContent).toBe('v8.36')
+    expect(screen.getByText('修复日视图换日闪旧内容：点周/月格子、想法进日、返回等切换路径落地瞬间不再闪现上一天的待办内容')).toBeInTheDocument()
   })
 
   it('历史版本（v8.2 同步、v7.9 目标、v7.5 菜单）要点存在', async () => {

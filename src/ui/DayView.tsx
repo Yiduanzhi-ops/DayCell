@@ -255,7 +255,10 @@ function DayFull({ date }: { date?: DateKey } = {}): JSX.Element {
     const e = s.dayCache.get(k)
     return e && e.ver >= s.dataVer ? e.detail : undefined
   })
-  const detail = useApp((s) => (date ? undefined : s.detail)) // 侧页不做 selected 兜底
+  // v8.36：detail 只在其对应日期（detailDate）等于当前 k 时才兜底——换日瞬间 store.detail 仍是
+  // 旧日的（refresh 异步），直接兜底会出现「标题新日、内容旧日」的落地闪动；不匹配则走骨架，
+  // 由 prefetchDay/refresh 完成后的 dayCache 命中接管。侧页（date）恒不兜底。
+  const detail = useApp((s) => (date || s.detailDate !== k ? undefined : s.detail))
   const today = useApp((s) => s.today)
   const rollDismissed = useApp((s) => s.rollDismissed)
   const rollOver = useApp((s) => s.rollOver)
