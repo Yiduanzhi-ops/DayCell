@@ -37,16 +37,16 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v8.40')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v8.41')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v8.40')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v8.41')).not.toBeInTheDocument()
   })
 
   it('列表倒序：第一条是最新版本 v8.40，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v8.40')
-    expect(screen.getByText('根治日视图滑动翻页「落地瞬间闪一下上一日数据」：逐帧取证确认根因——习惯区块一直读全局「今日习惯」，换日瞬间刷新未完成时仍是上一日的习惯，导致标题已是新日、习惯区块还是旧日')).toBeInTheDocument()
+    expect(vers[0].textContent).toBe('v8.41')
+    expect(screen.getByText('习惯区块与待办/想法完全同款：区块头「今日习惯 x/y 管理」整行收进框内，计数改灰色、管理按钮与「+ 添加」同款描边按钮，空状态也改为框内居中文字，界面更统一')).toBeInTheDocument()
   })
 
   it('历史版本（v8.2 同步、v7.9 目标、v7.5 菜单）要点存在', async () => {

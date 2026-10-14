@@ -8,11 +8,18 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.40'
+const CURRENT_VERSION = 'v8.41'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.41',
+    date: '2026-10-14',
+    items: [
+      '习惯区块与待办/想法完全同款：区块头「今日习惯 x/y 管理」整行收进框内，计数改灰色、管理按钮与「+ 添加」同款描边按钮，空状态也改为框内居中文字，界面更统一',
+    ],
+  },
   {
     version: 'v8.40',
     date: '2026-10-14',

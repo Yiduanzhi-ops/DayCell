@@ -1,42 +1,45 @@
-/* 今日习惯区块（v8.0）。v8.31：容器背景与待办/想法区块统一（白底 + --line 边框 + 11px 圆角） */
-.sect { margin-top: 16px; }
-
-.sectH {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-bottom: 6px;
+/* 今日习惯区块（v8.0）。v8.31：容器背景与待办/想法区块统一（白底 + --line 边框 + 11px 圆角）。
+   v8.41：区块头「今日习惯 x/y 管理」整行进框——与待办/想法同款：标题行在框内、计数灰色、
+   管理按钮与「+ 添加」同款描边小按钮、列表直接铺在框内（去独立内边框）。 */
+.sect {
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 10px 12px 12px;
 }
+
+.sectH { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .sectH h3 {
   font-size: 12px;
   color: var(--ink-3, #767676);
   font-weight: 600;
   letter-spacing: .02em;
   margin: 0;
+  flex: 0 0 auto;
 }
 .count {
-  font-size: 12px;
-  font-weight: 650;
-  color: var(--accent, #2E4BA6);
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--ink-3, #767676);
   font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
 }
-.line { flex: 1; }
+.line { flex: 1; height: 1px; background: var(--line); }
 .manage {
-  font-size: 12.5px;
-  font-weight: 600;
+  font-size: 11.5px;
+  font-weight: 500;
   color: var(--accent, #2E4BA6);
-  background: none;
-  border: none;
-  padding: 2px 0 2px 8px;
+  background: var(--bg);
+  border: 1px solid var(--accent-line);
+  border-radius: 7px;
+  padding: 5px 9px;
+  min-height: 32px;
+  flex: 0 0 auto;
   cursor: pointer;
 }
+.manage:hover { background: var(--accent-soft); }
 
-.box {
-  border: 1px solid var(--line);
-  border-radius: 11px;
-  background: var(--bg);
-  padding: 2px 14px;
-}
+.box { padding: 0; }
 .row {
   display: flex;
   align-items: center;
@@ -76,15 +79,16 @@
 }
 .row.on .freq { opacity: .55; }
 
+/* v8.41：空态与待办一致——框内居中文字（仍可点击进管理页），去独立虚线框 */
 .empty {
   display: block;
   width: 100%;
-  text-align: left;
-  font-size: 13px;
-  color: var(--ink-3, #767676);
-  background: var(--bg);
-  border: 1px dashed var(--line);
-  border-radius: 11px;
+  text-align: center;
   padding: 14px;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--ink-3, #767676);
+  background: none;
+  border: none;
   cursor: pointer;
 }
