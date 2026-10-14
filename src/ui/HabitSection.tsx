@@ -28,20 +28,24 @@ export function freqLabel(freq: { kind: 'daily' } | { kind: 'weekly'; weekdays: 
  *  - 区块头右侧「管理」→ 菜单式习惯设置页（HabitsView）
  */
 export function HabitSection({ date }: { date?: DateKey } = {}): JSX.Element {
+  const selected = useApp((s) => s.selected)
   const habitDay = useApp((s) => s.habitDay)
   const toggleHabit = useApp((s) => s.toggleHabit)
   const openHabits = useApp((s) => s.openHabits)
+  const k = date ?? selected
 
-  // 侧页：从当日缓存 detail.habits 读（v8.20 起聚合带习惯），与中间页 habitDay 同口径（buildHabitItems）
-  const sideHabits = useApp((s) => {
-    if (!date) return undefined
-    const e = s.dayCache.get(date)
+  // v8.40：中间页同样缓存优先——换日瞬间 refresh() 异步，全局 habitDay 仍是旧日的，
+  // 直接读会「标题新日、习惯旧日」的落地闪旧数据（用户实测：滑到目标日瞬间习惯区块闪上一日内容）；
+  // dayCache[k] 由 prefetchDay/refresh 权威写入（v8.20 起 detail 带 habits，与 habitDay 同 buildHabitItems 口径）。
+  // 侧页（date）同样读当日缓存；v8.39 保证过渡播放前目标日缓存已就绪 → 落地即目标日习惯。
+  const cachedHabits = useApp((s) => {
+    const e = s.dayCache.get(k)
     return e && e.ver >= s.dataVer ? e.detail?.habits : undefined
   })
 
-  const items = sideHabits ?? habitDay?.items ?? []
-  const done = sideHabits ? sideHabits.filter((h) => h.done).length : (habitDay?.doneCount ?? 0)
-  const total = sideHabits ? sideHabits.length : (habitDay?.dueCount ?? 0)
+  const items = cachedHabits ?? habitDay?.items ?? []
+  const done = cachedHabits ? cachedHabits.filter((h) => h.done).length : (habitDay?.doneCount ?? 0)
+  const total = cachedHabits ? cachedHabits.length : (habitDay?.dueCount ?? 0)
 
   return (
     <div className={styles.sect}>
@@ -60,7 +64,7 @@ export function HabitSection({ date }: { date?: DateKey } = {}): JSX.Element {
               <button
                 className={h.done ? `${styles.check} ${styles.checkOn}` : styles.check}
                 aria-label={`${h.done ? '取消打卡' : '打卡'}：${h.name}`}
-                onClick={() => void toggleHabit(sideHabits ? date! : habitDay!.date, h.id)}
+                onClick={() => void toggleHabit(k, h.id)}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.4"
                   strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

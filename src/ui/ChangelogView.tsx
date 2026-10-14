@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.39'
+const CURRENT_VERSION = 'v8.40'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.40',
+    date: '2026-10-14',
+    items: [
+      '根治日视图滑动翻页「落地瞬间闪一下上一日数据」：逐帧取证确认根因——习惯区块一直读全局「今日习惯」，换日瞬间刷新未完成时仍是上一日的习惯，导致标题已是新日、习惯区块还是旧日',
+      '习惯区块改为与待办/想法一致：优先读目标日的聚合缓存（数据就绪后才显示，就绪前不显示旧数据），打卡写入目标日正确日期；待办/想法的兜底数据也加了「数据属于当前日」校验，杜绝任何区块「标题新日、内容旧日」',
+    ],
+  },
   {
     version: 'v8.39',
     date: '2026-10-14',

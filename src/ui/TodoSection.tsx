@@ -32,7 +32,9 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
     const e = s.dayCache.get(k)
     return e && e.ver >= s.dataVer ? e.detail : undefined
   })
-  const detail = useApp((s) => (date ? undefined : s.detail))
+  // v8.40：detail 兜底加 detailDate 校验（与 DayFull 同规则）——换日瞬间 store.detail 仍是旧日的，
+  // 仅当 detail 确实属于当前 k 时才兜底，否则走骨架，杜绝「标题新日、内容旧日」闪旧数据
+  const detail = useApp((s) => (date || s.detailDate !== k ? undefined : s.detail))
   const edit = useApp((s) => (date ? undefined : s.edit)) // 侧页不受全局表单态影响
   const openForm = useApp((s) => s.openForm)
   const toggleTodo = useApp((s) => s.toggleTodo)
