@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.37'
+const CURRENT_VERSION = 'v8.38'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.38',
+    date: '2026-10-14',
+    items: [
+      '修复手机 PWA 收不到更新：service worker 注册路径写错（请求站点根而非 /DayCell/ 下的 sw.js），导致手机主屏 PWA 一直没有离线更新机制、永远显示旧版',
+      '改为相对路径注册 + 每次打开绕过缓存检查新版本 + 新版本立即接管，主屏 PWA 下次打开即为新版',
+    ],
+  },
   {
     version: 'v8.37',
     date: '2026-10-14',
