@@ -1,6 +1,7 @@
 /**
  * 底部视图切换器（v7.3 / v8.13）：固定页面底部。
  * v8.13：扩为 5 tab，从左到右 **目标 | 想法 | 今天（中间，圆形）| 周 | 月**；
+ * v8.42：「想法」tab 改名「回顾」（回顾页内含 [想法 | 复盘] 切换，大模块名=回顾）。
  * 「今天」居中并做成圆形强调（原型图确认），其余四 tab 图标 + 文字竖排。
  * 桌面端共用同一组件（保持单一布局逻辑，D17 修订：切换器从顶栏移到底部）。
  * 快捷键 d/t/w/m/g/n 由 App.tsx 全局接管，与点 tab 等价；键盘用户仍有 title 提示。
@@ -56,10 +57,10 @@ export function TabBar(): JSX.Element {
   const view = useApp((s) => s.view)
   const setView = useApp((s) => s.setView)
 
-  // v8.13：5 tab，从左到右 目标 | 想法 | 今天（中间）| 周 | 月
+  // v8.13：5 tab，从左到右 目标 | 想法 | 今天（中间）| 周 | 月；v8.42：想法 tab 改名为「回顾」
   const tabs: ReadonlyArray<readonly [ViewKey, string]> = [
     ['goals', '目标'],
-    ['notes', '想法'],
+    ['notes', '回顾'],
     ['day', '今天'],
     ['week', '周'],
     ['month', '月'],

@@ -52,6 +52,13 @@ export interface NoteRecord extends DatedRecord {
   pinned?: boolean
 }
 
+/** v8.42 每日复盘：**每天一条**，date 唯一（upsert 覆盖写）。语义是当天的收尾总结 */
+export interface ReviewRecord extends DatedRecord {
+  type: 'review'
+  /** 纯文本，保留换行，不解析 Markdown（同想法） */
+  text: string
+}
+
 export interface ExpenseRecord extends DatedRecord {
   type: 'expense'
   /** **整数「分」**，> 0。见 ADR-0003 */
@@ -201,7 +208,7 @@ export type SettingKey =
   | 'onboarded'
   | 'weekStartsOn'
 
-/** 十一个 store（PRD §6.3，v7.9 加 goals/stages，v8.0 加 habits/checkins，v8.29 加 annivchecks） */
+/** 十二个 store（PRD §6.3，v7.9 加 goals/stages，v8.0 加 habits/checkins，v8.29 加 annivchecks，v8.42 加 reviews） */
 export type StoreName =
   | 'todos'
   | 'notes'
@@ -214,12 +221,13 @@ export type StoreName =
   | 'habits'
   | 'checkins'
   | 'annivchecks'
+  | 'reviews'
   | 'settings'
 
-/** 存放带归属日内容记录的三个 store */
-export type ContentStoreName = 'todos' | 'notes' | 'expenses'
+/** 存放带归属日内容记录的 store（v8.42 加 reviews） */
+export type ContentStoreName = 'todos' | 'notes' | 'expenses' | 'reviews'
 
-export const CONTENT_STORES: readonly ContentStoreName[] = ['todos', 'notes', 'expenses']
+export const CONTENT_STORES: readonly ContentStoreName[] = ['todos', 'notes', 'expenses', 'reviews']
 
 export const ALL_STORES: readonly StoreName[] = [
   'todos',
@@ -233,6 +241,7 @@ export const ALL_STORES: readonly StoreName[] = [
   'habits',
   'checkins',
   'annivchecks',
+  'reviews',
   'settings',
 ]
 
@@ -261,5 +270,6 @@ export interface RecordTable {
   habits: HabitRecord[]
   checkins: CheckinRecord[]
   annivchecks: AnnivCheckRecord[]
+  reviews: ReviewRecord[]
   settings: SettingRecord[]
 }

@@ -8,11 +8,21 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.41'
+const CURRENT_VERSION = 'v8.42'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.42',
+    date: '2026-10-14',
+    items: [
+      '新增「回顾」大模块：今日视图最下方加每日一条的复盘区块（仿想法样式、就地编辑、可清空），底部 tab「想法」改名「回顾」',
+      '回顾页顶部 [想法 | 复盘] 分段切换，复盘列表按日期倒序、每页 10 条，点条目直达当天日视图',
+      '周视图日期与月视图格子右上角增加小圆点，标记当天写过复盘',
+      '复盘与待办/想法/习惯一样：一天一条可覆盖、支持同步与备份，数据更完整',
+    ],
+  },
   {
     version: 'v8.41',
     date: '2026-10-14',

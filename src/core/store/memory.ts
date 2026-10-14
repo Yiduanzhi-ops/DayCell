@@ -12,6 +12,7 @@ import type {
   CategoryRecord,
   ContentRecord,
   CoreRecord,
+  DatedRecord,
   DateKey,
   ExpenseRecord,
   NoteRecord,
@@ -130,7 +131,7 @@ export function createMemoryStore(opts: MemoryStoreOptions = {}): RecordStore {
       return r ? (clone(r) as T) : undefined
     },
 
-    async byDate<T extends ContentRecord>(s: ContentStoreName, from: DateKey, to: DateKey) {
+    async byDate<T extends DatedRecord>(s: ContentStoreName, from: DateKey, to: DateKey) {
       const out: T[] = []
       for (const r of table(s).values()) {
         if (r.deleted) continue

@@ -37,16 +37,16 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v8.41')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v8.42')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v8.41')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v8.42')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v8.40，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v8.42，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v8.41')
-    expect(screen.getByText('习惯区块与待办/想法完全同款：区块头「今日习惯 x/y 管理」整行收进框内，计数改灰色、管理按钮与「+ 添加」同款描边按钮，空状态也改为框内居中文字，界面更统一')).toBeInTheDocument()
+    expect(vers[0].textContent).toBe('v8.42')
+    expect(screen.getByText('新增「回顾」大模块：今日视图最下方加每日一条的复盘区块（仿想法样式、就地编辑、可清空），底部 tab「想法」改名「回顾」')).toBeInTheDocument()
   })
 
   it('历史版本（v8.2 同步、v7.9 目标、v7.5 菜单）要点存在', async () => {

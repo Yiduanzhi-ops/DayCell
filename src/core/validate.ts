@@ -50,6 +50,8 @@ export const LIMITS = {
   subtaskDesc: 500,
   /** v8.10 当前进度描述（文本部分） */
   progressNote: 200,
+  /** v8.42 每日复盘（每日一条，同想法上限） */
+  reviewText: 5000,
   habitName: 30,
   /** 99,999,999 元 = 9,999,999,900 分（PRD E7） */
   maxAmountCents: 9_999_999_900,
@@ -143,6 +145,10 @@ export const parseTodoText = (raw: string): ParseResult<string> =>
 
 export const parseNoteText = (raw: string): ParseResult<string> =>
   parseText(raw, { field: '想法', max: LIMITS.noteText, multiline: true })
+
+/** v8.42 每日复盘文本（同想法：纯文本、保留换行） */
+export const parseReviewText = (raw: string): ParseResult<string> =>
+  parseText(raw, { field: '复盘', max: LIMITS.reviewText, multiline: true })
 
 /** 花费备注**可以为空**——空串是合法值，不是错误 */
 export function parseExpenseNote(raw: string): ParseResult<string> {

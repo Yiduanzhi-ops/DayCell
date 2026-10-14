@@ -37,6 +37,7 @@ import {
   type HabitRecord,
   type NoteRecord,
   type RecordTable,
+  type ReviewRecord,
   type SettingKey,
   type SettingRecord,
   type StageRecord,
@@ -76,6 +77,7 @@ const CONTENT_STORE_TYPES: Record<Exclude<StoreName, 'settings'>, string> = {
   habits: 'habit',
   checkins: 'checkin',
   annivchecks: 'anniv-check',
+  reviews: 'review',
 }
 
 /** settings 的合法 key（与 types.ts 的 SettingKey 同步，运行时兜底） */
@@ -96,7 +98,7 @@ export async function serializeBackup(
   store: RecordStore,
   now: Clock = systemClock,
 ): Promise<BackupFile> {
-  const [todos, notes, expenses, anniversaries, categories, goals, stages, subtasks, habits, checkins, annivchecks, settings] = await Promise.all([
+  const [todos, notes, expenses, anniversaries, categories, goals, stages, subtasks, habits, checkins, annivchecks, reviews, settings] = await Promise.all([
     store.all<TodoRecord>('todos', { includeDeleted: true }),
     store.all<NoteRecord>('notes', { includeDeleted: true }),
     store.all<ExpenseRecord>('expenses', { includeDeleted: true }),
@@ -108,6 +110,7 @@ export async function serializeBackup(
     store.all<HabitRecord>('habits', { includeDeleted: true }),
     store.all<CheckinRecord>('checkins', { includeDeleted: true }),
     store.all<AnnivCheckRecord>('annivchecks', { includeDeleted: true }),
+    store.all<ReviewRecord>('reviews', { includeDeleted: true }),
     store.allSettings(),
   ])
   return {
@@ -115,7 +118,7 @@ export async function serializeBackup(
     version: BACKUP_FORMAT_VERSION,
     exportedAt: now(),
     schemaVersion: SCHEMA_VERSION,
-    data: { todos, notes, expenses, anniversaries, categories, goals, stages, subtasks, habits, checkins, annivchecks, settings },
+    data: { todos, notes, expenses, anniversaries, categories, goals, stages, subtasks, habits, checkins, annivchecks, reviews, settings },
   }
 }
 
@@ -192,6 +195,7 @@ export function parseBackup(text: string): BackupFile {
       habits: parseRecords<HabitRecord>(data.habits ?? [], CONTENT_STORE_TYPES.habits, 'habits'),
       checkins: parseRecords<CheckinRecord>(data.checkins ?? [], CONTENT_STORE_TYPES.checkins, 'checkins'),
       annivchecks: parseRecords<AnnivCheckRecord>(data.annivchecks ?? [], CONTENT_STORE_TYPES.annivchecks, 'annivchecks'),
+      reviews: parseRecords<ReviewRecord>(data.reviews ?? [], CONTENT_STORE_TYPES.reviews, 'reviews'),
       settings: parseSettings(data.settings),
     },
   }
@@ -216,7 +220,7 @@ export interface MergeStats {
  */
 export async function mergeBackup(store: RecordStore, file: BackupFile): Promise<MergeStats> {
   // 本地现状：含墓碑，才能拿到"全部已用 id"
-  const [localTodos, localNotes, localExpenses, localAnniv, localCats, localGoals, localStages, localSubtasks, localHabits, localCheckins, localAnnivChecks, localSettings] =
+  const [localTodos, localNotes, localExpenses, localAnniv, localCats, localGoals, localStages, localSubtasks, localHabits, localCheckins, localAnnivChecks, localReviews, localSettings] =
     await Promise.all([
       store.all<TodoRecord>('todos', { includeDeleted: true }),
       store.all<NoteRecord>('notes', { includeDeleted: true }),
@@ -229,6 +233,7 @@ export async function mergeBackup(store: RecordStore, file: BackupFile): Promise
       store.all<HabitRecord>('habits', { includeDeleted: true }),
       store.all<CheckinRecord>('checkins', { includeDeleted: true }),
       store.all<AnnivCheckRecord>('annivchecks', { includeDeleted: true }),
+      store.all<ReviewRecord>('reviews', { includeDeleted: true }),
       store.allSettings(),
     ])
 
@@ -249,6 +254,7 @@ export async function mergeBackup(store: RecordStore, file: BackupFile): Promise
   const newHabits = pickNew(file.data.habits, localHabits)
   const newCheckins = pickNew(file.data.checkins, localCheckins)
   const newAnnivChecks = pickNew(file.data.annivchecks, localAnnivChecks)
+  const newReviews = pickNew(file.data.reviews ?? [], localReviews)
 
   const localKeys = new Set<SettingKey>(localSettings.map((s) => s.key))
   const newSettings = file.data.settings.filter((s) => !localKeys.has(s.key))
@@ -264,19 +270,20 @@ export async function mergeBackup(store: RecordStore, file: BackupFile): Promise
     (file.data.subtasks.length - newSubtasks.length) +
     (file.data.habits.length - newHabits.length) +
     (file.data.checkins.length - newCheckins.length) +
-    (file.data.annivchecks.length - newAnnivChecks.length)
+    (file.data.annivchecks.length - newAnnivChecks.length) +
+    ((file.data.reviews?.length ?? 0) - newReviews.length)
 
   const allEmpty =
     newTodos.length === 0 && newNotes.length === 0 && newExpenses.length === 0 &&
     newAnniv.length === 0 && newCats.length === 0 && newGoals.length === 0 &&
     newStages.length === 0 && newSubtasks.length === 0 && newHabits.length === 0 &&
-    newCheckins.length === 0 && newAnnivChecks.length === 0 &&
+    newCheckins.length === 0 && newAnnivChecks.length === 0 && newReviews.length === 0 &&
     newSettings.length === 0
 
   // 一条可合并的都没有 → 无需开事务（也避免"导入了个空备份"误报成功）
   if (allEmpty) {
     return {
-      added: { todos: 0, notes: 0, expenses: 0, anniversaries: 0, categories: 0, goals: 0, stages: 0, subtasks: 0, habits: 0, checkins: 0, annivchecks: 0 },
+      added: { todos: 0, notes: 0, expenses: 0, anniversaries: 0, categories: 0, goals: 0, stages: 0, subtasks: 0, habits: 0, checkins: 0, annivchecks: 0, reviews: 0 },
       settingsAdded: 0,
       keptLocal,
     }
@@ -295,6 +302,7 @@ export async function mergeBackup(store: RecordStore, file: BackupFile): Promise
     if (newHabits.length) await scope.putMany<HabitRecord>('habits', newHabits, { keepTimestamps: true })
     if (newCheckins.length) await scope.putMany<CheckinRecord>('checkins', newCheckins, { keepTimestamps: true })
     if (newAnnivChecks.length) await scope.putMany<AnnivCheckRecord>('annivchecks', newAnnivChecks, { keepTimestamps: true })
+    if (newReviews.length) await scope.putMany<ReviewRecord>('reviews', newReviews, { keepTimestamps: true })
     // settings 没有 keepTimestamps 选项（key/value 单例），刷新 updatedAt 无副作用
     for (const s of newSettings) await scope.putSetting(s.key, s.value)
   })
@@ -312,6 +320,7 @@ export async function mergeBackup(store: RecordStore, file: BackupFile): Promise
       habits: newHabits.length,
       checkins: newCheckins.length,
       annivchecks: newAnnivChecks.length,
+      reviews: newReviews.length,
     },
     settingsAdded: newSettings.length,
     keptLocal,

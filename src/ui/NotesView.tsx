@@ -1,17 +1,15 @@
 /**
- * 想法 tab（v8.13）：全量想法列表。
- *  - 数据源 store.notesList（aggregates.notesAll：date 降序、同日 createdAt 降序）
- *  - 按天分组（组标题 = 公历 + 周几 + 农历 + 条数），条目两行省略
- *  - 分页 10 条/页（跨组分页，底部「‹ 上一页 / 1 / N / 下一页 ›」）
- *  - v8.31：点击条目**原地编辑**（不再跳日视图），右侧删除（带确认）+ 星标收藏，不显示时刻
+ * 回顾 tab（v8.13 想法列表 → v8.42 改名回顾）：顶部 [想法 | 复盘] 切换。
+ *  - 想法列表（v8.13）：按天分组、10 条/页、收藏置顶、点击原地编辑（v8.31）、删除带确认
+ *  - 复盘列表（v8.42）：每日一条、日期倒序、10 条/页、日期 + 正文摘要 + 箭头，点条目进对应日视图
  *  - 返回语义：窄屏记来源（view='notes' + 页码 + 滚动位），返回精确还原
  */
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react'
 import { useApp } from '@/app/context'
-import { dowOf, fromKey, loadLunar, lunarFullText, type DateKey, type NoteRecord } from '@core'
+import { dowOf, fromKey, loadLunar, lunarFullText, type DateKey, type NoteRecord, type ReviewRecord } from '@core'
 import styles from './NotesView.module.css'
 
-/** v8.13：10 条一页（用户拍板） */
+/** v8.13：10 条一页（用户拍板）；复盘列表同规格（v8.42） */
 const PAGE_SIZE = 10
 const DOW = ['日', '一', '二', '三', '四', '五', '六']
 
@@ -31,6 +29,13 @@ export function NotesView(): JSX.Element {
   const deleteNote = useApp((s) => s.deleteNote)
   const restore = useApp((s) => s.restoreScrollTo)
   const consumeRestore = useApp((s) => s.consumeRestoreScroll)
+  // v8.42：回顾页 [想法|复盘] 切换 + 复盘列表
+  const reviewTab = useApp((s) => s.reviewTab)
+  const setReviewTab = useApp((s) => s.setReviewTab)
+  const reviewsList = useApp((s) => s.reviewsList)
+  const reviewPage = useApp((s) => s.reviewPage)
+  const setReviewPage = useApp((s) => s.setReviewPage)
+  const openDayFromNotes = useApp((s) => s.openDayFromNotes)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [lunarMap, setLunarMap] = useState<ReadonlyMap<string, string>>(new Map())
   /** v8.31：正在原地编辑的想法 id（同一时刻最多一条） */
@@ -93,10 +98,103 @@ export function NotesView(): JSX.Element {
     if (window.confirm(`删除这条想法？`)) void deleteNote(n.id)
   }
 
+  // v8.42 复盘列表：每日一条、日期倒序、10 条/页，点条目进对应日视图
+  const rvTotal = reviewsList.length
+  const rvPages = Math.max(1, Math.ceil(rvTotal / PAGE_SIZE))
+  const rvPage = Math.min(reviewPage, rvPages)
+  const rvFrom = (rvPage - 1) * PAGE_SIZE
+  const rvVisible = reviewsList.slice(rvFrom, Math.min(rvFrom + PAGE_SIZE, rvTotal))
+
+  const openReviewDay = (k: DateKey): void => {
+    // 与想法列表点条目进日视图同语义：窄屏记来源返回，宽屏直接切日视图
+    openDayFromNotes(k, 0)
+  }
+
   return (
-    <section className={styles.page} data-testid="notes-view" aria-label="想法列表">
+    <section className={styles.page} data-testid="notes-view" aria-label="回顾列表">
+      {/* v8.42：顶部 [想法 | 复盘] 分段切换 */}
+      <div className={styles.seg} role="tablist" aria-label="回顾内容">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={reviewTab === 'notes'}
+          className={reviewTab === 'notes' ? `${styles.segBtn} ${styles.segOn}` : styles.segBtn}
+          onClick={() => setReviewTab('notes')}
+        >
+          想法
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={reviewTab === 'reviews'}
+          className={reviewTab === 'reviews' ? `${styles.segBtn} ${styles.segOn}` : styles.segBtn}
+          onClick={() => setReviewTab('reviews')}
+        >
+          复盘
+        </button>
+      </div>
       <div className={styles.list} ref={scrollRef}>
-        {total === 0 ? (
+        {reviewTab === 'reviews' ? (
+          rvTotal === 0 ? (
+            <div className={styles.empty}>
+              <p className={styles.emptyMain}>还没有写过复盘</p>
+              <p className={styles.emptySub}>去「今天」视图的「复盘」区块记一条吧</p>
+            </div>
+          ) : (
+            <>
+              <div className={styles.count}>共 {rvTotal} 天复盘</div>
+              {rvVisible.map((r) => {
+                const { m, d } = fromKey(r.date)
+                return (
+                  <div
+                    key={r.id}
+                    className={styles.rvRow}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`查看 ${m}月${d}日复盘`}
+                    onClick={() => openReviewDay(r.date)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        openReviewDay(r.date)
+                      }
+                    }}
+                  >
+                    <span className={styles.rvDate}>
+                      {m}/{d}
+                      <span className={styles.rvDow}>周{DOW[dowOf(r.date)]}</span>
+                    </span>
+                    <span className={styles.rvText}>{r.text}</span>
+                    <span className={styles.rvArrow} aria-hidden="true">›</span>
+                  </div>
+                )
+              })}
+              {rvTotal > PAGE_SIZE && (
+                <div className={styles.pager}>
+                  <button
+                    type="button"
+                    className={styles.pageBtn}
+                    disabled={rvPage <= 1}
+                    onClick={() => setReviewPage(rvPage - 1)}
+                  >
+                    ‹ 上一页
+                  </button>
+                  <span className={styles.pageInfo}>
+                    {rvPage} / {rvPages}
+                  </span>
+                  <button
+                    type="button"
+                    className={styles.pageBtn}
+                    disabled={rvPage >= rvPages}
+                    onClick={() => setReviewPage(rvPage + 1)}
+                  >
+                    下一页 ›
+                  </button>
+                </div>
+              )}
+            </>
+          )
+        ) : total === 0 ? (
           <div className={styles.empty}>
             <p className={styles.emptyMain}>还没有记过想法</p>
             <p className={styles.emptySub}>去「今天」视图的「想法」区块记一条吧</p>

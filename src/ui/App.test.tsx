@@ -406,7 +406,7 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     const tabs = screen.getAllByRole('tab')
     expect(tabs).toHaveLength(5)
     expect(tabs[0]).toHaveAccessibleName('目标')
-    expect(tabs[1]).toHaveAccessibleName('想法')
+    expect(tabs[1]).toHaveAccessibleName('回顾')
     expect(tabs[2]).toHaveAccessibleName('今天')
     expect(tabs[3]).toHaveAccessibleName('周')
     expect(tabs[4]).toHaveAccessibleName('月')
@@ -416,7 +416,7 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
 
   it('点「想法」tab：空态引导', async () => {
     await renderApp()
-    fireEvent.click(screen.getByRole('tab', { name: '想法' }))
+    fireEvent.click(screen.getByRole('tab', { name: '回顾' }))
     await waitFor(() => expect(document.body.textContent).toContain('还没有记过想法'))
   })
 
@@ -428,7 +428,7 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     await store.getState().shiftDay(-1) // → 9/29
     await waitFor(() => expect(document.body.textContent).toContain('十月一日记的念头'))
 
-    fireEvent.click(screen.getByRole('tab', { name: '想法' }))
+    fireEvent.click(screen.getByRole('tab', { name: '回顾' }))
     await waitFor(() => expect(document.body.textContent).toContain('共 2 条想法'))
     expect(document.body.textContent).toContain('十月一日记的念头')
 
@@ -460,7 +460,7 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     for (let i = 1; i <= 11; i++) await store.getState().createNote(`想法第 ${i} 条`)
     await waitFor(() => expect(document.body.textContent).toContain('想法第 1 条'))
 
-    fireEvent.click(screen.getByRole('tab', { name: '想法' }))
+    fireEvent.click(screen.getByRole('tab', { name: '回顾' }))
     await waitFor(() => expect(document.body.textContent).toContain('共 11 条想法'))
     await waitFor(() => expect(document.body.textContent).toContain('1 / 2'))
     // 同日按 createdAt 倒序：第一页 = 最新 10 条（第 11…2 条），第 1 条在第二页
@@ -479,7 +479,7 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     await store.getState().shiftDay(-1) // → 9/28
     await store.getState().createNote('想收藏的念头')
 
-    fireEvent.click(screen.getByRole('tab', { name: '想法' }))
+    fireEvent.click(screen.getByRole('tab', { name: '回顾' }))
     await waitFor(() => expect(document.body.textContent).toContain('共 2 条想法'))
     // 收藏标题已去除：没有任何「⭐ 收藏」/「收藏」分组标题
     expect(document.body.textContent).not.toContain('⭐ 收藏')

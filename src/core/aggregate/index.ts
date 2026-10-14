@@ -44,6 +44,7 @@ import type {
   HabitFreq,
   HabitRecord,
   NoteRecord,
+  ReviewRecord,
   StageRecord,
   SubtaskRecord,
   TodoRecord,
@@ -67,6 +68,8 @@ export interface DayAggregate {
   anniversaries: string[]
   /** 格子单行标签，已由 `cellLabel` 定过优先级 */
   label: CellLabel
+  /** v8.42 当日有复盘（周/月格子右上角圆点） */
+  hasReview: boolean
   /**
    * 三类内容**皆无**（已排墓碑）→ 视图渲染空状态。
    *
@@ -125,6 +128,8 @@ export interface DayDetail {
   prevDayRollable: number
   /** v8.20 当日该做的习惯 + 打卡态（滑动侧页与落地页一致渲染用；不含暂停/不命中的） */
   habits: HabitDayItem[]
+  /** v8.42 当日复盘（每日一条；没写为 null） */
+  review: { id: string; text: string } | null
 }
 
 export interface MonthSummary {
@@ -193,6 +198,8 @@ export interface Aggregates {
   habitDay(date: DateKey): Promise<HabitDay>
   /** v8.13 想法 tab：全量活想法，时间倒序（date 降序，同日 createdAt 降序）。UI 按天分组 + 分页 */
   notesAll(): Promise<NoteRecord[]>
+  /** v8.42 回顾页复盘列表：全量活复盘，**日期倒序**（最新在前） */
+  reviewsAll(): Promise<ReviewRecord[]>
   /**
    * 清掉分类名缓存。
    *
@@ -445,6 +452,7 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
     anniv: readonly string[],
     info: LunarInfo | null,
     cats: CatResolver,
+    hasReview = false,
   ): DayAggregate => {
     const { done, total } = todoProgress(b.todos)
 
@@ -474,6 +482,7 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
       byCat,
       anniversaries: [...anniv],
       label: cellLabel(info, anniv),
+      hasReview,
       isEmpty: b.todos.length === 0 && b.notes.length === 0 && b.expenses.length === 0,
     }
   }
@@ -488,19 +497,23 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
     const to = keys[keys.length - 1]!
 
     // 三次并发：byDateAll 内部已是单事务三请求，另两个是各自的小表全量
-    const [data, anniv, catMap] = await Promise.all([
+    // v8.42 加第四路：reviews 走 byDate 范围查询（不 all()），建 date→review 映射算 hasReview
+    const [data, anniv, catMap, reviewRows] = await Promise.all([
       store.byDateAll(from, to),
       anniversaryTitles(from, to),
       catNames(),
+      store.byDate<ReviewRecord>('reviews', from, to),
     ])
 
     const buckets = bucketize(data)
     const cats = makeCatResolver(catMap)
+    const reviewsByDate = new Map<string, ReviewRecord>()
+    for (const r of reviewRows) if (!r.deleted) reviewsByDate.set(r.date, r)
     return keys.map((k) => {
       const bucket = buckets.get(k) ?? emptyBucket()
       const info = lunar?.lunarOf(k) ?? null
       return {
-        agg: buildDay(k, bucket, anniv.get(k) ?? [], info, cats),
+        agg: buildDay(k, bucket, anniv.get(k) ?? [], info, cats, reviewsByDate.has(k)),
         bucket,
         info,
       }
@@ -579,7 +592,7 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
       //    「昨天有几条待办可顺延」。不要为了后者再发一次 byDateAll。
       // v8.20 加 habits 全量 + 打卡集合：日详情带当日习惯（侧页与落地一致渲染）。
       // v8.29 加纪念日勾选集合（annivDones）。
-      const [data, annivTitles, catMap, annivRecs, habits, done, annivDone] = await Promise.all([
+      const [data, annivTitles, catMap, annivRecs, habits, done, annivDone, review] = await Promise.all([
         store.byDateAll(prev, date),
         anniversaryTitles(date, date),
         catNames(),
@@ -587,6 +600,8 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
         store.all<HabitRecord>('habits'),
         repos.checkins.doneOn(date),
         repos.annivChecks.doneOn(date),
+        // v8.42 当日复盘（每日一条）
+        repos.reviews.byDate(date),
       ])
 
       const buckets = bucketize(data)
@@ -599,7 +614,7 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
 
       return {
         date,
-        summary: buildDay(date, today, titles, info, cats),
+        summary: buildDay(date, today, titles, info, cats, review !== null),
         todos: today.todos,
         notes: today.notes,
         expenses: today.expenses,
@@ -608,6 +623,7 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
         lunar: info,
         prevDayRollable: yesterday.todos.filter(isRollable).length,
         habits: buildHabitItems(habits, done, date),
+        review: review ? { id: review.id, text: review.text } : null,
       }
     },
 
@@ -650,6 +666,15 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
           if (ap !== bp) return bp - ap
           return a.date === b.date ? b.createdAt - a.createdAt : b.date.localeCompare(a.date)
         })
+    },
+
+    /** v8.42 复盘列表：日期倒序（最新在前）；同日只可能有一条 */
+    async reviewsAll() {
+      const all = await store.all<ReviewRecord>('reviews')
+      return all
+        .filter((r) => !r.deleted)
+        .map((r) => ({ ...r }))
+        .sort((a, b) => b.date.localeCompare(a.date))
     },
 
     invalidate() {

@@ -633,3 +633,42 @@ describe('notesAll — v8.13 想法列表数据源', () => {
     expect(again.every((n) => !n.pinned)).toBe(true)
   })
 })
+
+describe('reviewsAll + hasReview — v8.42 复盘', () => {
+  it('全量活复盘：日期倒序；墓碑排除；返回拷贝', async () => {
+    await repos.reviews.upsert(k('2026-09-27'), '周一复盘')
+    clock.advance(5000)
+    await repos.reviews.upsert(k('2026-09-29'), '周三复盘')
+    clock.advance(5000)
+    await repos.reviews.upsert(k('2026-09-28'), '周二复盘')
+    clock.advance(5000)
+    await repos.reviews.softDeleteByDate(k('2026-09-27'))
+
+    const all = await agg.reviewsAll()
+    expect(all.map((r) => r.date)).toEqual(['2026-09-29', '2026-09-28'])
+
+    // 返回拷贝
+    all[0]!.text = 'x'
+    expect((await agg.reviewsAll())[0]!.text).toBe('周三复盘')
+  })
+
+  it('aggregateDay：hasReview 随复盘有无翻转', async () => {
+    expect((await agg.aggregateDay(k('2026-09-29'))).hasReview).toBe(false)
+    await repos.reviews.upsert(k('2026-09-29'), '写了')
+    expect((await agg.aggregateDay(k('2026-09-29'))).hasReview).toBe(true)
+    await repos.reviews.softDeleteByDate(k('2026-09-29'))
+    expect((await agg.aggregateDay(k('2026-09-29'))).hasReview).toBe(false)
+  })
+
+  it('aggregateDayDetail：review 返回 {id,text}，无复盘为 null', async () => {
+    await repos.reviews.upsert(k('2026-09-29'), '多行\n复盘内容')
+    const d = await agg.aggregateDayDetail(k('2026-09-29'))
+    expect(d.review?.text).toBe('多行\n复盘内容')
+    expect(typeof d.review?.id).toBe('string')
+    expect((await agg.aggregateDayDetail(k('2026-09-28'))).review).toBeNull()
+  })
+
+  it('没有复盘时返回空数组', async () => {
+    expect(await agg.reviewsAll()).toEqual([])
+  })
+})

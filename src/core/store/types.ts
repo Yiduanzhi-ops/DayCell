@@ -22,8 +22,8 @@ import type {
   TodoRecord,
 } from '../types'
 
-/** 存放带归属日内容记录的三个 store */
-export type ContentStoreName = 'todos' | 'notes' | 'expenses'
+/** 存放带归属日内容记录的 store（v8.42 加 reviews） */
+export type ContentStoreName = 'todos' | 'notes' | 'expenses' | 'reviews'
 
 export interface PutOptions {
   /**
@@ -72,7 +72,7 @@ export interface RecordStore {
    * 结果按 date 升序、同日按 createdAt 升序。
    * ⚠️ 实现必须走 byDate 索引；出现全表扫描即视为 bug（CORE-API §6）。
    */
-  byDate<T extends ContentRecord>(store: ContentStoreName, from: DateKey, to: DateKey): Promise<T[]>
+  byDate<T extends DatedRecord>(store: ContentStoreName, from: DateKey, to: DateKey): Promise<T[]>
 
   /**
    * 一次取三个内容 store 的日期范围数据，月/周视图的唯一入口。

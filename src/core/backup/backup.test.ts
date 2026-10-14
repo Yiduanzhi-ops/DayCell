@@ -8,7 +8,7 @@
  *  - keepTimestamps 保留原始时间戳（last-write-wins 防反转）
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import type { DateKey, TodoRecord } from '../types'
+import type { DateKey, TodoRecord, ReviewRecord } from '../types'
 import { createMemoryStore } from '../store/memory'
 import type { RecordStore } from '../store/types'
 import { createFakeClock, type FakeClock } from '../clock'
@@ -46,6 +46,7 @@ describe('serializeBackup', () => {
     const t = await repos.todos.create(k('2026-09-29'), '写周报')
     await repos.todos.softDelete(t.id)
     await repos.notes.create(k('2026-09-29'), '想法一条')
+    await repos.reviews.upsert(k('2026-09-29'), '复盘一条')
     await repos.settings.set('onboarded', true)
 
     const file = await serializeBackup(store, clock)
@@ -57,6 +58,9 @@ describe('serializeBackup', () => {
     expect(file.data.todos).toHaveLength(1)
     expect(file.data.todos[0]!.deleted).toBe(true)
     expect(file.data.notes).toHaveLength(1)
+    // v8.42：复盘进备份
+    expect(file.data.reviews).toHaveLength(1)
+    expect(file.data.reviews[0]!.text).toBe('复盘一条')
     expect(file.data.settings.some((s) => s.key === 'onboarded')).toBe(true)
   })
 })
@@ -205,6 +209,56 @@ describe('mergeBackup（合并导入）', () => {
     expect(stats.added.todos).toBe(0)
     const all = await store.all<TodoRecord>('todos', { includeDeleted: true })
     expect(all).toHaveLength(1)
+  })
+
+  it('v8.42 复盘合并：新日期补入、同日期保留本地、墓碑不导入', async () => {
+    // 本地已有 09-29 的复盘
+    const local = await repos.reviews.upsert(k('2026-09-29'), '本地复盘')
+    const file: BackupFile = {
+      app: 'daycell',
+      version: 1,
+      exportedAt: 1,
+      schemaVersion: 1,
+      data: {
+        todos: [], notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], subtasks: [], habits: [], checkins: [], annivchecks: [],
+        reviews: [
+          { ...local, text: '备份改过的文本', updatedAt: 9_999 },
+          { id: 'rv-new', type: 'review', date: k('2026-09-30'), text: '备份新增复盘', createdAt: 1_800_000_000_000, updatedAt: 1_800_000_000_000, deleted: false },
+          { id: 'rv-tomb', type: 'review', date: k('2026-09-28'), text: '已删复盘', createdAt: 1, updatedAt: 1, deleted: true },
+        ],
+        settings: [],
+      },
+    }
+    const stats = await mergeBackup(store, file)
+    expect(stats.added.reviews).toBe(1) // 只有 rv-new
+    expect(stats.keptLocal).toBe(2) // 同 id 1 条 + 墓碑 1 条
+
+    const all = await store.all<ReviewRecord>('reviews', { includeDeleted: true })
+    expect(all).toHaveLength(2) // local + rv-new
+    const localNow = all.find((r) => r.id === local.id)!
+    expect(localNow.text).toBe('本地复盘')
+    const added = all.find((r) => r.id === 'rv-new')!
+    expect(added.text).toBe('备份新增复盘')
+  })
+
+  it('老备份（无 reviews 字段）导入不报错，reviews 视为空', async () => {
+    const local = await repos.reviews.upsert(k('2026-09-29'), '本地复盘')
+    const legacy = {
+      app: 'daycell',
+      version: 1,
+      exportedAt: 1,
+      schemaVersion: 1,
+      data: {
+        todos: [], notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], subtasks: [], habits: [], checkins: [], annivchecks: [], settings: [],
+      },
+    }
+    // 老格式没有 reviews 键
+    const parsed = parseBackup(JSON.stringify(legacy))
+    expect(parsed.data.reviews).toEqual([])
+    const stats = await mergeBackup(store, parsed)
+    expect(stats.added.reviews).toBe(0)
+    // 本地复盘不受影响
+    expect((await store.all<ReviewRecord>('reviews'))[0]!.text).toBe('本地复盘')
   })
 })
 

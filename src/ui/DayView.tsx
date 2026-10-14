@@ -32,6 +32,7 @@ import { useApp } from '@/app/context'
 import { TodoSection } from './TodoSection'
 import { NoteSection } from './NoteSection'
 import { HabitSection } from './HabitSection'
+import { ReviewSection } from './ReviewSection'
 import styles from './DayView.module.css'
 
 const DOW = ['日', '一', '二', '三', '四', '五', '六'] as const
@@ -341,6 +342,8 @@ function DayFull({ date }: { date?: DateKey } = {}): JSX.Element {
       <TodoSection dayWord={dayWord} date={date} />
       <HabitSection date={date} />
       <NoteSection dayWord={dayWord} date={date} />
+      {/* v8.42 复盘：今日视图最下方，每日一条 */}
+      <ReviewSection dayWord={dayWord} date={date} />
 
       {effective.summary.isEmpty && !edit && (
         <div className={styles.empty}>

@@ -316,6 +316,57 @@ describe('notes', () => {
   })
 })
 
+describe('reviews（v8.42：每日一条复盘，upsert 覆盖写）', () => {
+  it('upsert 创建：byDate 可读回，保留内部换行', async () => {
+    const r = await repos.reviews.upsert(k('2026-09-29'), '第一行\n第二行')
+    expect(r.type).toBe('review')
+    expect(r.text).toBe('第一行\n第二行')
+    const got = await repos.reviews.byDate(k('2026-09-29'))
+    expect(got?.id).toBe(r.id)
+    expect(got?.text).toBe('第一行\n第二行')
+  })
+
+  it('upsert 覆盖写：同一天再次写入是**同一条记录**（一天一条）', async () => {
+    const r1 = await repos.reviews.upsert(k('2026-09-29'), '第一版')
+    const r2 = await repos.reviews.upsert(k('2026-09-29'), '第二版')
+    expect(r2.id).toBe(r1.id)
+    const all = await repos.reviews.all()
+    expect(all).toHaveLength(1)
+    expect((await repos.reviews.byDate(k('2026-09-29')))?.text).toBe('第二版')
+  })
+
+  it('墓碑复活：清空后再次写入，同一日期回到可查状态', async () => {
+    await repos.reviews.upsert(k('2026-09-29'), '原文')
+    await repos.reviews.softDeleteByDate(k('2026-09-29'))
+    expect(await repos.reviews.byDate(k('2026-09-29'))).toBeNull()
+    expect(await repos.reviews.all()).toHaveLength(0)
+    await repos.reviews.upsert(k('2026-09-29'), '复活')
+    expect((await repos.reviews.byDate(k('2026-09-29')))?.text).toBe('复活')
+  })
+
+  it('不同日期互不影响；all() 不含已删', async () => {
+    await repos.reviews.upsert(k('2026-09-28'), '周一')
+    await repos.reviews.upsert(k('2026-09-29'), '周二')
+    await repos.reviews.softDeleteByDate(k('2026-09-28'))
+    const all = await repos.reviews.all()
+    expect(all).toHaveLength(1)
+    expect(all[0]!.date).toBe('2026-09-29')
+  })
+
+  it('空文本抛 ValidationError，字段名「复盘」；超过 5000 抛 TOO_LONG', async () => {
+    await expect(repos.reviews.upsert(k('2026-09-29'), '\n  \n')).rejects.toMatchObject({
+      message: expect.stringContaining('复盘'),
+    })
+    await expect(repos.reviews.upsert(k('2026-09-29'), 'a'.repeat(5001))).rejects.toMatchObject({
+      validateCode: 'TOO_LONG',
+    })
+  })
+
+  it('首尾空白被 trim', async () => {
+    expect((await repos.reviews.upsert(k('2026-09-29'), '  x  ')).text).toBe('x')
+  })
+})
+
 describe('expenses（ADR-0003）', () => {
   it('创建并读回，金额是整数分', async () => {
     const e = await repos.expenses.create(k('2026-09-29'), { amountCents: 4500, catId: 'c1', note: '午饭' })

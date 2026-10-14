@@ -43,6 +43,7 @@ import {
   type MonthSummary,
   type NoteRecord,
   type ProgressField,
+  type ReviewRecord,
   type StageInput,
   type StageRecord,
   type SubtaskInput,
@@ -136,6 +137,12 @@ export interface AppState {
   notesList: NoteRecord[]
   /** v8.13：想法列表页码（1 起；切走 tab 重置为 1，从日视图返回还原） */
   notesPage: number
+  /** v8.42：回顾页当前列表（想法 / 复盘）；切走 tab 重置为 'notes' */
+  reviewTab: 'notes' | 'reviews'
+  /** v8.42：复盘列表数据源（全量活复盘，日期倒序） */
+  reviewsList: ReviewRecord[]
+  /** v8.42：复盘列表页码（1 起，切走 tab 重置） */
+  reviewPage: number
 
   /** IndexedDB 不可用（PRD E1）：数据不持久，UI 顶部红色横幅 */
   degraded: boolean
@@ -194,6 +201,16 @@ export interface AppState {
   setNotesPage(p: number): void
   /** v8.24 想法收藏：切换星标（pinned），刷新列表并保持收藏置顶 */
   toggleNotePinned(id: string): Promise<void>
+  /** v8.42 回顾页 [想法|复盘] 切换 */
+  setReviewTab(tab: 'notes' | 'reviews'): void
+  /** v8.42 复盘列表翻页 */
+  setReviewPage(p: number): void
+  /** v8.42 写当日复盘（每日一条，upsert 覆盖） */
+  createReview(text: string): Promise<boolean>
+  /** v8.42 就地编辑当日复盘（覆盖写） */
+  updateReviewText(text: string): Promise<boolean>
+  /** v8.42 清空当日复盘 */
+  deleteReview(): Promise<void>
   /** 返回来源视图。没有来源时返回 false（Esc 等路径靠它判断有没有事发生） */
   back(): boolean
   onPopstate(): void
@@ -388,6 +405,9 @@ export function createAppStore(
     habitList: [],
     notesList: [],
     notesPage: 1,
+    reviewTab: 'notes',
+    reviewsList: [],
+    reviewPage: 1,
 
     degraded: bundle.degraded,
     lunarFailed: bundle.lunarFailed,
@@ -432,10 +452,14 @@ export function createAppStore(
           return
         }
         // v8.13 想法视图：不加载日历聚合，只刷想法列表（notesList 是它的唯一数据源）
+        // v8.42：同页加复盘列表（回顾页 [想法|复盘] 切换的数据源）
         if (view === 'notes') {
-          const notesList = await aggregates.notesAll()
+          const [notesList, reviewsList] = await Promise.all([
+            aggregates.notesAll(),
+            aggregates.reviewsAll(),
+          ])
           if (seq !== loadSeq) return
-          set({ notesList, loading: false })
+          set({ notesList, reviewsList, loading: false })
           return
         }
         // detail 恒加载（桌面分栏右栏 / 手机日视图都要）；日历数据按当前视图加载
@@ -504,6 +528,9 @@ export function createAppStore(
         goalDetail: v === 'goals' ? null : s.goalDetail,
         // v8.13：切走想法 tab 再回来，列表回到第 1 页
         notesPage: 1,
+        // v8.42：回顾页内列表与页码也随 tab 重置
+        reviewTab: 'notes',
+        reviewPage: 1,
       })
       if (needPop && canHistory()) history.back()
       void get().refresh()
@@ -771,6 +798,56 @@ export function createAppStore(
         set({ dataVer: get().dataVer + 1 })
         await get().refresh()
         get().showToast('已删除')
+      } catch (e) {
+        get().showToast(errMsg(e))
+      }
+    },
+
+    setReviewTab(tab) {
+      if (get().reviewTab === tab) return
+      set({ reviewTab: tab, reviewPage: 1 })
+    },
+
+    setReviewPage(p) {
+      if (get().reviewPage === p) return
+      set({ reviewPage: p })
+    },
+
+    /** v8.42 写当日复盘（每日一条；当天已有即覆盖） */
+    async createReview(text) {
+      try {
+        await repos.reviews.upsert(get().selected, text)
+        set({ dataVer: get().dataVer + 1 })
+        await get().refresh()
+        get().showToast('已写下复盘')
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    /** v8.42 就地编辑当日复盘（覆盖写） */
+    async updateReviewText(text) {
+      try {
+        await repos.reviews.upsert(get().selected, text)
+        set({ dataVer: get().dataVer + 1 })
+        await get().refresh()
+        get().showToast('已更新复盘')
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    /** v8.42 清空当日复盘 */
+    async deleteReview() {
+      try {
+        await repos.reviews.softDeleteByDate(get().selected)
+        set({ dataVer: get().dataVer + 1 })
+        await get().refresh()
+        get().showToast('已清空复盘')
       } catch (e) {
         get().showToast(errMsg(e))
       }

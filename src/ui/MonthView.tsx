@@ -129,6 +129,8 @@ function MonthPage({ monthKey, role }: { monthKey: DateKey; role: 'center' | 'si
                     </span>
                   )}
                 </div>
+                {/* v8.42：当日有复盘 → 右上角小圆点（clun/fest 已右移避让） */}
+                {d.hasReview && <i className={styles.rdot} aria-label="这天有复盘" />}
                 {showAnni && (
                   <span className={styles.anniBadge}>◷ {d.anniversaries[0]}</span>
                 )}

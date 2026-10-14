@@ -126,6 +126,8 @@ function WeekPage({ weekKey, role }: { weekKey: DateKey; role: 'center' | 'side'
               }}
             >
               <div className={styles.wdate}>
+                {/* v8.42：当日有复盘 → 日期旁小圆点（wdate 已留位） */}
+                {d.hasReview && <i className={styles.rdot} aria-label="这天有复盘" />}
                 <b className={isSel || isToday ? styles.wdNum : undefined}>{m}/{dd}</b>
                 <span className={styles.wdow}>周{DOW[dowOf(d.date)]}</span>
               </div>

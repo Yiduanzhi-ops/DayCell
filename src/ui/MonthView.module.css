@@ -46,11 +46,25 @@
   min-width: 0;
   cursor: pointer;
   background: var(--bg);
+  /* v8.42：复盘圆点绝对定位锚点 */
+  position: relative;
 }
 .cell:hover { border-color: var(--line); background: var(--bg-hover); }
 .cell.out { opacity: 0.38; }
 .cell.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; background: var(--accent-soft); }
 .cell.today .cnum { background: var(--accent-strong); color: #fff; }
+
+/* v8.42：复盘圆点（格子右上角；clun/fest 已右移避让） */
+.rdot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent-strong);
+  pointer-events: none;
+}
 
 .ctop { display: flex; align-items: baseline; justify-content: space-between; gap: 3px; }
 .cnum {
@@ -64,8 +78,8 @@
   place-items: center;
   flex: 0 0 auto;
 }
-.clun { font-size: 9.5px; color: var(--ink-3); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fest { font-size: 9.5px; color: var(--accent); font-weight: 650; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.clun { font-size: 9.5px; color: var(--ink-3); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 8px; }
+.fest { font-size: 9.5px; color: var(--accent); font-weight: 650; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 8px; }
 .extra { font-style: normal; color: var(--ink-3); font-weight: 400; }
 
 /* 纪念日徽章（v8.8 手机端展示不全修复，用户拍板）：

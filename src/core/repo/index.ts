@@ -22,6 +22,7 @@ import type {
   HabitRecord,
   NoteRecord,
   ProgressField,
+  ReviewRecord,
   SettingKey,
   StageRecord,
   SubtaskRecord,
@@ -42,6 +43,7 @@ import {
   parseHabitFreq,
   parseHabitName,
   parseNoteText,
+  parseReviewText,
   parseStageNote,
   parseStageTitle,
   parseSubtaskTitle,
@@ -109,6 +111,26 @@ export interface NoteRepo {
   /** v8.24 想法收藏：pinned=true 收藏；false 取消收藏 */
   setPinned(id: string, pinned: boolean): Promise<NoteRecord>
   softDelete(id: string): Promise<void>
+}
+
+// ---------------------------------------------------------------------------
+// 复盘（v8.42）
+// ---------------------------------------------------------------------------
+
+/**
+ * 每日复盘 repo：**每天一条**（date 唯一）。
+ * upsert 语义——当天已有时覆盖同一条记录（刷新 updatedAt），没有时新建。
+ * `softDeleteByDate` 清空当天复盘（墓碑，不物理删除）。
+ */
+export interface ReviewRepo {
+  /** 当日复盘；没有返回 null */
+  byDate(date: DateKey): Promise<ReviewRecord | null>
+  /** 当天已有则覆盖（同记录刷新 updatedAt），没有则新建。返回写入后的记录 */
+  upsert(date: DateKey, text: string): Promise<ReviewRecord>
+  /** 清空当天复盘（墓碑） */
+  softDeleteByDate(date: DateKey): Promise<void>
+  /** 全量活复盘（复盘列表数据源；排序在 aggregate 层） */
+  all(): Promise<ReviewRecord[]>
 }
 
 // ---------------------------------------------------------------------------
@@ -299,6 +321,7 @@ export interface Repos {
   subtasks: SubtaskRepo
   habits: HabitRepo
   checkins: CheckinRepo
+  reviews: ReviewRepo
   settings: SettingRepo
 }
 
@@ -307,7 +330,7 @@ export function createRepos(deps: RepoDeps): Repos {
   const now = deps.now ?? systemClock
   const idGen = deps.idGen ?? createIdGen()
 
-  type MutableStore = 'todos' | 'notes' | 'expenses' | 'anniversaries' | 'categories' | 'goals' | 'stages' | 'subtasks' | 'habits' | 'checkins' | 'annivchecks'
+  type MutableStore = 'todos' | 'notes' | 'expenses' | 'anniversaries' | 'categories' | 'goals' | 'stages' | 'subtasks' | 'habits' | 'checkins' | 'annivchecks' | 'reviews'
 
   /** 取一条活记录；不存在或已是墓碑都算 NotFound（PRD E19：可能已被其他标签页删除） */
   const mustGet = async <T extends CoreRecord>(storeName: MutableStore, id: string): Promise<T> => {
@@ -935,7 +958,46 @@ export function createRepos(deps: RepoDeps): Repos {
     set: (key, value) => store.putSetting(key, value),
   }
 
-  return { todos, notes, expenses, anniversaries, annivChecks, categories, goals, stages, subtasks, habits, checkins, settings }
+  // v8.42 复盘：每日一条，upsert 覆盖写
+  const reviews: ReviewRepo = {
+    async byDate(date) {
+      unwrap(parseDateKey(date))
+      const all = await store.all<ReviewRecord>('reviews', { includeDeleted: true })
+      return all.find((r) => !r.deleted && r.date === date) ?? null
+    },
+
+    async upsert(date, text) {
+      unwrap(parseDateKey(date))
+      const t = unwrap(parseReviewText(text))
+      const all = await store.all<ReviewRecord>('reviews', { includeDeleted: true })
+      const existing = all.find((r) => r.date === date)
+      if (existing) {
+        // 墓碑复活 = 重写；活记录 = 覆盖同一条（每日一条，不产生新 id）
+        return store.put<ReviewRecord>('reviews', { ...existing, text: t, deleted: false })
+      }
+      const ts = now()
+      return store.put<ReviewRecord>('reviews', {
+        id: idGen.next(),
+        type: 'review',
+        date,
+        text: t,
+        createdAt: ts,
+        updatedAt: ts,
+        deleted: false,
+      })
+    },
+
+    async softDeleteByDate(date) {
+      unwrap(parseDateKey(date))
+      const all = await store.all<ReviewRecord>('reviews', { includeDeleted: true })
+      const rec = all.find((r) => r.date === date)
+      if (rec) await store.put<ReviewRecord>('reviews', { ...rec, deleted: true })
+    },
+
+    all: () => store.all<ReviewRecord>('reviews'),
+  }
+
+  return { todos, notes, expenses, anniversaries, annivChecks, categories, goals, stages, subtasks, habits, checkins, reviews, settings }
 }
 
 /** 便捷入口：从 store 里读金额时用，避免 UI 层出现 /100（ADR-0003） */

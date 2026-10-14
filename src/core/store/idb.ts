@@ -14,6 +14,7 @@ import type {
   CategoryRecord,
   ContentRecord,
   CoreRecord,
+  DatedRecord,
   DateKey,
   ExpenseRecord,
   NoteRecord,
@@ -54,7 +55,7 @@ export interface IdbDeps {
  * v8.0 新增 habits/checkins 两个 store、v8.5 新增 subtasks，库版本逐级升到 4 让**已安装用户**
  * 也能触发 upgrade 补建空表；SCHEMA_VERSION 保持 1，旧备份仍可导入。
  */
-export const DB_VERSION = 5
+export const DB_VERSION = 6
 
 type Row = Record<string, unknown> & CoreRecord & { date?: DateKey; catId?: string }
 
@@ -157,7 +158,7 @@ function buildStore(
       return r ? (clone(r) as T) : undefined
     },
 
-    byDate: async <T extends ContentRecord>(s: ContentStoreName, from: DateKey, to: DateKey) => {
+    byDate: async <T extends DatedRecord>(s: ContentStoreName, from: DateKey, to: DateKey) => {
       // DateKey 是定宽零填充的 'YYYY-MM-DD'，字典序 === 时间序，可直接做 IDB 区间边界
       return sortDated(live<T>(await rowsInRange(s, from, to), false))
     },
@@ -275,6 +276,12 @@ export async function createIdbStore(deps: IdbDeps): Promise<RecordStore> {
           const annivchecks = database.createObjectStore('annivchecks', { keyPath: 'id' })
           annivchecks.createIndex('byDate', 'date')
           annivchecks.createIndex('byUpdated', 'updatedAt')
+        }
+        // v8.42：新增 reviews（每日复盘，按日期建索引）
+        if (oldVersion < 6) {
+          const reviews = database.createObjectStore('reviews', { keyPath: 'id' })
+          reviews.createIndex('byDate', 'date')
+          reviews.createIndex('byUpdated', 'updatedAt')
         }
         void transaction
       },
