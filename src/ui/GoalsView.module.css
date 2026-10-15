@@ -76,7 +76,7 @@
   font-size: 14px;
   line-height: 1.4;
   color: var(--ink-4);
-  padding: 1px 2px;
+  padding: 3px 2px;
   border: none;
   background: transparent;
   cursor: pointer;
@@ -118,7 +118,7 @@
   background: none;
   border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
   border-radius: 8px;
-  padding: 4px 10px;
+  padding: 3px 9px;
   cursor: pointer;
 }
 .cardDone .cardDoneBtn { color: var(--ink-2); border-color: var(--line); }
