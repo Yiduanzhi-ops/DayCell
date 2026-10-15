@@ -408,6 +408,12 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
       const ad = a.done ?? false
       const bd = b.done ?? false
       if (ad !== bd) return ad ? 1 : -1
+      // v8.43 目标收藏：收藏置顶；收藏内部按收藏时间新的在前（favoritedAt 倒序）；
+      // 未收藏的维持 createdAt 升序。完成的目标不参与置顶（已完成组内也不按收藏排）
+      const af = a.favorite ?? false
+      const bf = b.favorite ?? false
+      if (af !== bf) return af ? -1 : 1
+      if (af && bf) return (b.favoritedAt ?? 0) - (a.favoritedAt ?? 0)
       return a.createdAt - b.createdAt
     })
     return sorted.map((goal) => {
@@ -415,7 +421,7 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
       const cur = stages.find((s) => s.isCurrent) ?? null
       return {
         // done 归一化：旧记录/旧备份无此字段，UI 一律拿到 boolean
-        goal: { ...goal, done: goal.done ?? false },
+        goal: { ...goal, done: goal.done ?? false, favorite: goal.favorite ?? false },
         stageCount: stages.length,
         subtaskCount: subtaskGroups.get(goal.id) ?? 0,
         current: cur ? { id: cur.id, title: cur.title, pct: cur.pct } : null,

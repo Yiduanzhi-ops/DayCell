@@ -69,6 +69,21 @@
   flex-wrap: wrap;
 }
 .card .pct { font-weight: 650; color: var(--accent); }
+/* v8.43 目标收藏：小星标、无框、不显眼（对齐想法模块口径），置顶排序见 aggregate.goalSummaries */
+.card .cardStar {
+  flex: 0 0 auto;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-4);
+  padding: 1px 2px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  user-select: none;
+}
+.card .cardStarOn {
+  color: #f5b301;
+}
 .card .summary {
   margin-top: 8px;
   color: var(--ink-3);

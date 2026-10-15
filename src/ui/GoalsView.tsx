@@ -849,6 +849,7 @@ function GoalList(): JSX.Element {
   const goalList = useApp((s) => s.goalList)
   const openGoal = useApp((s) => s.openGoal)
   const setGoalDone = useApp((s) => s.setGoalDone)
+  const toggleGoalFavorite = useApp((s) => s.toggleGoalFavorite)
   const [newOpen, setNewOpen] = useState(false)
 
   // v7.9 补：进行中的在前（aggregate 已排序），已完成的沉底成组
@@ -913,6 +914,16 @@ function GoalList(): JSX.Element {
               {current?.pct !== undefined ? `${current.pct}%` : '—'}
             </span>
             <span>· {subtaskCount} 个子任务 · {stageCount} 个阶段</span>
+            <button
+              className={goal.favorite ? `${styles.cardStar} ${styles.cardStarOn}` : styles.cardStar}
+              aria-label={goal.favorite ? `取消收藏：${goal.title}` : `收藏：${goal.title}`}
+              onClick={(e) => {
+                e.stopPropagation()
+                void toggleGoalFavorite(goal.id)
+              }}
+            >
+              {goal.favorite ? '★' : '☆'}
+            </button>
             <button
               className={styles.cardDoneBtn}
               aria-label={goal.done ? `恢复进行中：${goal.title}` : `标记完成：${goal.title}`}

@@ -103,6 +103,40 @@ describe('goals', () => {
     expect(undone.done).toBe(false)
   })
 
+  it('setFavorite：收藏写 favoritedAt，取消时两字段清掉（v8.43）', async () => {
+    const g = await repos.goals.create({ title: '复习考公' })
+    expect(g.favorite).toBeUndefined()
+    const fav = await repos.goals.setFavorite(g.id, true)
+    expect(fav.favorite).toBe(true)
+    expect(fav.favoritedAt).toBe(1_700_000_000_000)
+    const unfav = await repos.goals.setFavorite(g.id, false)
+    expect(unfav.favorite).toBeUndefined()
+    expect(unfav.favoritedAt).toBeUndefined()
+  })
+
+  it('goalSummaries：收藏置顶、收藏内部新收藏在前、完成不参与置顶（v8.43）', async () => {
+    const a = await repos.goals.create({ title: '先建 A' })
+    clock.set(clock() + 1000)
+    const b = await repos.goals.create({ title: '后建 B' })
+    clock.set(clock() + 1000)
+    const c = await repos.goals.create({ title: '未收藏 C' })
+    void c
+    // 先收藏 B，再收藏 A（A 的 favoritedAt 更新 → 收藏组内新在前）
+    await repos.goals.setFavorite(b.id, true)
+    clock.set(clock() + 1000)
+    await repos.goals.setFavorite(a.id, true)
+    // 已完成的目标收藏了也不参与置顶（沉底）
+    clock.set(clock() + 1000)
+    const d = await repos.goals.create({ title: '完成 D' })
+    await repos.goals.setDone(d.id, true)
+    await repos.goals.setFavorite(d.id, true)
+
+    const list = await agg.goalSummaries()
+    expect(list.map((x) => x.goal.title)).toEqual(['先建 A', '后建 B', '未收藏 C', '完成 D'])
+    // 归一化：favorite 全部为 boolean
+    expect(list.every((x) => typeof x.goal.favorite === 'boolean')).toBe(true)
+  })
+
   it('softDelete：软删并级联软删其全部阶段（单事务）', async () => {
     const g = await repos.goals.create({ title: '复习考公' })
     const s1 = await repos.stages.create({ goalId: g.id, title: '基础学习' })

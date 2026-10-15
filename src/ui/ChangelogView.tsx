@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.42'
+const CURRENT_VERSION = 'v8.43'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.43',
+    date: '2026-10-15',
+    items: [
+      '目标列表新增收藏：卡片上的小星标，收藏的目标自动置顶，多个收藏按收藏时间新的在前',
+      '已完成的目标不参与置顶（沉底组内保持原顺序），取消收藏即回到原位；星标只在目标列表页显示，详情页不重复',
+    ],
+  },
   {
     version: 'v8.42',
     date: '2026-10-14',

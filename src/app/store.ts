@@ -260,6 +260,8 @@ export interface AppState {
   updateGoal(id: string, patch: { title?: string; note?: string; progress?: ProgressField | undefined }): Promise<boolean>
   /** 目标整体完成/取消完成（完成的目标沉底到「已完成」列表） */
   setGoalDone(id: string, done: boolean): Promise<boolean>
+  /** v8.43 目标收藏/取消收藏（列表置顶；仅目标列表页操作） */
+  toggleGoalFavorite(id: string): Promise<void>
   /** 删目标（连带其全部阶段，repo 维护） */
   deleteGoal(id: string): Promise<boolean>
   createStage(input: StageInput): Promise<boolean>
@@ -1120,6 +1122,20 @@ export function createAppStore(
       } catch (e) {
         get().showToast(errMsg(e))
         return false
+      }
+    },
+
+    async toggleGoalFavorite(id) {
+      try {
+        const g = get().goalList.find((x) => x.goal.id === id)
+        if (!g) return
+        const next = !(g.goal.favorite ?? false)
+        await repos.goals.setFavorite(id, next)
+        set({ dataVer: get().dataVer + 1 })
+        await get().refreshGoals()
+        get().showToast(next ? '已收藏' : '已取消收藏')
+      } catch (e) {
+        get().showToast(errMsg(e))
       }
     },
 

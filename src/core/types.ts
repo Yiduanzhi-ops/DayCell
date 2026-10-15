@@ -122,6 +122,10 @@ export interface GoalRecord extends CoreRecord {
   /** 目标整体是否完成（v7.9 补：完成的目标沉底到「已完成」列表，可回看/取消）。
    *  旧记录/旧备份无此字段 → 读路径一律按 false 归一化（见 aggregate.goalSummaries / store.openGoal） */
   done: boolean
+  /** v8.43 目标收藏：置顶（收藏内部按收藏时间新的在前）。
+   *  旧记录/旧备份无此字段 → 读路径一律按 false 归一化；favoritedAt 仅收藏时写入 */
+  favorite?: boolean
+  favoritedAt?: number
 }
 
 export interface StageRecord extends CoreRecord {
