@@ -80,6 +80,8 @@
   background: transparent;
   cursor: pointer;
   user-select: none;
+  /* 星标与「标记完成」一起贴到行末（meta 内容不满一行时不再停在中间） */
+  margin-left: auto;
 }
 .card .cardStarOn {
   color: #f5b301;
