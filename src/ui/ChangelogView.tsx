@@ -8,11 +8,18 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.43'
+const CURRENT_VERSION = 'v8.44'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.44',
+    date: '2026-10-15',
+    items: [
+      '目标卡片操作区打磨：星标与「标记完成」贴到行尾并统一尺寸（按钮与详情页同规格、星标无框小样保持），列表更整齐',
+    ],
+  },
   {
     version: 'v8.43',
     date: '2026-10-15',
