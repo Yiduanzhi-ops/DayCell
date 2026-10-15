@@ -4,7 +4,7 @@
 |---|---|
 | 文档状态 | 持续维护（修订记录为唯一权威版本轨迹） |
 | 覆盖版本 | **v0**（单设备、本地存储、无后端） |
-| 修订 | **v2.41（2026-10-15，v8.46 打卡按钮视觉）**：子任务行打卡按钮去描边边框（`.subCheckin` `border:none`）——未打卡纯蓝文字「打卡」，已打卡蓝底白字「已打卡」（`subCheckinOn` 同口径去边框），与目标卡片操作区风格统一。 |
+| 修订 | **v2.42（2026-10-15，v8.47 目标标签去边框+修正打卡按钮）**：①目标卡片「已进行 N 天」标签（`.daysTag`）去掉 1px 描边边框，保留浅蓝底 + 圆角胶囊（`border:none`）；②修正 v8.46 误改——子任务「打卡」按钮（`.subCheckin`/`.subCheckinOn`）恢复描边边框（`1px solid color-mix(accent 32%, line)`，已打卡态 `border-color:accent`）。 |
 | 修订 | **v2.40（2026-10-15，v8.45 目标打卡联动）**：目标模块与今日视图打通——①子任务新增**打卡**：`SubtaskRecord` 增 `workDates?: string[]`（'YYYY-MM-DD' 去重，旧数据天然兼容），`SubtaskRepo.setWork(id, date, on)` 幂等增删，UI 子任务行新增打卡按钮（当天已打卡高亮可取消，跨天自动重置）+「累计进行 N 天」；②目标卡片新增「已进行 N 天」标签：`goalSummaries[].activeDays` = 该目标所有**活**子任务 workDates 的并集大小（软删子任务不计入）；③**复盘联动**：打卡时今日复盘自动追加「[目标打卡] 今日进行了目标「X」的子目标「Y」工作」（当天无复盘则自动创建），取消打卡按行移除该句、复盘因此变空则删除当天复盘（`softDeleteByDate`）；打卡与 done/progress 完全独立，不计入完成度。 |
 | 修订 | **v2.39（2026-10-15，v8.44 目标卡片操作区打磨）**：目标列表卡片操作区统一——星标与「标记完成」贴到行尾（`margin-left:auto`），按钮字号/内边距与详情页同规格（12.5px），星标 14px 字符 + 纵向 padding 与按钮等高（无框口径不变）。 |
 | 修订 | **v2.38（2026-10-15，v8.43 目标收藏）**：目标列表新增**收藏**——`GoalRecord` 增 `favorite/favoritedAt` 字段（旧数据归一化 false），`GoalRepo.setFavorite` 收藏写 favoritedAt、取消两字段清空；`goalSummaries` 排序改为：进行中在前（收藏置顶、收藏内部 favoritedAt 倒序新在前、未收藏 createdAt 升序）、已完成沉底且不参与置顶；store 增 `toggleGoalFavorite`，星标按钮只在目标列表页（卡片 meta 行内小星标，无框、对齐想法模块口径），详情页不显示；收藏随记录整体进备份/同步。 |

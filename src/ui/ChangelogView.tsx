@@ -8,16 +8,17 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.46'
+const CURRENT_VERSION = 'v8.47'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
-    version: 'v8.46',
+    version: 'v8.47',
     date: '2026-10-15',
     items: [
-      '子任务打卡按钮去掉描边边框：未打卡是纯蓝色「打卡」，已打卡是蓝底白字「已打卡」，与整体风格更协调',
+      '目标卡片「已进行 N 天」标签去掉描边边框：保留浅蓝底圆角，更柔和',
+      '修正：恢复子任务「打卡」按钮的描边边框（v8.46 误删，现还原）',
     ],
   },
   {

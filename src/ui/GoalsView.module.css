@@ -69,7 +69,8 @@
   flex-wrap: wrap;
 }
 .card .pct { font-weight: 650; color: var(--accent); }
-/* v8.45 目标已进行天数标签（标题行右侧，浅蓝胶囊，与原型一致） */
+/* v8.45 目标已进行天数标签（标题行右侧，浅蓝胶囊，与原型一致）
+ * v8.47 去掉 1px 描边边框（用户拍板），保留浅蓝底 + 圆角，更柔和 */
 .daysTag {
   margin-left: auto;
   flex: none;
@@ -77,7 +78,7 @@
   font-weight: 500;
   color: var(--ink-2);
   background: color-mix(in srgb, var(--accent) 8%, var(--card));
-  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line));
+  border: none;
   border-radius: 20px;
   padding: 2px 9px;
   display: inline-flex;
@@ -792,7 +793,7 @@
   font-weight: 600;
   color: var(--accent);
   background: transparent;
-  border: none;
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--line));
   border-radius: 8px;
   padding: 4px 10px;
   cursor: pointer;
@@ -800,5 +801,6 @@
 .subCheckinOn {
   color: #fff;
   background: var(--accent);
+  border-color: var(--accent);
 }
 .subCheckin:active { opacity: 0.75; }
