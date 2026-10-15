@@ -138,7 +138,7 @@ export interface MonthSummary {
   costCents: number
 }
 
-/** v7.9 目标列表的一行（列表页唯一数据源）；v8.7 加 subtaskCount（子任务数） */
+/** v7.9 目标列表的一行（列表页唯一数据源）；v8.7 加 subtaskCount（子任务数）；v8.45 加 activeDays（已进行天数） */
 export interface GoalSummary {
   goal: GoalRecord
   /** 活阶段数（不含墓碑） */
@@ -147,6 +147,8 @@ export interface GoalSummary {
   subtaskCount: number
   /** 当前阶段（无则 null：目标建了但没阶段/当前阶段被删/已完成） */
   current: { id: string; title: string; pct?: number } | null
+  /** v8.45 目标已进行天数：该目标所有活子任务 workDates 的并集大小（去重） */
+  activeDays: number
 }
 
 /** v8.0 今日习惯的一行（纯勾选打卡项，不进待办） */
@@ -398,9 +400,19 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
     }
     // v8.7：子任务计数（活记录，不含墓碑）
     const subtaskGroups = new Map<string, number>()
+    // v8.45：目标已进行天数 = 子任务 workDates 并集（去重）。按目标累加日期到 Set
+    const activeDaySets = new Map<string, Set<string>>()
     for (const t of subtasksList) {
       if (t.deleted) continue
       subtaskGroups.set(t.goalId, (subtaskGroups.get(t.goalId) ?? 0) + 1)
+      const dates = t.workDates
+      if (!Array.isArray(dates) || dates.length === 0) continue
+      let set = activeDaySets.get(t.goalId)
+      if (!set) {
+        set = new Set()
+        activeDaySets.set(t.goalId, set)
+      }
+      for (const d of dates) set.add(d)
     }
     // 进行中的在前（createdAt 升序）、已完成的沉底（createdAt 降序，最新完成在前），
     // UI 据此分成「进行中 / 已完成」两组。旧记录 done 缺省 → 归一化 false
@@ -425,6 +437,7 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
         stageCount: stages.length,
         subtaskCount: subtaskGroups.get(goal.id) ?? 0,
         current: cur ? { id: cur.id, title: cur.title, pct: cur.pct } : null,
+        activeDays: activeDaySets.get(goal.id)?.size ?? 0,
       }
     })
   }

@@ -269,6 +269,11 @@ export interface SubtaskRepo {
   /** v8.9 起支持改标题与描述；v8.10 支持改当前进度（字段轻，无日期备注） */
   update(id: string, patch: { title?: string; desc?: string; progress?: ProgressField | undefined }): Promise<SubtaskRecord>
   setDone(id: string, done: boolean): Promise<SubtaskRecord>
+  /**
+   * v8.45 子任务打卡：把 date 加入（on=true）或移出（on=false）workDates。
+   * 幂等：加入时去重；移出时不存在则原样返回。返回写入后的记录。
+   */
+  setWork(id: string, date: DateKey, on: boolean): Promise<SubtaskRecord>
   softDelete(id: string): Promise<void>
 }
 
@@ -856,6 +861,18 @@ export function createRepos(deps: RepoDeps): Repos {
     async setDone(id, done) {
       const rec = await mustGet<SubtaskRecord>('subtasks', id)
       return store.put<SubtaskRecord>('subtasks', { ...rec, done })
+    },
+
+    async setWork(id, date, on) {
+      unwrap(parseDateKey(date))
+      const rec = await mustGet<SubtaskRecord>('subtasks', id)
+      const cur = Array.isArray(rec.workDates) ? rec.workDates : []
+      const has = cur.includes(date)
+      let nextDates = cur
+      if (on && !has) nextDates = [...cur, date]
+      if (!on && has) nextDates = cur.filter((d) => d !== date)
+      if (nextDates.length === cur.length && has === on) return rec // 状态未变，原样返回
+      return store.put<SubtaskRecord>('subtasks', { ...rec, workDates: nextDates })
     },
 
     softDelete: softDelete('subtasks'),

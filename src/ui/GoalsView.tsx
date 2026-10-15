@@ -361,6 +361,8 @@ function SubtaskRow({
 }): JSX.Element {
   const setSubtaskDone = useApp((s) => s.setSubtaskDone)
   const updateSubtask = useApp((s) => s.updateSubtask)
+  const toggleSubtaskWork = useApp((s) => s.toggleSubtaskWork)
+  const today = useApp((s) => s.today)
   const showToast = useApp((s) => s.showToast)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(subtask.title)
@@ -371,6 +373,8 @@ function SubtaskRow({
   const [progEditing, setProgEditing] = useState(false)
   const [progPctDraft, setProgPctDraft] = useState(subtask.progress?.pct !== undefined ? String(subtask.progress.pct) : '')
   const [progNoteDraft, setProgNoteDraft] = useState(subtask.progress?.note ?? '')
+  // v8.45 打卡：当天是否已打卡（跨天自动重置）
+  const workedToday = Array.isArray(subtask.workDates) && subtask.workDates.includes(today)
 
   const save = async (): Promise<void> => {
     const t = draft.trim()
@@ -545,6 +549,20 @@ function SubtaskRow({
             ＋ 添加进度
           </div>
         )}
+        {/* v8.45 子任务打卡：累计进行天数 + 打卡按钮（记录今天，可取消） */}
+        <div className={styles.subWorkRow}>
+          <span className={styles.subWorkCount}>
+            累计进行 <b>{Array.isArray(subtask.workDates) ? subtask.workDates.length : 0}</b> 天
+          </span>
+          <span style={{ flex: 1 }} />
+          <button
+            className={[styles.subCheckin, workedToday ? styles.subCheckinOn : ''].join(' ')}
+            aria-label={workedToday ? `取消今天的打卡：${subtask.title}` : `打卡：${subtask.title}`}
+            onClick={() => void toggleSubtaskWork(subtask.id)}
+          >
+            {workedToday ? '已打卡' : '打卡'}
+          </button>
+        </div>
       </div>
       <button
         className={styles.subDel}
@@ -886,7 +904,7 @@ function GoalList(): JSX.Element {
         )
       )}
 
-      {items.map(({ goal, stageCount, subtaskCount, current }) => (
+      {items.map(({ goal, stageCount, subtaskCount, current, activeDays }) => (
         <div
           key={goal.id}
           className={goal.done ? `${styles.card} ${styles.cardDone}` : styles.card}
@@ -907,6 +925,9 @@ function GoalList(): JSX.Element {
                 当前 · {current.title}
               </span>
             )}
+            <span className={styles.daysTag}>
+              已进行 <b>{activeDays}</b> 天
+            </span>
           </h2>
           <div className={styles.meta}>
             <span>进度</span>

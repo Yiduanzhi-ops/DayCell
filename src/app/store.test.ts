@@ -878,3 +878,88 @@ describe('v8.13 想法 tab（notesList / 分页 / 来源栈）', () => {
     expect(S(app).historyPushed).toBe(false)
   })
 })
+
+// ---------------------------------------------------------------------------
+// v8.45 子任务打卡 → 复盘自动联动
+// ---------------------------------------------------------------------------
+
+describe('v8.45 子任务打卡与复盘联动', () => {
+  it('打卡：当天无复盘 → 自动创建一条含自动句', async () => {
+    const { app, bundle } = await makeApp()
+    const s = S(app)
+    await s.createGoal('学 TS', '')
+    await waitFor(() => expect(S(app).goalList.length).toBe(1))
+    const gid = S(app).goalList[0]!.goal.id
+    await S(app).createSubtask({ goalId: gid, title: '类型体操' })
+    await waitFor(() => expect(S(app).goalList[0]!.subtaskCount).toBe(1))
+    await S(app).openGoal(gid)
+
+    const subtaskId = S(app).goalDetail!.subtasks[0]!.id
+    const ok = await S(app).toggleSubtaskWork(subtaskId)
+    expect(ok).toBe(true)
+    // 复盘自动创建，含自动句
+    const review = await bundle.repos.reviews.byDate(TODAY)
+    expect(review?.text).toBe('[目标打卡] 今日进行了目标「学 TS」的子目标「类型体操」工作')
+  })
+
+  it('打卡：当天已有复盘 → 追加到末尾；再打卡取消 → 自动句移除', async () => {
+    const { app, bundle } = await makeApp()
+    const s = S(app)
+    await s.createGoal('健身', '')
+    await waitFor(() => expect(S(app).goalList.length).toBe(1))
+    const gid = S(app).goalList[0]!.goal.id
+    await S(app).createSubtask({ goalId: gid, title: '深蹲' })
+    await waitFor(() => expect(S(app).goalList[0]!.subtaskCount).toBe(1))
+    await S(app).openGoal(gid)
+
+    // 先有复盘（createReview 写 selected，默认即 TODAY）
+    await S(app).createReview('今天练了肩')
+    const subtaskId = S(app).goalDetail!.subtasks[0]!.id
+    await S(app).toggleSubtaskWork(subtaskId)
+    let review = await bundle.repos.reviews.byDate(TODAY)
+    expect(review?.text).toBe(
+      '今天练了肩\n[目标打卡] 今日进行了目标「健身」的子目标「深蹲」工作',
+    )
+
+    // 取消打卡 → 自动句移除，原复盘保留
+    await S(app).toggleSubtaskWork(subtaskId)
+    review = await bundle.repos.reviews.byDate(TODAY)
+    expect(review?.text).toBe('今天练了肩')
+  })
+
+  it('取消打卡且复盘只剩自动句 → 删除当天复盘', async () => {
+    const { app, bundle } = await makeApp()
+    const s = S(app)
+    await s.createGoal('读书', '')
+    await waitFor(() => expect(S(app).goalList.length).toBe(1))
+    const gid = S(app).goalList[0]!.goal.id
+    await S(app).createSubtask({ goalId: gid, title: '第 3 章' })
+    await waitFor(() => expect(S(app).goalList[0]!.subtaskCount).toBe(1))
+    await S(app).openGoal(gid)
+
+    const subtaskId = S(app).goalDetail!.subtasks[0]!.id
+    await S(app).toggleSubtaskWork(subtaskId)
+    expect(await bundle.repos.reviews.byDate(TODAY)).not.toBeNull()
+    // 取消 → 复盘只剩自动句 → 删除
+    await S(app).toggleSubtaskWork(subtaskId)
+    expect(await bundle.repos.reviews.byDate(TODAY)).toBeNull()
+  })
+
+  it('打卡后 goalList 的 activeDays 随并集更新（目标已进行天数）', async () => {
+    const { app } = await makeApp()
+    const s = S(app)
+    await s.createGoal('目标', '')
+    await waitFor(() => expect(S(app).goalList.length).toBe(1))
+    const gid = S(app).goalList[0]!.goal.id
+    await S(app).createSubtask({ goalId: gid, title: 'a' })
+    await waitFor(() => expect(S(app).goalList[0]!.subtaskCount).toBe(1))
+    await S(app).openGoal(gid)
+
+    expect(S(app).goalList[0]!.activeDays).toBe(0)
+    const subtaskId = S(app).goalDetail!.subtasks[0]!.id
+    await S(app).toggleSubtaskWork(subtaskId)
+    await waitFor(() => expect(S(app).goalList[0]!.activeDays).toBe(1))
+    await S(app).toggleSubtaskWork(subtaskId)
+    await waitFor(() => expect(S(app).goalList[0]!.activeDays).toBe(0))
+  })
+})

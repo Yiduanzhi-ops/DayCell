@@ -69,6 +69,22 @@
   flex-wrap: wrap;
 }
 .card .pct { font-weight: 650; color: var(--accent); }
+/* v8.45 目标已进行天数标签（标题行右侧，浅蓝胶囊，与原型一致） */
+.daysTag {
+  margin-left: auto;
+  flex: none;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--ink-2);
+  background: color-mix(in srgb, var(--accent) 8%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line));
+  border-radius: 20px;
+  padding: 2px 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.daysTag b { color: var(--accent); font-weight: 700; font-size: 12.5px; }
 /* v8.43 目标收藏：小星标、无框、不显眼（对齐想法模块口径），置顶排序见 aggregate.goalSummaries。
  * v8.43c 统一规格：卡片内操作与详情页按钮同尺寸（12.5px/5×10px），星标补同款纵向 padding 等高 */
 .card .cardStar {
@@ -754,3 +770,36 @@
   color: #C0392B;
   background: color-mix(in srgb, #C0392B 10%, transparent);
 }
+/* v8.45 子任务打卡行：累计天数（左）+ 打卡按钮（右，切换态） */
+.subWorkRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.subWorkCount {
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+.subWorkCount b {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+.subCheckin {
+  flex: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--line));
+  border-radius: 8px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.subCheckinOn {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.subCheckin:active { opacity: 0.75; }

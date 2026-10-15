@@ -10,7 +10,7 @@
  *  - 备份合并含 goals/stages；旧备份（无这两段）仍可导入
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import type { GoalRecord, StageRecord, StoreName } from '../types'
+import type { GoalRecord, StageRecord, StoreName, DateKey } from '../types'
 import { createMemoryStore } from '../store/memory'
 import type { RecordStore } from '../store/types'
 import { createFakeClock, type FakeClock } from '../clock'
@@ -523,5 +523,59 @@ describe('subtasks', () => {
     await store.init()
     const stats = await mergeBackup(store, file)
     expect(stats.added.subtasks).toBe(1)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// v8.45 子任务打卡（workDates + 目标已进行天数）
+// ---------------------------------------------------------------------------
+
+describe('v8.45 子任务打卡', () => {
+  const D1 = '2026-10-01' as DateKey
+  const D2 = '2026-10-02' as DateKey
+
+  it('setWork 加入日期 → workDates 含该日期；重复加入幂等不重复', async () => {
+    const g = await repos.goals.create({ title: '目标' })
+    const s = await repos.subtasks.create({ goalId: g.id, title: '子任务' })
+    expect(s.workDates).toBeUndefined()
+
+    const on1 = await repos.subtasks.setWork(s.id, D1, true)
+    expect(on1.workDates).toEqual([D1])
+    const on2 = await repos.subtasks.setWork(s.id, D1, true)
+    expect(on2.workDates).toEqual([D1]) // 幂等
+    const on3 = await repos.subtasks.setWork(s.id, D2, true)
+    expect(on3.workDates).toEqual([D1, D2])
+  })
+
+  it('setWork 移除日期；移除不存在的日期原样返回', async () => {
+    const g = await repos.goals.create({ title: '目标' })
+    const s = await repos.subtasks.create({ goalId: g.id, title: '子任务' })
+    await repos.subtasks.setWork(s.id, D1, true)
+    await repos.subtasks.setWork(s.id, D2, true)
+    const off = await repos.subtasks.setWork(s.id, D1, false)
+    expect(off.workDates).toEqual([D2])
+    const off2 = await repos.subtasks.setWork(s.id, D1, false)
+    expect(off2.workDates).toEqual([D2]) // 已不在，原样
+    // 全部移除后回退为 []
+    const off3 = await repos.subtasks.setWork(s.id, D2, false)
+    expect(off3.workDates).toEqual([])
+  })
+
+  it('goalSummaries.activeDays = 子任务 workDates 并集大小（重叠日期去重）', async () => {
+    const g = await repos.goals.create({ title: '目标' })
+    const a = await repos.subtasks.create({ goalId: g.id, title: 'a' })
+    const b = await repos.subtasks.create({ goalId: g.id, title: 'b' })
+    await repos.subtasks.setWork(a.id, D1, true)
+    await repos.subtasks.setWork(a.id, D2, true)
+    await repos.subtasks.setWork(b.id, D2, true) // 与 a 重叠 D2
+    await repos.subtasks.setWork(b.id, '2026-10-03' as DateKey, true)
+
+    const sum = await agg.goalSummaries()
+    expect(sum.find((x) => x.goal.id === g.id)?.activeDays).toBe(3) // D1,D2,D3 并集
+
+    // 删除（软删）子任务 b 后，其日期不再计入
+    await repos.subtasks.softDelete(b.id)
+    const sum2 = await agg.goalSummaries()
+    expect(sum2.find((x) => x.goal.id === g.id)?.activeDays).toBe(2)
   })
 })

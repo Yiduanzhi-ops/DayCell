@@ -275,6 +275,8 @@ export interface AppState {
   updateSubtask(id: string, patch: { title?: string; desc?: string; progress?: ProgressField | undefined }): Promise<boolean>
   setSubtaskDone(id: string, done: boolean): Promise<boolean>
   deleteSubtask(id: string): Promise<boolean>
+  /** v8.45 子任务打卡切换（记录今天 + 复盘自动写入/移除自动句） */
+  toggleSubtaskWork(id: string): Promise<boolean>
 
   // ---- v8.0：习惯（今日视图区块 + 菜单「习惯设置」） ----
   /** 刷新习惯设置页列表（打开/CRUD 后调用） */
@@ -1295,6 +1297,54 @@ export function createAppStore(
             : s,
         )
         await get().refreshGoals()
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    /**
+     * v8.45 子任务打卡（切换）：当天已打卡 → 取消；未打卡 → 记录今天。
+     * 联动复盘：打卡时当天复盘自动追加「[目标打卡] 今日进行了目标「X」的子目标「Y」工作」；
+     * 当天无复盘则自动创建；取消打卡时按行移除该句，复盘因此变空则删除当天复盘。
+     */
+    async toggleSubtaskWork(id) {
+      try {
+        const d = get().goalDetail
+        const subtask = d?.subtasks.find((x) => x.id === id)
+        if (!subtask || !d) return false
+        // 打卡固定"今天"（store.today 为权威日期：测试注入、生产 = 真实今天）
+        const date = get().today
+        const workedToday = Array.isArray(subtask.workDates) && subtask.workDates.includes(date)
+        const next = await repos.subtasks.setWork(id, date, !workedToday)
+        const sentence = `[目标打卡] 今日进行了目标「${d.goal.title}」的子目标「${subtask.title}」工作`
+        if (!workedToday) {
+          // 打卡：追加到当天复盘；无则创建
+          const existing = await repos.reviews.byDate(date)
+          if (existing) {
+            const base = existing.text.endsWith('\n') ? existing.text : existing.text + '\n'
+            await repos.reviews.upsert(date, base + sentence)
+          } else {
+            await repos.reviews.upsert(date, sentence)
+          }
+        } else {
+          // 取消打卡：按行移除该句；复盘因此为空则删除
+          const existing = await repos.reviews.byDate(date)
+          if (existing) {
+            const kept = existing.text.split('\n').filter((l) => l !== sentence)
+            if (kept.join('\n').trim() === '') await repos.reviews.softDeleteByDate(date)
+            else await repos.reviews.upsert(date, kept.join('\n'))
+          }
+        }
+        set({ dataVer: get().dataVer + 1 })
+        set((s) =>
+          s.goalDetail
+            ? { goalDetail: { ...s.goalDetail, subtasks: s.goalDetail.subtasks.map((x) => (x.id === id ? next : x)) } }
+            : s,
+        )
+        await get().refreshGoals()
+        get().showToast(workedToday ? '已取消今天的打卡' : '已记录今天进行了该子任务')
         return true
       } catch (e) {
         get().showToast(errMsg(e))

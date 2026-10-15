@@ -161,6 +161,13 @@ export interface SubtaskRecord extends CoreRecord {
   desc?: string
   /** v8.10 子任务当前进度（与描述同级展示，描述在上、进度在下；独立手填） */
   progress?: ProgressField
+  /**
+   * v8.45 子任务打卡：该子任务实际进行过的日期集合（'YYYY-MM-DD'，去重）。
+   * 打卡 = 当天"进行了这个子任务"，与 done（做完了）独立；累计天数 = 数组长度；
+   * 目标已进行天数 = 目标下所有子任务 workDates 的并集大小（见 aggregate.goalSummaries.activeDays）。
+   * 旧记录/旧备份无此字段 → 读路径按 [] 归一化。
+   */
+  workDates?: string[]
 }
 
 /**

@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>目标打卡联动 · 原型</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230A84FF'/%3E%3Cpath d='M12 6v8m0 0l-3-3m3 3l3-3M7 18h10' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#F5F5F7; --card:#FFFFFF; --ink:#1D1D1F; --ink2:#6E6E73; --ink3:#86868B;
+    --accent:#0A84FF; --accent-soft:rgba(10,132,255,.10); --line:rgba(0,0,0,.08);
+    --done:#34C759; --star:#F5B301; --radius:16px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{background:linear-gradient(160deg,#E8E8ED,#F5F5F7);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;color:var(--ink);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:36px 16px 60px}
+  .page-head{text-align:center;margin-bottom:22px}
+  .page-head h1{font-size:22px;font-weight:700;letter-spacing:-.2px}
+  .page-head p{font-size:13px;color:var(--ink2);margin-top:6px}
+  .stage{display:flex;gap:26px;flex-wrap:wrap;justify-content:center;align-items:flex-start}
+  .phone{width:392px;background:var(--card);border-radius:44px;box-shadow:0 24px 60px rgba(0,0,0,.16),0 4px 14px rgba(0,0,0,.08);overflow:hidden;border:8px solid #1c1c1e;position:relative}
+  .screen{background:var(--bg);min-height:780px;position:relative;padding:12px 16px 84px}
+  .status{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:600;padding:2px 6px 10px;color:var(--ink)}
+  .status .notch{width:96px;height:26px;background:#1c1c1e;border-radius:0 0 14px 14px;margin:0 auto;position:absolute;left:50%;transform:translateX(-50%);top:0}
+  .appbar{display:flex;align-items:center;gap:8px;margin:10px 2px 0}
+  .appbar .logo{width:26px;height:26px;border-radius:7px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;font-weight:700}
+  .appbar .title{font-size:17px;font-weight:700;letter-spacing:-.2px}
+  .appbar .menu{margin-left:auto;color:var(--ink2);font-size:16px;letter-spacing:1px;cursor:default}
+  .tabbar{position:absolute;left:0;right:0;bottom:0;background:rgba(255,255,255,.86);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid var(--line);display:flex;padding:8px 10px calc(14px + env(safe-area-inset-bottom));gap:4px}
+  .tabbar .tab{flex:1;text-align:center;font-size:10px;color:var(--ink3);padding:4px 0 2px;cursor:pointer}
+  .tabbar .tab.on{color:var(--accent);font-weight:600}
+  .tabbar .tab svg{width:20px;height:20px;display:block;margin:0 auto 2px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .section-title{display:flex;align-items:center;justify-content:space-between;margin:18px 2px 10px}
+  .section-title .t{font-size:14px;font-weight:600;color:var(--ink)}
+  .section-title .add{font-size:13px;color:var(--accent);font-weight:500}
+  .card{background:var(--card);border-radius:var(--radius);padding:14px 14px 12px;box-shadow:0 1px 3px rgba(0,0,0,.04);border:1px solid var(--line);margin-bottom:10px}
+  .goal-title{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600}
+  .goal-title .badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;background:var(--accent-soft);color:var(--accent)}
+  .goal-title .badge.done{background:rgba(134,134,139,.12);color:var(--ink3)}
+  .days-tag{margin-left:auto;font-size:11.5px;font-weight:600;color:var(--ink2);background:rgba(10,132,255,.08);border-radius:20px;padding:3px 9px;display:flex;align-items:center;gap:4px;flex:none}
+  .days-tag .n{color:var(--accent);font-size:12.5px;font-weight:700}
+  .goal-meta{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:12px;color:var(--ink2);min-height:22px}
+  .goal-meta .pct{color:var(--accent);font-weight:650}
+  .goal-meta .spacer{flex:1}
+  .star{font-size:15px;color:var(--ink3);cursor:pointer;user-select:none;padding:2px 4px}
+  .star.on{color:var(--star)}
+  .btn{border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);color:var(--accent);font-size:12px;font-weight:600;background:transparent;border-radius:8px;padding:5px 10px;cursor:pointer;user-select:none}
+  .btn.solid{background:var(--accent);color:#fff;border:none}
+  .btn.gray{border-color:var(--line);color:var(--ink2)}
+  .btn:active{opacity:.7}
+  .back-row{display:flex;align-items:center;gap:6px;margin:8px 2px 2px;font-size:14px;color:var(--ink)}
+  .back-row .chev{color:var(--ink3);font-size:16px}
+  .detail-title{font-size:18px;font-weight:700;margin:6px 2px 2px;letter-spacing:-.2px}
+  .detail-days{font-size:12.5px;color:var(--ink2);margin:2px 2px 0;display:flex;gap:14px;align-items:center}
+  .detail-days b{color:var(--accent);font-size:14px}
+  .subtask{display:flex;align-items:flex-start;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}
+  .subtask:last-child{border-bottom:none}
+  .check{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--ink3);flex:none;margin-top:1px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700}
+  .check.on{background:var(--done);border-color:var(--done)}
+  .sub-body{flex:1;min-width:0}
+  .sub-title{font-size:14px;font-weight:600}
+  .sub-desc{font-size:12px;color:var(--ink2);margin-top:3px;line-height:1.5}
+  .sub-foot{display:flex;align-items:center;gap:8px;margin-top:7px}
+  .sub-count{font-size:11.5px;color:var(--ink3)}
+  .sub-count b{color:var(--accent);font-size:12px}
+  .checkin{font-size:12px;font-weight:600;border-radius:8px;padding:4px 10px;cursor:pointer;user-select:none;border:1px solid color-mix(in srgb,var(--accent) 32%,transparent);color:var(--accent);background:transparent}
+  .checkin.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .checkin:active{opacity:.75}
+  .checkin .tick{font-weight:700}
+  .day-block{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:10px}
+  .day-head{display:flex;align-items:baseline;gap:8px;margin-bottom:4px}
+  .day-head .d{font-size:14px;font-weight:600}
+  .day-head .w{font-size:12px;color:var(--ink3)}
+  .review-line{font-size:13px;line-height:1.65;color:var(--ink)}
+  .review-line .auto{display:block;margin-top:8px;background:var(--accent-soft);border-radius:10px;padding:8px 10px;color:var(--ink);font-size:12.5px;line-height:1.6;position:relative}
+  .review-line .auto .tag{display:inline-block;font-size:10px;font-weight:700;color:var(--accent);margin-right:6px;border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);border-radius:4px;padding:0 5px;vertical-align:1px}
+  .review-line .auto.dim{opacity:.45}
+  .hint{background:var(--card);border:1px dashed color-mix(in srgb,var(--accent) 40%,var(--line));border-radius:14px;padding:12px 14px;font-size:12px;color:var(--ink2);line-height:1.7;margin:14px 0}
+  .hint b{color:var(--accent)}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;background:var(--card);border-radius:16px;padding:16px 20px;box-shadow:0 10px 30px rgba(0,0,0,.08);max-width:820px;margin:26px auto 0;border:1px solid var(--line)}
+  .legend .item{font-size:13px;color:var(--ink2);display:flex;align-items:center;gap:8px}
+  .legend .sw{width:14px;height:14px;border-radius:5px;flex:none}
+  .legend .sw.blue{background:var(--accent)}
+  .legend .sw.gray{background:rgba(134,134,139,.35)}
+  .legend .sw.green{background:var(--done)}
+  .view{display:none}
+  .view.on{display:block;animation:fade .22s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .toast{position:absolute;left:50%;bottom:96px;transform:translateX(-50%);background:rgba(29,29,31,.92);color:#fff;font-size:12.5px;padding:9px 16px;border-radius:22px;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap;z-index:9}
+  .toast.show{opacity:1}
+  .phone-note{font-size:12px;color:var(--ink3);text-align:center;margin-top:10px}
+  @media (max-width:900px){.stage{flex-direction:column;align-items:center}}
+</style>
+</head>
+<body>
+<div class="page-head">
+  <h1>目标打卡 · 联动原型</h1>
+  <p>点子任务上的「打卡」→ 目标已进行天数 +1 → 今日复盘自动写入一句 · 三个屏联动演示</p>
+</div>
+
+<div class="stage">
+
+<!-- ================= 手机一：目标列表 ================= -->
+<div class="phone">
+  <div class="screen">
+    <div class="status"><span>9:41</span><span class="notch"></span><span style="opacity:0">•</span></div>
+    <div class="appbar"><span class="logo">D</span><span class="title">目标</span><span class="menu">···</span></div>
+
+    <div class="view on" id="v-list">
+      <div class="section-title"><span class="t">进行中的目标 (2)</span><span class="add">+ 新建目标</span></div>
+
+      <div class="card">
+        <div class="goal-title">学习 TypeScript
+          <span class="badge">当前 · 第三章</span>
+          <span class="days-tag">已进行 <span class="n" id="g1-days">12</span> 天</span>
+        </div>
+        <div class="goal-meta"><span>进度</span><span class="pct">35%</span><span>· 2 个子任务 · 1 个阶段</span><span class="spacer"></span><span class="star on">★</span><span class="btn">标记完成</span></div>
+      </div>
+
+      <div class="card">
+        <div class="goal-title">健身增肌
+          <span class="days-tag">已进行 <span class="n" id="g2-days">26</span> 天</span>
+        </div>
+        <div class="goal-meta"><span>进度</span><span class="pct">62%</span><span>· 3 个子任务 · 1 个阶段</span><span class="spacer"></span><span class="star">☆</span><span class="btn">标记完成</span></div>
+      </div>
+
+      <div class="section-title"><span class="t">已完成的目标 (1)</span></div>
+      <div class="card" style="opacity:.72">
+        <div class="goal-title">读完《深度工作》<span class="badge done">已完成</span><span class="days-tag">已进行 <span class="n" style="color:var(--ink2)">21</span> 天</span></div>
+        <div class="goal-meta"><span>进度</span><span class="pct" style="color:var(--ink2)">100%</span><span>· 3 个子任务 · 1 个阶段</span><span class="spacer"></span><span class="star">☆</span><span class="btn gray">恢复进行中</span></div>
+      </div>
+
+      <div class="hint">目标卡片右上角新增<b>「已进行 N 天」</b>标签——数字 = 该目标下所有子任务的打卡天数去重合计。点卡片进入子任务视图。</div>
+    </div>
+
+    <!-- ================= 屏二：目标详情·子任务 ================= -->
+    <div class="view" id="v-detail">
+      <div class="back-row"><span class="chev">‹</span><span id="detail-goal">目标</span></div>
+      <div class="detail-title" id="detail-name">学习 TypeScript</div>
+      <div class="detail-days">目标已进行 <b id="dt-days">12</b> 天 · 子任务打卡合计 21 次</div>
+
+      <div style="background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:4px 14px;margin-top:14px">
+        <div class="subtask">
+          <span class="check on">✓</span>
+          <div class="sub-body">
+            <div class="sub-title">完成第三章 · 类型体操</div>
+            <div class="sub-desc">函数重载与泛型约束笔记</div>
+            <div class="sub-foot">
+              <span class="sub-count">累计进行 <b id="s1-count">12</b> 天</span>
+              <span style="flex:1"></span>
+              <span class="checkin" id="s1-btn" data-s="1">打卡</span>
+            </div>
+          </div>
+        </div>
+        <div class="subtask">
+          <span class="check"></span>
+          <div class="sub-body">
+            <div class="sub-title">练习类型体操 10 题</div>
+            <div class="sub-desc"></div>
+            <div class="sub-foot">
+              <span class="sub-count">累计进行 <b id="s2-count">9</b> 天</span>
+              <span style="flex:1"></span>
+              <span class="checkin" id="s2-btn" data-s="2">打卡</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hint">每个子任务行右侧新增<b>「打卡」按钮</b>：点一下 = 今天做了这个子任务（当天可再点取消）；旁显示<b>「累计进行 N 天」</b>。打卡与「完成勾选」互不影响。</div>
+    </div>
+
+    <!-- ================= 屏三：今日视图·复盘联动 ================= -->
+    <div class="view" id="v-today">
+      <div class="appbar" style="margin-top:14px"><span class="title" style="font-size:15px">2026 年 10 月 15 日</span><span style="font-size:12px;color:var(--ink3)">周四 · 九月初六</span></div>
+
+      <div class="section-title" style="margin-top:16px"><span class="t">复盘</span><span class="add">+ 编辑</span></div>
+      <div class="day-block">
+        <div class="day-head"><span class="d">10 月 15 日</span><span class="w">周四</span></div>
+        <div class="review-line">
+          上午处理完报表，下午开始学 TS。
+          <span class="auto" id="auto-line"><span class="tag">目标打卡</span>今日进行了目标「学习 TypeScript」的子目标「完成第三章 · 类型体操」工作</span>
+        </div>
+      </div>
+
+      <div class="hint">打卡后复盘<b>自动追加</b>这句（带「目标打卡」小标签，一眼可辨；当天可自动生成/取消时自动移除）。周/月回顾时能看到：这个目标你实际投入了多少天。</div>
+
+      <div style="background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;margin-top:6px">
+        <div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:8px">联动规则一览</div>
+        <div style="font-size:12px;color:var(--ink2);line-height:2">
+          · 打卡 = 当天进行了该子任务（可取消）<br>
+          · 子任务累计天数 + 目标已进行天数（去重合计）<br>
+          · 当天复盘自动写入一句，取消打卡自动移除<br>
+          · 打卡不改变「完成」状态与进度百分比
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <div class="tabbar">
+      <div class="tab on" data-tab="0"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/></svg>目标</div>
+      <div class="tab" data-tab="1"><svg viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="M8.5 8.5h7M8.5 12h7M8.5 15.5h4"/></svg>回顾</div>
+      <div class="tab" data-tab="2"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/></svg>今天</div>
+      <div class="tab"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>周</div>
+      <div class="tab"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9.5h16M9.5 4v16"/></svg>月</div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 手机二：周/月视图示意（静态） ================= -->
+<div class="phone">
+  <div class="screen">
+    <div class="status"><span>9:41</span><span class="notch"></span><span style="opacity:0">•</span></div>
+    <div class="appbar"><span class="logo">D</span><span class="title">周</span><span class="menu">···</span></div>
+    <div class="section-title"><span class="t">本周 · 10月12日 – 10月18日</span></div>
+    <div style="background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+        <span style="font-size:12px;color:var(--ink2)">12 周一</span><span style="font-size:12px;color:var(--ink2)">13 周二</span><span style="font-size:12px;color:var(--ink2)">14 周三</span><span style="font-size:12px;color:var(--ink3)">15 今天</span><span style="font-size:12px;color:var(--ink2)">16 周五</span><span style="font-size:12px;color:var(--ink2)">17 周六</span><span style="font-size:12px;color:var(--ink2)">18 周日</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="width:26px;height:26px;border-radius:8px;background:var(--accent-soft);color:var(--accent);font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:600">12</span>
+        <span style="width:26px;height:26px;border-radius:8px;background:var(--accent-soft);color:var(--accent);font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:600">13</span>
+        <span style="width:26px;height:26px;border-radius:8px;background:var(--accent-soft);color:var(--accent);font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:600">14</span>
+        <span style="width:26px;height:26px;border-radius:8px;background:var(--accent);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:600">15</span>
+        <span style="width:26px;height:26px;border-radius:8px;font-size:11px;display:flex;align-items:center;justify-content:center;color:var(--ink3)">16</span>
+        <span style="width:26px;height:26px;border-radius:8px;font-size:11px;display:flex;align-items:center;justify-content:center;color:var(--ink3)">17</span>
+        <span style="width:26px;height:26px;border-radius:8px;font-size:11px;display:flex;align-items:center;justify-content:center;color:var(--ink3)">18</span>
+      </div>
+      <div style="margin-top:12px;font-size:11.5px;color:var(--ink3);line-height:1.8">
+        本周「学习 TypeScript」打卡 4 天（12、13、14、15）<br>
+        本周「健身增肌」打卡 3 天（12、14、15）
+      </div>
+    </div>
+    <div style="margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px">
+      <div style="font-size:12.5px;font-weight:600;margin-bottom:8px">打卡在周/月视图的呈现</div>
+      <div style="font-size:12px;color:var(--ink2);line-height:1.9">
+        周/月格子里，打卡过的日期可加<b style="color:var(--accent)">小圆点</b>标记（未来版本）；<br>
+        月视图可一眼看出这个月实际投入了几天。
+      </div>
+    </div>
+    <div class="tabbar">
+      <div class="tab"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/></svg>目标</div>
+      <div class="tab"><svg viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="M8.5 8.5h7M8.5 12h7M8.5 15.5h4"/></svg>回顾</div>
+      <div class="tab"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/></svg>今天</div>
+      <div class="tab on"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>周</div>
+      <div class="tab"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9.5h16M9.5 4v16"/></svg>月</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="legend">
+  <span class="item"><span class="sw blue"></span>已进行天数 / 累计打卡</span>
+  <span class="item"><span class="sw gray"></span>进行中目标</span>
+  <span class="item"><span class="sw green"></span>子任务完成勾选</span>
+  <span class="item">★ 收藏置顶（现有功能）</span>
+</div>
+<p class="phone-note">左侧手机：目标列表 → 点卡片进详情 → 点子任务「打卡」→ 切到右侧「今日」看复盘自动成句；再点一次取消，全部回退。</p>
+
+<script>
+  // ---- 状态 ----
+  const S = {
+    s1: false, s2: false,            // 今天是否已打卡（子任务1/2）
+    s1Days: 12, s2Days: 9,
+    g1Days: 12,
+    autoWritten: false,              // 复盘里自动句是否在
+  }
+  const $ = (id) => document.getElementById(id)
+  const fmt = (n) => (n + '')
+
+  function showToast(msg){
+    const t = $('toast'); t.textContent = msg; t.classList.add('show')
+    clearTimeout(showToast._h); showToast._h = setTimeout(() => t.classList.remove('show'), 1600)
+  }
+
+  // ---- 打卡切换 ----
+  function toggleCheckin(key){
+    S[key] = !S[key]
+    const btn = $(key === 's1' ? 's1-btn' : 's2-btn')
+    const cnt = $(key === 's1' ? 's1-count' : 's2-count')
+    if (S[key]){
+      btn.textContent = '已打卡 ✓'; btn.classList.add('on')
+      S[key === 's1' ? 's1Days' : 's2Days'] += 1
+      S.g1Days += 1
+      if (!S.autoWritten){ S.autoWritten = true; $('auto-line').classList.remove('dim') }
+      showToast('已记录今天进行了该子任务')
+    } else {
+      btn.textContent = '打卡'; btn.classList.remove('on')
+      S[key === 's1' ? 's1Days' : 's2Days'] -= 1
+      S.g1Days -= 1
+      if (S.s1Days <= 9 && S.s2Days <= 6){ S.autoWritten = false; $('auto-line').classList.add('dim') }
+      showToast('已取消今天的打卡')
+    }
+    cnt.textContent = fmt(S[key === 's1' ? 's1Days' : 's2Days'])
+    $('g1-days').textContent = fmt(S.g1Days)
+    $('dt-days').textContent = fmt(S.g1Days)
+  }
+
+  // ---- 视图切换（目标列表 / 详情 / 今日）----
+  const views = ['v-list', 'v-detail', 'v-today']
+  function showView(i){
+    views.forEach((v, idx) => $(v).classList.toggle('on', idx === i))
+    document.querySelectorAll('.tabbar .tab').forEach((t, idx) => t.classList.toggle('on', idx === i))
+  }
+  document.querySelector('.card')?.addEventListener('click', (e) => {
+    if (e.target.closest('.star') || e.target.closest('.btn')) return
+    showView(1)
+  })
+  document.querySelector('.back-row')?.addEventListener('click', () => showView(0))
+
+  // 现有功能占位反馈（标记完成/新建目标/菜单等）
+  document.querySelectorAll('.btn, .add, .menu').forEach((el) => {
+    el.addEventListener('click', () => showToast('现有功能，原型中示意'))
+  })
+
+  $('s1-btn').addEventListener('click', (e) => { e.stopPropagation(); toggleCheckin('s1') })
+  $('s2-btn').addEventListener('click', (e) => { e.stopPropagation(); toggleCheckin('s2') })
+
+  // 今日 tab
+  document.querySelectorAll('.tabbar .tab').forEach((t, i) => {
+    t.addEventListener('click', () => {
+      if (i === 0) showView(0)
+      if (i === 2) showView(2)
+    })
+  })
+</script>
+</body>
+</html>

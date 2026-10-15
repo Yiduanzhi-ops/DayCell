@@ -8,11 +8,20 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.44'
+const CURRENT_VERSION = 'v8.45'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.45',
+    date: '2026-10-15',
+    items: [
+      '目标打卡联动：每个子任务新增「打卡」按钮，当天打卡记录「累计进行 N 天」（可取消，跨天自动重置）',
+      '目标卡片新增「已进行 N 天」标签：该目标所有子任务的打卡天数去重并集，坚持了多少天一目了然',
+      '打卡自动联动今日复盘：打卡时复盘自动追加「今日进行了目标「X」的子目标「Y」工作」（当天无复盘则自动创建），取消打卡自动移除该句，复盘因此变空则删除当天复盘',
+    ],
+  },
   {
     version: 'v8.44',
     date: '2026-10-15',
