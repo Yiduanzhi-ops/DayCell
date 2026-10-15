@@ -792,7 +792,7 @@
   font-weight: 600;
   color: var(--accent);
   background: transparent;
-  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--line));
+  border: none;
   border-radius: 8px;
   padding: 4px 10px;
   cursor: pointer;
@@ -800,6 +800,5 @@
 .subCheckinOn {
   color: #fff;
   background: var(--accent);
-  border-color: var(--accent);
 }
 .subCheckin:active { opacity: 0.75; }
