@@ -70,13 +70,13 @@
 }
 .card .pct { font-weight: 650; color: var(--accent); }
 /* v8.43 目标收藏：小星标、无框、不显眼（对齐想法模块口径），置顶排序见 aggregate.goalSummaries。
- * v8.43b 与「标记完成」统一成一套卡片内操作规格：14px 字符视觉高度贴近 12.5px 文字按钮 */
+ * v8.43c 统一规格：卡片内操作与详情页按钮同尺寸（12.5px/5×10px），星标补同款纵向 padding 等高 */
 .card .cardStar {
   flex: 0 0 auto;
   font-size: 14px;
   line-height: 1.4;
   color: var(--ink-4);
-  padding: 3px 2px;
+  padding: 5px 2px;
   border: none;
   background: transparent;
   cursor: pointer;
@@ -118,7 +118,7 @@
   background: none;
   border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
   border-radius: 8px;
-  padding: 3px 9px;
+  padding: 5px 10px;
   cursor: pointer;
 }
 .cardDone .cardDoneBtn { color: var(--ink-2); border-color: var(--line); }
