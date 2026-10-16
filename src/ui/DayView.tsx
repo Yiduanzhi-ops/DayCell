@@ -172,15 +172,18 @@ export function DayView(): JSX.Element {
       const dur = performance.now() - startT
       const over = Math.abs(dx) > THRESHOLD || (Math.abs(dx) > 40 && Math.abs(dx) / Math.max(dur, 1) > 0.45)
       if (!over) {
-        // v8.48+v8.49：纯点击判定阈值对齐 iOS 系统 tap slop（约 12px）——手指微抖（<12px）
-        // 都算点击：无动画复位，click 正常派发；只有真正滑过（≥12px）才播回弹动画。
-        if (Math.abs(dx) < 12) {
-          el.style.transition = 'none'
-          el.style.transform = ''
-          cleanup()
+        // v8.50：点击时**绝不动轨道的 transform**。iOS 在 touchend 与 click 之间做目标命中校验，
+        // 任何 transform 属性变化（哪怕计算值相同，如 BASE → ''）都会触发 style recalc，被判为
+        // "目标移动"而抑制本次 click——现象：点第一次元素"变灰一下"但功能不触发，再点就好使
+        // （第一次已把 inline transform 清空，第二次无属性变化所以正常）。点击时轨道本来就停在
+        // BASE（位移 <6px 未跟手），无需复位：直接 return。
+        if (Math.abs(dx) < 6) {
           return
         }
-        settle()
+        // 6–12px 微动：轨道被跟手拉出过，必须复位（无动画瞬间回位；此时 recalc 吞 click 可接受，
+        // 位移已接近系统 tap slop，iOS 本身可能判为非点击）。
+        el.style.transition = 'none'
+        el.style.transform = BASE
         return
       }
       const dir = dx < 0 ? 1 : -1
