@@ -165,6 +165,12 @@ function WeekPage({ weekKey, role }: { weekKey: DateKey; role: 'center' | 'side'
                 {d.notePreview.map((n) => (
                   <div key={n.id} className={styles.wnote}>{n.text}</div>
                 ))}
+                {/* v8.52：周视图格子直接展示当日复盘正文（一天一条；收尾总结放最底） */}
+                {d.reviewPreview && (
+                  <div key={d.reviewPreview.id} className={styles.wreview} title={d.reviewPreview.text}>
+                    {d.reviewPreview.text}
+                  </div>
+                )}
                 {d.isEmpty && <div className={styles.wempty}>空白的一天</div>}
               </div>
             </div>

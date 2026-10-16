@@ -668,6 +668,19 @@ describe('reviewsAll + hasReview — v8.42 复盘', () => {
     expect((await agg.aggregateDayDetail(k('2026-09-28'))).review).toBeNull()
   })
 
+  it('aggregateWeek：reviewPreview 携带当日复盘正文，无复盘为 null（v8.52）', async () => {
+    // 2026-09-29 是周二（该周 28 周一 ~ 10-04 周日）
+    await repos.reviews.upsert(k('2026-09-29'), '今天收尾：跑完 5 公里，读完一章书')
+    const { days } = await agg.aggregateWeek(k('2026-09-29'))
+    const tue = days.find((d) => d.date === '2026-09-29')!
+    expect(tue.hasReview).toBe(true)
+    expect(tue.reviewPreview?.text).toBe('今天收尾：跑完 5 公里，读完一章书')
+    expect(typeof tue.reviewPreview?.id).toBe('string')
+    const mon = days.find((d) => d.date === '2026-09-28')!
+    expect(mon.hasReview).toBe(false)
+    expect(mon.reviewPreview).toBeNull()
+  })
+
   it('没有复盘时返回空数组', async () => {
     expect(await agg.reviewsAll()).toEqual([])
   })

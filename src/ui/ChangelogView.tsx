@@ -8,11 +8,18 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.51'
+const CURRENT_VERSION = 'v8.52'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.52',
+    date: '2026-10-17',
+    items: [
+      '周视图格子直接展示当日复盘正文（放在想法下方，左边框用强调色区分；没写复盘的日子不占位）——看一周计划时扫一眼就能回顾每天的收尾总结',
+    ],
+  },
   {
     version: 'v8.51',
     date: '2026-10-16',

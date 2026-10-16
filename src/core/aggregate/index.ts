@@ -107,6 +107,8 @@ export interface WeekDay extends DayAggregate {
   todoPreview: TodoRecord[]
   /** 想法的前 2 条（UI 负责每条 2 行截断） */
   notePreview: NoteRecord[]
+  /** v8.52 当日复盘正文（一天一条；没写为 null）——周视图格子直接展示 */
+  reviewPreview: { id: string; text: string } | null
   /** 原始农历日（'十五'）。label 是节日/节气/纪念日时，UI 拼「中秋节 · 十五」用 */
   lunarDay?: string
 }
@@ -229,6 +231,8 @@ interface DayBuild {
   agg: DayAggregate
   bucket: DayBucket
   info: LunarInfo | null
+  /** v8.52 周视图格子显示复盘正文：范围查询里已拿到，直接带上（null = 当天没写复盘） */
+  review: ReviewRecord | null
 }
 
 /** 把一批记录按 date 分桶。O(n)，不排序（`byDateAll` 已保证 date 升序 + 同日 createdAt 升序） */
@@ -471,7 +475,7 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
     anniv: readonly string[],
     info: LunarInfo | null,
     cats: CatResolver,
-    hasReview = false,
+    review: ReviewRecord | null = null,
   ): DayAggregate => {
     const { done, total } = todoProgress(b.todos)
 
@@ -501,7 +505,7 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
       byCat,
       anniversaries: [...anniv],
       label: cellLabel(info, anniv),
-      hasReview,
+      hasReview: review !== null,
       isEmpty: b.todos.length === 0 && b.notes.length === 0 && b.expenses.length === 0,
     }
   }
@@ -531,10 +535,12 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
     return keys.map((k) => {
       const bucket = buckets.get(k) ?? emptyBucket()
       const info = lunar?.lunarOf(k) ?? null
+      const review = reviewsByDate.get(k) ?? null
       return {
-        agg: buildDay(k, bucket, anniv.get(k) ?? [], info, cats, reviewsByDate.has(k)),
+        agg: buildDay(k, bucket, anniv.get(k) ?? [], info, cats, review),
         bucket,
         info,
+        review,
       }
     })
   }
@@ -569,11 +575,12 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
     async aggregateWeek(cursor, opts) {
       const keys = weekKeys(cursor, opts?.weekStartsOn ?? 1)
       const built = await buildRangeDetailed(keys)
-      const days: WeekDay[] = built.map(({ agg, bucket, info }) => ({
+      const days: WeekDay[] = built.map(({ agg, bucket, info, review }) => ({
         ...agg,
         // 周行只展示活跃待办（已顺延出去的淡化在日详情里看，不占周行）
         todoPreview: bucket.todos.filter((t) => !t.rolledTo).slice(0, 3),
         notePreview: bucket.notes.slice(0, 2),
+        reviewPreview: review ? { id: review.id, text: review.text } : null,
         lunarDay: info?.lunarDay,
       }))
 
@@ -633,7 +640,7 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
 
       return {
         date,
-        summary: buildDay(date, today, titles, info, cats, review !== null),
+        summary: buildDay(date, today, titles, info, cats, review),
         todos: today.todos,
         notes: today.notes,
         expenses: today.expenses,
