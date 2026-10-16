@@ -157,8 +157,13 @@ export function DayView(): JSX.Element {
         tracking = false
         return
       }
-      if (Math.abs(dx) > 6) e.preventDefault()
-      el.style.transform = `translateX(calc(-33.3333% + ${dx}px))`
+      // v8.49：不再手动 preventDefault——6px 阈值远小于 iOS 系统 tap 判定（约 10-12px），
+      // 正常点击手指微抖超过 6px 就被强制标记为滚动、抑制本次 click（点一次没反应）。
+      // 水平滚动改由 CSS touch-action: pan-y 阻止；跟手仅在有实际位移（>6px）时进行，
+      // 位移 6px 内轨道纹丝不动，按钮点击目标绝对稳定。
+      if (Math.abs(dx) > 6) {
+        el.style.transform = `translateX(calc(-33.3333% + ${dx}px))`
+      }
     }
 
     const onEnd = (): void => {
@@ -167,10 +172,9 @@ export function DayView(): JSX.Element {
       const dur = performance.now() - startT
       const over = Math.abs(dx) > THRESHOLD || (Math.abs(dx) > 40 && Math.abs(dx) / Math.max(dur, 1) > 0.45)
       if (!over) {
-        // v8.48：纯点击（位移 <6px，轨道从未真正跟手）无动画复位——若走 settle 播 180ms
-        // transform 过渡，iOS 会判定页面在动而**抑制本次 click**（点一次没反应、再点才生效）。
-        // 直接把 inline transform 清空回 CSS 默认（=BASE），不设 transition，click 正常派发。
-        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) {
+        // v8.48+v8.49：纯点击判定阈值对齐 iOS 系统 tap slop（约 12px）——手指微抖（<12px）
+        // 都算点击：无动画复位，click 正常派发；只有真正滑过（≥12px）才播回弹动画。
+        if (Math.abs(dx) < 12) {
           el.style.transition = 'none'
           el.style.transform = ''
           cleanup()
@@ -237,7 +241,7 @@ export function DayView(): JSX.Element {
     }
 
     el.addEventListener('touchstart', onStart, { passive: true })
-    el.addEventListener('touchmove', onMove, { passive: false })
+    el.addEventListener('touchmove', onMove, { passive: true })
     el.addEventListener('touchend', onEnd, { passive: true })
     el.addEventListener('touchcancel', onCancel, { passive: true })
     return () => {

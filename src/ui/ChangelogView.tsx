@@ -8,11 +8,18 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.48'
+const CURRENT_VERSION = 'v8.49'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.49',
+    date: '2026-10-16',
+    items: [
+      '继续修复手机端「点两次才生效」：深层根因是滑动容器在手指位移超过 6px 时就调用 preventDefault，被 iOS 判为滚动而吞掉点击（正常点击手抖常超 6px）；现改为点击判定完全交给系统（12px 内都算点击），水平滚动由 touch-action 接管，点一下立即生效',
+    ],
+  },
   {
     version: 'v8.48',
     date: '2026-10-16',
