@@ -33,6 +33,7 @@ import { TodoSection } from './TodoSection'
 import { NoteSection } from './NoteSection'
 import { HabitSection } from './HabitSection'
 import { ReviewSection } from './ReviewSection'
+import { arm as tapArm } from './tapGuard'
 import styles from './DayView.module.css'
 
 const DOW = ['日', '一', '二', '三', '四', '五', '六'] as const
@@ -177,7 +178,11 @@ export function DayView(): JSX.Element {
         // "目标移动"而抑制本次 click——现象：点第一次元素"变灰一下"但功能不触发，再点就好使
         // （第一次已把 inline transform 清空，第二次无属性变化所以正常）。点击时轨道本来就停在
         // BASE（位移 <6px 未跟手），无需复位：直接 return。
+        // v8.51：tapGuard 兜底——iOS 原生 click 合成在轨道内仍可能被吞（与 transform 无关的
+        // WebKit 合成层行为，v8.48–50 三版均已排除），arm() 记录命中按钮：120ms 内原生 click
+        // 未到则手动触发一次，全局 capture 监听保证单触发。
         if (Math.abs(dx) < 6) {
+          tapArm(startX, startY)
           return
         }
         // 6–12px 微动：轨道被跟手拉出过，必须复位（无动画瞬间回位；此时 recalc 吞 click 可接受，

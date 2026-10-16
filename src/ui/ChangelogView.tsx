@@ -8,11 +8,18 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.50'
+const CURRENT_VERSION = 'v8.51'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.51',
+    date: '2026-10-16',
+    items: [
+      '再次根治手机端「点一次不生效、要再点一次」：前版（v8.48–50）从手势层根除均无效，确认为 iOS 原生 click 合成在滑动容器内不可靠（与 transform 等属性无关）。本次改为不依赖 iOS 合成 click：手势层判定为点击后，120ms 内原生点击未派发则手动触发一次，并全局防双触发——无论 iOS 如何吞点击，一次触摸必定恰好生效一次',
+    ],
+  },
   {
     version: 'v8.50',
     date: '2026-10-16',

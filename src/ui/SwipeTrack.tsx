@@ -15,6 +15,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import type { JSX, ReactNode } from 'react'
+import { arm as tapArm } from './tapGuard'
 import styles from './SwipeTrack.module.css'
 
 /** 中间页相对轨道起点的位移。轨道宽 300%（3 屏），translateX 百分比相对轨道自身宽 */
@@ -165,7 +166,9 @@ export function SwipeTrack<K>({
         // 任何 transform 属性变化（哪怕计算值相同）都会触发 style recalc，被判为"目标移动"而抑制
         // 本次 click——现象：点第一次元素"变灰一下"但功能不触发，再点就好使。点击时轨道本来就停在
         // BASE（位移 <6px 未跟手），无需复位：直接 return。
+        // v8.51：tapGuard 兜底（同 DayView）——原生 click 被吞时手动触发一次，全局 capture 防双触发。
         if (Math.abs(dx) < 6) {
+          tapArm(startX, startY)
           return
         }
         // 6–12px 微动：轨道被跟手拉出过，必须复位（无动画瞬间回位；此时 recalc 吞 click 可接受）。

@@ -22,6 +22,7 @@ import { initCore } from '@/app/bootstrap'
 import { createAppStore, readOnboardingSeen } from '@/app/store'
 import { buildTransport, readSyncConfig, wrapStoreForSync } from '@/app/sync'
 import { App } from '@/ui/App'
+import { init as tapGuardInit } from '@/ui/tapGuard'
 import '@/ui/tokens.css'
 
 async function main(): Promise<void> {
@@ -57,6 +58,8 @@ async function main(): Promise<void> {
 
   const el = document.getElementById('root')
   if (!el) throw new Error('#root 不存在')
+  // v8.51：iOS 点击兜底——全局 capture click 监听（tapGuard 内部惰性注册一次）
+  tapGuardInit()
   createRoot(el).render(<App store={store} />)
 
   // v8.1：启动后台拉取——不在首屏关键路径；失败静默（本地照常用，下次打开重试）
