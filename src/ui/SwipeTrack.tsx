@@ -157,6 +157,14 @@ export function SwipeTrack<K>({
       const dur = performance.now() - startT
       const over = Math.abs(dx) > THRESHOLD || (Math.abs(dx) > 40 && Math.abs(dx) / Math.max(dur, 1) > 0.45)
       if (!over) {
+        // v8.48：纯点击（位移 <6px）无动画复位——走 settle 播 180ms transform 过渡会让 iOS
+        // 抑制本次 click（点一次没反应、再点才生效）。直接清 inline transform 回 CSS 默认。
+        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) {
+          el.style.transition = 'none'
+          el.style.transform = ''
+          cleanup()
+          return
+        }
         settle()
         return
       }

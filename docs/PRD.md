@@ -4,6 +4,7 @@
 |---|---|
 | 文档状态 | 持续维护（修订记录为唯一权威版本轨迹） |
 | 覆盖版本 | **v0**（单设备、本地存储、无后端） |
+| 修订 | **v2.43（2026-10-16，v8.48 修复移动端点两次才生效）**：根因——日视图（DayView）与周/月（SwipeTrack）滑动容器的 `touchend` 对**纯点击**（位移 <6px）也走 `settle()`：设置 `transition:transform 180ms` 并改写 inline transform（`calc(-33.3333% + 0px)` → `-33.3333%`），触发 transform 过渡动画；iOS Safari 在触摸序列结束、页面仍在位移动画时**抑制本次 click 派发** → 第一次点击无反应、动画结束后再点才生效（偶发生效 = 手指完全无抖动时浏览器未抑制）。修复：`onEnd` 中纯点击分支直接 `transition:none + 清 inline transform`（回 CSS 默认 =BASE）无动画复位，click 正常派发；有实际位移（≥6px）才播回弹动画。两处手势层同修。 |
 | 修订 | **v2.42（2026-10-15，v8.47 目标标签去边框+修正打卡按钮）**：①目标卡片「已进行 N 天」标签（`.daysTag`）去掉 1px 描边边框，保留浅蓝底 + 圆角胶囊（`border:none`）；②修正 v8.46 误改——子任务「打卡」按钮（`.subCheckin`/`.subCheckinOn`）恢复描边边框（`1px solid color-mix(accent 32%, line)`，已打卡态 `border-color:accent`）。 |
 | 修订 | **v2.40（2026-10-15，v8.45 目标打卡联动）**：目标模块与今日视图打通——①子任务新增**打卡**：`SubtaskRecord` 增 `workDates?: string[]`（'YYYY-MM-DD' 去重，旧数据天然兼容），`SubtaskRepo.setWork(id, date, on)` 幂等增删，UI 子任务行新增打卡按钮（当天已打卡高亮可取消，跨天自动重置）+「累计进行 N 天」；②目标卡片新增「已进行 N 天」标签：`goalSummaries[].activeDays` = 该目标所有**活**子任务 workDates 的并集大小（软删子任务不计入）；③**复盘联动**：打卡时今日复盘自动追加「[目标打卡] 今日进行了目标「X」的子目标「Y」工作」（当天无复盘则自动创建），取消打卡按行移除该句、复盘因此变空则删除当天复盘（`softDeleteByDate`）；打卡与 done/progress 完全独立，不计入完成度。 |
 | 修订 | **v2.39（2026-10-15，v8.44 目标卡片操作区打磨）**：目标列表卡片操作区统一——星标与「标记完成」贴到行尾（`margin-left:auto`），按钮字号/内边距与详情页同规格（12.5px），星标 14px 字符 + 纵向 padding 与按钮等高（无框口径不变）。 |

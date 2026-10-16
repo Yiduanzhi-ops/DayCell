@@ -167,6 +167,15 @@ export function DayView(): JSX.Element {
       const dur = performance.now() - startT
       const over = Math.abs(dx) > THRESHOLD || (Math.abs(dx) > 40 && Math.abs(dx) / Math.max(dur, 1) > 0.45)
       if (!over) {
+        // v8.48：纯点击（位移 <6px，轨道从未真正跟手）无动画复位——若走 settle 播 180ms
+        // transform 过渡，iOS 会判定页面在动而**抑制本次 click**（点一次没反应、再点才生效）。
+        // 直接把 inline transform 清空回 CSS 默认（=BASE），不设 transition，click 正常派发。
+        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) {
+          el.style.transition = 'none'
+          el.style.transform = ''
+          cleanup()
+          return
+        }
         settle()
         return
       }

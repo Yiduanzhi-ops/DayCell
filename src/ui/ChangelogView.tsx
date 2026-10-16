@@ -8,11 +8,18 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.47'
+const CURRENT_VERSION = 'v8.48'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.48',
+    date: '2026-10-16',
+    items: [
+      '修复手机端点按钮要点两次才生效：日/周/月视图滑动容器在「纯点击」时误播回弹动画，iOS 会吞掉本次点击；现在纯点击无动画、点一下立即生效',
+    ],
+  },
   {
     version: 'v8.47',
     date: '2026-10-15',
