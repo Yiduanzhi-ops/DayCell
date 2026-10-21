@@ -8,11 +8,18 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.54'
+const CURRENT_VERSION = 'v8.55'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.55',
+    date: '2026-10-22',
+    items: [
+      '修复编辑待办时「自定义截止日期」点不开的问题：此前点自定义日期的瞬间编辑框失焦即保存关闭，日期选择器弹不出来；现在失焦不再立即关闭，点截止行可正常修改日期',
+    ],
+  },
   {
     version: 'v8.54',
     date: '2026-10-21',

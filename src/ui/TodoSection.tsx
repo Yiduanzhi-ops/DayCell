@@ -5,7 +5,7 @@
  * 编辑交互（US-13）：点待办文字 → 原位变输入框；回车保存、Esc 取消、
  * 失焦时「有改动即保存、没改动即取消」。IME 组合中的回车是确认候选词，不触发保存。
  */
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import { todoProgress, type TodoRecord } from '@core'
 import { compareKey, type DateKey } from '@core'
@@ -233,6 +233,12 @@ function TodoEdit({ todo, onDone }: { todo: TodoRecord; onDone: () => void }): J
   const [v, setV] = useState(todo.text)
   const [ddl, setDdl] = useState(todo.deadline ?? '')
   const done = useRef(false)
+  // v8.55：blur 保存改为延迟一帧判断——焦点若转移到表单内（截止行的「今天/自定义」），
+  // 说明用户正在改截止日，**不保存不关闭**，否则 date input 会被卸载、系统选择器弹不出来。
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const blurTimer = useRef<number | undefined>(undefined)
+
+  useEffect(() => () => window.clearTimeout(blurTimer.current), [])
 
   const finish = (save: boolean): void => {
     if (done.current) return
@@ -246,15 +252,29 @@ function TodoEdit({ todo, onDone }: { todo: TodoRecord; onDone: () => void }): J
     onDone()
   }
 
+  const handleBlur = (): void => {
+    // 焦点若转移到表单内（截止行的「今天/自定义」），说明用户在改截止日，不保存不关闭
+    window.clearTimeout(blurTimer.current)
+    blurTimer.current = window.setTimeout(() => {
+      if (wrapRef.current && wrapRef.current.contains(document.activeElement)) return
+      finish(true)
+    }, 0)
+  }
+
   return (
-    <div className={styles.teditWrap}>
+    <div
+      ref={wrapRef}
+      className={styles.teditWrap}
+      onBlur={handleBlur} // 兜底：焦点停在 date input / 今天 chip 上时点外部离开，同样要保存关闭
+    >
       <input
         className={styles.tedit}
         value={v}
         autoFocus
         aria-label="编辑待办"
         onChange={(e) => setV(e.target.value)}
-        onBlur={() => finish(true)}
+        onBlur={handleBlur}
+        onFocus={() => window.clearTimeout(blurTimer.current)}
         onKeyDown={(e) => {
           if (e.nativeEvent.isComposing) return
           if (e.key === 'Escape') { e.preventDefault(); finish(false) }

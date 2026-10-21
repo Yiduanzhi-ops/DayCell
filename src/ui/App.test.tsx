@@ -546,4 +546,27 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     fireEvent.keyDown(edit, { key: 'Enter' })
     await waitFor(() => expect(screen.getByText(/截止 9\/30/)).toBeInTheDocument())
   })
+
+  it('v8.55 编辑态点「自定义日期」不关闭表单：焦点转移到截止行不触发 blur 保存，改完离开才保存', async () => {
+    await renderApp()
+    fireEvent.click(within(screen.getByTestId('day-center')).getByRole('button', { name: '添加待办' }))
+    const input = screen.getByLabelText('新待办')
+    fireEvent.change(input, { target: { value: '交作业' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() => expect(screen.queryByLabelText('新待办')).not.toBeInTheDocument())
+
+    fireEvent.click(screen.getByLabelText('编辑待办：交作业'))
+    const edit = await screen.findByLabelText('编辑待办')
+    // 模拟点击「自定义日期」：焦点从文本输入转移到 date input → 表单不得被 blur 保存卸载
+    const dateInput = screen.getByLabelText('自定义截止日')
+    fireEvent.focus(dateInput)
+    expect(screen.getByLabelText('编辑待办')).toBeInTheDocument()
+    // 期间正常改日期 → 表单内显示新日期
+    fireEvent.change(dateInput, { target: { value: addDays(TODAY, 1) } })
+    await waitFor(() => expect(screen.getByText(/2026年9月30日/)).toBeInTheDocument())
+    // 改完回车保存退出 → 行徽标更新为新日期
+    fireEvent.keyDown(edit, { key: 'Enter' })
+    await waitFor(() => expect(screen.queryByLabelText('编辑待办')).not.toBeInTheDocument())
+    expect(screen.getByText(/截止 9\/30/)).toBeInTheDocument()
+  })
 })
