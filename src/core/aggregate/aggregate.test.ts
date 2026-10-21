@@ -473,6 +473,54 @@ describe('aggregateDayDetail — v6 首屏关键路径', () => {
   })
 })
 
+describe('v8.53 活跃 DDL 待办注入（每天出现）', () => {
+  it('未完成的 DDL 待办出现在任意一天，且置顶按截止日升序', async () => {
+    // 两条 DDL（挂在自己的截止日上）+ 当天本地普通待办
+    await repos.todos.create(k('2026-10-25'), '交作业', '2026-10-25')
+    clock.advance(1000)
+    await repos.todos.create(k('2026-10-23'), '还书', '2026-10-23')
+    clock.advance(1000)
+    await seedDay('2026-10-21', { todos: 1 }) // 本地普通待办
+
+    const d = await agg.aggregateDayDetail(k('2026-10-21'))
+    // DDL 置顶（截止日升序：10-23 还书 → 10-25 交作业），普通待办殿后
+    expect(d.todos.map((t) => t.deadline ?? '')).toEqual(['2026-10-23', '2026-10-25', ''])
+    expect(d.todos[0]!.text).toBe('还书')
+    expect(d.todos[2]!.text).toBe('2026-10-21 待办1')
+    // 进度不含注入的 DDL：当天只有 1 条本地待办
+    expect(d.summary.todoTotal).toBe(1)
+    expect(d.todos).toHaveLength(3)
+  })
+
+  it('截止日当天去重：不出现两条同一条 DDL', async () => {
+    await repos.todos.create(k('2026-10-25'), '交作业', '2026-10-25')
+    const d = await agg.aggregateDayDetail(k('2026-10-25'))
+    expect(d.todos.filter((t) => t.text === '交作业')).toHaveLength(1)
+  })
+
+  it('完成或删除后不再注入（从每天消失）', async () => {
+    const t = await repos.todos.create(k('2026-10-25'), '交作业', '2026-10-25')
+    expect((await agg.aggregateDayDetail(k('2026-10-21'))).todos).toHaveLength(1)
+    await repos.todos.toggle(t.id)
+    expect((await agg.aggregateDayDetail(k('2026-10-21'))).todos).toHaveLength(0)
+    await repos.todos.toggle(t.id) // 取消完成 → 重新出现
+    expect((await agg.aggregateDayDetail(k('2026-10-21'))).todos).toHaveLength(1)
+    await repos.todos.softDelete(t.id)
+    expect((await agg.aggregateDayDetail(k('2026-10-21'))).todos).toHaveLength(0)
+  })
+
+  it('DDL 待办不参与顺延（isRollable 排除）', async () => {
+    await repos.todos.create(k('2026-10-20'), 'DDL任务', '2026-10-25')
+    await seedDay('2026-10-20', { todos: 1 }) // 普通待办
+    const r = await repos.todos.rollOver(k('2026-10-20'), k('2026-10-21'))
+    // 只顺延了普通待办；DDL 任务留在原地且无 rolledTo 标记
+    expect(r.moved).toHaveLength(1)
+    expect(r.moved[0]!.text).toBe('2026-10-20 待办1')
+    const left = await repos.todos.byDate(k('2026-10-20'))
+    expect(left.some((t) => t.text === 'DDL任务' && !t.rolledTo)).toBe(true)
+  })
+})
+
 describe('纪念日解析（公历 / 农历 / 一次性 / 脏数据）', () => {
   it('一次性农历纪念日只在自己那一年出现（repeat=none + isLunar）', async () => {
     await repos.anniversaries.create({ title: '那天的事', date: '2026-10-02', isLunar: true, repeat: 'none' })

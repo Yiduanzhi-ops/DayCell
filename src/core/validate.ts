@@ -143,6 +143,13 @@ function parseText(raw: string, o: TextOpts): ParseResult<string> {
 export const parseTodoText = (raw: string): ParseResult<string> =>
   parseText(raw, { field: '待办', max: LIMITS.todoText })
 
+/** v8.53 待办截止日（可选）：空串 = 无截止日（普通待办）；非空必须为合法日期 */
+export function parseDeadline(raw: string): ParseResult<DateKey | undefined> {
+  const t = raw.trim()
+  if (!t) return ok(undefined)
+  return parseDateKey(t)
+}
+
 export const parseNoteText = (raw: string): ParseResult<string> =>
   parseText(raw, { field: '想法', max: LIMITS.noteText, multiline: true })
 

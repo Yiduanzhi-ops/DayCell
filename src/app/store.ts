@@ -218,10 +218,12 @@ export interface AppState {
   closeForm(): void
   consumeFocus(): void
   consumeRestoreScroll(): void
-  createTodo(text: string): Promise<boolean>
+  createTodo(text: string, deadline?: string): Promise<boolean>
   toggleTodo(id: string): Promise<void>
   /** 就地编辑待办文字（v7 / US-13 / 原 C3）。失败返回 false 并 toast core 文案 */
   updateTodoText(id: string, text: string): Promise<boolean>
+  /** v8.53 设/清待办截止日（null = 清除，变回普通待办）；非法日期由 repo 校验 */
+  updateTodoDeadline(id: string, deadline: string | null): Promise<boolean>
   deleteTodo(id: string): Promise<void>
   createNote(text: string): Promise<boolean>
   /** 就地编辑想法正文（v7 / US-13 / 原 C3） */
@@ -722,9 +724,11 @@ export function createAppStore(
 
     // ---- 写操作：repo 校验（失败抛 DayCellError → toast 中文文案）→ refresh ----
 
-    async createTodo(text) {
+    async createTodo(text, deadline) {
       try {
-        await repos.todos.create(get().selected, text)
+        // v8.53 DDL 待办：date 落在截止日那天（截止日本地格子可见 + 其他天由聚合注入）
+        const date = (deadline?.trim() ? deadline.trim() : get().selected) as DateKey
+        await repos.todos.create(date, text, deadline)
         set({ dataVer: get().dataVer + 1 })
         await get().refresh()
         get().showToast('已添加待办')
@@ -752,6 +756,19 @@ export function createAppStore(
         set({ dataVer: get().dataVer + 1 })
         await get().refresh()
         get().showToast('已更新待办')
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async updateTodoDeadline(id, deadline) {
+      try {
+        await repos.todos.setDeadline(id, deadline)
+        set({ dataVer: get().dataVer + 1 })
+        await get().refresh()
+        get().showToast(deadline ? '已设截止日' : '已清除截止日')
         return true
       } catch (e) {
         get().showToast(errMsg(e))

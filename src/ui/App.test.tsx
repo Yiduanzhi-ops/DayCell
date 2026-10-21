@@ -12,7 +12,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react'
-import { createMemoryStore, type DateKey } from '@core'
+import { createMemoryStore, today, type DateKey } from '@core'
 import { initCore } from '@/app/bootstrap'
 import { createAppStore } from '@/app/store'
 import { App } from './App'
@@ -501,5 +501,55 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     const latestIdx2 = document.body.textContent!.indexOf('最新的念头')
     const pinnedIdx2 = document.body.textContent!.indexOf('想收藏的念头')
     expect(pinnedIdx2).toBeGreaterThan(latestIdx2)
+  })
+
+  it('v8.53 添加 DDL 待办：选「今天」→ 截止徽标；切到明天仍在顶部；完成后消失', async () => {
+    const store = await renderApp()
+    // 「今天」chip 走系统时钟（与 DdlPicker 一致），动态算期望徽标
+    const t = today()
+    const badge = `截止 ${Number(t.slice(5, 7))}/${Number(t.slice(8, 10))}`
+    fireEvent.click(within(screen.getByTestId('day-center')).getByRole('button', { name: '添加待办' }))
+    const input = screen.getByLabelText('新待办')
+    fireEvent.change(input, { target: { value: '交作业' } })
+    fireEvent.click(screen.getByRole('button', { name: '今天' }))
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() => expect(screen.queryByLabelText('新待办')).not.toBeInTheDocument())
+    expect(within(screen.getByTestId('day-center')).getByText(new RegExp(badge))).toBeInTheDocument()
+
+    // 切到明天：未完成的 DDL 每天出现（注入置顶）
+    store.getState().shiftDay(1)
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 30 日'))
+    expect(within(screen.getByTestId('day-center')).getByText(new RegExp(badge))).toBeInTheDocument()
+
+    // 完成 → 从明天消失
+    fireEvent.click(within(screen.getByTestId('day-center')).getByRole('button', { name: '标记完成：交作业' }))
+    await waitFor(() =>
+      expect(within(screen.getByTestId('day-center')).queryByText(new RegExp(badge))).not.toBeInTheDocument()
+    )
+  })
+
+  it('v8.53 编辑待办可设/清截止日', async () => {
+    await renderApp()
+    const t = today()
+    const badge = `截止 ${Number(t.slice(5, 7))}/${Number(t.slice(8, 10))}`
+    fireEvent.click(within(screen.getByTestId('day-center')).getByRole('button', { name: '添加待办' }))
+    const input = screen.getByLabelText('新待办')
+    fireEvent.change(input, { target: { value: '交作业' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() => expect(screen.queryByLabelText('新待办')).not.toBeInTheDocument())
+
+    // 点文字进编辑 → 选「今天」→ 徽标出现
+    fireEvent.click(screen.getByLabelText('编辑待办：交作业'))
+    const edit = await screen.findByLabelText('编辑待办')
+    fireEvent.click(screen.getByRole('button', { name: '今天' }))
+    fireEvent.keyDown(edit, { key: 'Enter' })
+    await waitFor(() => expect(screen.getByText(new RegExp(badge))).toBeInTheDocument())
+
+    // 再进编辑 → 点「无」→ 徽标消失
+    fireEvent.click(screen.getByLabelText('编辑待办：交作业'))
+    const edit2 = await screen.findByLabelText('编辑待办')
+    fireEvent.click(screen.getByRole('button', { name: '无' }))
+    fireEvent.keyDown(edit2, { key: 'Enter' })
+    await waitFor(() => expect(screen.queryByText(new RegExp(badge))).not.toBeInTheDocument())
   })
 })

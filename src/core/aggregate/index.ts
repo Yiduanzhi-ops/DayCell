@@ -226,6 +226,24 @@ interface DayBucket {
 
 const emptyBucket = (): DayBucket => ({ todos: [], notes: [], expenses: [] })
 
+/**
+ * v8.53 合并「当天本地待办 + 注入的活跃 DDL 待办」：
+ *  - 去重：DDL 待办 date=截止日，截止日当天的本地集合已含它，注入时跳过
+ *  - 排序：带截止日的 DDL 置顶（截止日升序，逾期自然最前；同日 createdAt 升序兜底），
+ *    普通待办保持 createdAt 升序
+ */
+function mergeDdlTodos(local: TodoRecord[], active: TodoRecord[]): TodoRecord[] {
+  const localIds = new Set(local.map((t) => t.id))
+  const injected = active.filter((t) => !localIds.has(t.id))
+  return [...local, ...injected].sort((a, b) => {
+    const da = a.deadline !== undefined
+    const db = b.deadline !== undefined
+    if (da !== db) return da ? -1 : 1
+    if (a.deadline && b.deadline && a.deadline !== b.deadline) return a.deadline < b.deadline ? -1 : 1
+    return (a.createdAt ?? 0) - (b.createdAt ?? 0)
+  })
+}
+
 /** buildRangeDetailed 的中间产物：指示器 + 原始记录 + 农历（周行预览要用后两个） */
 interface DayBuild {
   agg: DayAggregate
@@ -618,7 +636,8 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
       //    「昨天有几条待办可顺延」。不要为了后者再发一次 byDateAll。
       // v8.20 加 habits 全量 + 打卡集合：日详情带当日习惯（侧页与落地一致渲染）。
       // v8.29 加纪念日勾选集合（annivDones）。
-      const [data, annivTitles, catMap, annivRecs, habits, done, annivDone, review] = await Promise.all([
+      // v8.53 加第九路 activeDdl：活跃 DDL 待办注入"每天出现"。
+      const [data, annivTitles, catMap, annivRecs, habits, done, annivDone, review, ddl] = await Promise.all([
         store.byDateAll(prev, date),
         anniversaryTitles(date, date),
         catNames(),
@@ -628,6 +647,7 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
         repos.annivChecks.doneOn(date),
         // v8.42 当日复盘（每日一条）
         repos.reviews.byDate(date),
+        repos.todos.activeDdl(),
       ])
 
       const buckets = bucketize(data)
@@ -641,7 +661,10 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
       return {
         date,
         summary: buildDay(date, today, titles, info, cats, review),
-        todos: today.todos,
+        // v8.53：todos = 当天本地待办 + 注入的活跃 DDL（截止日当天去重）。
+        // 排序：带截止日的 DDL 置顶（截止日升序，逾期自然最前），普通待办保持 createdAt 升序。
+        // ⚠️ 进度（todoTotal/todoDone）**不含**注入的 DDL 项——DDL 是跨天任务，不稀释每天的进度。
+        todos: mergeDdlTodos(today.todos, ddl),
         notes: today.notes,
         expenses: today.expenses,
         anniversaries: annivRecs,

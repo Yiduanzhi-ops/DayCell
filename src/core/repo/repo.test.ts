@@ -74,6 +74,45 @@ describe('todos.create / byDate', () => {
   })
 })
 
+describe('todos.deadline（v8.53 DDL 待办）', () => {
+  it('create 带截止日 → 记录带 deadline；不带 → 无字段', async () => {
+    const a = await repos.todos.create(k('2026-10-20'), '交作业', '2026-10-25')
+    expect(a.deadline).toBe('2026-10-25')
+    const b = await repos.todos.create(k('2026-10-20'), '普通待办')
+    expect(b.deadline).toBeUndefined()
+  })
+
+  it('非法截止日抛 BAD_DATE；空串 = 无截止日', async () => {
+    await expect(repos.todos.create(k('2026-10-20'), 'x', '2026-02-30')).rejects.toMatchObject({
+      validateCode: 'BAD_DATE',
+    })
+    const t = await repos.todos.create(k('2026-10-20'), 'x', '')
+    expect(t.deadline).toBeUndefined()
+  })
+
+  it('setDeadline 设/改/清截止日；清除后字段整体移除', async () => {
+    const t = await repos.todos.create(k('2026-10-20'), '交作业', '2026-10-25')
+    await repos.todos.setDeadline(t.id, '2026-10-27')
+    expect((await repos.todos.byDate(k('2026-10-20')))[0]!.deadline).toBe('2026-10-27')
+    await repos.todos.setDeadline(t.id, null)
+    const rec = (await repos.todos.byDate(k('2026-10-20')))[0]!
+    expect(rec.deadline).toBeUndefined()
+    expect('deadline' in rec).toBe(false)
+  })
+
+  it('activeDdl：只含未完成、未删除、带截止日的待办', async () => {
+    const done1 = await repos.todos.create(k('2026-10-20'), '已完成DDL', '2026-10-21')
+    const act1 = await repos.todos.create(k('2026-10-20'), '进行中1', '2026-10-22')
+    await repos.todos.create(k('2026-10-20'), '普通待办')
+    const act2 = await repos.todos.create(k('2026-10-20'), '进行中2', '2026-10-23')
+    await repos.todos.toggle(done1.id) // 完成 → 不出现
+    await repos.todos.softDelete(act2.id) // 删除 → 不出现
+
+    const ddl = await repos.todos.activeDdl()
+    expect(ddl.map((t) => t.id)).toEqual([act1.id])
+  })
+})
+
 describe('todos.setText / toggle / softDelete', () => {
   it('setText 更新文字并刷新 updatedAt', async () => {
     const t = await repos.todos.create(k('2026-09-29'), '原文')

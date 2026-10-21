@@ -37,16 +37,16 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v8.52')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v8.53')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v8.52')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v8.53')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v8.52，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v8.53，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v8.52')
-    expect(screen.getByText('新增「回顾」大模块：今日视图最下方加每日一条的复盘区块（仿想法样式、就地编辑、可清空），底部 tab「想法」改名「回顾」')).toBeInTheDocument()
+    expect(vers[0].textContent).toBe('v8.53')
+    expect(screen.getByText('待办支持「截止日期」（DDL）：添加/编辑待办时可选「今天 / 明天 / 自定义」设截止日，行内显示徽标「截止 M/D」')).toBeInTheDocument()
   })
 
   it('历史版本（v8.2 同步、v7.9 目标、v7.5 菜单）要点存在', async () => {

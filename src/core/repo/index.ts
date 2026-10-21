@@ -50,6 +50,7 @@ import {
   parseSubtaskDesc,
   parseProgressNote,
   parseTodoText,
+  parseDeadline,
   type ParseResult,
 } from '../validate'
 
@@ -78,13 +79,17 @@ export interface RollOverResult {
 
 export interface TodoRepo {
   byDate(date: DateKey): Promise<TodoRecord[]>
-  create(date: DateKey, text: string): Promise<TodoRecord>
+  create(date: DateKey, text: string, deadline?: string | null): Promise<TodoRecord>
   setText(id: string, text: string): Promise<TodoRecord>
+  /** v8.53 设/清截止日（null = 清除）；非法日期抛 BAD_DATE */
+  setDeadline(id: string, deadline: string | null): Promise<TodoRecord>
   toggle(id: string): Promise<TodoRecord>
   softDelete(id: string): Promise<void>
   rollOver(from: DateKey, to: DateKey): Promise<RollOverResult>
   /** 是否有可顺延项；0 时 UI 不显示横幅（PRD E10） */
   rollableCount(date: DateKey): Promise<number>
+  /** v8.53 活跃 DDL 待办（未完成、未删除、带截止日）——聚合注入用 */
+  activeDdl(): Promise<TodoRecord[]>
 }
 
 /**
@@ -97,8 +102,12 @@ export function todoProgress(recs: TodoRecord[]): { done: number; total: number 
   return { done: active.filter((r) => r.done).length, total: active.length }
 }
 
-/** 可顺延的判定：未完成、且没有被顺延出去过 */
-export const isRollable = (t: TodoRecord): boolean => !t.done && !t.rolledTo
+/**
+ * 可顺延的判定：未完成、且没有被顺延出去过。
+ * v8.53：**带截止日的 DDL 待办不参与顺延**（到期未完成即逾期，留在原地由每天注入提醒，
+ * 不该被顺延机制拖走）
+ */
+export const isRollable = (t: TodoRecord): boolean => !t.done && !t.rolledTo && !t.deadline
 
 // ---------------------------------------------------------------------------
 // 想法
@@ -356,9 +365,11 @@ export function createRepos(deps: RepoDeps): Repos {
   const todos: TodoRepo = {
     byDate: (date) => store.byDate<TodoRecord>('todos', date, date),
 
-    async create(date, text) {
+    async create(date, text, deadline) {
       unwrap(parseDateKey(date))
       const t = unwrap(parseTodoText(text))
+      // v8.53 可选截止日：空串/null/undefined = 普通待办；非空必须合法日期
+      const ddl = deadline === undefined || deadline === null ? undefined : unwrap(parseDeadline(deadline))
       const ts = now()
       return store.put<TodoRecord>('todos', {
         id: idGen.next(),
@@ -366,6 +377,7 @@ export function createRepos(deps: RepoDeps): Repos {
         date,
         text: t,
         done: false,
+        ...(ddl ? { deadline: ddl } : {}),
         createdAt: ts,
         updatedAt: ts,
         deleted: false,
@@ -375,6 +387,22 @@ export function createRepos(deps: RepoDeps): Repos {
     async setText(id, text) {
       const rec = await mustGet<TodoRecord>('todos', id)
       return store.put<TodoRecord>('todos', { ...rec, text: unwrap(parseTodoText(text)) })
+    },
+
+    /** v8.53 设/清待办截止日：null = 清除（变回普通待办） */
+    async setDeadline(id, deadline) {
+      const rec = await mustGet<TodoRecord>('todos', id)
+      if (deadline === null || deadline === undefined) {
+        const { deadline: _drop, ...rest } = rec
+        return store.put<TodoRecord>('todos', rest)
+      }
+      return store.put<TodoRecord>('todos', { ...rec, deadline: unwrap(parseDeadline(deadline)) })
+    },
+
+    /** v8.53 活跃 DDL 待办（未完成、未删除、带截止日）——聚合层注入"每天出现"用 */
+    async activeDdl() {
+      const all = await store.all<TodoRecord>('todos', { includeDeleted: false })
+      return all.filter((t) => !t.deleted && !t.done && !!t.deadline)
     },
 
     async toggle(id) {

@@ -42,6 +42,9 @@ export interface TodoRecord extends DatedRecord {
   rolledFrom?: DateKey
   /** 被顺延到的日期；存在即表示"已顺延出去"，进度统计要排除它 */
   rolledTo?: DateKey
+  /** v8.53 截止日（可选）：带截止日的待办=DDL 待办，未完成时**每天出现**在日视图
+   *  置顶组（按截止日紧迫度排序），完成或删除后消失；不参与顺延（rolledTo 机制） */
+  deadline?: DateKey
 }
 
 export interface NoteRecord extends DatedRecord {

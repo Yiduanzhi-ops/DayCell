@@ -8,7 +8,7 @@
 import { useRef, useState } from 'react'
 import type { JSX } from 'react'
 import { todoProgress, type TodoRecord } from '@core'
-import type { DateKey } from '@core'
+import { addDays, compareKey, today, type DateKey } from '@core'
 import { useApp } from '@/app/context'
 import { Check } from './icons'
 import { FormActs } from './forms'
@@ -117,6 +117,13 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
               )}
               {t.rolledTo && <span className={styles.rolled}>已顺延 →</span>}
               {t.rolledFrom && <span className={styles.rolled}>顺延自 {md(t.rolledFrom)}</span>}
+              {t.deadline && (
+                <span
+                  className={`${styles.ddlBadge} ${!t.done && compareKey(t.deadline, k) < 0 ? styles.ddlLate : ''}`}
+                >
+                  {!t.done && compareKey(t.deadline, k) < 0 ? '已逾期 · ' : ''}截止 {md(t.deadline)}
+                </span>
+              )}
               {!t.rolledTo && (
                 <button className={styles.tdel} aria-label={`删除待办：${t.text}`} onClick={() => void deleteTodo(t.id)}>
                   ×
@@ -138,9 +145,10 @@ function TodoForm(): JSX.Element {
   const createTodo = useApp((s) => s.createTodo)
   const closeForm = useApp((s) => s.closeForm)
   const [v, setV] = useState('')
+  const [ddl, setDdl] = useState('') // '' = 无截止日；否则 DateKey
 
   const submit = async (): Promise<void> => {
-    const ok = await createTodo(v)
+    const ok = await createTodo(v, ddl || undefined)
     // v7.4：创建完收起表单（不再保留并聚焦"连续录入"——用户拍板改手动，需要时再点「+ 添加」）
     if (ok) closeForm()
   }
@@ -161,7 +169,44 @@ function TodoForm(): JSX.Element {
           if (e.key === 'Enter') { e.preventDefault(); void submit() }
         }}
       />
+      <DdlPicker value={ddl} onChange={setDdl} />
       <FormActs onCancel={closeForm} onSave={submit} />
+    </div>
+  )
+}
+
+/**
+ * v8.53 截止日期选择行：无 / 今天 / 明天 / 自定义（原生 date input，移动端弹系统滚轮）。
+ * 点「无」即清除；表单与就地编辑共用。
+ */
+function DdlPicker({ value, onChange }: { value: string; onChange: (v: string) => void }): JSX.Element {
+  const t = today()
+  const opts: { key: string; label: string }[] = [
+    { key: '', label: '无' },
+    { key: t, label: '今天' },
+    { key: addDays(t, 1), label: '明天' },
+  ]
+  return (
+    <div className={styles.ddlRow}>
+      <span className={styles.ddlLabel}>截止</span>
+      {opts.map((o) => (
+        <button
+          key={o.key}
+          type="button"
+          className={`${styles.ddlChip} ${value === o.key ? styles.ddlOn : ''}`}
+          aria-pressed={value === o.key}
+          onClick={() => onChange(o.key)}
+        >
+          {o.label}
+        </button>
+      ))}
+      <input
+        type="date"
+        className={`${styles.ddlDate} ${value && !opts.some((o) => o.key === value) ? styles.ddlOn : ''}`}
+        value={value}
+        aria-label="自定义截止日"
+        onChange={(e) => onChange(e.target.value)}
+      />
     </div>
   )
 }
@@ -174,29 +219,39 @@ function TodoForm(): JSX.Element {
  */
 function TodoEdit({ todo, onDone }: { todo: TodoRecord; onDone: () => void }): JSX.Element {
   const updateTodoText = useApp((s) => s.updateTodoText)
+  const updateTodoDeadline = useApp((s) => s.updateTodoDeadline)
   const [v, setV] = useState(todo.text)
+  const [ddl, setDdl] = useState(todo.deadline ?? '')
   const done = useRef(false)
 
   const finish = (save: boolean): void => {
     if (done.current) return
     done.current = true
-    if (save && v !== todo.text) void updateTodoText(todo.id, v)
+    if (save) {
+      if (v !== todo.text) void updateTodoText(todo.id, v)
+      // v8.53：截止日变化（设/改/清）一并保存
+      const next = ddl || null
+      if (next !== (todo.deadline ?? null)) void updateTodoDeadline(todo.id, next)
+    }
     onDone()
   }
 
   return (
-    <input
-      className={styles.tedit}
-      value={v}
-      autoFocus
-      aria-label="编辑待办"
-      onChange={(e) => setV(e.target.value)}
-      onBlur={() => finish(true)}
-      onKeyDown={(e) => {
-        if (e.nativeEvent.isComposing) return
-        if (e.key === 'Escape') { e.preventDefault(); finish(false) }
-        if (e.key === 'Enter') { e.preventDefault(); finish(true) }
-      }}
-    />
+    <div className={styles.teditWrap}>
+      <input
+        className={styles.tedit}
+        value={v}
+        autoFocus
+        aria-label="编辑待办"
+        onChange={(e) => setV(e.target.value)}
+        onBlur={() => finish(true)}
+        onKeyDown={(e) => {
+          if (e.nativeEvent.isComposing) return
+          if (e.key === 'Escape') { e.preventDefault(); finish(false) }
+          if (e.key === 'Enter') { e.preventDefault(); finish(true) }
+        }}
+      />
+      <DdlPicker value={ddl} onChange={setDdl} />
+    </div>
   )
 }
