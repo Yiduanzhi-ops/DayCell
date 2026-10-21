@@ -991,7 +991,7 @@ lunar chunk（102 KB gzip）是懒加载不计入。预算口径要不要把 ven
 
 ## 6. 环境事实
 
-工作目录：Mac 侧 `/Users/wangduanmao/DayCell`；云电脑侧 `/home/user/Doubao/chats/38444556790203906/DayCell`（2026-10-01 起云电脑执行）。
+工作目录：本地 Mac 侧与云电脑侧同步维护（2026-10-01 起以云电脑侧执行为主）。
 > ✅ **已 `git init`**（2026-09-29，用户批准）。分支 `main`，`.git` 约 740 KB。
 > `.gitignore` 忽略 `node_modules/`(220M)、`.npmcache/`(447M)、`coverage/`、`*.tsbuildinfo`。
 > **`.npmcache` 必须忽略**：沙箱下 `~/.npm` 不可写，装包一律 `--cache ./.npmcache`，
