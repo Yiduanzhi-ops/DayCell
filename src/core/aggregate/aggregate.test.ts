@@ -519,6 +519,20 @@ describe('v8.53 活跃 DDL 待办注入（每天出现）', () => {
     const left = await repos.todos.byDate(k('2026-10-20'))
     expect(left.some((t) => t.text === 'DDL任务' && !t.rolledTo)).toBe(true)
   })
+
+  it('v8.54 只从创建当天起注入：创建日之前的史前日子不再出现', async () => {
+    // 创建于 2026-10-22（本地时区），截止 10-25
+    clock.set(new Date(2026, 9, 22).getTime())
+    await repos.todos.create(k('2026-10-25'), '交作业', '2026-10-25')
+    // 10-21（创建前一天）：不注入
+    expect((await agg.aggregateDayDetail(k('2026-10-21'))).todos).toHaveLength(0)
+    // 10-22（创建当天）：注入
+    const onDay = await agg.aggregateDayDetail(k('2026-10-22'))
+    expect(onDay.todos.map((t) => t.text)).toContain('交作业')
+    // 截止日 10-25：注入且本地副本去重（只 1 条）
+    const onDue = await agg.aggregateDayDetail(k('2026-10-25'))
+    expect(onDue.todos.filter((t) => t.text === '交作业')).toHaveLength(1)
+  })
 })
 
 describe('纪念日解析（公历 / 农历 / 一次性 / 脏数据）', () => {

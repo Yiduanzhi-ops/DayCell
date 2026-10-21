@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.53'
+const CURRENT_VERSION = 'v8.54'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.54',
+    date: '2026-10-21',
+    items: [
+      '修复 DDL 待办显示范围：带截止日期的待办只从「设置那天」起出现在日视图（并置顶），不再出现在它被创建之前的史前日子',
+      '逾期未完成的 DDL 仍会每天置顶提醒，直到完成或删除',
+    ],
+  },
   {
     version: 'v8.53',
     date: '2026-10-21',

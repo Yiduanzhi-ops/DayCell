@@ -37,16 +37,16 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v8.53')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v8.54')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v8.53')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v8.54')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v8.53，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v8.54，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v8.53')
-    expect(screen.getByText('待办支持「截止日期」（DDL）：添加/编辑待办时可选「今天 / 明天 / 自定义」设截止日，行内显示徽标「截止 M/D」')).toBeInTheDocument()
+    expect(vers[0].textContent).toBe('v8.54')
+    expect(screen.getByText('修复 DDL 待办显示范围：带截止日期的待办只从「设置那天」起出现在日视图（并置顶），不再出现在它被创建之前的史前日子')).toBeInTheDocument()
   })
 
   it('历史版本（v8.2 同步、v7.9 目标、v7.5 菜单）要点存在', async () => {

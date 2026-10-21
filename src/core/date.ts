@@ -30,6 +30,12 @@ export function toKey(y: number, m: number, d: number): DateKey {
   return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}` as DateKey
 }
 
+/** 由毫秒时间戳还原 DateKey。 @see ADR-0008：内部用本地时区构造 */
+export function keyOf(ts: number): DateKey {
+  const dt = new Date(ts)
+  return toKey(dt.getFullYear(), dt.getMonth() + 1, dt.getDate())
+}
+
 /**
  * 拆解 DateKey。**返回数字而不返回 Date**——
  * 这样调用方拿不到 Date 对象，就没机会把时区陷阱带回来（ADR-0008）。

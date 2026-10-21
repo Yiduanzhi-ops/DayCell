@@ -25,7 +25,14 @@ const TODAY = '2026-09-29' as DateKey
 async function renderApp() {
   // v7.5：夜间模式读 localStorage，测试间必须清掉，否则上个用例切了 dark 会串场
   localStorage.clear()
-  const bundle = await initCore({ store: createMemoryStore(), skipLunar: true })
+  const bundle = await initCore({
+    store: createMemoryStore(),
+    skipLunar: true,
+    // v8.54：注入与 TODAY 一致的递增假时钟——首条 createdAt 落在 9/29（本地时区），
+    // 每次 +1ms 保证 createdAt 严格递增（想法列表按 createdAt 降序排序才稳定），
+    // 同时 DDL「只从创建当天起注入」的过滤语义自洽。
+    now: (() => { let t = new Date(2026, 8, 29, 12).getTime(); return () => (t += 1) })(),
+  })
   const store = createAppStore(bundle, { today: TODAY, isNarrow: () => false })
   await store.getState().init()
   render(<App store={store} />)

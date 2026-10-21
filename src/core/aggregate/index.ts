@@ -26,6 +26,7 @@ import {
   dowOf,
   fromKey,
   isValidKey,
+  keyOf,
   monthGrid,
   monthKeys,
   rangeKeys,
@@ -231,10 +232,14 @@ const emptyBucket = (): DayBucket => ({ todos: [], notes: [], expenses: [] })
  *  - 去重：DDL 待办 date=截止日，截止日当天的本地集合已含它，注入时跳过
  *  - 排序：带截止日的 DDL 置顶（截止日升序，逾期自然最前；同日 createdAt 升序兜底），
  *    普通待办保持 createdAt 升序
+ * v8.54 修复：只注入「创建于查看日当天或之前」的 DDL——创建日晚于查看日的
+ *    （翻到它还不存在的史前日子）不再出现。
  */
-function mergeDdlTodos(local: TodoRecord[], active: TodoRecord[]): TodoRecord[] {
+function mergeDdlTodos(local: TodoRecord[], active: TodoRecord[], date: DateKey): TodoRecord[] {
   const localIds = new Set(local.map((t) => t.id))
-  const injected = active.filter((t) => !localIds.has(t.id))
+  const injected = active.filter(
+    (t) => !localIds.has(t.id) && keyOf(t.createdAt) <= date,
+  )
   return [...local, ...injected].sort((a, b) => {
     const da = a.deadline !== undefined
     const db = b.deadline !== undefined
@@ -664,7 +669,7 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
         // v8.53：todos = 当天本地待办 + 注入的活跃 DDL（截止日当天去重）。
         // 排序：带截止日的 DDL 置顶（截止日升序，逾期自然最前），普通待办保持 createdAt 升序。
         // ⚠️ 进度（todoTotal/todoDone）**不含**注入的 DDL 项——DDL 是跨天任务，不稀释每天的进度。
-        todos: mergeDdlTodos(today.todos, ddl),
+        todos: mergeDdlTodos(today.todos, ddl, date),
         notes: today.notes,
         expenses: today.expenses,
         anniversaries: annivRecs,

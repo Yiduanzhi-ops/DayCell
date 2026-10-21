@@ -44,6 +44,8 @@ export interface InitCoreOptions {
    * 包装后的 store 成为 bundle.store / repos / aggregates 共同使用的实例。
    */
   wrapStore?: (s: RecordStore) => RecordStore
+  /** v8.54：注入时钟给 repos/aggregates（测试用；默认 systemClock）。@see ADR-0006 */
+  now?: () => number
 }
 
 export async function initCore(opts: InitCoreOptions = {}): Promise<CoreBundle> {
@@ -77,7 +79,7 @@ export async function initCore(opts: InitCoreOptions = {}): Promise<CoreBundle> 
   await store.init()
   if (opts.wrapStore) store = opts.wrapStore(store)
 
-  const repos = createRepos({ store })
+  const repos = createRepos({ store, now: opts.now })
   // 幂等：已有分类时不动。首次启动播种 8 个默认分类（PRD D12）
   await repos.categories.seedDefaults()
 
