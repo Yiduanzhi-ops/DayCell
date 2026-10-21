@@ -178,13 +178,16 @@ function TodoForm(): JSX.Element {
 }
 
 /**
- * v8.53 截止日期选择行：今天 / 自定义（原生 date input，移动端弹系统滚轮）。
+ * v8.53 截止日期选择行：今天 / 自定义。
  * 创建表单默认「今天」；编辑态空值 = 未设截止日（两个选项都不亮，保存不改动）。
  * v8.53.1：去「无/明天」快捷项，只留今天 + 自定义（用户拍板）。
+ * v8.53.2：自定义改为无框「日期 + 箭头」样式（方案 B）——隐藏原生 date input 铺满整行，
+ *          点击仍是系统选择器（手机滚轮 / 桌面日历），视觉上不再是一条输入框。
  */
 function DdlPicker({ value, onChange }: { value: string; onChange: (v: string) => void }): JSX.Element {
   // 「今天」用 app 注入时钟（store.today），与视图语义一致
   const t = useApp((s) => s.today)
+  const custom = value && value !== t
   return (
     <div className={styles.ddlRow}>
       <span className={styles.ddlLabel}>截止</span>
@@ -196,15 +199,26 @@ function DdlPicker({ value, onChange }: { value: string; onChange: (v: string) =
       >
         今天
       </button>
-      <input
-        type="date"
-        className={`${styles.ddlDate} ${value && value !== t ? styles.ddlOn : ''}`}
-        value={value === t ? '' : value}
-        aria-label="自定义截止日"
-        onChange={(e) => onChange(e.target.value)}
-      />
+      <span className={`${styles.ddlDateWrap} ${custom ? styles.ddlDateSet : ''}`}>
+        {custom ? fmtFullDate(value) : '自定义'}
+        <svg className={styles.ddlChevron} viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <input
+          type="date"
+          className={styles.ddlDateInput}
+          value={value === t ? '' : value}
+          aria-label="自定义截止日"
+          onChange={(e) => onChange(e.target.value)}
+        />
+      </span>
     </div>
   )
+}
+
+/** DateKey('YYYY-MM-DD') → 「YYYY年M月D日」 */
+function fmtFullDate(k: string): string {
+  return `${k.slice(0, 4)}年${Number(k.slice(5, 7))}月${Number(k.slice(8, 10))}日`
 }
 
 /**
