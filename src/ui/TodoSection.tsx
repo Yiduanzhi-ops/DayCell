@@ -8,7 +8,7 @@
 import { useRef, useState } from 'react'
 import type { JSX } from 'react'
 import { todoProgress, type TodoRecord } from '@core'
-import { addDays, compareKey, today, type DateKey } from '@core'
+import { compareKey, type DateKey } from '@core'
 import { useApp } from '@/app/context'
 import { Check } from './icons'
 import { FormActs } from './forms'
@@ -144,8 +144,10 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
 function TodoForm(): JSX.Element {
   const createTodo = useApp((s) => s.createTodo)
   const closeForm = useApp((s) => s.closeForm)
+  const todayKey = useApp((s) => s.today)
   const [v, setV] = useState('')
-  const [ddl, setDdl] = useState('') // '' = 无截止日；否则 DateKey
+  // v8.53.1：默认截止日 = 今天（待办默认当天截止，没做完每天置顶提醒）
+  const [ddl, setDdl] = useState<string>(todayKey)
 
   const submit = async (): Promise<void> => {
     const ok = await createTodo(v, ddl || undefined)
@@ -176,34 +178,28 @@ function TodoForm(): JSX.Element {
 }
 
 /**
- * v8.53 截止日期选择行：无 / 今天 / 明天 / 自定义（原生 date input，移动端弹系统滚轮）。
- * 点「无」即清除；表单与就地编辑共用。
+ * v8.53 截止日期选择行：今天 / 自定义（原生 date input，移动端弹系统滚轮）。
+ * 创建表单默认「今天」；编辑态空值 = 未设截止日（两个选项都不亮，保存不改动）。
+ * v8.53.1：去「无/明天」快捷项，只留今天 + 自定义（用户拍板）。
  */
 function DdlPicker({ value, onChange }: { value: string; onChange: (v: string) => void }): JSX.Element {
-  const t = today()
-  const opts: { key: string; label: string }[] = [
-    { key: '', label: '无' },
-    { key: t, label: '今天' },
-    { key: addDays(t, 1), label: '明天' },
-  ]
+  // 「今天」用 app 注入时钟（store.today），与视图语义一致
+  const t = useApp((s) => s.today)
   return (
     <div className={styles.ddlRow}>
       <span className={styles.ddlLabel}>截止</span>
-      {opts.map((o) => (
-        <button
-          key={o.key}
-          type="button"
-          className={`${styles.ddlChip} ${value === o.key ? styles.ddlOn : ''}`}
-          aria-pressed={value === o.key}
-          onClick={() => onChange(o.key)}
-        >
-          {o.label}
-        </button>
-      ))}
+      <button
+        type="button"
+        className={`${styles.ddlChip} ${value === t ? styles.ddlOn : ''}`}
+        aria-pressed={value === t}
+        onClick={() => onChange(t)}
+      >
+        今天
+      </button>
       <input
         type="date"
-        className={`${styles.ddlDate} ${value && !opts.some((o) => o.key === value) ? styles.ddlOn : ''}`}
-        value={value}
+        className={`${styles.ddlDate} ${value && value !== t ? styles.ddlOn : ''}`}
+        value={value === t ? '' : value}
         aria-label="自定义截止日"
         onChange={(e) => onChange(e.target.value)}
       />
