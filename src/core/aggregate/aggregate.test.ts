@@ -15,6 +15,7 @@ import { createMemoryStore } from '../store/memory'
 import type { RecordStore } from '../store/types'
 import type { DateKey } from '../types'
 import { createAggregates, DELETED_CAT_LABEL, type Aggregates } from './index'
+import { addDays, dowOf, keyOf } from '../date'
 
 const k = (s: string): DateKey => s as DateKey
 
@@ -431,6 +432,37 @@ describe('aggregateDayDetail — v6 首屏关键路径', () => {
     const mon = await agg.aggregateDayDetail(k('2026-09-28'))
     expect(mon.habits.map((h) => h.name)).toEqual(['喝水', '周一周三跑'])
     expect(mon.habits.find((h) => h.id === weekly.id)?.done).toBe(true)
+  })
+
+  it('v8.57 习惯只从「设定那天」起出现：创建日之前的日期不再显示（日详情与今日习惯区块口径一致）', async () => {
+    const h = await repos.habits.create({ name: '喝水', freq: { kind: 'daily' } })
+    const created = keyOf(h.createdAt) // 习惯设定日（假时钟 2023-11-15 附近，测试不硬编码）
+    const before = addDays(created, -1)
+
+    // 设定前一天的日详情 → 习惯不出现（bug：此前会全量显示到史前日子）
+    expect((await agg.aggregateDayDetail(before)).habits).toEqual([])
+    // 设定当天 → 出现且未打卡
+    const same = await agg.aggregateDayDetail(created)
+    expect(same.habits.map((x) => x.name)).toEqual(['喝水'])
+    expect(same.habits[0]!.done).toBe(false)
+    // 设定后 → 仍出现
+    expect((await agg.aggregateDayDetail(addDays(created, 1))).habits.map((x) => x.name)).toEqual(['喝水'])
+    // habitDay（今日习惯区块）口径一致
+    expect((await agg.habitDay(before)).items).toEqual([])
+    expect((await agg.habitDay(created)).items.map((x) => x.name)).toEqual(['喝水'])
+  })
+
+  it('v8.57 每周习惯同样只从设定周起出现：设定前命中星期的那天不显示、设定后命中日正常显示', async () => {
+    const w = await repos.habits.create({ name: '周一周三跑', freq: { kind: 'weekly', weekdays: [1, 3] } })
+    const created = keyOf(w.createdAt)
+    // 从设定日往回找第一个命中周一/周三的日子（必然早于设定日）
+    let d = created
+    do { d = addDays(d, -1) } while (![1, 3].includes(dowOf(d)))
+    expect((await agg.aggregateDayDetail(d)).habits.map((x) => x.name)).toEqual([])
+    // 设定日之后下一个命中日 → 正常出现
+    let n = created
+    do { n = addDays(n, 1) } while (![1, 3].includes(dowOf(n)))
+    expect((await agg.aggregateDayDetail(n)).habits.map((x) => x.name)).toEqual(['周一周三跑'])
   })
 
   it('翻日时不重查分类表（缓存生效，CORE-API §6）', async () => {

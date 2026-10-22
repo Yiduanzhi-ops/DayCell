@@ -573,6 +573,7 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
 
   // v8.20：从全量习惯 + 打卡集合算出 date 上该做的习惯项（暂停/不命中的排除）。
   // habitDay 与 aggregateDayDetail 共用，保证日详情与今日习惯区块口径一致。
+  // v8.57：习惯只从「设定那天」起存在——翻到创建之前的日期不再出现（与 v8.54 DDL 同构，keyOf(createdAt) <= date）。
   const buildHabitItems = (
     habits: readonly HabitRecord[],
     done: ReadonlySet<string>,
@@ -582,6 +583,7 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
     const items: HabitDayItem[] = []
     for (const h of habits) {
       if (h.deleted || h.paused) continue // 暂停的习惯不出现在今日（设置页仍可见）
+      if (keyOf(h.createdAt) > date) continue // 创建日晚于查看日 → 设定之前的日子不出现
       const due = h.freq.kind === 'daily' || h.freq.weekdays.includes(dow)
       if (!due) continue // 每周模式：今天不在选中星期 → 不出现
       items.push({ id: h.id, name: h.name, freq: h.freq, done: done.has(h.id) })

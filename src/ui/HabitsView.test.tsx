@@ -21,7 +21,13 @@ const TODAY = '2026-09-29' as DateKey
 
 async function renderApp() {
   localStorage.clear()
-  const bundle = await initCore({ store: createMemoryStore(), skipLunar: true })
+  const bundle = await initCore({
+    store: createMemoryStore(),
+    skipLunar: true,
+    // v8.57：注入与 TODAY 一致的递增假时钟——createdAt 落在 9/29，
+    // 习惯「只从设定那天起出现」的过滤语义才自洽（此前用真实时钟，createdAt 晚于视图日被过滤）。
+    now: (() => { let t = new Date(2026, 8, 29, 12).getTime(); return () => (t += 1) })(),
+  })
   const store = createAppStore(bundle, { today: TODAY, isNarrow: () => false })
   await store.getState().init()
   render(<App store={store} />)
