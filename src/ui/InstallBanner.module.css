@@ -1,0 +1,145 @@
+/* 安装引导开屏栏（v8.56）：今日视图顶部卡片横幅。
+   视觉对齐原型：白底卡片、圆角 16、1px 浅灰描边、轻投影；品牌蓝图标；克制不打扰。 */
+.banner {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 2px 0 16px;
+  padding: 13px 10px 13px 13px;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+}
+.ic {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ic svg {
+  width: 22px;
+  height: 22px;
+}
+.txt {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.t1 {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.t2 {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--ink-2);
+  margin-top: 4px;
+}
+.t2 b {
+  font-weight: 600;
+  color: var(--ink);
+}
+.steps {
+  margin-top: 11px;
+  padding-top: 11px;
+  border-top: 1px solid var(--line);
+}
+.plat {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+.list {
+  list-style: none;
+  counter-reset: s;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.list li {
+  counter-increment: s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  padding: 2px 0;
+}
+.list li::before {
+  content: counter(s);
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.list li b {
+  font-weight: 600;
+  color: var(--ink);
+}
+.more {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 8px;
+  padding: 0 6px;
+  min-height: 40px; /* 触摸目标 ≥40px（PRD §5.5） */
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.more svg {
+  width: 12px;
+  height: 12px;
+  transition: transform 0.2s ease;
+}
+.more[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+.x {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  margin: -6px -4px 0 0; /* 视觉小，热区大 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  border-radius: 50%;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.x svg {
+  width: 15px;
+  height: 15px;
+}
+.x:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  .more svg {
+    transition: none;
+  }
+}

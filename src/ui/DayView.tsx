@@ -33,6 +33,7 @@ import { TodoSection } from './TodoSection'
 import { NoteSection } from './NoteSection'
 import { HabitSection } from './HabitSection'
 import { ReviewSection } from './ReviewSection'
+import { InstallBanner } from './InstallBanner'
 import { arm as tapArm } from './tapGuard'
 import styles from './DayView.module.css'
 
@@ -349,6 +350,9 @@ function DayFull({ date }: { date?: DateKey } = {}): JSX.Element {
           </div>
         )}
       </div>
+
+      {/* v8.56 安装引导：仅今日中间页（!date && isToday），手机端未安装 PWA 时显示 */}
+      {!date && isToday && <InstallBanner />}
 
       {showRoll && (
         <div className={styles.roll}>

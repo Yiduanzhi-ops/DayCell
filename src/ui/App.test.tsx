@@ -20,6 +20,17 @@ import { App } from './App'
 // vitest 没开 globals，RTL 的自动 cleanup 不会注册——必须手动，否则渲染跨用例累积
 afterEach(cleanup)
 
+// v8.56 安装引导：默认 jsdom UA 是桌面 Linux，banner 不显示；用例需临时 mock 移动端 UA / standalone，
+// 否则其他用例不受影响。afterEach 统一还原。
+const DEFAULT_UA = window.navigator.userAgent
+function mockUA(ua: string) {
+  Object.defineProperty(window.navigator, 'userAgent', { get: () => ua, configurable: true })
+}
+function restoreUA() {
+  Object.defineProperty(window.navigator, 'userAgent', { get: () => DEFAULT_UA, configurable: true })
+}
+afterEach(restoreUA)
+
 const TODAY = '2026-09-29' as DateKey
 
 async function renderApp() {
@@ -568,5 +579,48 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     fireEvent.keyDown(edit, { key: 'Enter' })
     await waitFor(() => expect(screen.queryByLabelText('编辑待办')).not.toBeInTheDocument())
     expect(screen.getByText(/截止 9\/30/)).toBeInTheDocument()
+  })
+
+  it('v8.56 安装引导：iOS 手机显示苹果文案，展开步骤，点关闭后记住不再显示', async () => {
+    mockUA('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15')
+    await renderApp()
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
+    expect(screen.getByText('把 DayCell 装到桌面')).toBeInTheDocument()
+    // 注意：<b>苹果</b> 是子元素，t2 的直接文本不含「苹果」——正则只匹配直接文本部分
+    expect(screen.getByText(/Safari 打开 → 分享 ↥ → 添加到主屏幕/)).toBeInTheDocument()
+    // 展开步骤
+    fireEvent.click(screen.getByRole('button', { name: '查看步骤' }))
+    expect(screen.getByText('苹果（Safari）')).toBeInTheDocument()
+    expect(screen.getByText('「添加到主屏幕」→ 添加')).toBeInTheDocument()
+    // 点 × 关闭 → 立即消失 + 本地记住（renderApp 内部会 clear，故只验证写入与即时消失）
+    fireEvent.click(screen.getByRole('button', { name: '关闭安装提示' }))
+    await waitFor(() => expect(screen.queryByText('把 DayCell 装到桌面')).not.toBeInTheDocument())
+    expect(localStorage.getItem('daycell-install-banner-dismissed')).toBe('1')
+  })
+
+  it('v8.56 安装引导：安卓手机显示安卓文案与步骤', async () => {
+    mockUA('Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/125.0 Mobile Safari/537.36')
+    await renderApp()
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
+    expect(screen.getByText(/Chrome \/ Edge 打开 → 菜单 ⋮ → 安装应用/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '查看步骤' }))
+    expect(screen.getByText('安卓（Chrome / Edge）')).toBeInTheDocument()
+    expect(screen.getByText('「安装应用」')).toBeInTheDocument()
+  })
+
+  it('v8.56 安装引导：桌面浏览器 / 已安装（standalone）不显示', async () => {
+    // 默认桌面 UA → 不显示
+    await renderApp()
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
+    expect(screen.queryByText('把 DayCell 装到桌面')).not.toBeInTheDocument()
+    // 已安装：iOS standalone → 不显示
+    cleanup()
+    Object.defineProperty(window.navigator, 'standalone', { get: () => true, configurable: true })
+    mockUA('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15')
+    await renderApp()
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
+    expect(screen.queryByText('把 DayCell 装到桌面')).not.toBeInTheDocument()
+    // 还原，避免残留
+    Object.defineProperty(window.navigator, 'standalone', { get: () => undefined, configurable: true })
   })
 })

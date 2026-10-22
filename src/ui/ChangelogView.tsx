@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.55'
+const CURRENT_VERSION = 'v8.56'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.56',
+    date: '2026-10-22',
+    items: [
+      '新增安装引导：手机浏览器打开 DayCell 时，顶部提示如何装到桌面（安卓 Chrome/Edge 与苹果 Safari 各一条直达路径，可展开查看详细步骤）',
+      '已安装应用的用户、桌面浏览器不显示引导；点 × 关闭后不再打扰',
+    ],
+  },
   {
     version: 'v8.55',
     date: '2026-10-22',

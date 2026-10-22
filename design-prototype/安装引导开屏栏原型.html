@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>DayCell · 安装引导开屏栏原型</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232E4BA6'/%3E%3Crect x='14' y='14' width='36' height='36' rx='9' fill='%23FFFFFF' opacity='0.92'/%3E%3Cpath d='M26 29h12M32 23v12' stroke='%232E4BA6' stroke-width='3.5' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #F5F5F7;
+    --card: #FFFFFF;
+    --ink: #1A1A1A;
+    --ink-2: #555555;
+    --ink-3: #8A8A8E;
+    --line: #E5E5EA;
+    --accent: #2E4BA6;
+    --accent-soft: #EEF1FA;
+    --radius-lg: 16px;
+    --radius-md: 10px;
+    --shadow: 0 12px 40px rgba(0, 0, 0, 0.10);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: var(--bg); color: var(--ink); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ===== 页面头部 ===== */
+  .page {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 40px 24px 64px;
+  }
+  .head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+  .head .tag {
+    font-size: 12px; font-weight: 600; color: var(--accent);
+    letter-spacing: 0.08em; background: var(--accent-soft);
+    padding: 4px 10px; border-radius: 999px;
+  }
+  .head h1 { font-size: 26px; font-weight: 650; letter-spacing: -0.01em; }
+  .sub { color: var(--ink-2); font-size: 14px; line-height: 1.7; margin-bottom: 32px; }
+
+  /* ===== 主布局：手机 + 规格 ===== */
+  .stage { display: grid; grid-template-columns: minmax(0, 430px) minmax(0, 1fr); gap: 48px; align-items: start; }
+  @media (max-width: 860px) { .stage { grid-template-columns: 1fr; } .spec { order: 2; } }
+
+  /* ===== 手机模拟 ===== */
+  .phone-wrap { display: flex; justify-content: center; }
+  .phone {
+    width: 390px; max-width: 100%;
+    background: var(--card);
+    border-radius: 44px;
+    border: 1px solid #D8D8DC;
+    box-shadow: var(--shadow);
+    padding: 14px;
+    position: relative;
+  }
+  .phone-screen {
+    border-radius: 32px;
+    overflow: hidden;
+    background: var(--bg);
+    border: 1px solid #ECECEF;
+    height: 812px;
+    display: flex; flex-direction: column;
+  }
+  /* 状态栏 */
+  .statusbar {
+    height: 46px; flex: none;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 26px;
+    font-size: 14px; font-weight: 600; color: var(--ink);
+    background: var(--bg);
+  }
+  .statusbar .right { display: flex; align-items: center; gap: 7px; }
+  /* 内容滚动区 */
+  .screen-body { flex: 1; overflow: hidden; display: flex; flex-direction: column; padding: 0 20px; }
+  /* 日期标题 */
+  .day-head { padding: 14px 0 10px; flex: none; }
+  .day-head .d { font-size: 24px; font-weight: 650; letter-spacing: -0.01em; }
+  .day-head .w { font-size: 13px; color: var(--ink-3); margin-top: 3px; }
+
+  /* ===== 开屏栏（核心产物）===== */
+  .banner {
+    flex: none;
+    margin: 4px 0 18px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    padding: 14px 12px 14px 14px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+    display: flex; align-items: flex-start; gap: 12px;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+  .banner.gone { opacity: 0; transform: translateY(-6px); pointer-events: none; }
+  .banner .ic {
+    width: 40px; height: 40px; flex: none;
+    border-radius: 11px;
+    background: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .banner .ic svg { width: 22px; height: 22px; }
+  .banner .txt { flex: 1; min-width: 0; }
+  .banner .t1 { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+  .banner .t2 { font-size: 13px; color: var(--ink-2); line-height: 1.75; margin-top: 5px; }
+  .banner .t2 b { font-weight: 600; color: var(--ink); }
+  .banner .more {
+    flex: none; margin-top: 1px;
+    font-size: 12.5px; font-weight: 600; color: var(--accent);
+    background: none; border: none; cursor: pointer; padding: 2px 0;
+    display: inline-flex; align-items: center; gap: 3px;
+  }
+  .banner .more svg { width: 12px; height: 12px; transition: transform 0.2s ease; }
+  .banner .more.open svg { transform: rotate(180deg); }
+  .banner .x {
+    flex: none; width: 28px; height: 28px;
+    border: none; background: none; cursor: pointer;
+    border-radius: 50%; color: var(--ink-3);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .banner .x:hover { background: rgba(0,0,0,0.05); color: var(--ink); }
+  .banner .x svg { width: 15px; height: 15px; }
+
+  /* 展开的详细步骤 */
+  .steps { display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .banner.open .steps { display: block; }
+  .steps .plat { font-size: 12.5px; font-weight: 600; color: var(--ink); margin: 10px 0 6px; }
+  .steps .plat:first-child { margin-top: 0; }
+  .steps ol { list-style: none; counter-reset: s; }
+  .steps li {
+    counter-increment: s;
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12.5px; color: var(--ink-2); line-height: 1.6;
+    padding: 3px 0;
+  }
+  .steps li::before {
+    content: counter(s);
+    width: 18px; height: 18px; flex: none;
+    border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent);
+    font-size: 11px; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .steps li b { font-weight: 600; color: var(--ink); }
+
+  /* ===== 今日视图骨架 ===== */
+  .cards { flex: 1; display: flex; flex-direction: column; gap: 12px; padding-bottom: 16px; overflow: hidden; }
+  .block { background: var(--card); border-radius: var(--radius-lg); border: 1px solid var(--line); padding: 12px 14px; }
+  .block .bh { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: var(--ink-2); margin-bottom: 10px; }
+  .block .bh svg { width: 14px; height: 14px; color: var(--accent); }
+  .row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+  .row .dot {
+    width: 20px; height: 20px; flex: none;
+    border-radius: 50%; border: 1.5px solid #C7C7CC;
+  }
+  .row .dot.on { background: var(--accent); border-color: var(--accent); position: relative; }
+  .row .dot.on::after {
+    content: ""; position: absolute; left: 5px; top: 2px;
+    width: 8px; height: 4px;
+    border-left: 2px solid #fff; border-bottom: 2px solid #fff;
+    transform: rotate(-45deg);
+  }
+  .row .tx { font-size: 14px; color: var(--ink); }
+  .row .tx.done { color: var(--ink-3); text-decoration: line-through; }
+  .row .tx.small { font-size: 13px; }
+  .row .chip { margin-left: auto; font-size: 11px; color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 2px 7px; }
+
+  /* ===== 底部 Tab ===== */
+  .tabbar {
+    flex: none; height: 66px;
+    background: rgba(255,255,255,0.92);
+    border-top: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-around;
+    padding: 0 8px;
+  }
+  .tabbar .t { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10.5px; color: var(--ink-3); }
+  .tabbar .t.on { color: var(--accent); }
+  .tabbar .t svg { width: 21px; height: 21px; }
+
+  /* ===== 规格注释 ===== */
+  .spec { display: flex; flex-direction: column; gap: 14px; }
+  .note {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-lg);
+    padding: 18px 20px;
+  }
+  .note h3 { font-size: 15px; font-weight: 650; margin-bottom: 12px; }
+  .note .rows { display: flex; flex-direction: column; gap: 9px; }
+  .note .r { display: flex; gap: 12px; font-size: 13px; line-height: 1.65; color: var(--ink-2); }
+  .note .r .k { flex: none; width: 68px; font-weight: 600; color: var(--ink); }
+  .note .r svg { flex: none; width: 15px; height: 15px; margin-top: 2px; color: var(--accent); }
+  .note ul { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .note ul li { display: flex; gap: 8px; font-size: 13px; line-height: 1.65; color: var(--ink-2); }
+  .note ul li::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); margin-top: 8px; flex: none; }
+  .pill { display: inline-block; font-size: 11px; font-weight: 600; color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 2px 8px; margin-left: 4px; }
+
+  /* toast */
+  .toast {
+    position: fixed; left: 50%; bottom: 36px;
+    transform: translateX(-50%) translateY(10px);
+    background: rgba(26,26,26,0.92); color: #fff;
+    font-size: 13px; padding: 9px 18px; border-radius: 999px;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    z-index: 50;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  @media (max-width: 600px) {
+    .page { padding: 24px 14px 48px; }
+    .phone { width: 100%; max-width: 390px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .banner, .toast { transition: none; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="head">
+    <span class="tag">原型 v1</span>
+    <h1>安装引导开屏栏</h1>
+  </div>
+  <p class="sub">DayCell 打开时在顶部提示用户「添加到主屏幕」——安卓 / 苹果各给一条直达路径，关闭一次不再打扰。</p>
+
+  <div class="stage">
+    <!-- 手机模拟 -->
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="phone-screen">
+          <div class="statusbar">
+            <span>9:41</span>
+            <span class="right">
+              <svg width="17" height="11" viewBox="0 0 17 11" fill="none"><rect x="0.5" y="0.5" width="15" height="10" rx="3" stroke="currentColor" opacity="0.5"/><rect x="2.5" y="2.5" width="9" height="6" rx="1.5" fill="currentColor"/><path d="M13.5 3.5v4M15 4.5v2" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.5"/></svg>
+              <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="currentColor" opacity="0.5"/><rect x="2" y="2" width="14" height="8" rx="2" fill="currentColor" opacity="0.9"/><rect x="23" y="4.5" width="1.5" height="3" rx="0.75" fill="currentColor" opacity="0.5"/></svg>
+            </span>
+          </div>
+
+          <div class="screen-body">
+            <div class="day-head">
+              <div class="d">10月22日</div>
+              <div class="w">星期四 · 今天</div>
+            </div>
+
+            <!-- 开屏栏 -->
+            <div class="banner" id="banner">
+              <div class="ic">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="7" y="3" width="10" height="18" rx="2.5"/>
+                  <path d="M12 7.5v6M9.5 10h5"/>
+                  <path d="M11 17.5h2"/>
+                </svg>
+              </div>
+              <div class="txt">
+                <div class="t1">把 DayCell 装到桌面</div>
+                <div class="t2">
+                  <div><b>安卓</b>　Chrome / Edge 打开 → 菜单 ⋮ → 安装应用</div>
+                  <div><b>苹果</b>　Safari 打开 → 分享 ↥ → 添加到主屏幕</div>
+                </div>
+                <button class="more" id="moreBtn" type="button">
+                  <span id="moreText">查看步骤</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+                <div class="steps">
+                  <div class="plat">安卓（Chrome / Edge）</div>
+                  <ol>
+                    <li>用 <b>Chrome 或 Edge</b> 打开 DayCell</li>
+                    <li>点右上角 <b>⋮ 菜单</b></li>
+                    <li>选 <b>「安装应用」</b>，桌面出现图标</li>
+                  </ol>
+                  <div class="plat">苹果（Safari）</div>
+                  <ol>
+                    <li>用 <b>Safari</b> 打开 DayCell</li>
+                    <li>点底部 <b>分享 ↥</b> 按钮</li>
+                    <li>选 <b>「添加到主屏幕」→ 添加</b></li>
+                  </ol>
+                </div>
+              </div>
+              <button class="x" id="closeBanner" aria-label="关闭提示">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+              </button>
+            </div>
+
+            <!-- 今日视图骨架 -->
+            <div class="cards">
+              <div class="block">
+                <div class="bh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>待办</div>
+                <div class="row"><span class="dot on"></span><span class="tx done">晚上散步 30 分钟</span></div>
+                <div class="row"><span class="dot"></span><span class="tx">交作业</span><span class="chip">截止 10/25</span></div>
+                <div class="row"><span class="dot"></span><span class="tx">整理本周目标进度</span></div>
+              </div>
+              <div class="block">
+                <div class="bh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 20V9M12 20V4M19 20v-7"/></svg>习惯</div>
+                <div class="row"><span class="dot on"></span><span class="tx small">晨跑</span></div>
+                <div class="row"><span class="dot on"></span><span class="tx small">睡前读书</span></div>
+              </div>
+              <div class="block">
+                <div class="bh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l1.8 3.6 4 .6-2.9 2.8.7 4L12 12.6 8.4 14l.7-4-2.9-2.8 4-.6z"/></svg>想法</div>
+                <div class="row"><span class="tx small">AI 时代，会提问的人才是稀缺的。</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tabbar">
+            <div class="t on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 15h18"/></svg>今日</div>
+            <div class="t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 12h18M12 3v18"/></svg>周</div>
+            <div class="t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/></svg>月</div>
+            <div class="t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>目标</div>
+            <div class="t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 5h16M4 12h16M4 19h10"/></svg>回顾</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 规格注释 -->
+    <div class="spec">
+      <div class="note">
+        <h3>显示策略</h3>
+        <div class="rows">
+          <div class="r"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="9"/></svg><span><b>时机</b>　首次打开（未安装）时显示；装成 App 后不再出现</span></div>
+          <div class="r"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 11V8a3 3 0 016 0v3M6 11h12v8H6z"/></svg><span><b>可关闭</b>　右上角 × 收起，本地记住选择，不再打扰</span></div>
+          <div class="r"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 12h8"/></svg><span><b>平台自适应</b>　识别 iOS / 安卓分别显示对应步骤；桌面端隐藏此栏</span></div>
+        </div>
+      </div>
+      <div class="note">
+        <h3>视觉规格</h3>
+        <ul>
+          <li>卡片式横幅：白底、圆角 16、1px 浅灰描边（#E5E5EA），轻投影</li>
+          <li>标题 15 / 600，指引文字 13，行距 1.75，两行放得下</li>
+          <li>左侧图标 40×40、圆角 11、品牌蓝 #2E4BA6 底 + 白色手机符号</li>
+          <li>「查看步骤」可展开：每平台 3 步，步骤号用浅蓝圆点计数</li>
+          <li>位置：状态栏下方、日期标题之下、内容区之上，不遮挡操作</li>
+        </ul>
+      </div>
+      <div class="note">
+        <h3>原型交互说明</h3>
+        <ul>
+          <li>点「查看步骤」→ 展开安卓 / 苹果完整步骤，再点收起</li>
+          <li>点右上角 × → 横幅收起（演示"已记住，不再显示"）</li>
+          <li>真实实现时：识别平台只显示对应条目；装成 App 的用户直接隐藏</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">已记住，不再显示安装提示</div>
+
+<script>
+  (function () {
+    var banner = document.getElementById('banner');
+    var more = document.getElementById('moreBtn');
+    var moreText = document.getElementById('moreText');
+    var closeBtn = document.getElementById('closeBanner');
+    var toast = document.getElementById('toast');
+    var timer = null;
+
+    function showToast(msg) {
+      toast.textContent = msg;
+      toast.classList.add('show');
+      clearTimeout(timer);
+      timer = setTimeout(function () { toast.classList.remove('show'); }, 2200);
+    }
+
+    // 展开 / 收起详细步骤
+    more.addEventListener('click', function () {
+      var open = banner.classList.toggle('open');
+      more.classList.toggle('open', open);
+      moreText.textContent = open ? '收起步骤' : '查看步骤';
+    });
+
+    // 关闭：收起横幅 + 提示已记住
+    closeBtn.addEventListener('click', function () {
+      banner.classList.add('gone');
+      showToast('已记住，不再显示安装提示');
+    });
+  })();
+</script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 {
-  "src": "目标打卡联动原型.html",
-  "url": "file:///home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/%E7%9B%AE%E6%A0%87%E6%89%93%E5%8D%A1%E8%81%94%E5%8A%A8%E5%8E%9F%E5%9E%8B.html",
+  "src": "安装引导开屏栏原型.html",
+  "url": "file:///home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/%E5%AE%89%E8%A3%85%E5%BC%95%E5%AF%BC%E5%BC%80%E5%B1%8F%E6%A0%8F%E5%8E%9F%E5%9E%8B.html",
   "outdir": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots",
   "include": [
     "lint",
@@ -10,19 +10,19 @@
   "shots": {
     "desktop": {
       "revealed": 0,
-      "screenshot": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots/目标打卡联动原型_desktop.jpg",
-      "screenshotBytes": 55790,
+      "screenshot": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots/安装引导开屏栏原型_desktop.jpg",
+      "screenshotBytes": 48488,
       "truncated": false,
       "structure": {
-        "title": "目标打卡联动 · 原型",
-        "firstH1": "目标打卡 · 联动原型",
+        "title": "DayCell · 安装引导开屏栏原型",
+        "firstH1": "安装引导开屏栏",
         "viewport": {
           "w": 1440,
           "h": 900
         },
         "fullpage": {
           "w": 1440,
-          "h": 1077
+          "h": 1043
         },
         "counts": {
           "section": 0,
@@ -30,59 +30,31 @@
           "h2": 0,
           "img": 0,
           "canvas": 0,
-          "svg": 10,
+          "svg": 16,
           "links": 0,
-          "buttons": 0
+          "buttons": 2
         }
       },
       "consoleErrors": [],
       "consoleWarnings": [],
       "horizontalOverflow": [],
-      "resourceErrors": [],
-      "emojiUsageWarning": [
-        {
-          "tag": "span",
-          "chars": "★",
-          "contextText": "★"
-        },
-        {
-          "tag": "span",
-          "chars": "☆",
-          "contextText": "☆"
-        },
-        {
-          "tag": "span",
-          "chars": "☆",
-          "contextText": "☆"
-        },
-        {
-          "tag": "span",
-          "chars": "✓",
-          "contextText": "✓"
-        },
-        {
-          "tag": "span",
-          "chars": "★",
-          "contextText": "★ 收藏置顶（现有功能）"
-        }
-      ],
-      "emojiUsageHint": "warning · 含义：页面正文里检出 emoji 字符（U+1F300–U+1FAFF 或 U+2600–U+27BF 平面）。SKILL.md 视觉设计段明确禁用 emoji——不作图标、不作装饰、不放进数据。 | 修法：换成内联 SVG 图标（<svg viewBox=\"0 0 24 24\">）建立风格连贯的图标语言。 | 豁免：(1) **用户品牌资产明确包含 emoji**（罕见，但如即时通讯、社交媒体主题的产物合理）；(2) 主题本身就是关于 emoji 的（emoji 历史 / 表情包研究 / Unicode 演进）；(3) 引用某条真实文本原文（如推文截图的文字版），emoji 是内容而非装饰——保留原文可接受，但仍应权衡；(4) 装饰性 dingbat（如 U+2713 勾选符 ✓、U+2192 箭头 →、U+2605 星 ★）落入 U+2600–U+27BF 平面被误报的，如确认是符号非 emoji 可忽略。"
+      "resourceErrors": []
     },
     "mobile": {
       "revealed": 0,
-      "screenshot": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots/目标打卡联动原型_mobile.jpg",
-      "screenshotBytes": 78587,
+      "screenshot": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots/安装引导开屏栏原型_mobile.jpg",
+      "screenshotBytes": 79641,
       "truncated": false,
       "structure": {
-        "title": "目标打卡联动 · 原型",
-        "firstH1": "目标打卡 · 联动原型",
+        "title": "DayCell · 安装引导开屏栏原型",
+        "firstH1": "安装引导开屏栏",
         "viewport": {
           "w": 390,
           "h": 844
         },
         "fullpage": {
-          "w": 391,
-          "h": 1972
+          "w": 390,
+          "h": 1812
         },
         "counts": {
           "section": 0,
@@ -90,59 +62,31 @@
           "h2": 0,
           "img": 0,
           "canvas": 0,
-          "svg": 10,
+          "svg": 16,
           "links": 0,
-          "buttons": 0
+          "buttons": 2
         }
       },
       "consoleErrors": [],
       "consoleWarnings": [],
       "horizontalOverflow": [],
-      "resourceErrors": [],
-      "emojiUsageWarning": [
-        {
-          "tag": "span",
-          "chars": "★",
-          "contextText": "★"
-        },
-        {
-          "tag": "span",
-          "chars": "☆",
-          "contextText": "☆"
-        },
-        {
-          "tag": "span",
-          "chars": "☆",
-          "contextText": "☆"
-        },
-        {
-          "tag": "span",
-          "chars": "✓",
-          "contextText": "✓"
-        },
-        {
-          "tag": "span",
-          "chars": "★",
-          "contextText": "★ 收藏置顶（现有功能）"
-        }
-      ],
-      "emojiUsageHint": "warning · 含义：页面正文里检出 emoji 字符（U+1F300–U+1FAFF 或 U+2600–U+27BF 平面）。SKILL.md 视觉设计段明确禁用 emoji——不作图标、不作装饰、不放进数据。 | 修法：换成内联 SVG 图标（<svg viewBox=\"0 0 24 24\">）建立风格连贯的图标语言。 | 豁免：(1) **用户品牌资产明确包含 emoji**（罕见，但如即时通讯、社交媒体主题的产物合理）；(2) 主题本身就是关于 emoji 的（emoji 历史 / 表情包研究 / Unicode 演进）；(3) 引用某条真实文本原文（如推文截图的文字版），emoji 是内容而非装饰——保留原文可接受，但仍应权衡；(4) 装饰性 dingbat（如 U+2713 勾选符 ✓、U+2192 箭头 →、U+2605 星 ★）落入 U+2600–U+27BF 平面被误报的，如确认是符号非 emoji 可忽略。"
+      "resourceErrors": []
     }
   },
   "engine": "playwright",
   "chromiumExec": "/opt/vm/preinstall/ms-playwright/chromium-1169/chrome-linux/chrome",
-  "elapsedSec": 5.06,
+  "elapsedSec": 4.99,
   "schemaVersion": 2,
-  "status": "warning",
+  "status": "pass",
   "engineInfo": {
     "name": "playwright",
     "degraded": false,
     "degradedReasons": []
   },
   "input": {
-    "original": "目标打卡联动原型.html",
-    "resolvedPath": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/目标打卡联动原型.html",
-    "baseUrl": "file:///home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/%E7%9B%AE%E6%A0%87%E6%89%93%E5%8D%A1%E8%81%94%E5%8A%A8%E5%8E%9F%E5%9E%8B.html",
+    "original": "安装引导开屏栏原型.html",
+    "resolvedPath": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/安装引导开屏栏原型.html",
+    "baseUrl": "file:///home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/%E5%AE%89%E8%A3%85%E5%BC%95%E5%AF%BC%E5%BC%80%E5%B1%8F%E6%A0%8F%E5%8E%9F%E5%9E%8B.html",
     "protocol": "file",
     "cwd": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype",
     "mediaMode": {
@@ -153,8 +97,8 @@
     "screenshots": [
       {
         "viewport": "desktop",
-        "path": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots/目标打卡联动原型_desktop.jpg",
-        "size": 55790,
+        "path": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots/安装引导开屏栏原型_desktop.jpg",
+        "size": 48488,
         "visualCoverage": {
           "complete": true,
           "reason": null
@@ -162,8 +106,8 @@
       },
       {
         "viewport": "mobile",
-        "path": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots/目标打卡联动原型_mobile.jpg",
-        "size": 78587,
+        "path": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots/安装引导开屏栏原型_mobile.jpg",
+        "size": 79641,
         "visualCoverage": {
           "complete": true,
           "reason": null
@@ -174,148 +118,10 @@
   "summary": {
     "blocker": 0,
     "error": 0,
-    "warning": 10,
+    "warning": 0,
     "info": 0
   },
-  "findings": [
-    {
-      "ruleId": "emojiUsageWarning",
-      "severity": "warning",
-      "kind": "typography",
-      "viewport": "desktop",
-      "selector": "span",
-      "evidence": {
-        "tag": "span",
-        "chars": "★",
-        "contextText": "★"
-      },
-      "dedupeKey": "emojiUsageWarning|desktop|span|0"
-    },
-    {
-      "ruleId": "emojiUsageWarning",
-      "severity": "warning",
-      "kind": "typography",
-      "viewport": "desktop",
-      "selector": "span",
-      "evidence": {
-        "tag": "span",
-        "chars": "☆",
-        "contextText": "☆"
-      },
-      "dedupeKey": "emojiUsageWarning|desktop|span|1"
-    },
-    {
-      "ruleId": "emojiUsageWarning",
-      "severity": "warning",
-      "kind": "typography",
-      "viewport": "desktop",
-      "selector": "span",
-      "evidence": {
-        "tag": "span",
-        "chars": "☆",
-        "contextText": "☆"
-      },
-      "dedupeKey": "emojiUsageWarning|desktop|span|2"
-    },
-    {
-      "ruleId": "emojiUsageWarning",
-      "severity": "warning",
-      "kind": "typography",
-      "viewport": "desktop",
-      "selector": "span",
-      "evidence": {
-        "tag": "span",
-        "chars": "✓",
-        "contextText": "✓"
-      },
-      "dedupeKey": "emojiUsageWarning|desktop|span|3"
-    },
-    {
-      "ruleId": "emojiUsageWarning",
-      "severity": "warning",
-      "kind": "typography",
-      "viewport": "desktop",
-      "selector": "span",
-      "evidence": {
-        "tag": "span",
-        "chars": "★",
-        "contextText": "★ 收藏置顶（现有功能）"
-      },
-      "dedupeKey": "emojiUsageWarning|desktop|span|4"
-    },
-    {
-      "ruleId": "emojiUsageWarning",
-      "severity": "warning",
-      "kind": "typography",
-      "viewport": "mobile",
-      "selector": "span",
-      "evidence": {
-        "tag": "span",
-        "chars": "★",
-        "contextText": "★"
-      },
-      "dedupeKey": "emojiUsageWarning|mobile|span|0"
-    },
-    {
-      "ruleId": "emojiUsageWarning",
-      "severity": "warning",
-      "kind": "typography",
-      "viewport": "mobile",
-      "selector": "span",
-      "evidence": {
-        "tag": "span",
-        "chars": "☆",
-        "contextText": "☆"
-      },
-      "dedupeKey": "emojiUsageWarning|mobile|span|1"
-    },
-    {
-      "ruleId": "emojiUsageWarning",
-      "severity": "warning",
-      "kind": "typography",
-      "viewport": "mobile",
-      "selector": "span",
-      "evidence": {
-        "tag": "span",
-        "chars": "☆",
-        "contextText": "☆"
-      },
-      "dedupeKey": "emojiUsageWarning|mobile|span|2"
-    },
-    {
-      "ruleId": "emojiUsageWarning",
-      "severity": "warning",
-      "kind": "typography",
-      "viewport": "mobile",
-      "selector": "span",
-      "evidence": {
-        "tag": "span",
-        "chars": "✓",
-        "contextText": "✓"
-      },
-      "dedupeKey": "emojiUsageWarning|mobile|span|3"
-    },
-    {
-      "ruleId": "emojiUsageWarning",
-      "severity": "warning",
-      "kind": "typography",
-      "viewport": "mobile",
-      "selector": "span",
-      "evidence": {
-        "tag": "span",
-        "chars": "★",
-        "contextText": "★ 收藏置顶（现有功能）"
-      },
-      "dedupeKey": "emojiUsageWarning|mobile|span|4"
-    }
-  ],
-  "prioritizedActions": [
-    {
-      "ruleId": "emojiUsageWarning",
-      "severity": "warning",
-      "viewport": "desktop",
-      "selector": "span"
-    }
-  ],
+  "findings": [],
+  "prioritizedActions": [],
   "reportPath": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots/report.json"
 }

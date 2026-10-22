@@ -37,16 +37,16 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v8.55')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v8.56')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v8.55')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v8.56')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v8.55，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v8.56，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v8.55')
-    expect(screen.getByText('修复编辑待办时「自定义截止日期」点不开的问题：此前点自定义日期的瞬间编辑框失焦即保存关闭，日期选择器弹不出来；现在失焦不再立即关闭，点截止行可正常修改日期')).toBeInTheDocument()
+    expect(vers[0].textContent).toBe('v8.56')
+    expect(screen.getByText('新增安装引导：手机浏览器打开 DayCell 时，顶部提示如何装到桌面（安卓 Chrome/Edge 与苹果 Safari 各一条直达路径，可展开查看详细步骤）')).toBeInTheDocument()
   })
 
   it('历史版本（v8.2 同步、v7.9 目标、v7.5 菜单）要点存在', async () => {
