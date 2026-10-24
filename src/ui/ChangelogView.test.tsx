@@ -37,16 +37,16 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v8.58')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v8.59')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v8.58')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v8.59')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v8.58，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v8.59，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v8.58')
-    expect(screen.getByText('后台埋点：记录你的首次使用时间（用于将来老用户资格判定），写入一次后不再变动，本地存储')).toBeInTheDocument()
+    expect(vers[0].textContent).toBe('v8.59')
+    expect(screen.getByText('优化埋点：仅保留首次使用时间记录（老用户资格判定用），去除冗余的试用起始字段')).toBeInTheDocument()
   })
 
   it('历史版本（v8.2 同步、v7.9 目标、v7.5 菜单）要点存在', async () => {
