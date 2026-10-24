@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DayCell · Excel 导入待办原型</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232E4BA6'/%3E%3Cpath d='M18 14h28a4 4 0 0 1 4 4v28a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4V18a4 4 0 0 1 4-4z' fill='none' stroke='%23fff' stroke-width='4'/%3E%3Cpath d='M24 40V24M24 32h12' stroke='%23fff' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E" />
+<style>
+  :root {
+    --accent: #2E4BA6;
+    --accent-soft: #EEF2FC;
+    --accent-line: #C9D6F2;
+    --ink: #1A1A1E;
+    --ink-2: #5B5B63;
+    --ink-3: #9A9AA3;
+    --line: #E5E5EA;
+    --line-2: #EFEFF2;
+    --bg: #F7F7F9;
+    --card: #FFFFFF;
+    --shadow: 0 6px 24px rgba(20, 20, 40, 0.08);
+    --ok: #1F8A5B;
+    --ok-soft: #E9F6EF;
+    --warn: #B45309;
+    --warn-soft: #FDF3E3;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 1080px; margin: 0 auto; padding: 40px 24px 64px; }
+  .head h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+  .head p { margin-top: 6px; font-size: 14px; color: var(--ink-2); }
+  .stage { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 48px; align-items: start; margin-top: 32px; }
+  @media (max-width: 860px) { .stage { grid-template-columns: 1fr; } .spec { order: 2; } }
+  @media (max-width: 600px) { .page { padding: 24px 14px 48px; } .phone { width: 100%; max-width: 390px; } }
+
+  /* ===== 手机模拟 ===== */
+  .phone-wrap { display: flex; justify-content: center; }
+  .phone {
+    width: 390px; max-width: 100%;
+    background: var(--card);
+    border-radius: 44px;
+    border: 1px solid #D8D8DC;
+    box-shadow: var(--shadow);
+    padding: 14px;
+    position: relative;
+  }
+  .phone-screen {
+    height: 720px;
+    background: var(--bg);
+    border-radius: 32px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  .statusbar {
+    height: 28px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 18px;
+    font-size: 12px; font-weight: 600; color: var(--ink);
+    background: var(--bg);
+  }
+  .statusbar .dots { display: flex; gap: 3px; }
+  .statusbar .dots i { width: 4px; height: 4px; border-radius: 50%; background: var(--ink-2); display: block; }
+  .appbar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 14px;
+    border-bottom: 1px solid var(--line-2);
+  }
+  .appbar .logo { width: 20px; height: 20px; border-radius: 5px; background: var(--accent); display: flex; align-items: center; justify-content: center; }
+  .appbar .logo svg { width: 12px; height: 12px; stroke: #fff; }
+  .appbar .name { font-size: 13px; font-weight: 600; }
+  .appbar .nav { margin-left: auto; display: flex; gap: 10px; }
+  .appbar .nav button {
+    border: none; background: none; font-size: 11px; color: var(--ink-3); cursor: pointer; min-height: 34px; padding: 0 4px;
+  }
+  .appbar .nav button.on { color: var(--accent); font-weight: 600; }
+
+  .dhead { padding: 14px 16px 4px; }
+  .dtitle { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+  .dtitle .dow { font-size: 13px; color: var(--ink-2); font-weight: 500; margin-left: 6px; }
+  .dsub { font-size: 11.5px; color: var(--ink-3); margin-top: 3px; }
+
+  .content { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 10px 16px 16px; }
+
+  /* ---- 步骤条 ---- */
+  .steps { display: flex; align-items: center; gap: 6px; margin: 6px 0 12px; }
+  .steps .sd { width: 20px; height: 20px; border-radius: 50%; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; border: 1.5px solid var(--line); color: var(--ink-3); background: var(--card); }
+  .steps .sd.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .steps .sd.done { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); }
+  .steps .sl { flex: 1 1 auto; height: 1.5px; background: var(--line); }
+  .steps .sl.on { background: var(--accent-line); }
+
+  /* ---- 步骤 1：上传 ---- */
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px 16px; margin-bottom: 12px; }
+  .upload-ic { width: 56px; height: 56px; border-radius: 16px; background: var(--accent-soft); display: flex; align-items: center; justify-content: center; margin: 6px auto 12px; }
+  .upload-ic svg { width: 28px; height: 28px; stroke: var(--accent); }
+  .up-title { font-size: 16px; font-weight: 700; text-align: center; }
+  .up-desc { font-size: 12.5px; color: var(--ink-2); text-align: center; line-height: 1.7; margin: 6px 0 14px; }
+  .up-btn {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    width: 100%; min-height: 46px;
+    background: var(--accent); color: #fff;
+    border: none; border-radius: 12px;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  .up-btn svg { width: 16px; height: 16px; stroke: #fff; }
+  .up-fmt { display: flex; gap: 8px; justify-content: center; margin-top: 10px; }
+  .fmt { font-size: 10.5px; color: var(--ink-2); background: var(--bg); border: 1px solid var(--line-2); border-radius: 999px; padding: 3px 10px; }
+  .up-tip { font-size: 11px; color: var(--ink-3); text-align: center; margin-top: 10px; line-height: 1.6; }
+  .up-tip a { color: var(--accent); text-decoration: none; }
+
+  /* ---- 步骤 2：预览与映射 ---- */
+  .p-title { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+  .p-sub { font-size: 12px; color: var(--ink-2); margin-bottom: 10px; }
+  .tbl { width: 100%; border-collapse: collapse; font-size: 11.5px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .tbl th { background: var(--accent-soft); color: var(--accent); font-weight: 600; text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--accent-line); }
+  .tbl td { padding: 7px 10px; border-bottom: 1px solid var(--line-2); color: var(--ink); }
+  .tbl tr:last-child td { border-bottom: none; }
+  .tbl .row-n { color: var(--ink-3); font-size: 10.5px; width: 28px; }
+  .tbl .dim { color: var(--ink-3); }
+  .map-title { font-size: 13px; font-weight: 600; margin: 14px 0 8px; }
+  .map-row { display: grid; grid-template-columns: 84px 1fr; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .map-row label { font-size: 12px; color: var(--ink-2); }
+  .map-row select {
+    width: 100%; min-height: 40px;
+    font-size: 13px; color: var(--ink);
+    border: 1px solid var(--line); border-radius: 10px;
+    background: var(--card); padding: 0 10px;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239A9AA3' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center; background-size: 14px;
+  }
+  .prio-note { font-size: 11px; color: var(--ink-3); margin-top: 6px; line-height: 1.6; }
+  .next-btn { display: flex; align-items: center; justify-content: center; gap: 5px; width: 100%; min-height: 46px; background: var(--accent); color: #fff; border: none; border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 12px; }
+
+  /* ---- 步骤 3：确认生成 ---- */
+  .stat { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+  .stat .s { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 6px; text-align: center; }
+  .stat .s b { display: block; font-size: 18px; font-weight: 700; }
+  .stat .s span { font-size: 10.5px; color: var(--ink-3); }
+  .stat .s b.blue { color: var(--accent); }
+  .stat .s b.green { color: var(--ok); }
+  .glist { list-style: none; }
+  .glist .g { margin-bottom: 10px; }
+  .glist .gh { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: var(--ink); margin-bottom: 5px; }
+  .glist .gh .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+  .glist .gh .cnt { font-size: 10.5px; color: var(--ink-3); font-weight: 500; }
+  .glist .gi { display: flex; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin-bottom: 4px; font-size: 12.5px; }
+  .glist .gi .chk { width: 17px; height: 17px; border-radius: 50%; border: 1.5px solid var(--line); flex: 0 0 auto; }
+  .glist .gi .tx { flex: 1 1 auto; min-width: 0; }
+  .glist .gi .tag { flex: 0 0 auto; font-size: 10px; color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 2px 8px; }
+  .dup { display: flex; gap: 8px; align-items: flex-start; background: var(--warn-soft); border: 1px solid #F2DCC0; border-radius: 10px; padding: 9px 10px; font-size: 11.5px; color: var(--warn); margin-bottom: 12px; line-height: 1.6; }
+  .rowbtns { display: flex; gap: 8px; margin-top: 12px; }
+  .ghost-btn { flex: 1 1 auto; min-height: 46px; background: var(--card); color: var(--ink-2); border: 1px solid var(--line); border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .import-btn { flex: 2 1 auto; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 46px; background: var(--accent); color: #fff; border: none; border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .import-btn svg { width: 15px; height: 15px; stroke: #fff; }
+
+  /* ---- 步骤 4：完成 ---- */
+  .done-ic { width: 64px; height: 64px; border-radius: 50%; background: var(--ok-soft); display: flex; align-items: center; justify-content: center; margin: 14px auto 12px; }
+  .done-ic svg { width: 30px; height: 30px; stroke: var(--ok); }
+  .done-title { font-size: 17px; font-weight: 700; text-align: center; }
+  .done-sub { font-size: 12.5px; color: var(--ink-2); text-align: center; margin: 6px 0 16px; line-height: 1.7; }
+  .today-prev { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+  .today-prev .th { font-size: 12.5px; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .today-prev .th .pl { font-size: 10px; color: var(--ok); background: var(--ok-soft); border-radius: 999px; padding: 1px 8px; }
+  .today-prev .gi { display: flex; align-items: center; gap: 8px; padding: 7px 4px; font-size: 12.5px; border-bottom: 1px solid var(--line-2); }
+  .today-prev .gi:last-child { border-bottom: none; }
+  .today-prev .gi .chk { width: 17px; height: 17px; border-radius: 50%; border: 1.5px solid var(--line); flex: 0 0 auto; }
+  .today-prev .gi .new-mark { font-size: 9.5px; color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 1px 7px; flex: 0 0 auto; }
+  .today-prev .gi .tx { flex: 1 1 auto; min-width: 0; }
+  .done-btn { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 46px; background: var(--accent); color: #fff; border: none; border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 14px; }
+
+  .tabbar { display: flex; border-top: 1px solid var(--line-2); background: var(--card); padding: 4px 8px 8px; }
+  .tabbar button { flex: 1 1 0; border: none; background: none; font-size: 10.5px; color: var(--ink-3); cursor: pointer; padding: 6px 0 2px; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 40px; }
+  .tabbar button.on { color: var(--accent); font-weight: 600; }
+  .tabbar svg { width: 17px; height: 17px; }
+
+  /* ===== 右侧说明 ===== */
+  .spec { display: flex; flex-direction: column; gap: 12px; }
+  .spec-card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px 18px; }
+  .spec-card h3 { font-size: 15px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .spec-card h3 .no { width: 20px; height: 20px; border-radius: 6px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .spec-card ul { list-style: none; }
+  .spec-card li { font-size: 12.5px; color: var(--ink-2); line-height: 1.75; padding-left: 14px; position: relative; margin-bottom: 4px; }
+  .spec-card li::before { content: ""; position: absolute; left: 2px; top: 9px; width: 4px; height: 4px; border-radius: 50%; background: var(--accent-line); }
+  .spec-card li b { color: var(--ink); font-weight: 600; }
+  .plan { display: flex; gap: 8px; }
+  .plan .p { flex: 1 1 0; border: 1px solid var(--line); border-radius: 12px; padding: 12px 12px; }
+  .plan .p .t { font-size: 12.5px; font-weight: 700; margin-bottom: 4px; }
+  .plan .p.free .t { color: var(--ink); }
+  .plan .p.pro .t { color: var(--accent); }
+  .plan .p .d { font-size: 11px; color: var(--ink-2); line-height: 1.6; }
+  .plan .p .price { font-size: 11px; font-weight: 600; color: var(--ok); margin-top: 6px; }
+  @media (max-width: 600px) {
+    .plan { flex-direction: column; }
+    .stage { grid-template-columns: minmax(0, 390px); }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="head">
+    <h1>Excel 导入待办 · 交互原型</h1>
+    <p>上传表格 → 自动生成 DayCell 待办。右侧为流程与设计说明，左侧手机内可完整走一遍。</p>
+  </div>
+
+  <div class="stage">
+    <!-- ===== 手机模拟 ===== -->
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="phone-screen">
+          <div class="statusbar"><span>9:41</span><span class="dots"><i></i><i></i><i></i></span></div>
+          <div class="appbar">
+            <span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM8 16V8M8 12h8"/></svg></span>
+            <span class="name">DayCell</span>
+            <span class="nav">
+              <button class="on" type="button">今日</button>
+              <button type="button">周</button>
+              <button type="button">月</button>
+            </span>
+          </div>
+          <div class="dhead">
+            <div class="dtitle">10 月 23 日<span class="dow">周五 · 今天</span></div>
+            <div class="dsub">九月十三 · 霜降</div>
+          </div>
+
+          <div class="content" id="content">
+            <!-- 步骤内容由 JS 渲染 -->
+          </div>
+
+          <div class="tabbar">
+            <button type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>目标</button>
+            <button type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>想法</button>
+            <button class="on" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12h8"/></svg>今天</button>
+            <button type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 10h18"/></svg>周</button>
+            <button type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>月</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 右侧说明 ===== -->
+    <div class="spec">
+      <div class="spec-card">
+        <h3><span class="no">1</span>流程</h3>
+        <ul>
+          <li><b>上传</b>：选 .xlsx / .csv 文件，纯本地解析，数据不出设备</li>
+          <li><b>列映射</b>：预览表格 → 指定「日期列 / 内容列 / 优先级列」</li>
+          <li><b>确认生成</b>：按日期分组预览待办，重复项提示，一键导入</li>
+          <li><b>完成</b>：待办进入日视图，当天即可打卡</li>
+        </ul>
+      </div>
+      <div class="spec-card">
+        <h3><span class="no">2</span>关键设计</h3>
+        <ul>
+          <li>列映射是体验核心：<b>格式再乱也能对上</b>，猜列 + 手选兜底</li>
+          <li>生成前<b>必须预览确认</b>，绝不静默写入；重复导入检测，不造重复待办</li>
+          <li>今日导入今日见：完成后直接落在当天待办顶部</li>
+          <li>失败零风险：导入前全部只读，确认后才写 IndexedDB</li>
+        </ul>
+      </div>
+      <div class="spec-card">
+        <h3><span class="no">3</span>免费 / 付费分层</h3>
+        <div class="plan">
+          <div class="p free">
+            <div class="t">免费 · 标准模板</div>
+            <div class="d">支持 .csv 与固定两列（日期 + 内容）的 .xlsx，手动列映射</div>
+            <div class="price">随产品免费</div>
+          </div>
+          <div class="p pro">
+            <div class="t">付费 · AI 智能解析</div>
+            <div class="d">任意格式自动识别列；自然语言拆条（"3号交作业顺便买牛奶" → 两条）；重复导入智能合并</div>
+            <div class="price">订阅解锁</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ===== 演示数据（模拟 demo.xlsx 内容）=====
+  var DEMO = [
+    { date: '2026-10-20', text: '提交周报' },
+    { date: '2026-10-21', text: '健身 1 小时' },
+    { date: '2026-10-21', text: '买牛奶' },
+    { date: '2026-10-22', text: '交作业' },
+    { date: '2026-10-22', text: '给家里打电话' },
+    { date: '2026-10-23', text: '背单词 50 个' },
+    { date: '2026-10-23', text: '预约体检' },
+    { date: '2026-10-24', text: '整理书桌' },
+    { date: '2026-10-25', text: '跑步 5 公里' },
+    { date: '2026-10-25', text: '读 30 页书' },
+    { date: '2026-10-26', text: '早睡（23:30 前）' },
+    { date: '2026-10-27', text: '复盘本周' }
+  ]
+  var DOW = ['日', '一', '二', '三', '四', '五', '六']
+
+  // ===== 步骤状态机：1 上传 → 2 预览映射 → 3 确认生成 → 4 完成 =====
+  var step = 1
+  var content = document.getElementById('content')
+  var toast = null
+
+  function fmtDate(key) {
+    var p = key.split('-')
+    var d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]))
+    return { label: Number(p[1]) + ' 月 ' + Number(p[2]) + ' 日', dow: '周' + DOW[d.getDay()] }
+  }
+  function groupByDate(rows) {
+    var m = {}
+    rows.forEach(function (r) { (m[r.date] = m[r.date] || []).push(r.text) })
+    return m
+  }
+  function showToast(msg) {
+    if (toast) toast.remove()
+    toast = document.createElement('div')
+    toast.textContent = msg
+    toast.style.cssText = 'position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:rgba(26,26,30,.92);color:#fff;font-size:13px;padding:9px 16px;border-radius:999px;z-index:99;max-width:78vw;'
+    document.body.appendChild(toast)
+    setTimeout(function () { toast.remove(); toast = null }, 2200)
+  }
+  function renderSteps() {
+    var html = '<div class="steps">'
+    for (var i = 1; i <= 4; i++) {
+      if (i > 1) html += '<div class="sl' + (i <= step ? ' on' : '') + '"></div>'
+      html += '<div class="sd' + (i === step ? ' on' : i < step ? ' done' : '') + '">' + (i < step ? '√' : i) + '</div>'
+    }
+    html += '</div>'
+    return html
+  }
+
+  function render() {
+    var html = ''
+    if (step === 1) {
+      html += renderSteps() +
+        '<div class="card">' +
+          '<div class="upload-ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V5M7 10l5-5 5 5"/><path d="M5 20h14"/></svg></div>' +
+          '<div class="up-title">导入 Excel 生成待办</div>' +
+          '<div class="up-desc">把你的每日安排表一键变成 DayCell 待办<br/>支持列映射，格式再乱也能对上</div>' +
+          '<button class="up-btn" id="upBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M12 16V5M7 10l5-5 5 5"/><path d="M5 20h14"/></svg>选择文件</button>' +
+          '<div class="up-fmt"><span class="fmt">.xlsx</span><span class="fmt">.csv</span><span class="fmt">≤ 200 行</span></div>' +
+          '<div class="up-tip">演示数据为 <a href="#" id="tmplLink">示例模板</a>（12 条），点击「选择文件」模拟读取</div>' +
+        '</div>'
+    } else if (step === 2) {
+      var rows = DEMO.slice(0, 6)
+      var tbl = '<table class="tbl"><thead><tr><th class="row-n"></th><th>A · 日期</th><th>B · 内容</th></tr></thead><tbody>'
+      rows.forEach(function (r, i) {
+        tbl += '<tr><td class="row-n">' + (i + 1) + '</td><td>' + r.date + '</td><td>' + r.text + '</td></tr>'
+      })
+      tbl += '<tr><td class="row-n">…</td><td class="dim">…</td><td class="dim">共 12 行</td></tr></tbody></table>'
+      html += renderSteps() +
+        '<div class="p-title">确认列对应关系</div>' +
+        '<div class="p-sub">demo.xlsx · 已读取 12 行，选择每列的含义</div>' +
+        '<div class="card">' + tbl +
+          '<div class="map-title">列映射</div>' +
+          '<div class="map-row"><label for="mDate">日期列</label><select id="mDate"><option value="0" selected>A · 日期</option><option value="1">B · 内容</option></select></div>' +
+          '<div class="map-row"><label for="mText">内容列</label><select id="mText"><option value="0">A · 日期</option><option value="1" selected>B · 内容</option></select></div>' +
+          '<div class="map-row"><label for="mPrio">优先级列</label><select id="mPrio"><option value="-1" selected>（无）</option><option value="0">A · 日期</option><option value="1">B · 内容</option></select></div>' +
+          '<div class="prio-note">日期格式支持 2026-10-23 / 10.23 / 10月23日，读取时自动归一</div>' +
+        '</div>' +
+        '<button class="next-btn" id="nextBtn" type="button">下一步，预览待办</button>'
+    } else if (step === 3) {
+      var g = groupByDate(DEMO)
+      var keys = Object.keys(g).sort()
+      var list = ''
+      keys.forEach(function (k) {
+        var f = fmtDate(k)
+        list += '<li class="g"><div class="gh"><span class="dot"></span>' + f.label + ' · ' + f.dow + '<span class="cnt">' + g[k].length + ' 条</span></div>'
+        g[k].forEach(function (t) { list += '<div class="gi"><span class="chk"></span><span class="tx">' + t + '</span><span class="tag">新</span></div>' })
+        list += '</li>'
+      })
+      html += renderSteps() +
+        '<div class="stat">' +
+          '<div class="s"><b class="blue">' + DEMO.length + '</b><span>待办</span></div>' +
+          '<div class="s"><b>' + keys.length + '</b><span>涉及天数</span></div>' +
+          '<div class="s"><b class="green">0</b><span>重复项</span></div>' +
+        '</div>' +
+        '<div class="dup">已有 2 条与 10/20–10/22 的待办内容相同，导入时自动跳过（本次演示为全新导入）</div>' +
+        '<ul class="glist">' + list + '</ul>' +
+        '<div class="rowbtns">' +
+          '<button class="ghost-btn" id="backBtn" type="button">返回</button>' +
+          '<button class="import-btn" id="importBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>确认导入</button>' +
+        '</div>'
+    } else {
+      html += renderSteps() +
+        '<div class="done-ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>' +
+        '<div class="done-title">已导入 12 条待办</div>' +
+        '<div class="done-sub">已写入 10/20 – 10/27，今天（10/23）的 2 条已出现在下方</div>' +
+        '<div class="today-prev">' +
+          '<div class="th">10 月 23 日 · 今天 <span class="pl">导入 2 条</span></div>' +
+          '<div class="gi"><span class="chk"></span><span class="tx">背单词 50 个</span><span class="new-mark">新导入</span></div>' +
+          '<div class="gi"><span class="chk"></span><span class="tx">预约体检</span><span class="new-mark">新导入</span></div>' +
+          '<div class="gi"><span class="chk"></span><span class="tx">写晨间日记</span></div>' +
+        '</div>' +
+        '<button class="done-btn" id="doneBtn" type="button">完成</button>'
+    }
+    content.innerHTML = html
+    bind()
+  }
+
+  function bind() {
+    // 手机模拟里的静态导航（不参与导入流程）：统一给占位反馈，避免僵尸按钮
+    document.querySelectorAll('.appbar .nav button, .tabbar button').forEach(function (b) {
+      if (!b._bound) {
+        b._bound = true
+        b.addEventListener('click', function () { showToast('原型演示：仅「导入」流程可交互') })
+      }
+    })
+    var el = document.getElementById('upBtn')
+    if (el) el.addEventListener('click', function () {
+      step = 2
+      showToast('已读取 demo.xlsx（12 行）')
+      render()
+    })
+    var tmpl = document.getElementById('tmplLink')
+    if (tmpl) tmpl.addEventListener('click', function (e) {
+      e.preventDefault()
+      showToast('示例模板：日期列 + 内容列，见演示数据')
+    })
+    var next = document.getElementById('nextBtn')
+    if (next) next.addEventListener('click', function () { step = 3; render() })
+    var back = document.getElementById('backBtn')
+    if (back) back.addEventListener('click', function () { step = 2; render() })
+    var imp = document.getElementById('importBtn')
+    if (imp) imp.addEventListener('click', function () { step = 4; render() })
+    var done = document.getElementById('doneBtn')
+    if (done) done.addEventListener('click', function () { step = 1; showToast('回到上传，可换一张表再试'); render() })
+  }
+
+  render()
+</script>
+</body>
+</html>

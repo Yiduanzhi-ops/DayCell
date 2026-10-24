@@ -1,6 +1,6 @@
 {
-  "src": "安装引导开屏栏原型.html",
-  "url": "file:///home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/%E5%AE%89%E8%A3%85%E5%BC%95%E5%AF%BC%E5%BC%80%E5%B1%8F%E6%A0%8F%E5%8E%9F%E5%9E%8B.html",
+  "src": "Excel导入待办原型.html",
+  "url": "file:///home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/Excel%E5%AF%BC%E5%85%A5%E5%BE%85%E5%8A%9E%E5%8E%9F%E5%9E%8B.html",
   "outdir": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots",
   "include": [
     "lint",
@@ -10,19 +10,19 @@
   "shots": {
     "desktop": {
       "revealed": 0,
-      "screenshot": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots/安装引导开屏栏原型_desktop.jpg",
-      "screenshotBytes": 48488,
+      "screenshot": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots/Excel导入待办原型_desktop.jpg",
+      "screenshotBytes": 46789,
       "truncated": false,
       "structure": {
-        "title": "DayCell · 安装引导开屏栏原型",
-        "firstH1": "安装引导开屏栏",
+        "title": "DayCell · Excel 导入待办原型",
+        "firstH1": "Excel 导入待办 · 交互原型",
         "viewport": {
           "w": 1440,
           "h": 900
         },
         "fullpage": {
           "w": 1440,
-          "h": 1043
+          "h": 947
         },
         "counts": {
           "section": 0,
@@ -30,9 +30,9 @@
           "h2": 0,
           "img": 0,
           "canvas": 0,
-          "svg": 16,
-          "links": 0,
-          "buttons": 2
+          "svg": 8,
+          "links": 1,
+          "buttons": 9
         }
       },
       "consoleErrors": [],
@@ -42,19 +42,19 @@
     },
     "mobile": {
       "revealed": 0,
-      "screenshot": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots/安装引导开屏栏原型_mobile.jpg",
-      "screenshotBytes": 79641,
+      "screenshot": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots/Excel导入待办原型_mobile.jpg",
+      "screenshotBytes": 74839,
       "truncated": false,
       "structure": {
-        "title": "DayCell · 安装引导开屏栏原型",
-        "firstH1": "安装引导开屏栏",
+        "title": "DayCell · Excel 导入待办原型",
+        "firstH1": "Excel 导入待办 · 交互原型",
         "viewport": {
           "w": 390,
           "h": 844
         },
         "fullpage": {
           "w": 390,
-          "h": 1812
+          "h": 1711
         },
         "counts": {
           "section": 0,
@@ -62,9 +62,9 @@
           "h2": 0,
           "img": 0,
           "canvas": 0,
-          "svg": 16,
-          "links": 0,
-          "buttons": 2
+          "svg": 8,
+          "links": 1,
+          "buttons": 9
         }
       },
       "consoleErrors": [],
@@ -75,7 +75,7 @@
   },
   "engine": "playwright",
   "chromiumExec": "/opt/vm/preinstall/ms-playwright/chromium-1169/chrome-linux/chrome",
-  "elapsedSec": 4.99,
+  "elapsedSec": 4.94,
   "schemaVersion": 2,
   "status": "pass",
   "engineInfo": {
@@ -84,9 +84,9 @@
     "degradedReasons": []
   },
   "input": {
-    "original": "安装引导开屏栏原型.html",
-    "resolvedPath": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/安装引导开屏栏原型.html",
-    "baseUrl": "file:///home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/%E5%AE%89%E8%A3%85%E5%BC%95%E5%AF%BC%E5%BC%80%E5%B1%8F%E6%A0%8F%E5%8E%9F%E5%9E%8B.html",
+    "original": "Excel导入待办原型.html",
+    "resolvedPath": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/Excel导入待办原型.html",
+    "baseUrl": "file:///home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/Excel%E5%AF%BC%E5%85%A5%E5%BE%85%E5%8A%9E%E5%8E%9F%E5%9E%8B.html",
     "protocol": "file",
     "cwd": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype",
     "mediaMode": {
@@ -97,8 +97,8 @@
     "screenshots": [
       {
         "viewport": "desktop",
-        "path": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots/安装引导开屏栏原型_desktop.jpg",
-        "size": 48488,
+        "path": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots/Excel导入待办原型_desktop.jpg",
+        "size": 46789,
         "visualCoverage": {
           "complete": true,
           "reason": null
@@ -106,8 +106,8 @@
       },
       {
         "viewport": "mobile",
-        "path": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots/安装引导开屏栏原型_mobile.jpg",
-        "size": 79641,
+        "path": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots/Excel导入待办原型_mobile.jpg",
+        "size": 74839,
         "visualCoverage": {
           "complete": true,
           "reason": null

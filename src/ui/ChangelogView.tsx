@@ -8,11 +8,18 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.57'
+const CURRENT_VERSION = 'v8.58'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.58',
+    date: '2026-10-24',
+    items: [
+      '后台埋点：记录你的首次使用时间（用于将来老用户资格判定），写入一次后不再变动，本地存储',
+    ],
+  },
   {
     version: 'v8.57',
     date: '2026-10-22',

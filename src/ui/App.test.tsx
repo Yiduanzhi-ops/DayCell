@@ -623,4 +623,11 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     // 还原，避免残留
     Object.defineProperty(window.navigator, 'standalone', { get: () => undefined, configurable: true })
   })
+
+  it('v8.58 打开应用即写入首访/试用时间戳（收费资格埋点）', async () => {
+    await renderApp()
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
+    expect(localStorage.getItem('daycell-first-visit')).not.toBeNull()
+    expect(localStorage.getItem('daycell-trial-start')).not.toBeNull()
+  })
 })
