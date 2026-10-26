@@ -224,13 +224,25 @@ export interface SettingRecord {
   updatedAt: number
 }
 
-export type SettingKey =
-  | 'accentColor'
-  | 'lastBackupAt'
-  | 'backupReminderOff'
-  | 'onboarded'
-  | 'weekStartsOn'
-  | 'weekViewHabits'
+/**
+ * 设置键（**运行时数组**）——备份/同步 settings 校验白名单的**单一来源**。
+ * 维护约定：新增设置键时**只改这里**；SettingKey 由本数组派生，
+ * core/backup 的 parseSettings 校验直接复用本数组，自动跟随。
+ *
+ * 历史教训（v8.65）：v8.62 新增 weekViewHabits 时只改了类型联合、没同步
+ * backup 里的一份手抄白名单，导致备份文件带 weekViewHabits 后被 parseSettings
+ * 判为「settings 含未知设置项」，同步/导入全挂。故改为单一来源，杜绝复发。
+ */
+export const SETTING_KEYS = [
+  'accentColor',
+  'lastBackupAt',
+  'backupReminderOff',
+  'onboarded',
+  'weekStartsOn',
+  'weekViewHabits',
+] as const
+
+export type SettingKey = (typeof SETTING_KEYS)[number]
 
 /** 十二个 store（PRD §6.3，v7.9 加 goals/stages，v8.0 加 habits/checkins，v8.29 加 annivchecks，v8.42 加 reviews） */
 export type StoreName =

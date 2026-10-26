@@ -9,6 +9,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import type { DateKey, TodoRecord, ReviewRecord } from '../types'
+import { SETTING_KEYS } from '../types'
 import { createMemoryStore } from '../store/memory'
 import type { RecordStore } from '../store/types'
 import { createFakeClock, type FakeClock } from '../clock'
@@ -123,6 +124,16 @@ describe('parseBackup', () => {
     const f = good()
     f.data.settings = [{ key: 'hacked', value: 1, updatedAt: 1 }] as never
     expect(() => parseBackup(JSON.stringify(f))).toThrow(BackupCorruptError)
+  })
+
+  it('v8.65 全部已知设置键（含 weekViewHabits）均通过白名单校验', () => {
+    const f = good()
+    f.data.settings = (SETTING_KEYS as readonly string[]).map((key) => ({
+      key: key as never,
+      value: key === 'weekViewHabits' ? true : 1,
+      updatedAt: 1,
+    })) as never
+    expect(() => parseBackup(JSON.stringify(f))).not.toThrow()
   })
 })
 

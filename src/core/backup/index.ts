@@ -27,6 +27,7 @@
 
 import {
   SCHEMA_VERSION,
+  SETTING_KEYS,
   type AnniversaryRecord,
   type AnnivCheckRecord,
   type CategoryRecord,
@@ -81,13 +82,8 @@ const CONTENT_STORE_TYPES: Record<Exclude<StoreName, 'settings'>, string> = {
 }
 
 /** settings 的合法 key（与 types.ts 的 SettingKey 同步，运行时兜底） */
-const SETTING_KEYS: readonly string[] = [
-  'accentColor',
-  'lastBackupAt',
-  'backupReminderOff',
-  'onboarded',
-  'weekStartsOn',
-]
+// 设置键白名单 = types 的 SETTING_KEYS（**单一来源**，v8.65 起不再本地手抄，
+// 防"类型加了、白名单忘更新"导致备份文件误判损坏——v8.62 的 weekViewHabits 教训）
 
 // ---------------------------------------------------------------------------
 // 导出（serialize）
@@ -149,7 +145,7 @@ function parseSettings(raw: unknown): SettingRecord[] {
   for (const s of raw) {
     if (!s || typeof s !== 'object') throw new BackupCorruptError('备份文件损坏：settings 数据异常')
     const key = (s as { key?: unknown }).key
-    if (typeof key !== 'string' || !(SETTING_KEYS as readonly string[]).includes(key)) {
+    if (typeof key !== 'string' || !SETTING_KEYS.includes(key as SettingKey)) {
       throw new BackupCorruptError('备份文件损坏：settings 含未知设置项')
     }
   }
