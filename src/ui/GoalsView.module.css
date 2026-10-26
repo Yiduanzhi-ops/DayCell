@@ -806,3 +806,21 @@
   border-color: var(--accent);
 }
 .subCheckin:active { opacity: 0.75; }
+
+/* v8.63 子任务「加入今日待办」：打卡按钮旁，同族但更克制（文字态区分） */
+.subToday {
+  flex: none;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-2);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.subTodayOn {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--line));
+}
+.subToday:active { opacity: 0.75; }

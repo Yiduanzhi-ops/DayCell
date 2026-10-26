@@ -171,7 +171,7 @@ export function TopBar(): JSX.Element {
                     openSettings()
                   }}
                 >
-                  设置
+                  偏好设置
                 </button>
                 <div className={styles.sep} />
                 <button

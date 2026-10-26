@@ -74,8 +74,17 @@ describe('todos.create / byDate', () => {
   })
 })
 
-describe('todos.deadline（v8.53 DDL 待办）', () => {
-  it('create 带截止日 → 记录带 deadline；不带 → 无字段', async () => {
+describe('todos.subtaskId（v8.63 子任务加入今日待办）', () => {
+  it('create 第 4 参带 subtaskId → 记录携带；不带 → 无字段；byId 可读回', async () => {
+    const a = await repos.todos.create(k('2026-10-20'), '背单词', undefined, 'st-1')
+    expect(a.subtaskId).toBe('st-1')
+    const b = await repos.todos.create(k('2026-10-20'), '普通待办')
+    expect(b.subtaskId).toBeUndefined()
+    const back = await repos.todos.byId(a.id)
+    expect(back.subtaskId).toBe('st-1')
+  })
+})
+describe('todos.deadline（v8.53 DDL 待办）', () => {  it('create 带截止日 → 记录带 deadline；不带 → 无字段', async () => {
     const a = await repos.todos.create(k('2026-10-20'), '交作业', '2026-10-25')
     expect(a.deadline).toBe('2026-10-25')
     const b = await repos.todos.create(k('2026-10-20'), '普通待办')

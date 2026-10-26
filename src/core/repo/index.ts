@@ -80,7 +80,10 @@ export interface RollOverResult {
 
 export interface TodoRepo {
   byDate(date: DateKey): Promise<TodoRecord[]>
-  create(date: DateKey, text: string, deadline?: string | null): Promise<TodoRecord>
+  /** v8.63 第 4 参 subtaskId：子任务「加入今日待办」来源标记（可选） */
+  create(date: DateKey, text: string, deadline?: string | null, subtaskId?: string): Promise<TodoRecord>
+  /** v8.63 按 id 取待办（含已删除；toggle/delete 联动读取用） */
+  byId(id: string): Promise<TodoRecord>
   setText(id: string, text: string): Promise<TodoRecord>
   /** v8.53 设/清截止日（null = 清除）；非法日期抛 BAD_DATE */
   setDeadline(id: string, deadline: string | null): Promise<TodoRecord>
@@ -117,8 +120,9 @@ export function isOverdueDone(rec: Pick<TodoRecord, 'done' | 'doneAt' | 'deadlin
  * 可顺延的判定：未完成、且没有被顺延出去过。
  * v8.53：**带截止日的 DDL 待办不参与顺延**（到期未完成即逾期，留在原地由每天注入提醒，
  * 不该被顺延机制拖走）
+ * v8.63：**子任务「加入今日待办」的待办不参与顺延**（当天有效，明天要重新加入）
  */
-export const isRollable = (t: TodoRecord): boolean => !t.done && !t.rolledTo && !t.deadline
+export const isRollable = (t: TodoRecord): boolean => !t.done && !t.rolledTo && !t.deadline && !t.subtaskId
 
 // ---------------------------------------------------------------------------
 // 想法
@@ -376,11 +380,13 @@ export function createRepos(deps: RepoDeps): Repos {
   const todos: TodoRepo = {
     byDate: (date) => store.byDate<TodoRecord>('todos', date, date),
 
-    async create(date, text, deadline) {
+    async create(date, text, deadline, subtaskId) {
       unwrap(parseDateKey(date))
       const t = unwrap(parseTodoText(text))
       // v8.53 可选截止日：空串/null/undefined = 普通待办；非空必须合法日期
       const ddl = deadline === undefined || deadline === null ? undefined : unwrap(parseDeadline(deadline))
+      // v8.63 可选子任务来源（加入今日待办）：子任务删除后该标记随待办保留（文字快照）
+      const stid = subtaskId === undefined || subtaskId === null ? undefined : String(subtaskId).slice(0, 64)
       const ts = now()
       return store.put<TodoRecord>('todos', {
         id: idGen.next(),
@@ -389,10 +395,15 @@ export function createRepos(deps: RepoDeps): Repos {
         text: t,
         done: false,
         ...(ddl ? { deadline: ddl } : {}),
+        ...(stid ? { subtaskId: stid } : {}),
         createdAt: ts,
         updatedAt: ts,
         deleted: false,
       })
+    },
+
+    async byId(id) {
+      return mustGet<TodoRecord>('todos', id)
     },
 
     async setText(id, text) {

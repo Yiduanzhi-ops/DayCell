@@ -167,6 +167,8 @@ export interface AppState {
   settingsOpen: boolean
   /** v8.62：周视图显示习惯（默认关 = v8.41 现状；开则每日行列出习惯名+打卡态） */
   weekViewHabits: boolean
+  /** v8.63：今天已「加入今日待办」的子任务 id（子任务行按钮两态 + 防重复判定） */
+  subtaskTodayIds: string[]
   /** v8.22：首次使用引导是否打开（仅首次启动自动弹出；可从使用手册重看） */
   onboardingOpen: boolean
   /** v8.1：同步引擎最近状态（设置页展示；null = 未创建引擎） */
@@ -283,6 +285,10 @@ export interface AppState {
   deleteSubtask(id: string): Promise<boolean>
   /** v8.45 子任务打卡切换（记录今天 + 复盘自动写入/移除自动句） */
   toggleSubtaskWork(id: string): Promise<boolean>
+  /** v8.63 子任务「加入今日待办」：今天生成一条该子任务的待办（当天有效、防重复） */
+  addSubtaskToToday(subtaskId: string): Promise<boolean>
+  /** v8.63 撤销「加入今日待办」：删除当天待办；已勾选完成则同步撤销当天打卡 */
+  removeSubtaskFromToday(subtaskId: string): Promise<void>
 
   // ---- v8.0：习惯（今日视图区块 + 菜单「习惯设置」） ----
   /** 刷新习惯设置页列表（打开/CRUD 后调用） */
@@ -438,6 +444,7 @@ export function createAppStore(
     changelogOpen: false,
     settingsOpen: false,
     weekViewHabits: false,
+    subtaskTodayIds: [],
     onboardingOpen: false,
     syncStatus: syncEngine?.status() ?? null,
     syncConfig: null,
@@ -465,6 +472,10 @@ export function createAppStore(
       const seq = ++loadSeq
       const { selected, view } = get()
       try {
+        // v8.63 今日已「加入今日待办」的子任务（子任务行按钮两态；任何写操作后都会随 refresh 更新）
+        const todayTodos = await repos.todos.byDate(get().today)
+        const subtaskTodayIds = todayTodos.filter((t) => t.subtaskId).map((t) => t.subtaskId!)
+        set({ subtaskTodayIds })
         // v7.9 目标视图：不加载日历聚合，只刷目标列表（goalList 是它的唯一数据源）
         if (view === 'goals') {
           const goalList = await aggregates.goalSummaries()
@@ -757,6 +768,15 @@ export function createAppStore(
     async toggleTodo(id) {
       try {
         const t = await repos.todos.toggle(id)
+        // v8.63 子任务来源待办：勾选 = 当天打卡 / 取消 = 撤销当天打卡（两边同步，含 goalDetail 内存态）
+        if (t.subtaskId) {
+          const next = await repos.subtasks.setWork(t.subtaskId, t.date, t.done)
+          set((s) =>
+            s.goalDetail
+              ? { goalDetail: { ...s.goalDetail, subtasks: s.goalDetail.subtasks.map((x) => (x.id === t.subtaskId ? next : x)) } }
+              : s,
+          )
+        }
         set({ dataVer: get().dataVer + 1 })
         await get().refresh()
         if (t.done) get().showToast('完成了一件')
@@ -793,10 +813,72 @@ export function createAppStore(
 
     async deleteTodo(id) {
       try {
+        const t = await repos.todos.byId(id)
+        // v8.63 子任务来源待办删除 = 撤销「加入今日待办」；已勾选完成则同步撤销当天打卡（含 goalDetail）
+        if (t.subtaskId) {
+          if (t.done) {
+            const next = await repos.subtasks.setWork(t.subtaskId, t.date, false)
+            set((s) =>
+              s.goalDetail
+                ? { goalDetail: { ...s.goalDetail, subtasks: s.goalDetail.subtasks.map((x) => (x.id === t.subtaskId ? next : x)) } }
+                : s,
+            )
+          }
+        }
         await repos.todos.softDelete(id)
         set({ dataVer: get().dataVer + 1 })
         await get().refresh()
         get().showToast('已删除')
+      } catch (e) {
+        get().showToast(errMsg(e))
+      }
+    },
+
+    // ---- v8.63 子任务「加入今日待办」：当天有效，勾选=打卡，删除=撤销加入 ----
+
+    async addSubtaskToToday(subtaskId) {
+      try {
+        const d = get().goalDetail
+        const subtask = d?.subtasks.find((x) => x.id === subtaskId)
+        if (!subtask || !d) return false
+        const date = get().today
+        const existing = await repos.todos.byDate(date)
+        if (existing.some((t) => t.subtaskId === subtaskId)) {
+          get().showToast('已在今日待办里')
+          return false
+        }
+        await repos.todos.create(date, subtask.title, undefined, subtaskId)
+        set({ dataVer: get().dataVer + 1 })
+        await get().refresh()
+        get().showToast('已加入今日待办')
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async removeSubtaskFromToday(subtaskId) {
+      try {
+        const date = get().today
+        const existing = await repos.todos.byDate(date)
+        const todo = existing.find((t) => t.subtaskId === subtaskId)
+        if (!todo) {
+          get().showToast('不在今日待办里')
+          return
+        }
+        if (todo.done) {
+          const next = await repos.subtasks.setWork(subtaskId, date, false)
+          set((s) =>
+            s.goalDetail
+              ? { goalDetail: { ...s.goalDetail, subtasks: s.goalDetail.subtasks.map((x) => (x.id === subtaskId ? next : x)) } }
+              : s,
+          )
+        }
+        await repos.todos.softDelete(todo.id)
+        set({ dataVer: get().dataVer + 1 })
+        await get().refresh()
+        get().showToast('已移出今日待办')
       } catch (e) {
         get().showToast(errMsg(e))
       }

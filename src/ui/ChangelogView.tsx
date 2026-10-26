@@ -8,16 +8,24 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.62'
+const CURRENT_VERSION = 'v8.63'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: 'v8.63',
+    date: '2026-10-26',
+    items: [
+      '「设置」更名为「偏好设置」（菜单入口、页标题同步）',
+      '子任务支持「＋ 加入今日待办」：手动加入一次、当天有效（明天要再点）；待办可勾选可删除、不可编辑文字；勾选完成 = 当天打卡，两边同步',
+    ],
+  },
+  {
     version: 'v8.62',
     date: '2026-10-26',
     items: [
-      '菜单新增「设置」：用户偏好开关统一放这里，后续会陆续增加更多选项',
+      '菜单新增「偏好设置」：用户偏好开关统一放这里，后续会陆续增加更多选项',
       '新增开关「周视图显示习惯」（默认关）：开启后，周视图每日列出该日应打卡的习惯与完成状态',
     ],
   },

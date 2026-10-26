@@ -362,6 +362,9 @@ function SubtaskRow({
   const setSubtaskDone = useApp((s) => s.setSubtaskDone)
   const updateSubtask = useApp((s) => s.updateSubtask)
   const toggleSubtaskWork = useApp((s) => s.toggleSubtaskWork)
+  const addSubtaskToToday = useApp((s) => s.addSubtaskToToday)
+  const removeSubtaskFromToday = useApp((s) => s.removeSubtaskFromToday)
+  const subtaskTodayIds = useApp((s) => s.subtaskTodayIds)
   const today = useApp((s) => s.today)
   const showToast = useApp((s) => s.showToast)
   const [editing, setEditing] = useState(false)
@@ -375,6 +378,8 @@ function SubtaskRow({
   const [progNoteDraft, setProgNoteDraft] = useState(subtask.progress?.note ?? '')
   // v8.45 打卡：当天是否已打卡（跨天自动重置）
   const workedToday = Array.isArray(subtask.workDates) && subtask.workDates.includes(today)
+  // v8.63 加入今日待办：今天是否已加入（按钮两态；跨天自动重置）
+  const inToday = subtaskTodayIds.includes(subtask.id)
 
   const save = async (): Promise<void> => {
     const t = draft.trim()
@@ -549,7 +554,7 @@ function SubtaskRow({
             ＋ 添加进度
           </div>
         )}
-        {/* v8.45 子任务打卡：累计进行天数 + 打卡按钮（记录今天，可取消） */}
+        {/* v8.45 子任务打卡：累计进行天数 + 打卡按钮（记录今天，可取消）；v8.63 加「加入今日待办」 */}
         <div className={styles.subWorkRow}>
           <span className={styles.subWorkCount}>
             累计进行 <b>{Array.isArray(subtask.workDates) ? subtask.workDates.length : 0}</b> 天
@@ -561,6 +566,14 @@ function SubtaskRow({
             onClick={() => void toggleSubtaskWork(subtask.id)}
           >
             {workedToday ? '已打卡' : '打卡'}
+          </button>
+          {/* v8.63 加入今日待办：当天有效，明天要再点；已加入可再点取消 */}
+          <button
+            className={[styles.subToday, inToday ? styles.subTodayOn : ''].join(' ')}
+            aria-label={inToday ? `移出今日待办：${subtask.title}` : `加入今日待办：${subtask.title}`}
+            onClick={() => void (inToday ? removeSubtaskFromToday(subtask.id) : addSubtaskToToday(subtask.id))}
+          >
+            {inToday ? '已加入' : '＋ 加入今日待办'}
           </button>
         </div>
       </div>

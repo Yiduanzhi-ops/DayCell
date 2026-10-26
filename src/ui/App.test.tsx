@@ -352,7 +352,7 @@ describe('App 冒烟', () => {
     await renderApp()
     fireEvent.click(screen.getByRole('button', { name: '菜单' }))
     const items = screen.getAllByRole('menuitem').map((el) => el.textContent)
-    expect(items).toEqual(['导出备份', '导入备份', '一键导出 MD', '纪念日设置', '习惯设置', '同步设置', '设置', '使用手册', '版本更新'])
+    expect(items).toEqual(['导出备份', '导入备份', '一键导出 MD', '纪念日设置', '习惯设置', '同步设置', '偏好设置', '使用手册', '版本更新'])
     expect(screen.getByRole('switch')).toBeInTheDocument() // 夜间模式行（最下面，分隔线之后）
     expect(screen.getByText('夜间模式')).toBeInTheDocument()
 
@@ -666,9 +666,9 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     await waitFor(() => expect(cal.textContent).toContain('9/29'))
     expect(within(cal).queryByText('跑步')).not.toBeInTheDocument()
 
-    // 菜单 → 设置 → 打开开关
+    // 菜单 → 偏好设置 → 打开开关
     fireEvent.click(screen.getByRole('button', { name: '菜单' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: '设置' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '偏好设置' }))
     expect(screen.getByText('周视图显示习惯')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('switch', { name: '周视图显示习惯' }))
     // 返回
@@ -677,5 +677,54 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
 
     // 周视图日历区现在列出当日习惯（本周 9/28~10/04，daily 每天出现）
     await waitFor(() => expect(within(cal).getAllByText('跑步').length).toBeGreaterThan(0))
+  })
+
+  it('v8.63 子任务加入今日待办：加入 → 今日可见且不可编辑 → 勾选=打卡 → 删除撤销加入与打卡', async () => {
+    const store = await renderApp()
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
+
+    // 建目标 + 子任务（store action，与 UI 同通道）
+    await store.getState().createGoal('考研', '')
+    await waitFor(() => expect(store.getState().goalList).toHaveLength(1))
+    const gid = store.getState().goalList[0]!.goal.id
+    await store.getState().createSubtask({ goalId: gid, title: '背单词' })
+    await waitFor(() => expect(store.getState().goalList[0]!.subtaskCount).toBe(1))
+
+    // 目标 tab → 打开详情 → 子任务行出现「＋ 加入今日待办」
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => expect(screen.getByText('考研')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('考研'))
+    await waitFor(() => expect(screen.getByRole('button', { name: '加入今日待办：背单词' })).toBeInTheDocument())
+
+    // 加入 → 按钮两态翻转（已加入）
+    fireEvent.click(screen.getByRole('button', { name: '加入今日待办：背单词' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: '移出今日待办：背单词' })).toBeInTheDocument())
+    expect(store.getState().subtaskTodayIds).toHaveLength(1)
+
+    // 今天 tab → 待办区出现「背单词」，且该行没有「编辑待办」入口（不可编辑文字）
+    fireEvent.click(screen.getByRole('tab', { name: '今天' }))
+    await waitFor(() => expect(screen.getByText('背单词')).toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: '编辑待办：背单词' })).not.toBeInTheDocument()
+
+    // 勾选完成 → 目标详情里联动为当天已打卡（切回目标 tab 回列表，需重新点开详情）
+    fireEvent.click(screen.getByRole('button', { name: '标记完成：背单词' }))
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => expect(screen.getByText('考研')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('考研'))
+    await waitFor(() => expect(screen.getByRole('button', { name: '取消今天的打卡：背单词' })).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: '移出今日待办：背单词' })).toBeInTheDocument()
+
+    // 删除今日待办 → 撤销加入 + 撤销当天打卡
+    fireEvent.click(screen.getByRole('tab', { name: '今天' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: '删除待办：背单词' })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: '删除待办：背单词' }))
+    await waitFor(() => expect(screen.queryByText('背单词')).not.toBeInTheDocument())
+
+    // 回目标详情：按钮恢复「加入今日待办」，打卡恢复未打卡（重新点开详情）
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => expect(screen.getByText('考研')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('考研'))
+    await waitFor(() => expect(screen.getByRole('button', { name: '加入今日待办：背单词' })).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: '打卡：背单词' })).toBeInTheDocument()
   })
 })

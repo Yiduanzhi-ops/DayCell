@@ -569,6 +569,18 @@ describe('v8.53 活跃 DDL 待办注入（每天出现）', () => {
     expect(left.some((t) => t.text === 'DDL任务' && !t.rolledTo)).toBe(true)
   })
 
+  it('v8.63 子任务「加入今日待办」的待办不参与顺延（当天有效）', async () => {
+    // 建子任务待办（create 第 4 参 subtaskId）
+    const st = await repos.todos.create(k('2026-10-20'), '背单词', undefined, 'st-1')
+    await seedDay('2026-10-20', { todos: 1 }) // 普通待办
+    const r = await repos.todos.rollOver(k('2026-10-20'), k('2026-10-21'))
+    // 只顺延普通待办；子任务待办留在原地、无 rolledTo
+    expect(r.moved).toHaveLength(1)
+    expect(r.moved[0]!.text).toBe('2026-10-20 待办1')
+    const left = await repos.todos.byDate(k('2026-10-20'))
+    expect(left.some((t) => t.id === st.id && !t.rolledTo)).toBe(true)
+  })
+
   it('v8.54 只从创建当天起注入：创建日之前的史前日子不再出现', async () => {
     // 创建于 2026-10-22（本地时区），截止 10-25
     clock.set(new Date(2026, 9, 22).getTime())

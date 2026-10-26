@@ -106,6 +106,9 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
               </button>
               {editingId === t.id ? (
                 <TodoEdit todo={t} onDone={() => setEditingId(null)} />
+              ) : t.subtaskId ? (
+                // v8.63 子任务来源待办：不可编辑文字（标题快照只读），可勾选、可删除
+                <span className={styles.ttxt}>{t.text}</span>
               ) : (
                 <button
                   className={styles.ttxtBtn}

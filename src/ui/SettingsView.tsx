@@ -23,7 +23,7 @@ export function SettingsView(): JSX.Element {
           <button className={styles.back} onClick={closeSettings}>
             ← 返回
           </button>
-          <h1 className={styles.h1}>设置</h1>
+          <h1 className={styles.h1}>偏好设置</h1>
           <span className={styles.headSpacer} />
         </div>
 
