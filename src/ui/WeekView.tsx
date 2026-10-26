@@ -64,6 +64,7 @@ function WeekPage({ weekKey, role }: { weekKey: DateKey; role: 'center' | 'side'
   const current = useApp((s) => (role === 'center' ? s.week : undefined))
   const selected = useApp((s) => s.selected)
   const today = useApp((s) => s.today)
+  const weekViewHabits = useApp((s) => s.weekViewHabits)
   const selectFromCalendar = useApp((s) => s.selectFromCalendar)
   const restore = useApp((s) => s.restoreScrollTo)
   const consumeRestore = useApp((s) => s.consumeRestoreScroll)
@@ -162,6 +163,18 @@ function WeekPage({ weekKey, role }: { weekKey: DateKey; role: 'center' | 'side'
                 ) : d.label.emphasis && d.label.kind === 'festival' ? (
                   <div className={styles.wempty}>假日，没有待办</div>
                 ) : null}
+                {/* v8.62 周视图显示习惯（设置开关，默认关；形态 B：该日习惯名+打卡态，仿待办预览，
+                    整周统一不特殊化今天；数据层已带 habitPreview，开关只控制渲染） */}
+                {weekViewHabits && d.habitPreview.length > 0 && (
+                  <div className={styles.whabits}>
+                    {d.habitPreview.map((h) => (
+                      <div key={h.id} className={h.done ? styles.done : undefined}>
+                        <span className={styles.wchk}>{h.done && <Check size={8} />}</span>
+                        <span className={styles.wtxt}>{h.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {d.notePreview.map((n) => (
                   <div key={n.id} className={styles.wnote}>{n.text}</div>
                 ))}

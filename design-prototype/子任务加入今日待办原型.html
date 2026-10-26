@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>子任务加入今日待办 · 交互原型</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232E4BA6'/%3E%3Cpath d='M20 33l8 8 16-18' stroke='%23fff' stroke-width='6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+  /* ===== DayCell 设计令牌（原型 v6.1 / tokens.css 同源） ===== */
+  :root {
+    --accent: #2E4BA6;
+    --accent-strong: #2E4BA6;
+    --bg: #FFFFFF;
+    --bg-subtle: #FAFAFA;
+    --bg-hover: #F5F5F5;
+    --ink: #1A1A1A;
+    --ink-2: #555555;
+    --ink-3: #767676;
+    --ink-4: #C4C4C4;
+    --line: #EBEBEB;
+    --line-2: #F4F4F4;
+    --accent-soft: #E9EDF8;
+    --accent-line: #BCC8EC;
+    --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font);
+    background: #E8EAEF;
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    justify-content: center;
+    padding: 24px 0 48px;
+  }
+  button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+
+  /* ===== 手机壳 ===== */
+  .phone {
+    width: 390px;
+    max-width: 100%;
+    background: var(--bg);
+    border-radius: 32px;
+    border: 1px solid #D4D7DC;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 12px 40px rgba(26,26,26,.14);
+  }
+  .statusbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 22px 6px; font-size: 13px; font-weight: 600; color: var(--ink);
+    background: var(--bg);
+  }
+  .statusbar .capsule { width: 88px; height: 22px; background: #000; border-radius: 999px; opacity: .94; }
+
+  /* ===== 页面 ===== */
+  .page { padding: 6px 20px 76px; min-height: 640px; }
+  .dhead { margin: 8px 0 4px; }
+  .dhead .date { font-size: 24px; font-weight: 700; letter-spacing: .2px; }
+  .dhead .sub { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+
+  .sec { margin-top: 18px; }
+  .sec-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 2px; }
+  .sec-head h2 { font-size: 15px; font-weight: 600; }
+  .sec-head .count { font-size: 12px; color: var(--ink-3); }
+
+  .list { border-top: 1px solid var(--line-2); }
+  .row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 13px 0; border-bottom: 1px solid var(--line-2);
+    min-height: 48px;
+  }
+  .chk {
+    width: 21px; height: 21px; border-radius: 50%;
+    border: 1.5px solid var(--ink-4); flex: none;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg); padding: 0;
+  }
+  .chk svg { display: none; }
+  .row.done .chk { background: var(--accent-strong); border-color: var(--accent-strong); }
+  .row.done .chk svg { display: block; }
+  .row-text { flex: 1; min-width: 0; }
+  .row-text .t { font-size: 14px; word-break: break-all; }
+  .row.done .row-text .t { color: var(--ink-3); text-decoration: line-through; }
+  .row-text .pre { font-size: 12px; color: var(--ink-3); }
+  .row-text .pre b { font-weight: 600; color: var(--ink-2); }
+  .tag {
+    font-size: 10px; color: var(--accent); background: var(--accent-soft);
+    padding: 2px 7px; border-radius: 999px; flex: none;
+  }
+  .del {
+    width: 28px; height: 28px; border-radius: 50%;
+    color: var(--ink-4); font-size: 15px; flex: none;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .del:hover { color: var(--ink-2); background: var(--bg-hover); }
+
+  /* ===== 目标详情 ===== */
+  .back { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--accent); padding: 8px 0; }
+  .goal-title { font-size: 20px; font-weight: 700; margin-top: 2px; }
+  .goal-note { font-size: 13px; color: var(--ink-2); margin-top: 4px; line-height: 1.6; }
+  .seg { display: flex; gap: 4px; margin-top: 14px; background: var(--bg-subtle); border-radius: 10px; padding: 3px; }
+  .seg button { flex: 1; padding: 7px 0; font-size: 13px; border-radius: 8px; color: var(--ink-3); }
+  .seg button.on { background: var(--bg); color: var(--ink); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .seg button.off { cursor: default; }
+
+  .subrow { padding: 12px 0; border-bottom: 1px solid var(--line-2); }
+  .subline1 { display: flex; align-items: center; gap: 10px; }
+  .subtitle { flex: 1; font-size: 14px; min-width: 0; word-break: break-all; }
+  .subrow.done .subtitle { color: var(--ink-3); text-decoration: line-through; }
+  .submeta { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .subwork { font-size: 12px; color: var(--ink-3); }
+  .subwork b { color: var(--ink); font-weight: 600; }
+  .btn {
+    font-size: 12px; padding: 4px 12px; border-radius: 999px;
+    border: 1px solid var(--accent-line); color: var(--accent);
+  }
+  .btn.solid { background: var(--accent-strong); border-color: var(--accent-strong); color: #fff; }
+  .btn.gray { border-color: var(--line); color: var(--ink-3); }
+  .grow { flex: 1; }
+
+  /* ===== 底部 tab ===== */
+  .tabbar {
+    position: sticky; bottom: 0;
+    display: flex; background: rgba(255,255,255,.96);
+    border-top: 1px solid var(--line); padding: 6px 0 10px;
+    backdrop-filter: blur(12px);
+  }
+  .tab { flex: 1; text-align: center; font-size: 12px; color: var(--ink-3); padding: 6px 0 2px; }
+  .tab .ic { font-size: 20px; display: block; line-height: 1.2; }
+  .tab.on { color: var(--accent); font-weight: 600; }
+  .tab .dotline { width: 16px; height: 3px; background: transparent; border-radius: 2px; margin: 3px auto 0; }
+  .tab.on .dotline { background: var(--accent); }
+
+  .hint {
+    margin-top: 16px; background: var(--bg-subtle); border-radius: 12px;
+    padding: 10px 14px; font-size: 12px; color: var(--ink-3); line-height: 1.7;
+  }
+  .hint b { color: var(--ink-2); font-weight: 600; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 120px; transform: translateX(-50%);
+    background: #1b1b1f; color: #fff; font-size: 13px;
+    padding: 9px 16px; border-radius: 999px; opacity: 0; transition: opacity .25s;
+    pointer-events: none; z-index: 9;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="statusbar">
+    <span>9:41</span>
+    <div class="capsule"></div>
+    <span style="font-weight:400;">●</span>
+  </div>
+
+  <div id="view-today" class="page">
+    <div class="dhead">
+      <div class="date">今天 · 10月26日 周一</div>
+      <div class="sub">专注当下，把日子过成进度条</div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-head">
+        <h2>待办</h2>
+        <span class="count" id="todo-count"></span>
+      </div>
+      <div class="list" id="todo-list"></div>
+    </div>
+
+    <div class="hint">
+      演示口径：<b>手动加入 · 当天有效</b>——子目标引用今天未勾完，次日自动消失、不顺延；待办勾选 = 当天打卡，与目标页按钮双向同步。
+      <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
+        <button class="btn solid" onclick="nextDay()">模拟次日 →</button>
+        <span>验证：引用消失 / 打卡重置 / 累计保留</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="view-goal" class="page" hidden>
+    <button class="back" onclick="go('today')">← 返回</button>
+    <div class="goal-title">复习考公</div>
+    <div class="goal-note">把备考拆成每天能执行的小任务，逐条推进。勾选子任务 = 完成，打卡 = 今天做了这一步。</div>
+    <div class="seg">
+      <button class="on" onclick="act.demo('子任务视图（当前演示页）')">子任务</button>
+      <button class="off" onclick="act.demo('阶段视图（原型暂未演示）')">阶段</button>
+    </div>
+    <div class="list" id="subtask-list" style="margin-top:4px;"></div>
+    <div class="hint">
+      在子任务行点「＋ 加入今日待办」→ 今日待办出现这条（带目标前缀）；再点「已加入」或删除今日条目 = 取消加入。<b>加入 ≠ 打卡</b>：没勾不算，勾了才算今天做了。
+    </div>
+  </div>
+
+  <div class="tabbar">
+    <button class="tab on" id="tab-today" onclick="go('today')">
+      <span class="ic">◯</span>今日
+      <span class="dotline"></span>
+    </button>
+    <button class="tab" id="tab-goal" onclick="go('goal')">
+      <span class="ic">◎</span>目标
+      <span class="dotline"></span>
+    </button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  'use strict'
+
+  var TODAY = '2026-10-26'
+  var YESTERDAY = '2026-10-25'
+
+  // 原型状态（内存模拟 DayCell 本地库）
+  var state = {
+    view: 'today',
+    today: TODAY,
+    // 普通待办（演示）：只做展示，不参与打卡逻辑
+    todos: [
+      { id: 't1', title: '交作业', done: false },
+      { id: 't2', title: '给导师发周报', done: false },
+    ],
+    // 子任务：workDates=打卡日期集合（累计天数 = 长度）；addedDate=加入今日待办的日期（当天有效）
+    subtasks: {
+      s1: { title: '做完教案第 3 章', goal: '复习考公', done: false, workDates: [YESTERDAY], addedDate: TODAY },
+      s2: { title: '刷一套题', goal: '复习考公', done: false, workDates: [], addedDate: null },
+    },
+  }
+
+  var todayEl = document.getElementById('view-today')
+  var goalEl = document.getElementById('view-goal')
+  var toastEl = document.getElementById('toast')
+  var toastTimer = null
+
+  function toast(msg) {
+    toastEl.textContent = msg
+    toastEl.classList.add('show')
+    clearTimeout(toastTimer)
+    toastTimer = setTimeout(function () { toastEl.classList.remove('show') }, 1600)
+  }
+
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] }) }
+  function chkSvg() { return '<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2.5 6.2 5 8.7l4.5-5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' }
+
+  function go(v) {
+    state.view = v
+    todayEl.hidden = v !== 'today'
+    goalEl.hidden = v !== 'goal'
+    document.getElementById('tab-today').classList.toggle('on', v === 'today')
+    document.getElementById('tab-goal').classList.toggle('on', v === 'goal')
+    render()
+  }
+
+  // ---- 核心动作（待办勾选 与 子任务打卡 走同一个函数 = 双向同步） ----
+  function toggleWork(id) {
+    var s = state.subtasks[id]
+    var i = s.workDates.indexOf(state.today)
+    if (i >= 0) s.workDates.splice(i, 1)
+    else s.workDates.push(state.today)
+    render()
+  }
+
+  function toggleAdded(id) {
+    var s = state.subtasks[id]
+    if (s.addedDate === state.today) {
+      s.addedDate = null
+      toast('已从今日待办移除（已打的卡保留）')
+    } else {
+      s.addedDate = state.today
+      toast('已加入今日待办，今天勾掉 = 打卡')
+    }
+    render()
+  }
+
+  function removeAdded(id) {
+    var s = state.subtasks[id]
+    s.addedDate = null
+    toast('已删除今日条目（不影响子任务与已打的卡）')
+    render()
+  }
+
+  function toggleTodo(id) {
+    var t = state.todos.find(function (x) { return x.id === id })
+    if (t) { t.done = !t.done; render() }
+  }
+
+  function toggleSubtaskDone(id) {
+    var s = state.subtasks[id]
+    s.done = !s.done
+    render()
+  }
+
+  // ---- 模拟次日：验证「当天有效、不顺延、打卡重置但累计保留」 ----
+  function nextDay() {
+    state.today = state.today === '2026-10-26' ? '2026-10-27' : '2026-10-28'
+    toast('已到 ' + state.today + '：加入的引用自动消失，打卡重置，累计天数保留')
+    render()
+  }
+
+  // ---- 渲染 ----
+  function render() {
+    renderTodos()
+    renderSubtasks()
+    var d = state.today === '2026-10-26' ? '今天 · 10月26日 周一' : (state.today === '2026-10-27' ? '今天 · 10月27日 周二' : '今天 · 10月28日 周三')
+    todayEl.querySelector('.date').textContent = d
+  }
+
+  function renderTodos() {
+    var rows = []
+    // 普通待办
+    state.todos.forEach(function (t) {
+      rows.push(rowHtml({ cls: t.done ? 'row done' : 'row', text: esc(t.title), chk: chkRow('todo:' + t.id) }))
+    })
+    // 手动加入的子任务引用（仅当天有效）
+    var count = 0
+    Object.keys(state.subtasks).forEach(function (id) {
+      var s = state.subtasks[id]
+      if (s.addedDate !== state.today) return
+      count++
+      var worked = s.workDates.indexOf(state.today) >= 0
+      rows.push(rowHtml({
+        cls: worked ? 'row done' : 'row',
+        pre: '<span class="pre"><b>' + esc(s.goal) + '</b> · </span>',
+        text: esc(s.title),
+        tag: '<span class="tag">子任务</span>',
+        chk: chkRow('work:' + id),
+        del: '<button class="del" aria-label="删除子任务今日条目" title="删除今日条目" onclick="act.remove(\'' + id + '\')">✕</button>',
+      }))
+    })
+    document.getElementById('todo-count').textContent = state.todos.length + count + ' 条'
+    document.getElementById('todo-list').innerHTML = rows.join('')
+  }
+
+  function chkRow(kind) {
+    return '<button class="chk" aria-label="' + kind + '" onclick="act.chk(\'' + kind + '\')">' + chkSvg() + '</button>'
+  }
+
+  function rowHtml(o) {
+    return '<div class="' + o.cls + '">' + (o.chk || '') + '<div class="row-text">' + (o.pre || '') + '<span class="t">' + (o.text || '') + '</span></div>' + (o.tag || '') + (o.del || '<button class="del" aria-label="删除待办" title="删除" onclick="act.demo(\'删除待办（演示）\')">✕</button>') + '</div>'
+  }
+
+  function renderSubtasks() {
+    var rows = []
+    Object.keys(state.subtasks).forEach(function (id) {
+      var s = state.subtasks[id]
+      var worked = s.workDates.indexOf(state.today) >= 0
+      var added = s.addedDate === state.today
+      rows.push(
+        '<div class="subrow' + (s.done ? ' done' : '') + '">' +
+          '<div class="subline1">' +
+            '<button class="chk" aria-label="完成子任务:' + id + '" onclick="act.subdone(\'' + id + '\')">' + chkSvg() + '</button>' +
+            '<span class="subtitle">' + esc(s.title) + '</span>' +
+            '<button class="del" aria-label="删除子任务:' + id + '" title="删除" onclick="act.demo(\'删除子任务（演示）\')">✕</button>' +
+          '</div>' +
+          '<div class="submeta">' +
+            '<span class="subwork">累计进行 <b>' + s.workDates.length + '</b> 天</span>' +
+            '<span class="grow"></span>' +
+            '<button class="btn' + (worked ? ' solid' : '') + '" aria-label="打卡:' + id + '" onclick="act.work(\'' + id + '\')">' + (worked ? '已打卡' : '打卡') + '</button>' +
+            '<button class="btn' + (added ? ' solid' : '') + '" aria-label="加入今日待办:' + id + '" onclick="act.add(\'' + id + '\')">' + (added ? '已加入' : '＋ 加入今日待办') + '</button>' +
+          '</div>' +
+        '</div>'
+      )
+    })
+    document.getElementById('subtask-list').innerHTML = rows.join('')
+  }
+
+  // 全局动作入口（行内 onclick 用）
+  window.act = {
+    demo: toast,
+    chk: function (kind) {
+      if (kind.indexOf('work:') === 0) toggleWork(kind.slice(5))
+      else if (kind.indexOf('todo:') === 0) toggleTodo(kind.slice(5))
+    },
+    work: toggleWork,
+    add: toggleAdded,
+    remove: removeAdded,
+    subdone: toggleSubtaskDone,
+  }
+  window.nextDay = nextDay
+  window.go = go
+
+  go(state.view)
+})()
+</script>
+</body>
+</html>

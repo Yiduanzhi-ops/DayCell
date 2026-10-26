@@ -90,6 +90,19 @@
 .wtxt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wmore { font-size: 11px; color: var(--ink-3); }
 
+/* v8.62 周视图习惯预览（设置开关开启时）：该日应打卡的习惯名 + 打卡态，仿待办条目 */
+.whabits {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 3px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+.whabits > div { display: flex; gap: 5px; align-items: baseline; }
+.whabits .done { color: var(--ink-3); }
+.whabits .done .wchk { background: var(--accent-strong); border-color: var(--accent-strong); }
+
 /* 想法摘要：每条最多 2 行截断（US-08） */
 .wnote {
   font-size: 12px;

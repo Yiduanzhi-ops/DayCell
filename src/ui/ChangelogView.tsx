@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.61'
+const CURRENT_VERSION = 'v8.62'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.62',
+    date: '2026-10-26',
+    items: [
+      '菜单新增「设置」：用户偏好开关统一放这里，后续会陆续增加更多选项',
+      '新增开关「周视图显示习惯」（默认关）：开启后，周视图每日列出该日应打卡的习惯与完成状态',
+    ],
+  },
   {
     version: 'v8.61',
     date: '2026-10-26',

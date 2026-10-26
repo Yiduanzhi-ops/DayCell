@@ -1,0 +1,99 @@
+/* 设置页（v8.62）：全屏覆盖层，手机/桌面同构；用户偏好开关容器 */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  /* v8.61 键盘顶起：弹窗底边对齐键盘顶（--kb-inset 由 visualViewport 全局写入） */
+  padding-bottom: var(--kb-inset, 0px);
+  z-index: 60;
+  background: var(--bg);
+  display: flex;
+  justify-content: center;
+}
+
+.page {
+  width: 100%;
+  max-width: 560px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.back {
+  font-size: 13.5px;
+  color: var(--ink-2);
+  padding: 6px 10px;
+  border-radius: 8px;
+  min-height: 34px;
+}
+.back:hover { background: var(--bg-hover); color: var(--ink); }
+
+.h1 { flex: 1; font-size: 16px; font-weight: 650; text-align: center; }
+.headSpacer { width: 52px; flex: 0 0 auto; }
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+}
+
+.group {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--bg);
+}
+.row + .row { border-top: 1px solid var(--line); }
+
+.rowText { min-width: 0; }
+.rowTitle { font-size: 14.5px; font-weight: 600; color: var(--ink); }
+.rowDesc { font-size: 12px; color: var(--ink-3); margin-top: 3px; line-height: 1.5; }
+
+.switch {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 26px;
+  border-radius: 99px;
+  background: var(--line);
+  position: relative;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.switchOn { background: var(--accent, #2e4ba6); }
+.knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: left 0.2s ease;
+}
+.switchOn .knob { left: 21px; }
+
+.hint {
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--ink-3);
+  text-align: center;
+}

@@ -352,7 +352,7 @@ describe('App 冒烟', () => {
     await renderApp()
     fireEvent.click(screen.getByRole('button', { name: '菜单' }))
     const items = screen.getAllByRole('menuitem').map((el) => el.textContent)
-    expect(items).toEqual(['导出备份', '导入备份', '一键导出 MD', '纪念日设置', '习惯设置', '同步设置', '使用手册', '版本更新'])
+    expect(items).toEqual(['导出备份', '导入备份', '一键导出 MD', '纪念日设置', '习惯设置', '同步设置', '设置', '使用手册', '版本更新'])
     expect(screen.getByRole('switch')).toBeInTheDocument() // 夜间模式行（最下面，分隔线之后）
     expect(screen.getByText('夜间模式')).toBeInTheDocument()
 
@@ -651,5 +651,31 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     await renderApp()
     await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
     expect(localStorage.getItem('daycell-first-visit')).not.toBeNull()
+  })
+
+  it('v8.62 设置页：菜单 → 设置；开关「周视图显示习惯」默认关，打开后周视图列出当日习惯', async () => {
+    const store = await renderApp()
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
+    // 建一条 daily 习惯（设定在今天 9/29）
+    await store.getState().createHabit({ name: '跑步', freq: { kind: 'daily' } })
+    await waitFor(() => expect(document.body.textContent).toContain('跑步'))
+
+    // 默认关：切到周视图，日历区看不到习惯名（周格子里无「跑步」）
+    fireEvent.click(screen.getByRole('tab', { name: '周' }))
+    const cal = screen.getByLabelText('日历')
+    await waitFor(() => expect(cal.textContent).toContain('9/29'))
+    expect(within(cal).queryByText('跑步')).not.toBeInTheDocument()
+
+    // 菜单 → 设置 → 打开开关
+    fireEvent.click(screen.getByRole('button', { name: '菜单' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '设置' }))
+    expect(screen.getByText('周视图显示习惯')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('switch', { name: '周视图显示习惯' }))
+    // 返回
+    fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
+    await waitFor(() => expect(screen.queryByText('周视图显示习惯')).not.toBeInTheDocument())
+
+    // 周视图日历区现在列出当日习惯（本周 9/28~10/04，daily 每天出现）
+    await waitFor(() => expect(within(cal).getAllByText('跑步').length).toBeGreaterThan(0))
   })
 })

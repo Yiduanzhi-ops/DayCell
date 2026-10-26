@@ -163,6 +163,10 @@ export interface AppState {
   shareOpen: boolean
   /** v8.4：版本更新页是否打开（全屏覆盖层，菜单「版本更新」进入） */
   changelogOpen: boolean
+  /** v8.62：设置页是否打开（全屏覆盖层，菜单「设置」进入；后续用户偏好开关都放这里） */
+  settingsOpen: boolean
+  /** v8.62：周视图显示习惯（默认关 = v8.41 现状；开则每日行列出习惯名+打卡态） */
+  weekViewHabits: boolean
   /** v8.22：首次使用引导是否打开（仅首次启动自动弹出；可从使用手册重看） */
   onboardingOpen: boolean
   /** v8.1：同步引擎最近状态（设置页展示；null = 未创建引擎） */
@@ -309,6 +313,12 @@ export interface AppState {
   openChangelog(): void
   closeChangelog(): void
 
+  // ---- v8.62：设置（用户偏好开关容器） ----
+  openSettings(): void
+  closeSettings(): void
+  /** 周视图显示习惯（默认关）：写入 setting + 更新状态，周视图按此渲染 */
+  setWeekViewHabits(on: boolean): Promise<void>
+
   // ---- v8.22：首次使用引导 ----
   openOnboarding(): void
   /** 关闭引导并写入本地标记（跳过 / 开始使用都会走到这里，之后不再自动弹出） */
@@ -426,6 +436,8 @@ export function createAppStore(
     syncOpen: false,
     shareOpen: false,
     changelogOpen: false,
+    settingsOpen: false,
+    weekViewHabits: false,
     onboardingOpen: false,
     syncStatus: syncEngine?.status() ?? null,
     syncConfig: null,
@@ -443,6 +455,9 @@ export function createAppStore(
       } catch (e) {
         get().showToast(errMsg(e))
       }
+      // v8.62 用户偏好设置：周视图显示习惯（默认关，保持 v8.41 现状）
+      const weekViewHabits = (await repos.settings.get('weekViewHabits', false)) as boolean
+      set({ weekViewHabits })
       await get().refresh()
     },
 
@@ -1527,6 +1542,20 @@ export function createAppStore(
 
     closeChangelog() {
       set({ changelogOpen: false })
+    },
+
+    // ---- v8.62：设置（用户偏好开关容器）----
+    openSettings() {
+      set({ settingsOpen: true })
+    },
+
+    closeSettings() {
+      set({ settingsOpen: false })
+    },
+
+    async setWeekViewHabits(on: boolean) {
+      await repos.settings.set('weekViewHabits', on)
+      set({ weekViewHabits: on })
     },
 
     // ---- v8.22：首次使用引导 ----

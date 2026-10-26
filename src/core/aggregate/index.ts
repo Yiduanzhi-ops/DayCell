@@ -110,6 +110,9 @@ export interface WeekDay extends DayAggregate {
   notePreview: NoteRecord[]
   /** v8.52 当日复盘正文（一天一条；没写为 null）——周视图格子直接展示 */
   reviewPreview: { id: string; text: string } | null
+  /** v8.62 当日习惯预览（该日应打卡的习惯 + 打卡态，仿待办预览）。
+   *  数据层无条件构建，UI 按「周视图显示习惯」开关决定是否渲染（默认关）。 */
+  habitPreview: HabitDayItem[]
   /** 原始农历日（'十五'）。label 是节日/节气/纪念日时，UI 拼「中秋节 · 十五」用 */
   lunarDay?: string
 }
@@ -606,12 +609,20 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
     async aggregateWeek(cursor, opts) {
       const keys = weekKeys(cursor, opts?.weekStartsOn ?? 1)
       const built = await buildRangeDetailed(keys)
-      const days: WeekDay[] = built.map(({ agg, bucket, info, review }) => ({
+      // v8.62 周行习惯预览（形态 B）：每日该做习惯 + 打卡态，与日详情/今日区块同口径
+      // （buildHabitItems：排除删除/暂停，只从设定那天起出现，freq 命中才列出）。
+      // 数据层无条件带，UI 按「周视图显示习惯」开关渲染。
+      const [habits, dones] = await Promise.all([
+        store.all<HabitRecord>('habits'),
+        Promise.all(keys.map((k) => repos.checkins.doneOn(k))),
+      ])
+      const days: WeekDay[] = built.map(({ agg, bucket, info, review }, i) => ({
         ...agg,
         // 周行只展示活跃待办（已顺延出去的淡化在日详情里看，不占周行）
         todoPreview: bucket.todos.filter((t) => !t.rolledTo).slice(0, 3),
         notePreview: bucket.notes.slice(0, 2),
         reviewPreview: review ? { id: review.id, text: review.text } : null,
+        habitPreview: buildHabitItems(habits, dones[i] ?? new Set<string>(), keys[i]!),
         lunarDay: info?.lunarDay,
       }))
 

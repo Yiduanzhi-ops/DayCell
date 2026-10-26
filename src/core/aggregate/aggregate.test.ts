@@ -792,6 +792,36 @@ describe('reviewsAll + hasReview — v8.42 复盘', () => {
     expect(mon.reviewPreview).toBeNull()
   })
 
+  it('aggregateWeek：habitPreview 每日列出应打卡习惯 + 打卡态；设定之前的日子不出现（v8.62）', async () => {
+    // daily 习惯 + 只在周四出现的 weekly 习惯（dowOf：0=周日）
+    const run = await repos.habits.create({ name: '跑步', freq: { kind: 'daily' } })
+    await repos.habits.create({ name: '读书', freq: { kind: 'weekly', weekdays: [4] } })
+    const created = keyOf(run.createdAt)
+
+    // 设定日前一天 → 两条都还没设定 → 空
+    const before = addDays(created, -1)
+    let week = await agg.aggregateWeek(before)
+    expect(week.days.find((d) => d.date === before)!.habitPreview).toHaveLength(0)
+
+    // 设定日 → 跑步出现（daily 当天必出现）；未打卡
+    week = await agg.aggregateWeek(created)
+    const createdDay = week.days.find((d) => d.date === created)!
+    expect(createdDay.habitPreview.some((h) => h.name === '跑步')).toBe(true)
+    expect(createdDay.habitPreview.find((h) => h.name === '跑步')!.done).toBe(false)
+
+    // 打卡后：done = true
+    await repos.checkins.toggle(created, run.id)
+    week = await agg.aggregateWeek(created)
+    expect(week.days.find((d) => d.date === created)!.habitPreview.find((h) => h.name === '跑步')!.done).toBe(true)
+
+    // 设定日之后的第一个周四：跑步（daily）+ 读书（weekly 命中周四）都出现
+    let thu = created
+    do { thu = addDays(thu, 1) } while (dowOf(thu) !== 4)
+    week = await agg.aggregateWeek(thu)
+    const thuDay = week.days.find((d) => d.date === thu)!
+    expect(thuDay.habitPreview.map((h) => h.name).sort()).toEqual(['跑步', '读书'].sort())
+  })
+
   it('没有复盘时返回空数组', async () => {
     expect(await agg.reviewsAll()).toEqual([])
   })

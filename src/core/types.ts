@@ -221,6 +221,7 @@ export type SettingKey =
   | 'backupReminderOff'
   | 'onboarded'
   | 'weekStartsOn'
+  | 'weekViewHabits'
 
 /** 十二个 store（PRD §6.3，v7.9 加 goals/stages，v8.0 加 habits/checkins，v8.29 加 annivchecks，v8.42 加 reviews） */
 export type StoreName =
