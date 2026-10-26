@@ -8,11 +8,18 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.63'
+const CURRENT_VERSION = 'v8.64'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.64',
+    date: '2026-10-26',
+    items: [
+      '「加入今日待办」的子任务待办，在文字后标注来源目标「· 目标名」，一眼看出它属于哪个目标',
+    ],
+  },
   {
     version: 'v8.63',
     date: '2026-10-26',

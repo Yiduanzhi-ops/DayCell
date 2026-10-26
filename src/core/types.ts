@@ -51,6 +51,9 @@ export interface TodoRecord extends DatedRecord {
    * 可删除（=撤销加入 + 取消当天打卡）；不可编辑文字。同一子任务同一天最多一条。
    */
   subtaskId?: string
+  /** v8.64 来源目标标题快照（可选）：加入今日待办时写入，待办行标注「· 目标名」；
+   *  快照特性：目标之后改名/删除不影响已加入待办的标注 */
+  subtaskGoalTitle?: string
 }
 
 export interface NoteRecord extends DatedRecord {

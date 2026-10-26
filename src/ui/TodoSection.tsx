@@ -107,8 +107,12 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
               {editingId === t.id ? (
                 <TodoEdit todo={t} onDone={() => setEditingId(null)} />
               ) : t.subtaskId ? (
-                // v8.63 子任务来源待办：不可编辑文字（标题快照只读），可勾选、可删除
-                <span className={styles.ttxt}>{t.text}</span>
+                // v8.63 子任务来源待办：不可编辑文字（标题快照只读），可勾选、可删除；
+                // v8.64 文字后标注来源目标「· 目标名」
+                <span className={styles.ttxt}>
+                  {t.text}
+                  {t.subtaskGoalTitle && <span className={styles.subGoalTag}> · {t.subtaskGoalTitle}</span>}
+                </span>
               ) : (
                 <button
                   className={styles.ttxtBtn}

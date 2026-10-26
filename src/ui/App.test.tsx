@@ -705,6 +705,8 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     fireEvent.click(screen.getByRole('tab', { name: '今天' }))
     await waitFor(() => expect(screen.getByText('背单词')).toBeInTheDocument())
     expect(screen.queryByRole('button', { name: '编辑待办：背单词' })).not.toBeInTheDocument()
+    // v8.64 标注来源目标「· 考研」
+    await waitFor(() => expect(screen.getByText('· 考研')).toBeInTheDocument())
 
     // 勾选完成 → 目标详情里联动为当天已打卡（切回目标 tab 回列表，需重新点开详情）
     fireEvent.click(screen.getByRole('button', { name: '标记完成：背单词' }))

@@ -83,6 +83,13 @@ describe('todos.subtaskId（v8.63 子任务加入今日待办）', () => {
     const back = await repos.todos.byId(a.id)
     expect(back.subtaskId).toBe('st-1')
   })
+
+  it('v8.64 create 第 5 参 subtaskGoalTitle → 记录携带；不带 → 无字段', async () => {
+    const a = await repos.todos.create(k('2026-10-20'), '背单词', undefined, 'st-1', '考研上岸')
+    expect(a.subtaskGoalTitle).toBe('考研上岸')
+    const b = await repos.todos.create(k('2026-10-20'), '背单词', undefined, 'st-1')
+    expect(b.subtaskGoalTitle).toBeUndefined()
+  })
 })
 describe('todos.deadline（v8.53 DDL 待办）', () => {  it('create 带截止日 → 记录带 deadline；不带 → 无字段', async () => {
     const a = await repos.todos.create(k('2026-10-20'), '交作业', '2026-10-25')

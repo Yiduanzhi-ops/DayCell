@@ -847,7 +847,8 @@ export function createAppStore(
           get().showToast('已在今日待办里')
           return false
         }
-        await repos.todos.create(date, subtask.title, undefined, subtaskId)
+        // v8.64 目标标题一并快照：待办行标注「· 目标名」；目标之后改名/删除不影响已加入待办
+        await repos.todos.create(date, subtask.title, undefined, subtaskId, d.goal.title)
         set({ dataVer: get().dataVer + 1 })
         await get().refresh()
         get().showToast('已加入今日待办')

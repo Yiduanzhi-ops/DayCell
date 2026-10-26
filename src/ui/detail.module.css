@@ -42,6 +42,8 @@
 .chk:hover { border-color: var(--accent); }
 .done .chk { background: var(--accent-strong); border-color: var(--accent-strong); }
 .ttxt { flex: 1; min-width: 0; font-size: 13.5px; line-height: 1.5; word-break: break-word; }
+/* v8.64 子任务来源待办：文字后标注来源目标「· 目标名」（淡灰小字，不抢正文） */
+.subGoalTag { color: var(--ink-3); font-size: 12px; white-space: nowrap; }
 /* v7 / US-13：点文字就地编辑。ttxtBtn 是包住 ttxt 的透明按钮，hover 底色提示可点 */
 .ttxtBtn {
   flex: 1; min-width: 0; text-align: left; cursor: text;
