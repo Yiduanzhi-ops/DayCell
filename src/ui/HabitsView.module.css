@@ -3,6 +3,8 @@
 .overlay {
   position: fixed;
   inset: 0;
+  /* v8.61 键盘顶起：弹窗底边对齐键盘顶（--kb-inset 由 visualViewport 全局写入） */
+  padding-bottom: var(--kb-inset, 0px);
   background: rgba(0, 0, 0, 0.34);
   z-index: 200;
   display: flex;

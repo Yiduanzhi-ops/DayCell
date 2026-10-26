@@ -87,6 +87,8 @@
   padding: 1px 6px; border-radius: 4px; margin-top: 2px; white-space: nowrap;
 }
 .ddlLate { color: var(--danger, #e5484d); background: var(--danger-soft, rgba(229, 72, 77, 0.08)); border-color: rgba(229, 72, 77, 0.25); }
+/* v8.61 逾期完成（已完成态弱化）：同族红色但更淡，区别于未完成时的红色警报 */
+.ddlLateDone { color: var(--danger, #e5484d); background: rgba(229, 72, 77, 0.05); border-color: rgba(229, 72, 77, 0.18); }
 /* v8.53 截止日期选择行：今天 / 自定义（v8.53.2 自定义改无框文字 + 箭头，方案 B） */
 .ddlRow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .ddlLabel { font-size: 11.5px; color: var(--ink-3); flex: 0 0 auto; }

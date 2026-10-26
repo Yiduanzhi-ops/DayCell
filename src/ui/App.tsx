@@ -13,6 +13,7 @@ import type { AppState } from '@/app/store'
 import { AppStoreContext, useApp } from '@/app/context'
 import { applyTheme } from '@/app/store'
 import { ensureFirstVisitMarks } from './telemetry'
+import { watchKeyboardInset } from './keyboardInset'
 import { TopBar } from './TopBar'
 import { TabBar } from './TabBar'
 import { DayView } from './DayView'
@@ -65,6 +66,9 @@ function Shell(): JSX.Element {
   useEffect(() => {
     ensureFirstVisitMarks()
   }, [])
+
+  // v8.61 全弹窗键盘适配：visualViewport → --kb-inset，弹窗随键盘顶起
+  useEffect(() => watchKeyboardInset(), [])
 
   // 全局快捷键（S4 / D17·v7）：j/k、←/→ 翻周/月（今天视图 no-op），d/t 回今天、w 周、m 月，
   // Esc 收起表单或返回。输入控件聚焦时跳过（表单里 Enter/Esc 有自己的语义）；IME 组合中跳过，

@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.60'
+const CURRENT_VERSION = 'v8.61'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.61',
+    date: '2026-10-26',
+    items: [
+      '逾期完成标注：已完成但晚于截止日的待办，行尾标出淡红「逾期完成 · 截止 M/D」；截止日当天完成不算逾期',
+      '修复手机端弹窗被输入键盘遮挡：子任务 / 阶段 / 新建目标 / 习惯 / 纪念日等所有弹窗，键盘弹出时整体上移、输入不再被盖住',
+    ],
+  },
   {
     version: 'v8.60',
     date: '2026-10-26',

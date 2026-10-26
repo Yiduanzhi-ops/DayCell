@@ -30,6 +30,7 @@ import type {
 } from '../types'
 import { NotFoundError, ValidationError } from '../errors'
 import { systemClock, type Clock } from '../clock'
+import { keyOf } from '../date'
 import { createIdGen, type IdGen } from '../id'
 import type { RecordStore } from '../store/types'
 import {
@@ -102,6 +103,14 @@ export interface TodoRepo {
 export function todoProgress(recs: TodoRecord[]): { done: number; total: number } {
   const active = recs.filter((r) => !r.rolledTo)
   return { done: active.filter((r) => r.done).length, total: active.length }
+}
+
+/**
+ * v8.61 逾期完成判定：已完成 && 有截止日 && 完成日期 > 截止日期。
+ * 截止日当天完成（doneAt == deadline）不算逾期；未完成由 UI 按 v8.53 红色「已逾期」处理。
+ */
+export function isOverdueDone(rec: Pick<TodoRecord, 'done' | 'doneAt' | 'deadline'>): boolean {
+  return !!rec.done && !!rec.deadline && rec.doneAt !== undefined && keyOf(rec.doneAt) > rec.deadline
 }
 
 /**

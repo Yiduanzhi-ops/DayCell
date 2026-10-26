@@ -7,7 +7,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import type { JSX } from 'react'
-import { todoProgress, type TodoRecord } from '@core'
+import { todoProgress, isOverdueDone, type TodoRecord } from '@core'
 import { compareKey, type DateKey } from '@core'
 import { useApp } from '@/app/context'
 import { Check } from './icons'
@@ -119,9 +119,16 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
               {t.rolledFrom && <span className={styles.rolled}>顺延自 {md(t.rolledFrom)}</span>}
               {t.deadline && (
                 <span
-                  className={`${styles.ddlBadge} ${!t.done && compareKey(t.deadline, k) < 0 ? styles.ddlLate : ''}`}
+                  className={`${styles.ddlBadge} ${
+                    !t.done && compareKey(t.deadline, k) < 0 ? styles.ddlLate : ''
+                  } ${isOverdueDone(t) ? styles.ddlLateDone : ''}`}
                 >
-                  {!t.done && compareKey(t.deadline, k) < 0 ? '已逾期 · ' : ''}截止 {md(t.deadline)}
+                  {isOverdueDone(t)
+                    ? '逾期完成 · '
+                    : !t.done && compareKey(t.deadline, k) < 0
+                      ? '已逾期 · '
+                      : ''}
+                  截止 {md(t.deadline)}
                 </span>
               )}
               {!t.rolledTo && (

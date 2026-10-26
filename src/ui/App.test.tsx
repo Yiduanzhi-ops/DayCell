@@ -541,6 +541,29 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     await waitFor(() => expect(within(screen.getByTestId('day-center')).queryByText(/截止 9\/29/)).not.toBeInTheDocument())
   })
 
+  it('v8.61 逾期完成标注：完成后把截止日改成过去日期 → 徽标「逾期完成」；截止日当天完成不标', async () => {
+    await renderApp()
+    // 新建待办（默认截止今天 9/29）
+    fireEvent.click(within(screen.getByTestId('day-center')).getByRole('button', { name: '添加待办' }))
+    const input = screen.getByLabelText('新待办')
+    fireEvent.change(input, { target: { value: '交作业' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() => expect(screen.queryByLabelText('新待办')).not.toBeInTheDocument())
+
+    // 今天（9/29）勾选完成 → doneAt=9/29 = 截止日，不算逾期 → 无「逾期完成」徽标
+    fireEvent.click(within(screen.getByTestId('day-center')).getByRole('button', { name: '标记完成：交作业' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: '标记未完成：交作业' })).toBeInTheDocument())
+    expect(within(screen.getByTestId('day-center')).queryByText(/逾期完成/)).not.toBeInTheDocument()
+
+    // 编辑 → 自定义截止日改成昨天 9/28（完成日 9/29 > 截止日）→ 徽标「逾期完成 · 截止 9/28」
+    fireEvent.click(screen.getByText('交作业'))
+    fireEvent.change(screen.getByLabelText('自定义截止日'), { target: { value: '2026-09-28' } })
+    fireEvent.keyDown(screen.getByLabelText('编辑待办'), { key: 'Enter' })
+    await waitFor(() =>
+      expect(within(screen.getByTestId('day-center')).getByText(/逾期完成 · 截止 9\/28/)).toBeInTheDocument(),
+    )
+  })
+
   it('v8.53 编辑待办可改截止日（自定义日期）', async () => {
     await renderApp()
     fireEvent.click(within(screen.getByTestId('day-center')).getByRole('button', { name: '添加待办' }))

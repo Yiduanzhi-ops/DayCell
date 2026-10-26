@@ -16,7 +16,7 @@ import { createFakeClock, type FakeClock } from '../clock'
 import { createSeqIdGen } from '../id'
 import { NotFoundError, ValidationError } from '../errors'
 import {
-  createRepos, todoProgress, isRollable, toYuan, toCents,
+  createRepos, todoProgress, isRollable, isOverdueDone, toYuan, toCents,
   DEFAULT_CATEGORIES, type Repos,
 } from './index'
 
@@ -123,6 +123,19 @@ describe('todos.deadline（v8.53 DDL 待办）', () => {
     const ddl = await repos.todos.ddlAll()
     expect(ddl.map((t) => t.id).sort()).toEqual([act1.id, done1.id].sort())
     expect(ddl.every((t) => t.deadline !== undefined)).toBe(true)
+  })
+
+  it('v8.61 isOverdueDone：完成日期 > 截止日期才算逾期完成', () => {
+    // 完成日晚于截止日 → 逾期完成
+    expect(isOverdueDone({ done: true, doneAt: new Date(2026, 9, 1, 9).getTime(), deadline: k('2026-09-30') })).toBe(true)
+    // 截止日当天完成 → 不算逾期
+    expect(isOverdueDone({ done: true, doneAt: new Date(2026, 8, 30, 23).getTime(), deadline: k('2026-09-30') })).toBe(false)
+    // 完成日早于截止日 → 不算
+    expect(isOverdueDone({ done: true, doneAt: new Date(2026, 8, 28, 9).getTime(), deadline: k('2026-09-30') })).toBe(false)
+    // 未完成 / 无截止日 / 无 doneAt → 不算
+    expect(isOverdueDone({ done: false, doneAt: undefined, deadline: k('2026-09-30') })).toBe(false)
+    expect(isOverdueDone({ done: true, doneAt: new Date(2026, 9, 1, 9).getTime(), deadline: undefined })).toBe(false)
+    expect(isOverdueDone({ done: true, doneAt: undefined, deadline: k('2026-09-30') })).toBe(false)
   })
 })
 
