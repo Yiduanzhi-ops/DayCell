@@ -530,15 +530,32 @@ describe('v8.53 活跃 DDL 待办注入（每天出现）', () => {
     expect(d.todos.filter((t) => t.text === '交作业')).toHaveLength(1)
   })
 
-  it('完成或删除后不再注入（从每天消失）', async () => {
-    const t = await repos.todos.create(k('2026-10-25'), '交作业', '2026-10-25')
+  it('v8.60 完成当天保留显示（勾选态），次日起消失；删除后消失；取消完成恢复', async () => {
+    // DDL 挂载在 10-20，10-21 之前每天注入
+    clock.set(new Date(2026, 9, 20).getTime())
+    const t = await repos.todos.create(k('2026-10-20'), '交作业', '2026-10-25')
     expect((await agg.aggregateDayDetail(k('2026-10-21'))).todos).toHaveLength(1)
+
+    // 10-23 完成：当天仍显示（已完成勾选态），不"突然消失"
+    clock.set(new Date(2026, 9, 23).getTime())
     await repos.todos.toggle(t.id)
-    expect((await agg.aggregateDayDetail(k('2026-10-21'))).todos).toHaveLength(0)
-    await repos.todos.toggle(t.id) // 取消完成 → 重新出现
-    expect((await agg.aggregateDayDetail(k('2026-10-21'))).todos).toHaveLength(1)
+    const onDoneDay = await agg.aggregateDayDetail(k('2026-10-23'))
+    expect(onDoneDay.todos).toHaveLength(1)
+    expect(onDoneDay.todos[0]!.done).toBe(true)
+
+    // 完成次日 10-24：不再注入（从今天视图自然消失）
+    expect((await agg.aggregateDayDetail(k('2026-10-24'))).todos).toHaveLength(0)
+
+    // 取消完成 → 重新每天出现
+    await repos.todos.toggle(t.id)
+    expect((await agg.aggregateDayDetail(k('2026-10-24'))).todos).toHaveLength(1)
+    expect((await agg.aggregateDayDetail(k('2026-10-24'))).todos[0]!.done).toBe(false)
+
+    // 再次完成并删除 → 消失
+    clock.set(new Date(2026, 9, 24).getTime())
+    await repos.todos.toggle(t.id)
     await repos.todos.softDelete(t.id)
-    expect((await agg.aggregateDayDetail(k('2026-10-21'))).todos).toHaveLength(0)
+    expect((await agg.aggregateDayDetail(k('2026-10-24'))).todos).toHaveLength(0)
   })
 
   it('DDL 待办不参与顺延（isRollable 排除）', async () => {

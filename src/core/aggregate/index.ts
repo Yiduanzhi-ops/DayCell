@@ -234,11 +234,17 @@ const emptyBucket = (): DayBucket => ({ todos: [], notes: [], expenses: [] })
  *    普通待办保持 createdAt 升序
  * v8.54 修复：只注入「创建于查看日当天或之前」的 DDL——创建日晚于查看日的
  *    （翻到它还不存在的史前日子）不再出现。
+ * v8.60 修复：完成的 DDL 不再"突然消失"——完成当天仍注入（勾选保留显示），
+ *    次日起（doneAt 非当天）不再注入，自然从今天视图消失。
  */
 function mergeDdlTodos(local: TodoRecord[], active: TodoRecord[], date: DateKey): TodoRecord[] {
   const localIds = new Set(local.map((t) => t.id))
   const injected = active.filter(
-    (t) => !localIds.has(t.id) && keyOf(t.createdAt) <= date,
+    (t) =>
+      !localIds.has(t.id) &&
+      keyOf(t.createdAt) <= date &&
+      // 未完成每天注入；已完成仅完成当天保留（doneAt 与查看日同天），次日消失
+      (!t.done || keyOf(t.doneAt ?? 0) === date),
   )
   return [...local, ...injected].sort((a, b) => {
     const da = a.deadline !== undefined
@@ -644,6 +650,7 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
       // v8.20 加 habits 全量 + 打卡集合：日详情带当日习惯（侧页与落地一致渲染）。
       // v8.29 加纪念日勾选集合（annivDones）。
       // v8.53 加第九路 activeDdl：活跃 DDL 待办注入"每天出现"。
+      // v8.60 改用 ddlAll（含已完成）：完成当天保留显示，次日起不再注入。
       const [data, annivTitles, catMap, annivRecs, habits, done, annivDone, review, ddl] = await Promise.all([
         store.byDateAll(prev, date),
         anniversaryTitles(date, date),
@@ -654,7 +661,7 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
         repos.annivChecks.doneOn(date),
         // v8.42 当日复盘（每日一条）
         repos.reviews.byDate(date),
-        repos.todos.activeDdl(),
+        repos.todos.ddlAll(),
       ])
 
       const buckets = bucketize(data)

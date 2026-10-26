@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.59'
+const CURRENT_VERSION = 'v8.60'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.60',
+    date: '2026-10-26',
+    items: [
+      '修复：逾期（DDL）待办完成后不再"突然消失"——完成当天仍显示勾选完成状态，次日从今天视图自然移除',
+      '目标子任务排序：已完成的子任务沉到底部，未完成的保持在前；已完成之间按完成先后保持原顺序',
+    ],
+  },
   {
     version: 'v8.59',
     date: '2026-10-24',

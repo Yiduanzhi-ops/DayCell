@@ -242,6 +242,48 @@ describe('目标模块（v7.9）', () => {
     await waitFor(() => expect(screen.queryByText('刷一套题')).not.toBeInTheDocument())
   })
 
+  it('v8.60 子任务沉底：已完成排到未完成之后，已完成之间保持原完成顺序', async () => {
+    await renderApp()
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => screen.getByText(/进行中的目标/))
+
+    fireEvent.click(screen.getByRole('button', { name: '＋ 新建目标' }))
+    fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
+    await screen.findByText('复习考公')
+
+    fireEvent.click(screen.getByText('复习考公'))
+    await waitFor(() => screen.getByText(/还没有子任务/))
+
+    const add = async (t: string): Promise<void> => {
+      fireEvent.click(screen.getByRole('button', { name: '＋ 添加子任务' }))
+      fireEvent.change(screen.getByPlaceholderText('如：做完教案第 3 章'), { target: { value: t } })
+      fireEvent.click(screen.getByRole('button', { name: '添加' }))
+      await waitFor(() => expect(screen.getAllByText(t).length).toBeGreaterThan(0))
+    }
+    await add('任务甲')
+    await add('任务乙')
+    await add('任务丙')
+
+    // 完成第一条「任务甲」→ 沉底：未完成在前 [任务乙,任务丙]，已完成沉底 [任务甲]
+    fireEvent.click(screen.getByRole('checkbox', { name: '标记完成：任务甲' }))
+    await waitFor(() => {
+      const rows = screen.getAllByRole('checkbox')
+      expect(rows[0]).toHaveAttribute('aria-label', '标记完成：任务乙')
+      expect(rows[1]).toHaveAttribute('aria-label', '标记完成：任务丙')
+      expect(rows[2]).toHaveAttribute('aria-label', '取消完成：任务甲')
+    })
+
+    // 再完成「任务丙」→ 已完成组保持完成先后（甲先于丙）：[任务乙, 任务甲, 任务丙]
+    fireEvent.click(screen.getByRole('checkbox', { name: '标记完成：任务丙' }))
+    await waitFor(() => {
+      const rows = screen.getAllByRole('checkbox')
+      expect(rows[0]).toHaveAttribute('aria-label', '标记完成：任务乙')
+      expect(rows[1]).toHaveAttribute('aria-label', '取消完成：任务甲')
+      expect(rows[2]).toHaveAttribute('aria-label', '取消完成：任务丙')
+    })
+  })
+
   it('v8.32 完成情况：横向进度条下沉到每个子任务/阶段行内（进度描述上方，空条常显）', async () => {
     await renderApp()
     fireEvent.click(screen.getByRole('tab', { name: '目标' }))

@@ -10,7 +10,7 @@
  *  - 阶段 = 名称 + 百分比滑杆 + 备注 + 进行中/已完成 + 「当前」（同目标互斥）
  *  - 无子阶段、无每日打卡、不与待办/支出联动；账单总结 = 目标的一种用法（用户拍板）
  */
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { JSX, ReactNode } from 'react'
 import { parsePct } from '@core'
 import type { GoalRecord, ProgressField, StageInput, StageRecord, SubtaskRecord } from '@core'
@@ -663,6 +663,12 @@ function GoalDetail({
 
   const doneSubtaskCount = subtasks.filter((x) => x.done).length
 
+  // v8.60 已完成子任务沉底：未完成在前（原顺序）、已完成沉底（稳定排序保持彼此原顺序）
+  const sortedSubtasks = useMemo(
+    () => [...subtasks].sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0)),
+    [subtasks],
+  )
+
   return (
     <div className={styles.detail}>
       <div className={styles.detailBar}>
@@ -839,7 +845,7 @@ function GoalDetail({
               还没有子任务。把要做的事拆成一条条子任务，逐条勾选完成。
             </div>
           ) : (
-            subtasks.map((st) => (
+            sortedSubtasks.map((st) => (
               <SubtaskRow key={st.id} subtask={st} onDelete={removeSubtask} />
             ))
           )}

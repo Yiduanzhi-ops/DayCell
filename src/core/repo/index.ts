@@ -90,6 +90,8 @@ export interface TodoRepo {
   rollableCount(date: DateKey): Promise<number>
   /** v8.53 活跃 DDL 待办（未完成、未删除、带截止日）——聚合注入用 */
   activeDdl(): Promise<TodoRecord[]>
+  /** v8.60 未删除带截止日的全部待办（含已完成）——聚合"完成当天保留显示、次日消失"用 */
+  ddlAll(): Promise<TodoRecord[]>
 }
 
 /**
@@ -403,6 +405,12 @@ export function createRepos(deps: RepoDeps): Repos {
     async activeDdl() {
       const all = await store.all<TodoRecord>('todos', { includeDeleted: false })
       return all.filter((t) => !t.deleted && !t.done && !!t.deadline)
+    },
+
+    /** v8.60 未删除带截止日的全部待办（含已完成）——聚合层"完成当天保留显示、次日消失"用 */
+    async ddlAll() {
+      const all = await store.all<TodoRecord>('todos', { includeDeleted: false })
+      return all.filter((t) => !t.deleted && !!t.deadline)
     },
 
     async toggle(id) {

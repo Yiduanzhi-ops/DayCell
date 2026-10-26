@@ -111,6 +111,19 @@ describe('todos.deadline（v8.53 DDL 待办）', () => {
     const ddl = await repos.todos.activeDdl()
     expect(ddl.map((t) => t.id)).toEqual([act1.id])
   })
+
+  it('v8.60 ddlAll：含已完成、未删除、带截止日的全部待办（完成当天保留显示用）', async () => {
+    const done1 = await repos.todos.create(k('2026-10-20'), '已完成DDL', '2026-10-21')
+    const act1 = await repos.todos.create(k('2026-10-20'), '进行中1', '2026-10-22')
+    await repos.todos.create(k('2026-10-20'), '普通待办')
+    const act2 = await repos.todos.create(k('2026-10-20'), '进行中2', '2026-10-23')
+    await repos.todos.toggle(done1.id) // 已完成 → 仍包含
+    await repos.todos.softDelete(act2.id) // 删除 → 不出现
+
+    const ddl = await repos.todos.ddlAll()
+    expect(ddl.map((t) => t.id).sort()).toEqual([act1.id, done1.id].sort())
+    expect(ddl.every((t) => t.deadline !== undefined)).toBe(true)
+  })
 })
 
 describe('todos.setText / toggle / softDelete', () => {
