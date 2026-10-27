@@ -9,7 +9,18 @@
  */
 import { useState } from 'react'
 import type { JSX } from 'react'
-import { API_BASE, CLOUD_ENV, checkBackend, getCloudApp } from './cloudbase'
+import type { BackupFile } from '@core'
+import { useApp } from '@/app/context'
+import {
+  API_BASE,
+  CLOUD_ENV,
+  checkBackend,
+  downloadSnapshot,
+  fetchMe,
+  getAccessToken,
+  getCloudApp,
+  uploadSnapshot,
+} from './cloudbase'
 import styles from './CloudSyncPanel.module.css'
 
 type HealthState =
@@ -18,12 +29,24 @@ type HealthState =
   | { phase: 'ok'; info: string }
   | { phase: 'fail'; error: string }
 
+type MeState =
+  | { phase: 'idle' }
+  | { phase: 'checking' }
+  | { phase: 'ok'; data: { uid?: string; eventKeys?: string[]; eventSummary?: Record<string, unknown> } }
+  | { phase: 'fail'; error: string }
+
 type LoginState =
   | { phase: 'idle' }
   | { phase: 'sending' }
   | { phase: 'sent'; email: string }
   | { phase: 'done'; email: string; uid?: string }
   | { phase: 'error'; message: string }
+
+type SyncState =
+  | { phase: 'idle' }
+  | { phase: 'busy'; action: 'upload' | 'download' }
+  | { phase: 'ok'; action: 'upload' | 'download'; info: string }
+  | { phase: 'fail'; action: 'upload' | 'download'; error: string }
 
 interface OtpData {
   verifyOtp?: (p: { token: string }) => Promise<{ error?: { message?: string } }>
@@ -41,11 +64,15 @@ function cleanErr(m: string): string {
 
 export function CloudSyncPanel(): JSX.Element {
   const [health, setHealth] = useState<HealthState>({ phase: 'idle' })
+  const [me, setMe] = useState<MeState>({ phase: 'idle' })
   const [login, setLogin] = useState<LoginState>({ phase: 'idle' })
   const [email, setEmail] = useState('')
   const [otp, setOtp] = useState('')
   const [otpData, setOtpData] = useState<OtpData | null>(null)
   const [verifying, setVerifying] = useState(false)
+  const [sync, setSync] = useState<SyncState>({ phase: 'idle' })
+  const exportSnapshotObject = useApp((s) => s.exportSnapshotObject)
+  const restoreSnapshot = useApp((s) => s.restoreSnapshot)
 
   const onHealth = async (): Promise<void> => {
     setHealth({ phase: 'checking' })
@@ -107,6 +134,69 @@ export function CloudSyncPanel(): JSX.Element {
     }
   }
 
+  const onMe = async (): Promise<void> => {
+    setMe({ phase: 'checking' })
+    const token = await getAccessToken()
+    if (!token) {
+      setMe({ phase: 'fail', error: '未取到 accessToken，请重新登录' })
+      return
+    }
+    const r = await fetchMe(token)
+    setMe(
+      r.ok && r.data
+        ? { phase: 'ok', data: r.data as MeState extends { phase: 'ok' } ? { uid?: string; eventKeys?: string[]; eventSummary?: Record<string, unknown> } : never }
+        : { phase: 'fail', error: r.error ?? 'unknown' },
+    )
+  }
+
+  const onUpload = async (): Promise<void> => {
+    setSync({ phase: 'busy', action: 'upload' })
+    const token = await getAccessToken()
+    if (!token) {
+      setSync({ phase: 'fail', action: 'upload', error: '未取到 accessToken，请重新登录' })
+      return
+    }
+    const snap = await exportSnapshotObject()
+    if (!snap) {
+      setSync({ phase: 'fail', action: 'upload', error: '本地快照生成失败（详见提示）' })
+      return
+    }
+    const r = await uploadSnapshot(token, snap, `v9-${Date.now()}`)
+    setSync(
+      r.ok
+        ? {
+            phase: 'ok',
+            action: 'upload',
+            info: r.id != null ? `已上传到云端（快照 id=${r.id}）` : '已上传到云端',
+          }
+        : { phase: 'fail', action: 'upload', error: r.error ?? '上传失败' },
+    )
+  }
+
+  const onDownload = async (): Promise<void> => {
+    setSync({ phase: 'busy', action: 'download' })
+    const token = await getAccessToken()
+    if (!token) {
+      setSync({ phase: 'fail', action: 'download', error: '未取到 accessToken，请重新登录' })
+      return
+    }
+    const r = await downloadSnapshot(token)
+    if (!r.ok || !r.snapshot) {
+      setSync({ phase: 'fail', action: 'download', error: r.error ?? '下载失败（云端尚无快照？）' })
+      return
+    }
+    const ok = await restoreSnapshot(r.snapshot as BackupFile)
+    setSync(
+      ok
+        ? {
+            phase: 'ok',
+            action: 'download',
+            info: `已恢复云端快照${r.version ? `（版本 ${r.version}` : ''}${r.savedAt ? ` · 保存于 ${r.savedAt}` : ''}${r.version || r.savedAt ? '）' : ''}`,
+          }
+        : { phase: 'fail', action: 'download', error: '恢复失败（详见提示）' },
+    )
+  }
+
   const onSignOut = async (): Promise<void> => {
     try {
       await getCloudApp().auth().signOut()
@@ -114,6 +204,7 @@ export function CloudSyncPanel(): JSX.Element {
       // 忽略登出异常，UI 一律回到 idle
     }
     setLogin({ phase: 'idle' })
+    setMe({ phase: 'idle' })
     setOtp('')
     setOtpData(null)
   }
@@ -163,9 +254,64 @@ export function CloudSyncPanel(): JSX.Element {
               <span className={styles.mono}>{login.email}</span>
               {login.uid && <span className={styles.dim}>uid {login.uid.slice(0, 8)}…</span>}
             </div>
-            <button className={styles.btn} onClick={() => void onSignOut()}>
-              退出登录
-            </button>
+            <div className={styles.row}>
+              <button
+                className={styles.btn}
+                disabled={me.phase === 'checking'}
+                onClick={() => void onMe()}
+              >
+                {me.phase === 'checking' ? '验证中…' : '③ 验证网关身份（/me）'}
+              </button>
+              <button className={styles.btn} onClick={() => void onSignOut()}>
+                退出登录
+              </button>
+            </div>
+            {me.phase === 'ok' && (
+              <div className={styles.meBox}>
+                <div className={styles.ok}>✓ 网关注入 uid: {me.data.uid ?? '（未取到）'}</div>
+                <code className={styles.code}>
+                  eventKeys: {JSON.stringify(me.data.eventKeys ?? [])}
+                </code>
+                <code className={styles.code}>
+                  userInfo: {JSON.stringify(me.data.eventSummary?.userInfo ?? null)}
+                </code>
+                <code className={styles.code}>
+                  auth: {JSON.stringify(me.data.eventSummary?.auth ?? null)}
+                </code>
+              </div>
+            )}
+            {me.phase === 'fail' && <div className={styles.errLine}>✗ /me {me.error}</div>}
+
+            {/* —— v9 云同步：按钮版 —— */}
+            <div className={styles.block}>
+              <div className={styles.blockTitle}>④ 云同步（按钮版）</div>
+              <p className={styles.hint}>
+                上传 = 把本地整包快照存到云端；下载 = 用云端快照恢复（按 id 合并，不覆盖本地更新的数据）。
+              </p>
+              <div className={styles.row}>
+                <button
+                  className={`${styles.btn} ${styles.primary}`}
+                  disabled={sync.phase === 'busy'}
+                  onClick={() => void onUpload()}
+                >
+                  {sync.phase === 'busy' && sync.action === 'upload'
+                    ? '上传中…'
+                    : '上传到云端'}
+                </button>
+                <button
+                  className={styles.btn}
+                  disabled={sync.phase === 'busy'}
+                  onClick={() => void onDownload()}
+                >
+                  {sync.phase === 'busy' && sync.action === 'download'
+                    ? '恢复中…'
+                    : '从云端恢复'}
+                </button>
+              </div>
+              {sync.phase === 'ok' && <div className={styles.ok}>✓ {sync.info}</div>}
+              {sync.phase === 'fail' && <div className={styles.errLine}>✗ {sync.error}</div>}
+              <code className={styles.code}>POST /sync/upload · GET /sync/download</code>
+            </div>
           </div>
         ) : login.phase === 'sent' ? (
           <div className={styles.sentBox}>

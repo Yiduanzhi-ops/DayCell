@@ -31,6 +31,7 @@ import {
   weekKeys,
   type AnniversaryInput,
   type AnniversaryRecord,
+  type BackupFile,
   type CategoryRecord,
   type DateKey,
   type DayAggregate,
@@ -252,6 +253,10 @@ export interface AppState {
   exportBackup(): Promise<boolean>
   /** 从 JSON 备份**合并**导入（PRD M15，v7.5 用户口径：按 id 去重，不覆盖本地） */
   importBackup(file: { name?: string; text(): Promise<string> }): Promise<boolean>
+  /** v9 云同步：导出整库快照对象（不触发下载，供上传到云端） */
+  exportSnapshotObject(): Promise<BackupFile | null>
+  /** v9 云同步：用云端快照对象**合并**恢复到本地（同 importBackup 语义，不覆盖本地新数据） */
+  restoreSnapshot(file: BackupFile): Promise<boolean>
   /** 一键导出 Markdown：kind='week' 本周 / 'month' 本月 */
   exportMd(kind: 'week' | 'month'): Promise<boolean>
   createAnniversary(input: AnniversaryInput): Promise<boolean>
@@ -1085,6 +1090,38 @@ export function createAppStore(
         return true
       } catch (e) {
         // BackupCorruptError 自带"现有数据未改动"语义，直接透传给用户
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    // ---- v9 云同步：快照对象（按钮版，UI 层负责网络） ----
+    async exportSnapshotObject() {
+      try {
+        return await serializeBackup(bundle.store)
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return null
+      }
+    },
+
+    async restoreSnapshot(file) {
+      try {
+        const stats = await mergeBackup(bundle.store, file)
+        // 分类可能新增 → 清分类名缓存，避免显示旧名
+        aggregates.invalidate()
+        set({ dataVer: get().dataVer + 1 })
+        await get().refresh()
+        const total =
+          stats.added.todos + stats.added.notes + stats.added.expenses +
+          stats.added.anniversaries + stats.added.categories + stats.settingsAdded
+        if (total > 0) {
+          get().showToast(`已恢复云端快照：合并 ${total} 条记录`)
+        } else {
+          get().showToast('云端快照与本地一致，无需恢复')
+        }
+        return true
+      } catch (e) {
         get().showToast(errMsg(e))
         return false
       }
