@@ -29,6 +29,16 @@ interface OtpData {
   verifyOtp?: (p: { token: string }) => Promise<{ error?: { message?: string } }>
 }
 
+/** 清洗服务端/Go 格式化的错误串，只留人能看懂的部分 */
+function cleanErr(m: string): string {
+  const cut = m.indexOf('%!(EXTRA')
+  const base = cut >= 0 ? m.slice(0, cut) : m
+  const t = base.trim()
+  if (t === '') return '验证码无效或已过期，请重新发送'
+  if (t.includes('verification code does not match')) return '验证码不正确或已过期，请用最新邮件里的验证码重试'
+  return t
+}
+
 export function CloudSyncPanel(): JSX.Element {
   const [health, setHealth] = useState<HealthState>({ phase: 'idle' })
   const [login, setLogin] = useState<LoginState>({ phase: 'idle' })
@@ -59,13 +69,13 @@ export function CloudSyncPanel(): JSX.Element {
         error?: { message?: string }
       }
       if (res.error) {
-        setLogin({ phase: 'error', message: res.error.message ?? '发送失败' })
+        setLogin({ phase: 'error', message: cleanErr(res.error.message ?? '发送失败') })
         return
       }
       setOtpData(res.data)
       setLogin({ phase: 'sent', email: addr })
     } catch (e) {
-      setLogin({ phase: 'error', message: e instanceof Error ? e.message : String(e) })
+      setLogin({ phase: 'error', message: cleanErr(e instanceof Error ? e.message : String(e)) })
     }
   }
 
@@ -80,7 +90,7 @@ export function CloudSyncPanel(): JSX.Element {
       }
       const r = (await otpData.verifyOtp({ token })) as { error?: { message?: string } }
       if (r.error) {
-        setLogin({ phase: 'error', message: r.error.message ?? '验证失败' })
+        setLogin({ phase: 'error', message: cleanErr(r.error.message ?? '验证失败') })
         return
       }
       const auth = getCloudApp().auth()
@@ -91,7 +101,7 @@ export function CloudSyncPanel(): JSX.Element {
         uid: typeof state === 'string' ? state : (state as { uid?: string })?.uid,
       })
     } catch (e) {
-      setLogin({ phase: 'error', message: e instanceof Error ? e.message : String(e) })
+      setLogin({ phase: 'error', message: cleanErr(e instanceof Error ? e.message : String(e)) })
     } finally {
       setVerifying(false)
     }
