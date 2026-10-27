@@ -19,6 +19,7 @@
     "size": "vite build && node scripts/report-size.mjs"
   },
   "dependencies": {
+    "@cloudbase/js-sdk": "^3.10.4",
     "@tauri-apps/api": "^2.12.3",
     "idb": "^8.0.3",
     "lunar-typescript": "^1.8.6",

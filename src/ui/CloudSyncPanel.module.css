@@ -1,0 +1,134 @@
+/* v9 云同步开发面板 —— 独立样式，保持与同步设置页一致的视觉语言 */
+.panel {
+  margin-top: 18px;
+  padding: 14px 14px 10px;
+  border: 1px dashed rgba(120, 140, 180, 0.55);
+  border-radius: 12px;
+  background: rgba(235, 240, 250, 0.5);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.badge {
+  font-size: 11px;
+  color: #6b7280;
+  background: rgba(107, 114, 128, 0.12);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.block {
+  margin: 12px 0;
+}
+
+.blockTitle {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.hint {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0 0 8px;
+  line-height: 1.5;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+}
+
+.btn {
+  font-size: 13px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  background: #fff;
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn.primary {
+  background: #2563eb;
+  color: #fff;
+  border-color: transparent;
+}
+
+.input {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 14px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  margin: 6px 0;
+}
+
+.code {
+  display: inline-block;
+  font-size: 11px;
+  color: #374151;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 6px;
+  padding: 3px 8px;
+  margin-top: 4px;
+  word-break: break-all;
+}
+
+.ok {
+  font-size: 13px;
+  color: #15803d;
+}
+
+.err {
+  font-size: 13px;
+  color: #b91c1c;
+}
+
+.errLine {
+  font-size: 12px;
+  color: #b91c1c;
+  margin-bottom: 6px;
+}
+
+.doneBox,
+.sentBox,
+.formBox {
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.mono {
+  font-size: 13px;
+  font-family: ui-monospace, monospace;
+}
+
+.dim {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.foot {
+  font-size: 11px;
+  color: #6b7280;
+  margin: 10px 0 0;
+}

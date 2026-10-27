@@ -19,6 +19,8 @@ import { useState } from 'react'
 import type { JSX } from 'react'
 import type { GiteeConfig } from '@core'
 import { useApp } from '@/app/context'
+import { CloudSyncPanel } from './CloudSyncPanel'
+import { isDevMode } from './devflag'
 import styles from './SyncSettings.module.css'
 
 const fmtTime = (t: number | null): string =>
@@ -169,6 +171,9 @@ export function SyncSettings(): JSX.Element {
               </>
             )}
           </div>
+
+          {/* v9 开发面板：仅 ?dev=1 可见，默认用户无感 */}
+          {isDevMode() && <CloudSyncPanel />}
         </div>
       </div>
     </div>
