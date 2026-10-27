@@ -1,0 +1,14 @@
+{
+  "envId": "coding-daycell-d3g1vgq8g521cb2a6",
+  "functions": [
+    {
+      "name": "daycell-api",
+      "runtime": "Nodejs20.19",
+      "handler": "index.main",
+      "timeout": 3,
+      "memorySize": 128,
+      "installDependency": false,
+      "description": "DayCell v9 后端 HTTP 总入口：健康检查 + 路由骨架"
+    }
+  ]
+}
