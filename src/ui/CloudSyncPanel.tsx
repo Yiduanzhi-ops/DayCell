@@ -7,7 +7,7 @@
  *
  * 仅自测用途，默认用户不可见；上线前移除 devflag 门并接入正式入口。
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { JSX } from 'react'
 import type { BackupFile } from '@core'
 import { useApp } from '@/app/context'
@@ -19,6 +19,7 @@ import {
   fetchMe,
   getAccessToken,
   getCloudApp,
+  isCloudLoggedIn,
   uploadSnapshot,
 } from './cloudbase'
 import styles from './CloudSyncPanel.module.css'
@@ -73,6 +74,16 @@ export function CloudSyncPanel(): JSX.Element {
   const [sync, setSync] = useState<SyncState>({ phase: 'idle' })
   const exportSnapshotObject = useApp((s) => s.exportSnapshotObject)
   const restoreSnapshot = useApp((s) => s.restoreSnapshot)
+  const setCloudSyncEnabled = useApp((s) => s.setCloudSyncEnabled)
+
+  // v9.1：刷新后恢复登录态显示（auth 会话持久在 localStorage）；已登录则激活自动同步。
+  // 仅 idle 时执行一次——避免每次打开设置页都重复激活/同步。
+  useEffect(() => {
+    if (isCloudLoggedIn() && login.phase === 'idle') {
+      setLogin({ phase: 'done', email: '（会话已恢复）' })
+      setCloudSyncEnabled(true)
+    }
+  }, [login.phase, setCloudSyncEnabled])
 
   const onHealth = async (): Promise<void> => {
     setHealth({ phase: 'checking' })
@@ -127,6 +138,8 @@ export function CloudSyncPanel(): JSX.Element {
         email: email.trim(),
         uid: typeof state === 'string' ? state : (state as { uid?: string })?.uid,
       })
+      // v9.1：登录成功 → 激活 CloudBase 自动同步（引擎 + 传输层）
+      setCloudSyncEnabled(true)
     } catch (e) {
       setLogin({ phase: 'error', message: cleanErr(e instanceof Error ? e.message : String(e)) })
     } finally {
@@ -203,6 +216,8 @@ export function CloudSyncPanel(): JSX.Element {
     } catch {
       // 忽略登出异常，UI 一律回到 idle
     }
+    // v9.1：登出 → 回落 Gitee 配置或停用自动同步
+    setCloudSyncEnabled(false)
     setLogin({ phase: 'idle' })
     setMe({ phase: 'idle' })
     setOtp('')

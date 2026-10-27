@@ -37,6 +37,15 @@ export async function getAccessToken(): Promise<string | null> {
   }
 }
 
+/** 是否已登录（auth 登录态持久在 localStorage，刷新后可恢复；同步判断，启动用） */
+export function isCloudLoggedIn(): boolean {
+  try {
+    return getCloudApp().auth().getLoginState?.() != null
+  } catch {
+    return false
+  }
+}
+
 /** 健康检查：确认前端 → 云函数全链路可用（网关鉴权后需带 token） */
 export async function checkBackend(): Promise<{ ok: boolean; info?: string; error?: string }> {
   try {

@@ -57,6 +57,7 @@ import {
 } from '@core'
 import type { CoreBundle } from './bootstrap'
 import { buildTransport, readSyncConfig, writeSyncConfig } from './sync'
+import { buildCloudTransport } from './cloudSync'
 
 export type View = 'day' | 'week' | 'month' | 'goals' | 'notes'
 /** v6.1：内联表单是唯一录入入口，同一时刻最多展开一个 */
@@ -313,6 +314,8 @@ export interface AppState {
   closeSync(): void
   /** 保存同步配置（localStorage + 引擎重建 + 立即同步一次） */
   saveSyncConfig(cfg: GiteeConfig): Promise<boolean>
+  /** v9：启用/停用 CloudBase 云同步（登录=启用 CloudBase 传输层，优先于 Gitee；登出=回落到 Gitee 配置或停用） */
+  setCloudSyncEnabled(enabled: boolean): void
   /** 手动「立即同步」（pull + push） */
   syncNow(): Promise<boolean>
 
@@ -1643,6 +1646,21 @@ export function createAppStore(
         // 引擎已把错误记入 status；这里把中文原因 toast 出来
         get().showToast(syncEngine.status().lastError ?? errMsg(e))
         return false
+      }
+    },
+
+    // ---- v9：CloudBase 云同步开关（自动同步 = 引擎 + CloudBase 传输层） ----
+    setCloudSyncEnabled(enabled) {
+      if (enabled) {
+        syncEngine?.setTransport(buildCloudTransport())
+        set({ syncStatus: syncEngine?.status() ?? null })
+        // 激活即同步一次：登录后立刻把本地推到云端（静默，不 toast 打断）
+        void syncEngine?.sync().catch(() => {})
+      } else {
+        // 登出：回落到 Gitee 配置（老通道不受影响）；没配 Gitee → 停用同步
+        const cfg = readSyncConfig()
+        syncEngine?.setTransport(cfg ? buildTransport(cfg) : null)
+        set({ syncStatus: syncEngine?.status() ?? null })
       }
     },
 

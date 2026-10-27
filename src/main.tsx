@@ -21,6 +21,8 @@ import { createSyncEngine, today, type SyncEngine, type SyncStatus } from '@core
 import { initCore } from '@/app/bootstrap'
 import { createAppStore, readOnboardingSeen } from '@/app/store'
 import { buildTransport, readSyncConfig, wrapStoreForSync } from '@/app/sync'
+import { buildCloudTransport } from '@/app/cloudSync'
+import { isCloudLoggedIn } from '@/ui/cloudbase'
 import { App } from '@/ui/App'
 import { init as tapGuardInit } from '@/ui/tapGuard'
 import '@/ui/tokens.css'
@@ -39,8 +41,15 @@ async function main(): Promise<void> {
     onStatus: (s) => statusSink?.(s),
   })
 
+  // v9.1：CloudBase 登录态优先（auth 会话持久在 localStorage，刷新后仍在）；
+  // 其次回落 Gitee 配置（老通道不受影响）；都没有 → 无自动同步（引擎静默跳过）
+  const cloudLoggedIn = isCloudLoggedIn()
   const cfg = readSyncConfig()
-  if (cfg) syncEngine.setTransport(buildTransport(cfg))
+  if (cloudLoggedIn) {
+    syncEngine.setTransport(buildCloudTransport())
+  } else if (cfg) {
+    syncEngine.setTransport(buildTransport(cfg))
+  }
 
   const store = createAppStore(bundle, {
     today: today(),
@@ -63,7 +72,7 @@ async function main(): Promise<void> {
   createRoot(el).render(<App store={store} />)
 
   // v8.1：启动后台拉取——不在首屏关键路径；失败静默（本地照常用，下次打开重试）
-  if (cfg) void syncEngine.pull().catch(() => {})
+  if (cloudLoggedIn || cfg) void syncEngine.pull().catch(() => {})
 
   // SW 注册放在首帧之后——注册与预缓存安装都不该占首屏关键路径（PRD §5.1）。
   // 策略见 ADR-0002（v8.19 起 autoUpdate）：新 SW 安装即 skipWaiting 激活（由 vite-plugin-pwa
