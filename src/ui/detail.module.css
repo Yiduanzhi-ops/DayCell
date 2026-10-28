@@ -25,32 +25,6 @@
 }
 .addbtn:hover { background: var(--accent-soft); }
 
-/* v9.2.1 B 方案：AI 导入横幅（整行可点，替代原 ✦ 小按钮；?dev=1 才显示） */
-.aiBanner {
-  display: flex; align-items: center; gap: 10px; width: 100%;
-  margin: 2px 0 10px; padding: 10px 12px;
-  border-radius: 14px;
-  background: var(--accent-soft);
-  border: 1.5px solid var(--accent-line);
-  text-align: left;
-}
-.aiBanner:active { filter: brightness(0.96); }
-.aiBannerIcon {
-  flex: 0 0 auto; width: 32px; height: 32px; border-radius: 10px;
-  display: grid; place-items: center;
-  color: #fff; background: var(--accent-strong);
-}
-.aiBannerTxt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.aiBannerMain {
-  font-size: 14px; font-weight: 700; color: var(--ink-1);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.aiBannerSub {
-  font-size: 11px; color: var(--ink-4);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.aiBannerArrow { flex: 0 0 auto; font-size: 18px; color: var(--accent-strong); font-weight: 300; }
-
 /* ---- 待办 ---- */
 .tlist { display: flex; flex-direction: column; }
 .titem { display: flex; align-items: flex-start; gap: 9px; padding: 6px 0; }

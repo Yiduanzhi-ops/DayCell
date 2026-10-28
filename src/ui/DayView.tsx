@@ -34,6 +34,7 @@ import { NoteSection } from './NoteSection'
 import { HabitSection } from './HabitSection'
 import { ReviewSection } from './ReviewSection'
 import { InstallBanner } from './InstallBanner'
+import { isDevMode } from './devflag'
 import { arm as tapArm } from './tapGuard'
 import styles from './DayView.module.css'
 
@@ -313,6 +314,7 @@ function DayFull({ date }: { date?: DateKey } = {}): JSX.Element {
   const rollDismissed = useApp((s) => s.rollDismissed)
   const rollOver = useApp((s) => s.rollOver)
   const dismissRoll = useApp((s) => s.dismissRoll)
+  const setAiOpen = useApp((s) => s.setAiOpen)
   const edit = useApp((s) => (date ? undefined : s.edit)) // 侧页不受全局表单态影响
 
   const effective = cached ?? detail
@@ -362,6 +364,26 @@ function DayFull({ date }: { date?: DateKey } = {}): JSX.Element {
           <button onClick={() => void rollOver()}>顺延</button>
           <button className={styles.ghostBtn} onClick={dismissRoll}>忽略</button>
         </div>
+      )}
+
+      {/* v9.2.1 AI 导入横幅：待办区块上方独立整行入口（?dev=1 才显示，仅中间页） */}
+      {!date && isDevMode() && (
+        <button
+          className={styles.aiBanner}
+          onClick={() => setAiOpen(true)}
+          aria-label="AI 智能导入"
+        >
+          <span className={styles.aiBannerIcon}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 2.5l1.9 4.9a.5.5 0 0 0 .3.3l4.9 1.9a.5.5 0 0 1 0 .9l-4.9 1.9a.5.5 0 0 0-.3.3l-1.9 4.9a.5.5 0 0 1-.9 0l-1.9-4.9a.5.5 0 0 0-.3-.3L4 10.5a.5.5 0 0 1 0-.9l4.9-1.9a.5.5 0 0 0 .3-.3L11.1 2.5a.5.5 0 0 1 .9 0zM19 14l.8 2.2a.5.5 0 0 0 .3.3l2.2.8a.5.5 0 0 1 0 .9l-2.2.8a.5.5 0 0 0-.3.3L19 21.5a.5.5 0 0 1-.9 0l-.8-2.2a.5.5 0 0 0-.3-.3l-2.2-.8a.5.5 0 0 1 0-.9l2.2-.8a.5.5 0 0 0 .3-.3l.8-2.2a.5.5 0 0 1 .9 0z" />
+            </svg>
+          </span>
+          <span className={styles.aiBannerTxt}>
+            <span className={styles.aiBannerMain}>用 AI 帮你整理待办、习惯和想法</span>
+            <span className={styles.aiBannerSub}>说一段话，自动归类写入 · 支持语音</span>
+          </span>
+          <span className={styles.aiBannerArrow}>›</span>
+        </button>
       )}
 
       <TodoSection dayWord={dayWord} date={date} />
