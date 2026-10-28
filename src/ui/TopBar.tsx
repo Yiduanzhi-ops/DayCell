@@ -41,6 +41,7 @@ export function TopBar(): JSX.Element {
   const openShare = useApp((s) => s.openShare)
   const openChangelog = useApp((s) => s.openChangelog)
   const openSettings = useApp((s) => s.openSettings)
+  const openNotificationSettings = useApp((s) => s.openNotificationSettings)
   const exportBackup = useApp((s) => s.exportBackup)
   const importBackup = useApp((s) => s.importBackup)
   const exportMd = useApp((s) => s.exportMd)
@@ -172,6 +173,16 @@ export function TopBar(): JSX.Element {
                   }}
                 >
                   偏好设置
+                </button>
+                <button
+                  className={styles.mi}
+                  role="menuitem"
+                  onClick={() => {
+                    closeMenu()
+                    openNotificationSettings()
+                  }}
+                >
+                  通知设置
                 </button>
                 <div className={styles.sep} />
                 <button

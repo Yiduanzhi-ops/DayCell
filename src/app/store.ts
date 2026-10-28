@@ -179,6 +179,8 @@ export interface AppState {
   changelogOpen: boolean
   /** v8.62：设置页是否打开（全屏覆盖层，菜单「设置」进入；后续用户偏好开关都放这里） */
   settingsOpen: boolean
+  /** v9.3：通知设置页是否打开（全屏覆盖层，偏好设置 → 通知设置进入） */
+  notificationSettingsOpen: boolean
   /** v8.62：周视图显示习惯（默认关 = v8.41 现状；开则每日行列出习惯名+打卡态） */
   weekViewHabits: boolean
   /** v9.3：早间日报通知开关与档位（'HH:mm'，null=未设置） */
@@ -357,6 +359,9 @@ export interface AppState {
   // ---- v8.62：设置（用户偏好开关容器） ----
   openSettings(): void
   closeSettings(): void
+  /** v9.3：通知设置页（独立全屏覆盖层） */
+  openNotificationSettings(): void
+  closeNotificationSettings(): void
   /** 周视图显示习惯（默认关）：写入 setting + 更新状态，周视图按此渲染 */
   setWeekViewHabits(on: boolean): Promise<void>
   /** v9.3：保存早/晚通知偏好到本地（写 settings + 更新状态；云端上报由设置页完成） */
@@ -485,6 +490,7 @@ export function createAppStore(
     shareOpen: false,
     changelogOpen: false,
     settingsOpen: false,
+    notificationSettingsOpen: false,
     weekViewHabits: false,
     // v9.3 通知默认：早晚都关、时间默认 08:00 / 21:00（开时若未设时间用默认档）
     pushMorningEnabled: false,
@@ -1800,6 +1806,15 @@ export function createAppStore(
 
     closeSettings() {
       set({ settingsOpen: false })
+    },
+
+    // ---- v9.3：通知设置（独立页）----
+    openNotificationSettings() {
+      set({ notificationSettingsOpen: true })
+    },
+
+    closeNotificationSettings() {
+      set({ notificationSettingsOpen: false })
     },
 
     async setWeekViewHabits(on: boolean) {

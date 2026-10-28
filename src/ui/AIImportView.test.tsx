@@ -72,10 +72,10 @@ async function renderProdApp() {
 }
 
 describe('AI 智能导入', () => {
-  it('✦ 入口仅在 ?dev=1 显示，线上不出现', async () => {
+  it('✦ 入口在线上也显示（v9.2 起不再 dev 门控，主屏 PWA 功能齐全）', async () => {
     await renderProdApp()
     await waitFor(() => expect(document.body.textContent).toContain('待办'))
-    expect(screen.queryByLabelText('AI 智能导入')).toBeNull()
+    expect(screen.getByLabelText('AI 智能导入')).toBeInTheDocument()
     cleanup()
 
     await renderDevApp()

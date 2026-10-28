@@ -186,11 +186,11 @@ function buildEveningReport(snapshot, today) {
   return lines;
 }
 
-// ============ 主入口（timer 事件；test 模式用于真机验证）============
+// ============ 主入口（timer 事件；测试模式由 event.test 触发）============
 exports.main = async (event) => {
   const isTimer = event && (event.Type === 'Timer' || event.TriggerName || event.triggerName || event.type === 'Timer');
-  const test = event && event.test;
-  if (!isTimer && !test) {
+  const isTest = event && !!event.test;
+  if (!isTimer && !isTest) {
     return { ok: false, error: 'not_timer_event', eventType: event && event.Type };
   }
 
@@ -203,18 +203,11 @@ exports.main = async (event) => {
   }
   webpush.setVapidDetails(subject, pub, priv);
 
-  // test 模式：event.test={time:'HH:mm', date:'YYYY-MM-DD', morning:true, evening:true}
-  // 跳过档位匹配、跳过当天去重（不写 last_*_sent），可连发早/晚各一条
-  let hm = chinaHM();
-  let today = chinaDateKey();
-  let forceMorning = false;
-  let forceEvening = false;
-  if (test) {
-    if (typeof test.time === 'string' && /^\d{2}:\d{2}$/.test(test.time)) hm = test.time;
-    if (typeof test.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(test.date)) today = test.date;
-    forceMorning = test.morning === true;
-    forceEvening = test.evening === true;
-  }
+  // 测试模式：event.test = { time:'11:30', date:'2026-10-28', morning:true, evening:true }
+  //  - 强制使用指定时刻/日期（跳过档位匹配）
+  //  - 不写 last_*_sent（避免污染真实定时推送的去重状态）
+  const hm = isTest ? (event.test.time || chinaHM()) : chinaHM();
+  const today = isTest ? (event.test.date || chinaDateKey()) : chinaDateKey();
   const db = getApp().rdb();
 
   const res = await db.from('daycell_push_subscriptions').select('*');
@@ -224,20 +217,17 @@ exports.main = async (event) => {
   let cleaned = 0;
 
   for (const s of subs) {
-    // test 模式：按 force 标志直发对应日报；正常模式按档位+当天去重
-    const dueKinds = test
-      ? [forceMorning ? 'morning' : null, forceEvening ? 'evening' : null].filter(Boolean)
-      : [
-          s.morning_enabled === true && s.morning_time === hm &&
-            (s.last_morning_sent === null || s.last_morning_sent < today)
-            ? 'morning'
-            : null,
-          s.evening_enabled === true && s.evening_time === hm &&
-            (s.last_evening_sent === null || s.last_evening_sent < today)
-            ? 'evening'
-            : null,
-        ].filter(Boolean);
-    if (dueKinds.length === 0) continue;
+    const morningDue = isTest
+      ? event.test.morning !== false
+      : s.morning_enabled === true &&
+        s.morning_time === hm &&
+        (s.last_morning_sent === null || s.last_morning_sent < today);
+    const eveningDue = isTest
+      ? event.test.evening !== false
+      : s.evening_enabled === true &&
+        s.evening_time === hm &&
+        (s.last_evening_sent === null || s.last_evening_sent < today);
+    if (!morningDue && !eveningDue) continue;
 
     let snapshot = null;
     try {
@@ -252,7 +242,8 @@ exports.main = async (event) => {
       console.error('[push] snapshot read failed', s.user_id, e && e.message);
     }
 
-    for (const kind of dueKinds) {
+    // 发送单条（kind ∈ morning|evening）；测试模式可连发两条
+    const sendOne = async (kind) => {
       const lines = snapshot
         ? kind === 'morning'
           ? buildMorningReport(snapshot, today)
@@ -269,21 +260,45 @@ exports.main = async (event) => {
         body,
         data: { url: process.env.APP_URL || '/' },
       };
+      await webpush.sendNotification(
+        { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+        JSON.stringify(payload),
+      );
+      if (!isTest) {
+        await db
+          .from('daycell_push_subscriptions')
+          .update(kind === 'morning' ? { last_morning_sent: today } : { last_evening_sent: today })
+          .eq('user_id', s.user_id)
+          .eq('endpoint', s.endpoint);
+      }
+      sent += 1;
+    };
 
+    if (morningDue) {
       try {
-        await webpush.sendNotification(
-          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-          JSON.stringify(payload),
-        );
-        // test 模式不写 last_*_sent，避免污染真实去重
-        if (!test) {
-          await db
-            .from('daycell_push_subscriptions')
-            .update(kind === 'morning' ? { last_morning_sent: today } : { last_evening_sent: today })
-            .eq('user_id', s.user_id)
-            .eq('endpoint', s.endpoint);
+        await sendOne('morning');
+      } catch (e) {
+        const code = e && e.statusCode;
+        if (code === 404 || code === 410) {
+          try {
+            await db
+              .from('daycell_push_subscriptions')
+              .delete()
+              .eq('user_id', s.user_id)
+              .eq('endpoint', s.endpoint);
+            cleaned += 1;
+          } catch (e2) {
+            console.error('[push] cleanup failed', s.user_id, e2 && e2.message);
+          }
+        } else {
+          failed += 1;
+          console.error('[push] send failed', s.user_id, code || (e && e.message));
         }
-        sent += 1;
+      }
+    }
+    if (eveningDue) {
+      try {
+        await sendOne('evening');
       } catch (e) {
         const code = e && e.statusCode;
         if (code === 404 || code === 410) {
@@ -305,14 +320,5 @@ exports.main = async (event) => {
     }
   }
 
-  return {
-    ok: true,
-    hm,
-    today,
-    test: !!test,
-    checked: subs.length,
-    sent,
-    failed,
-    cleaned,
-  };
+  return { ok: true, hm, today, checked: subs.length, sent, failed, cleaned };
 };
