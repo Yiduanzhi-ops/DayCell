@@ -109,27 +109,31 @@
 .rollText { flex: 1; min-width: 120px; }
 .roll b { color: var(--accent); font-weight: 650; }
 
-/* v9.2.1 AI 导入横幅：待办区块上方独立整行入口（?dev=1 才显示） */
+/* v9.2.1 AI 导入横幅：待办区块上方独立整行入口（?dev=1 才显示）
+   v9.2.4：加大按钮感——浅蓝渐变底 + 图标投影 + 柔和阴影（浅色卡片） */
 .aiBanner {
   flex: 0 0 auto;
   position: relative;
   display: flex; align-items: center; gap: 10px; width: 100%;
-  padding: 10px 12px;
-  border-radius: 14px;
-  background: var(--accent-soft);
-  border: 1.5px solid var(--accent-line);
+  padding: 11px 14px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #F0F4FE 0%, #E7EEFB 100%);
+  border: 1px solid #D8E2F8;
+  box-shadow: 0 2px 12px rgba(46, 75, 166, 0.08);
   text-align: left;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
-.aiBanner:active { filter: brightness(0.96); }
+.aiBanner:active { filter: brightness(0.97); }
 .aiBannerIcon {
-  flex: 0 0 auto; width: 32px; height: 32px; border-radius: 10px;
+  flex: 0 0 auto; width: 34px; height: 34px; border-radius: 12px;
   display: grid; place-items: center;
-  color: #fff; background: var(--accent-strong);
+  color: #fff;
+  background: linear-gradient(135deg, #4A67D6 0%, #2E4BA6 100%);
+  box-shadow: 0 2px 8px rgba(46, 75, 166, 0.3);
 }
 .aiBannerTxt {
   position: absolute; left: 50%; transform: translateX(-50%);
-  min-width: 0; max-width: 70%;
+  min-width: 0; max-width: 72%;
   display: flex; flex-direction: column; gap: 2px; align-items: center; text-align: center;
 }
 .aiBannerMain {
@@ -140,7 +144,7 @@
   font-size: 11px; color: var(--ink-4);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.aiBannerArrow { flex: 0 0 auto; margin-left: auto; font-size: 18px; color: var(--accent-strong); font-weight: 300; }
+.aiBannerArrow { flex: 0 0 auto; margin-left: auto; font-size: 20px; color: var(--accent); font-weight: 500; }
 .roll button {
   font-size: 11.5px;
   padding: 4px 11px;

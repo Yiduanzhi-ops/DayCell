@@ -6,6 +6,7 @@
  * 失焦时「有改动即保存、没改动即取消」。IME 组合中的回车是确认候选词，不触发保存。
  */
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { JSX } from 'react'
 import { todoProgress, isOverdueDone, type TodoRecord } from '@core'
 import { compareKey, type DateKey } from '@core'
@@ -305,12 +306,6 @@ const WHEEL_ITEM = 36
 /** 首尾占位项数（让选中项居中显示在中间行） */
 const WHEEL_PAD = 2
 
-/** v9.2.3 sheet 内类型 chip：'due'=截止时刻 / 'at'=提醒时刻 */
-const TIME_TYPES: { id: 'due' | 'at'; label: string }[] = [
-  { id: 'due', label: '截止' },
-  { id: 'at', label: '提醒' },
-]
-
 function TimePicker({
   value,
   type,
@@ -326,13 +321,10 @@ function TimePicker({
   // 滚轮内部选中态：展开时对齐当前 value（无则 09:00 起步）
   const [hh, setHh] = useState(value ? value.slice(0, 2) : '09')
   const [mm, setMm] = useState(value ? value.slice(3, 5) : '00')
-  // sheet 内部临时类型：打开时快照父级；确定才提交（点遮罩取消即丢弃）
-  const [lt, setLt] = useState<'due' | 'at'>(type)
 
   const openWheel = (): void => {
     setHh(value ? value.slice(0, 2) : '09')
     setMm(value ? value.slice(3, 5) : '00')
-    setLt(type)
     // v9.2.3 先收起手机键盘：底部 sheet 弹出时避免与键盘重叠（iOS/Android 焦点 blur 后键盘回落）
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
     setOpen(true)
@@ -340,6 +332,26 @@ function TimePicker({
 
   return (
     <div className={styles.timeRow}>
+      {/* v9.2.4：截止/提醒切换移到表单第一层（与日期行并列），不再藏在 sheet 最里面 */}
+      <span className={styles.timeLabel}>时间</span>
+      <div className={styles.timeTypeSeg} role="radiogroup" aria-label="时间类型">
+        <button
+          type="button"
+          className={`${styles.timeSegBtn} ${type === 'due' ? styles.timeSegOn : ''}`}
+          aria-pressed={type === 'due'}
+          onClick={() => onTypeChange('due')}
+        >
+          截止
+        </button>
+        <button
+          type="button"
+          className={`${styles.timeSegBtn} ${type === 'at' ? styles.timeSegOn : ''} ${type === 'at' ? styles.timeSegOnAt : ''}`}
+          aria-pressed={type === 'at'}
+          onClick={() => onTypeChange('at')}
+        >
+          提醒
+        </button>
+      </div>
       <button
         type="button"
         className={styles.timeBtn}
@@ -347,14 +359,14 @@ function TimePicker({
         aria-expanded={open}
         aria-label="具体时间（可选）"
       >
-        <span className={styles.timeLabel}>时间</span>
         <span className={value ? styles.timeVal : styles.timeEmpty}>{value || '不设置'}</span>
         <svg className={styles.timeChevron} viewBox="0 0 24 24" aria-hidden="true">
           <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
-      {open && (
-        <div className={styles.timeMask} onMouseDown={() => setOpen(false)}>
+      {open &&
+        createPortal(
+          <div className={styles.timeMask} onMouseDown={() => setOpen(false)}>
           <div
             className={styles.timeSheet}
             role="dialog"
@@ -365,25 +377,13 @@ function TimePicker({
               <span className={styles.timeSheetTitle}>选择时间</span>
               <span className={styles.timeSheetNote}>点遮罩取消</span>
             </div>
-            <div className={styles.timeTypes}>
-              {TIME_TYPES.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  className={`${styles.timeChip} ${lt === t.id ? styles.timeChipOn : ''} ${lt === t.id && t.id === 'at' ? styles.timeChipOnAt : ''}`}
-                  aria-pressed={lt === t.id}
-                  onClick={() => setLt(t.id)}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
             <div className={styles.timeBigWrap}>
-              <span className={`${styles.timeBig} ${lt === 'at' ? styles.timeBigAt : ''}`}>
+              <span className={`${styles.timeBig} ${type === 'at' ? styles.timeBigAt : ''}`}>
                 {`${hh}:${mm}`}
               </span>
             </div>
             <div className={styles.timeWheels}>
+              <div className={styles.wheelBar} aria-hidden="true" />
               <Wheel values={HOURS} value={hh} onChange={setHh} ariaLabel="时" />
               <span className={styles.timeColon}>:</span>
               <Wheel values={MINUTES} value={mm} onChange={setMm} ariaLabel="分" />
@@ -394,7 +394,6 @@ function TimePicker({
                 className={styles.timeClear}
                 onClick={() => {
                   onChange('')
-                  onTypeChange(type)
                   setOpen(false)
                 }}
               >
@@ -405,7 +404,6 @@ function TimePicker({
                 className={styles.timeOk}
                 onClick={() => {
                   onChange(`${hh}:${mm}`)
-                  onTypeChange(lt)
                   setOpen(false)
                 }}
               >
@@ -413,8 +411,9 @@ function TimePicker({
               </button>
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+          document.body
+        )}
     </div>
   )
 }
@@ -433,11 +432,24 @@ function Wheel({
 }): JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
   const idx = Math.max(0, values.indexOf(value))
-  // 选中值变化 → 滚动到中间行（顶部占 WHEEL_PAD 项后，第 idx 项正好落在中间）
+  // 首次挂载精确滚动到选中项居中：scrollTop = idx*ITEM + PAD*ITEM
+  // （上 pad 2×36=72px 之后，第 idx 项中心正好落在滚动容器中心；无 scroll-snap，避免 snap 与 pad 冲突偏位）
+  const anchored = useRef(false)
+  const lastIdx = useRef(-1)
+  const timer = useRef<number | undefined>(undefined)
   useEffect(() => {
     const el = ref.current
-    if (el) el.scrollTop = idx * WHEEL_ITEM
-  }, [idx])
+    if (el && !anchored.current) {
+      anchored.current = true
+      requestAnimationFrame(() => {
+        el.scrollTop = idx * WHEEL_ITEM + WHEEL_PAD * WHEEL_ITEM
+      })
+    }
+    return () => {
+      if (timer.current) window.clearTimeout(timer.current)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div
@@ -447,9 +459,19 @@ function Wheel({
       aria-label={ariaLabel}
       onScroll={(e) => {
         const el = e.currentTarget
-        const i = Math.round(el.scrollTop / WHEEL_ITEM)
-        const v = values[Math.min(Math.max(i, 0), values.length - 1)]
-        if (v !== undefined && v !== value) onChange(v)
+        const i = Math.max(0, Math.min(values.length - 1, Math.round((el.scrollTop - WHEEL_PAD * WHEEL_ITEM) / WHEEL_ITEM)))
+        if (i !== lastIdx.current) {
+          lastIdx.current = i
+          const v = values[i]
+          if (v !== undefined && v !== value) onChange(v)
+        }
+        if (timer.current) window.clearTimeout(timer.current)
+        timer.current = window.setTimeout(() => {
+          const t = i * WHEEL_ITEM + WHEEL_PAD * WHEEL_ITEM
+          const max = el.scrollHeight - el.clientHeight
+          const target = Math.max(0, Math.min(max, t))
+          if (Math.abs(el.scrollTop - target) > 0.5) el.scrollTop = target
+        }, 120)
       }}
     >
       {Array.from({ length: WHEEL_PAD }, (_, i) => (

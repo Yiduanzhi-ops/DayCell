@@ -150,19 +150,33 @@
   border-radius: 4px; padding: 1px 6px; margin-top: 2px; white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
-/* v9.2.2 具体时间选择行：点击整行弹出滚轮，默认「不设置」 */
-.timeRow { display: flex; flex-direction: column; gap: 6px; }
+/* v9.2.2 具体时间选择行：点击「时间值」弹出底部 sheet，默认「不设置」
+   v9.2.4：截止/提醒切换提到表单第一层（与日期行同排，行样式统一） */
+.timeRow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.timeLabel { font-size: 11.5px; color: var(--ink-3); flex: 0 0 auto; }
+/* 截止 | 提醒 分段（第一层可见，选中色与行内 pill 语义一致：due 蓝 / at 绿） */
+.timeTypeSeg {
+  flex: 0 0 auto; display: inline-flex; align-items: center;
+  border: 1px solid var(--line); border-radius: 999px; overflow: hidden;
+  background: var(--bg); min-height: 26px;
+}
+.timeSegBtn {
+  border: none; background: transparent; font-size: 11.5px; color: var(--ink-2);
+  padding: 3px 12px; min-height: 26px;
+}
+.timeSegBtn:hover { background: var(--bg-hover); }
+.timeSegOn { color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+.timeSegOnAt { color: #fff; background: #1d8a5f; }
 .timeBtn {
-  display: flex; align-items: center; gap: 6px; width: 100%;
+  display: inline-flex; align-items: center; gap: 6px;
   font-size: 11.5px; color: var(--ink-2);
   padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line);
   background: var(--bg); min-height: 26px;
 }
 .timeBtn:hover { background: var(--bg-hover); }
-.timeLabel { font-size: 11.5px; color: var(--ink-3); flex: 0 0 auto; }
 .timeVal { color: var(--accent); font-weight: 600; }
 .timeEmpty { color: var(--ink-3); }
-.timeChevron { width: 12px; height: 12px; flex: 0 0 auto; margin-left: auto; }
+.timeChevron { width: 12px; height: 12px; flex: 0 0 auto; }
 /* v9.2.3 底部 sheet：fixed 遮罩（点遮罩=取消）+ 面板贴底；z-index 低于全屏弹层(60) */
 .timeMask {
   position: fixed; inset: 0; z-index: 55;
@@ -190,26 +204,40 @@
 .timeBigWrap { text-align: center; padding: 6px 0 4px; }
 .timeBig { font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--accent); }
 .timeBigAt { color: #1d8a5f; }
-.timeWheels { display: flex; justify-content: center; align-items: center; gap: 6px; height: 180px; }
+.timeWheels { display: flex; justify-content: center; align-items: center; gap: 6px; height: 180px; position: relative; }
+/* v9.2.4 滚轮选中高亮条：横跨时/分两列，iOS 风格（上下细线 + 浅灰底） */
+.wheelBar {
+  position: absolute; left: 10%; right: 10%; top: 50%; transform: translateY(-50%);
+  height: 36px; border-radius: 12px;
+  background: var(--bg-subtle);
+  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  pointer-events: none; z-index: 0;
+}
 .timeColon { font-size: 20px; font-weight: 700; color: var(--ink-2); }
 .wheel {
   width: 64px; height: 180px; overflow-y: auto;
-  scroll-snap-type: y proximity;
   overscroll-behavior: contain;
   text-align: center;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  position: relative; z-index: 1;
 }
 .wheel::-webkit-scrollbar { display: none; }
+/* 上下淡出遮罩：与 sheet 底色同色，覆盖 pad 占位（72px），营造滚轮纵深、消除"顶部空白"观感 */
+.wheel::before, .wheel::after {
+  content: ''; position: absolute; left: 0; right: 0; height: 76px;
+  z-index: 2; pointer-events: none;
+}
+.wheel::before { top: 0; background: linear-gradient(to bottom, var(--bg) 55%, transparent); }
+.wheel::after { bottom: 0; background: linear-gradient(to top, var(--bg) 55%, transparent); }
 .wheelPad { height: 72px; flex: 0 0 auto; }
 .wheelItem {
   height: 36px; line-height: 36px;
   font-size: 15px; color: var(--ink-3);
-  scroll-snap-align: center;
   font-variant-numeric: tabular-nums;
-  transition: color 0.12s, font-size 0.12s;
+  transition: color 0.12s, font-size 0.12s, font-weight 0.12s;
 }
-.wheelOn { color: var(--ink-1); font-size: 19px; font-weight: 700; }
+.wheelOn { color: var(--ink-1); font-size: 20px; font-weight: 700; }
 .timeActs { display: flex; gap: 10px; margin-top: 8px; }
 .timeClear {
   flex: 1; font-size: 12.5px; color: var(--ink-2);
