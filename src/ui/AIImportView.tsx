@@ -92,35 +92,38 @@ export function AIImportView(): JSX.Element {
     setEditing(`${k}:${field}`)
     setEditingVal(init)
   }
-  const commitEdit = (): void => {
+  /** 提交就地编辑。v9.2.1：快捷按钮/日期选择路径存在 setState 异步时序（旧值覆盖新值），
+   *  改为显式传入最新值（v ?? editingVal），杜绝「日期改不进去」。 */
+  const commitEdit = (v?: string): void => {
     if (!result || !editing) return
     const [g, iStr, field] = editing.split(':')
     const i = Number(iStr)
+    const val = v ?? editingVal
     if (field === 'text') {
-      const v = editingVal.trim()
-      if (v) {
+      const t = val.trim()
+      if (t) {
         const next = { ...result }
-        if (g === 'todo' && next.todos[i]) next.todos[i] = { ...next.todos[i], text: v }
-        if (g === 'habit' && next.habits[i]) next.habits[i] = { ...next.habits[i], name: v }
-        if (g === 'note' && next.notes[i]) next.notes[i] = { ...next.notes[i], text: v }
-        if (g === 'goal' && next.goals[i]) next.goals[i] = { ...next.goals[i], title: v }
+        if (g === 'todo' && next.todos[i]) next.todos[i] = { ...next.todos[i], text: t }
+        if (g === 'habit' && next.habits[i]) next.habits[i] = { ...next.habits[i], name: t }
+        if (g === 'note' && next.notes[i]) next.notes[i] = { ...next.notes[i], text: t }
+        if (g === 'goal' && next.goals[i]) next.goals[i] = { ...next.goals[i], title: t }
         setResult(next)
       }
     } else if (field === 'date' && g === 'todo') {
-      if (/^\d{4}-\d{2}-\d{2}$/.test(editingVal)) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
         const next = { ...result }
-        if (next.todos[i]) next.todos[i] = { ...next.todos[i], date: editingVal }
+        if (next.todos[i]) next.todos[i] = { ...next.todos[i], date: val }
         setResult(next)
       }
     } else if (field === 'freq' && g === 'habit') {
-      // editingVal 形如 'daily' 或 'weekly:1,3,5'
-      const v = editingVal.trim()
+      // val 形如 'daily' 或 'weekly:1,3,5'
+      const t = val.trim()
       const next = { ...result }
-      if (v.startsWith('daily') && next.habits[i]) {
+      if (t.startsWith('daily') && next.habits[i]) {
         next.habits[i] = { ...next.habits[i], freq: { kind: 'daily' } }
         setResult(next)
-      } else if (v.startsWith('weekly') && next.habits[i]) {
-        const ds = v
+      } else if (t.startsWith('weekly') && next.habits[i]) {
+        const ds = t
           .split(':')[1]
           .split(',')
           .map(Number)
@@ -223,12 +226,6 @@ export function AIImportView(): JSX.Element {
           </button>
         </div>
 
-        {aiRemaining >= 0 && (
-          <div className={styles.quota}>
-            今日剩余 <b>{aiRemaining}</b> 次
-          </div>
-        )}
-
         {phase === 'input' && (
           <div className={styles.inputWrap}>
             <textarea
@@ -321,7 +318,7 @@ export function AIImportView(): JSX.Element {
                             value={editingVal}
                             autoFocus
                             onChange={(e) => setEditingVal(e.target.value)}
-                            onBlur={commitEdit}
+                            onBlur={() => commitEdit()}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') commitEdit()
                               if (e.key === 'Escape') setEditing(null)
@@ -362,10 +359,7 @@ export function AIImportView(): JSX.Element {
                                   key={w}
                                   type="button"
                                   className={styles.dateOpt}
-                                  onClick={() => {
-                                    setEditingVal(val)
-                                    commitEdit()
-                                  }}
+                                  onClick={() => commitEdit(val)}
                                 >
                                   {w}
                                 </button>
@@ -376,10 +370,7 @@ export function AIImportView(): JSX.Element {
                               className={styles.dateInput}
                               defaultValue={t.date}
                               onBlur={(e) => {
-                                if (e.target.value) {
-                                  setEditingVal(e.target.value)
-                                  commitEdit()
-                                }
+                                if (e.target.value) commitEdit(e.target.value)
                               }}
                             />
                           </div>
@@ -410,7 +401,7 @@ export function AIImportView(): JSX.Element {
                             value={editingVal}
                             autoFocus
                             onChange={(e) => setEditingVal(e.target.value)}
-                            onBlur={commitEdit}
+                            onBlur={() => commitEdit()}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') commitEdit()
                               if (e.key === 'Escape') setEditing(null)
@@ -439,10 +430,7 @@ export function AIImportView(): JSX.Element {
                             <button
                               type="button"
                               className={`${styles.dateOpt} ${freq.kind === 'daily' ? styles.on : ''}`}
-                              onClick={() => {
-                                setEditingVal('daily')
-                                commitEdit()
-                              }}
+                              onClick={() => commitEdit('daily')}
                             >
                               每天
                             </button>
@@ -474,17 +462,12 @@ export function AIImportView(): JSX.Element {
                                       type="button"
                                       className={`${styles.weekOpt} ${on ? styles.on : ''}`}
                                       onClick={() => {
+                                        const on = ds.includes(di)
                                         const next = on
                                           ? ds.filter((x) => x !== di)
                                           : [...ds, di].sort((a, b) => a - b)
-                                        setEditingVal(`weekly:${next.join(',')}`)
-                                        if (next.length > 0) {
-                                          setEditing(`${k}:freq`)
-                                          commitEdit()
-                                        } else {
-                                          setEditingVal('daily')
-                                          commitEdit()
-                                        }
+                                        // 全取消 → 回到每天；否则按周几保存
+                                        commitEdit(next.length > 0 ? `weekly:${next.join(',')}` : 'daily')
                                       }}
                                     >
                                       {d}
@@ -519,7 +502,7 @@ export function AIImportView(): JSX.Element {
                             value={editingVal}
                             autoFocus
                             onChange={(e) => setEditingVal(e.target.value)}
-                            onBlur={commitEdit}
+                            onBlur={() => commitEdit()}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') commitEdit()
                               if (e.key === 'Escape') setEditing(null)
@@ -559,7 +542,7 @@ export function AIImportView(): JSX.Element {
                             value={editingVal}
                             autoFocus
                             onChange={(e) => setEditingVal(e.target.value)}
-                            onBlur={commitEdit}
+                            onBlur={() => commitEdit()}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') commitEdit()
                               if (e.key === 'Escape') setEditing(null)

@@ -103,8 +103,8 @@ describe('AI 智能导入', () => {
     expect(screen.getByText('想养只猫')).toBeInTheDocument()
     // 跨日期推算：今天 2026-09-29 → 后端给 09-30 → 预览显示"明天"
     expect(screen.getByText('明天')).toBeInTheDocument()
-    expect(screen.getByText(/今日剩余/)).toBeTruthy()
-    expect(screen.getByText(/14/)).toBeTruthy()
+    // v9.2.1：不展示剩余次数（限流逻辑保留，仅在 0 时禁用按钮）
+    expect(screen.queryByText(/今日剩余/)).toBeNull()
     expect(screen.getByText('确认导入 3 条')).toBeInTheDocument()
 
     // 取消勾选想法（第 3 条）→ 确认导入 2 条

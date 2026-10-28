@@ -60,18 +60,6 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
         <h3>待办</h3>
         {total > 0 && <span className={styles.n}>{done}/{total}</span>}
         <span className={styles.line} />
-        {!date && isDevMode() && (
-          <button
-            className={styles.aiBtn}
-            onClick={() => setAiOpen(true)}
-            aria-label="AI 智能导入"
-            title="AI 智能导入"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M12 2.5l1.9 4.9a.5.5 0 0 0 .3.3l4.9 1.9a.5.5 0 0 1 0 .9l-4.9 1.9a.5.5 0 0 0-.3.3l-1.9 4.9a.5.5 0 0 1-.9 0l-1.9-4.9a.5.5 0 0 0-.3-.3L4 10.5a.5.5 0 0 1 0-.9l4.9-1.9a.5.5 0 0 0 .3-.3L11.1 2.5a.5.5 0 0 1 .9 0zM19 14l.8 2.2a.5.5 0 0 0 .3.3l2.2.8a.5.5 0 0 1 0 .9l-2.2.8a.5.5 0 0 0-.3.3L19 21.5a.5.5 0 0 1-.9 0l-.8-2.2a.5.5 0 0 0-.3-.3l-2.2-.8a.5.5 0 0 1 0-.9l2.2-.8a.5.5 0 0 0 .3-.3l.8-2.2a.5.5 0 0 1 .9 0z" />
-            </svg>
-          </button>
-        )}
         <button
           className={styles.addbtn}
           onClick={() => openForm('todo')}
@@ -81,6 +69,25 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
           {edit === 'todo' ? '收起' : '+ 添加'}
         </button>
       </div>
+      {/* v9.2.1 B 方案：AI 导入横幅（整行可点，替代原 ✦ 小按钮；仅 dev 模式显示） */}
+      {!date && isDevMode() && (
+        <button
+          className={styles.aiBanner}
+          onClick={() => setAiOpen(true)}
+          aria-label="AI 智能导入"
+        >
+          <span className={styles.aiBannerIcon}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 2.5l1.9 4.9a.5.5 0 0 0 .3.3l4.9 1.9a.5.5 0 0 1 0 .9l-4.9 1.9a.5.5 0 0 0-.3.3l-1.9 4.9a.5.5 0 0 1-.9 0l-1.9-4.9a.5.5 0 0 0-.3-.3L4 10.5a.5.5 0 0 1 0-.9l4.9-1.9a.5.5 0 0 0 .3-.3L11.1 2.5a.5.5 0 0 1 .9 0zM19 14l.8 2.2a.5.5 0 0 0 .3.3l2.2.8a.5.5 0 0 1 0 .9l-2.2.8a.5.5 0 0 0-.3.3L19 21.5a.5.5 0 0 1-.9 0l-.8-2.2a.5.5 0 0 0-.3-.3l-2.2-.8a.5.5 0 0 1 0-.9l2.2-.8a.5.5 0 0 0 .3-.3l.8-2.2a.5.5 0 0 1 .9 0z" />
+            </svg>
+          </span>
+          <span className={styles.aiBannerTxt}>
+            <span className={styles.aiBannerMain}>用 AI 帮你整理待办、习惯和想法</span>
+            <span className={styles.aiBannerSub}>说一段话，自动归类写入 · 支持语音</span>
+          </span>
+          <span className={styles.aiBannerArrow}>›</span>
+        </button>
+      )}
       <div className={styles.tlist}>
         {sorted.length > 0 || annis.length > 0 ? (
           <>
