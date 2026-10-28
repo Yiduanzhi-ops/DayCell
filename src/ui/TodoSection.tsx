@@ -214,8 +214,8 @@ function TodoForm(): JSX.Element {
   const [ddl, setDdl] = useState<string>(todayKey)
   // v9.2.2：具体时间可选，默认不设置
   const [tm, setTm] = useState('')
-  // v9.2.3：时间语义（截止/提醒）。表单默认日期=今天 → 默认「截止」；用户可在 sheet 内切换
-  const [tp, setTp] = useState<'due' | 'at'>('due')
+  // v9.2.9：默认「提醒型」（日常"几点做什么"多为定时提醒）；用户可切截止型
+  const [tp, setTp] = useState<'due' | 'at'>('at')
 
   const submit = async (): Promise<void> => {
     const ok = await createTodo(v, ddl || undefined, tm || undefined, tp)
@@ -239,16 +239,8 @@ function TodoForm(): JSX.Element {
           if (e.key === 'Enter') { e.preventDefault(); void submit() }
         }}
       />
-      {/* v9.2.4：待办类型独立一行，放在日期/时间上方——截止型 / 提醒型 */}
+      {/* v9.2.9：待办类型独立一行——提醒型在前且默认（日常"几点做什么"更常见为提醒） */}
       <div className={styles.todoTypeRow} role="radiogroup" aria-label="待办类型">
-        <button
-          type="button"
-          className={`${styles.todoTypeBtn} ${tp === 'due' ? styles.todoTypeOn : ''}`}
-          aria-pressed={tp === 'due'}
-          onClick={() => setTp('due')}
-        >
-          截止型
-        </button>
         <button
           type="button"
           className={`${styles.todoTypeBtn} ${tp === 'at' ? styles.todoTypeOn : ''} ${tp === 'at' ? styles.todoTypeOnAt : ''}`}
@@ -256,6 +248,14 @@ function TodoForm(): JSX.Element {
           onClick={() => setTp('at')}
         >
           提醒型
+        </button>
+        <button
+          type="button"
+          className={`${styles.todoTypeBtn} ${tp === 'due' ? styles.todoTypeOn : ''}`}
+          aria-pressed={tp === 'due'}
+          onClick={() => setTp('due')}
+        >
+          截止型
         </button>
       </div>
       <DdlPicker value={ddl} onChange={setDdl} />
