@@ -379,7 +379,7 @@ function DayFull({ date }: { date?: DateKey } = {}): JSX.Element {
             </svg>
           </span>
           <span className={styles.aiBannerTxt}>
-            <span className={styles.aiBannerMain}>用 AI 帮你整理待办、习惯和想法</span>
+            <span className={styles.aiBannerMain}>AI 整理导入</span>
             <span className={styles.aiBannerSub}>说一段话，自动归类写入 · 支持语音</span>
           </span>
           <span className={styles.aiBannerArrow}>›</span>
