@@ -346,18 +346,26 @@ function TimePicker({
   }
 
   return (
-    <div className={styles.timeRow}>
-      {/* v9.2.4：类型切换已移到表单上方独立行；这里只做时间 */}
-      <span className={styles.timeLabel}>时间</span>
+    <div className={styles.ddlRow}>
+      {/* v9.2.8：与日期行同款——左「不设置」快捷芯片（默认态高亮）、右「自定义」弹时间滚轮 */}
+      <span className={styles.ddlLabel}>时间</span>
       <button
         type="button"
-        className={styles.timeBtn}
+        className={`${styles.ddlChip} ${!value ? styles.ddlOn : ''}`}
+        aria-pressed={!value}
+        onClick={() => onChange('')}
+      >
+        不设置
+      </button>
+      <button
+        type="button"
+        className={`${styles.ddlDateWrap} ${value ? styles.ddlDateSet : ''}`}
         onClick={openWheel}
         aria-expanded={open}
-        aria-label="具体时间（可选）"
+        aria-label="自定义时间"
       >
-        <span className={value ? styles.timeVal : styles.timeEmpty}>{value || '不设置'}</span>
-        <svg className={styles.timeChevron} viewBox="0 0 24 24" aria-hidden="true">
+        <span>{value || '自定义'}</span>
+        <svg className={styles.ddlChevron} viewBox="0 0 24 24" aria-hidden="true">
           <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
