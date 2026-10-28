@@ -1,11 +1,11 @@
 /**
- * v9 云同步开发面板（Feature Flag 锁死：仅 ?dev=1 可见）。
+ * v9 云同步面板（正式入口，v9.3 移除 ?dev=1 门控）。
  *
  * 两块能力：
  *  1. 后端连接检查 —— fetch daycell-api /health，验证前端→云函数全链路
  *  2. 邮箱免密登录 —— 输邮箱 → 收邮件验证码 → 登录（无密码，方案 X）
  *
- * 仅自测用途，默认用户不可见；上线前移除 devflag 门并接入正式入口。
+ * 登录后启用自动同步（启动拉取 + 变更推送）；AI 导入与通知订阅也依赖此登录态。
  */
 import { useEffect, useState } from 'react'
 import type { JSX } from 'react'
@@ -242,8 +242,7 @@ export function CloudSyncPanel(): JSX.Element {
   return (
     <section className={styles.panel}>
       <div className={styles.head}>
-        <span className={styles.title}>v9 云端（开发面板）</span>
-        <span className={styles.badge}>仅 ?dev=1 可见 · 不影响线上</span>
+        <span className={styles.title}>v9 云端同步</span>
       </div>
 
       {/* —— 后端连接检查 —— */}
@@ -390,7 +389,7 @@ export function CloudSyncPanel(): JSX.Element {
       </div>
 
       <p className={styles.foot}>
-        说明：本面板默认锁死，线上用户不可见。自测请在网址后加 <code>?dev=1</code>。
+        登录后数据自动同步到云端；同一账号多设备间共享。
       </p>
     </section>
   )
