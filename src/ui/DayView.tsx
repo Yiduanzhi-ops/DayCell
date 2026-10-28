@@ -34,7 +34,6 @@ import { NoteSection } from './NoteSection'
 import { HabitSection } from './HabitSection'
 import { ReviewSection } from './ReviewSection'
 import { InstallBanner } from './InstallBanner'
-import { isDevMode } from './devflag'
 import { arm as tapArm } from './tapGuard'
 import styles from './DayView.module.css'
 
@@ -366,8 +365,9 @@ function DayFull({ date }: { date?: DateKey } = {}): JSX.Element {
         </div>
       )}
 
-      {/* v9.2.1 AI 导入横幅：待办区块上方独立整行入口（?dev=1 才显示，仅中间页） */}
-      {!date && isDevMode() && (
+      {/* v9.2.1 AI 导入横幅：待办区块上方独立整行入口（仅中间页）。
+          v9.3 移除 ?dev=1 灰度门控：预览站正式访问即显示（未登录点开会引导去登录）。 */}
+      {!date && (
         <button
           className={styles.aiBanner}
           onClick={() => setAiOpen(true)}
