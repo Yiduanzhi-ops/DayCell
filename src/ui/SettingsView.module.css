@@ -134,3 +134,18 @@
   color: var(--ink-3);
   text-align: center;
 }
+
+/* v9.3：通知状态条（登录/错误常驻提示，替代一闪而过的 toast） */
+.pushStatus {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-2);
+  background: color-mix(in srgb, var(--ink-3) 12%, transparent);
+}
+.pushStatusErr {
+  color: #c0392b;
+  background: color-mix(in srgb, #c0392b 10%, transparent);
+}

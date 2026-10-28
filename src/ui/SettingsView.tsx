@@ -13,7 +13,7 @@
 import { useState } from 'react'
 import type { JSX } from 'react'
 import { useApp } from '@/app/context'
-import type { PushPrefs } from './cloudbase'
+import { isCloudLoggedIn, type PushPrefs } from './cloudbase'
 import {
   EVENING_SLOTS,
   getPushSupport,
@@ -50,7 +50,9 @@ export function SettingsView(): JSX.Element {
   const setPushPrefs = useApp((s) => s.setPushPrefs)
 
   const [busy, setBusy] = useState(false)
+  const [pushError, setPushError] = useState<string | null>(null)
   const pushSupport = getPushSupport()
+  const cloudLoggedIn = isCloudLoggedIn()
 
   /**
    * 应用早/晚偏好变更：先同步云端（授权+上报），成功后写本地。
@@ -77,14 +79,15 @@ export function SettingsView(): JSX.Element {
       const res = await syncPushPrefs(next)
       if (!res.ok) {
         if (res.loginRequired) {
-          showToast('请先登录云同步再开启通知（设置 → 同步设置）')
+          setPushError('需先登录云同步才能开启通知：设置 → 同步设置，用邮箱登录')
         } else if (res.permissionDenied) {
-          showToast('通知权限被拒绝，请在浏览器设置中允许后重试')
+          setPushError('通知权限被拒绝，请在浏览器设置中允许本网站的通知后重试')
         } else {
-          showToast(res.error ?? '通知设置保存失败')
+          setPushError(res.error ?? '通知设置保存失败')
         }
         return
       }
+      setPushError(null)
       await setPushPrefs({
         morning: { enabled: next.morning.enabled, time: next.morning.time },
         evening: { enabled: next.evening.enabled, time: next.evening.time },
@@ -143,6 +146,16 @@ export function SettingsView(): JSX.Element {
           </div>
 
           <div className={styles.groupTitle}>通知</div>
+          {!cloudLoggedIn && (
+            <div className={styles.pushStatus} role="alert">
+              通知需要登录云同步后才能开启：请先到「设置 → 同步设置」用邮箱登录
+            </div>
+          )}
+          {pushError && (
+            <div className={`${styles.pushStatus} ${styles.pushStatusErr}`} role="alert">
+              {pushError}
+            </div>
+          )}
           <div className={styles.group}>
             {/* 早间日报 */}
             <div className={styles.row}>
