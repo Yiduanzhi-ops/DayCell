@@ -112,7 +112,7 @@
 /* v9.2.1 AI 导入横幅：待办区块上方独立整行入口（?dev=1 才显示） */
 .aiBanner {
   flex: 0 0 auto;
-  display: flex; align-items: center; gap: 10px; width: 100%;
+  display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%;
   padding: 10px 12px;
   border-radius: 14px;
   background: var(--accent-soft);
@@ -126,7 +126,7 @@
   display: grid; place-items: center;
   color: #fff; background: var(--accent-strong);
 }
-.aiBannerTxt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; align-items: center; text-align: center; }
+.aiBannerTxt { flex: 0 0 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; align-items: center; text-align: center; }
 .aiBannerMain {
   font-size: 14px; font-weight: 700; color: var(--ink-1);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
