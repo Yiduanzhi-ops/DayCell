@@ -199,10 +199,7 @@
 }
 .timeChipOn { background: var(--accent); border-color: var(--accent); color: #fff; }
 .timeChipOnAt { background: #1d8a5f; border-color: #1d8a5f; color: #fff; }
-.timeBigWrap { text-align: center; padding: 6px 0 4px; }
-.timeBig { font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--accent); }
-.timeBigAt { color: #1d8a5f; }
-.timeWheels { display: flex; justify-content: center; align-items: center; gap: 6px; height: 180px; position: relative; }
+.timeWheels { display: flex; justify-content: center; align-items: center; gap: 6px; height: 180px; position: relative; margin-top: 6px; }
 /* v9.2.4 滚轮选中高亮条：横跨时/分两列，iOS 风格（上下细线 + 浅灰底） */
 .wheelBar {
   position: absolute; left: 10%; right: 10%; top: 50%; transform: translateY(-50%);

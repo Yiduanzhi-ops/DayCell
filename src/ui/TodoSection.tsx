@@ -259,7 +259,7 @@ function TodoForm(): JSX.Element {
         </button>
       </div>
       <DdlPicker value={ddl} onChange={setDdl} />
-      <TimePicker value={tm} type={tp} onChange={setTm} />
+      <TimePicker value={tm} onChange={setTm} />
       <FormActs onCancel={closeForm} onSave={submit} />
     </div>
   )
@@ -327,11 +327,9 @@ const WHEEL_PAD = 2
 
 function TimePicker({
   value,
-  type,
   onChange,
 }: {
   value: string
-  type: 'due' | 'at'
   onChange: (v: string) => void
 }): JSX.Element {
   const [open, setOpen] = useState(false)
@@ -375,11 +373,6 @@ function TimePicker({
             <div className={styles.timeSheetHead}>
               <span className={styles.timeSheetTitle}>选择时间</span>
               <span className={styles.timeSheetNote}>点遮罩取消</span>
-            </div>
-            <div className={styles.timeBigWrap}>
-              <span className={`${styles.timeBig} ${type === 'at' ? styles.timeBigAt : ''}`}>
-                {`${hh}:${mm}`}
-              </span>
             </div>
             <div className={styles.timeWheels}>
               <div className={styles.wheelBar} aria-hidden="true" />
@@ -596,7 +589,7 @@ function TodoEdit({ todo, onDone }: { todo: TodoRecord; onDone: () => void }): J
         </button>
       </div>
       <DdlPicker value={ddl} onChange={setDdl} />
-      <TimePicker value={tm} type={tp} onChange={setTm} />
+      <TimePicker value={tm} onChange={setTm} />
     </div>
   )
 }
