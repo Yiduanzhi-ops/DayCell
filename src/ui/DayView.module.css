@@ -126,7 +126,7 @@
   display: grid; place-items: center;
   color: #fff; background: var(--accent-strong);
 }
-.aiBannerTxt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.aiBannerTxt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; align-items: center; text-align: center; }
 .aiBannerMain {
   font-size: 14px; font-weight: 700; color: var(--ink-1);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
