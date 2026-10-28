@@ -132,7 +132,6 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
               )}
               {t.rolledTo && <span className={styles.rolled}>已顺延 →</span>}
               {t.rolledFrom && <span className={styles.rolled}>顺延自 {md(t.rolledFrom)}</span>}
-              {t.time && <span className={styles.ttime}>{t.time}</span>}
               {t.deadline && (
                 <span
                   className={`${styles.ddlBadge} ${
@@ -144,9 +143,12 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
                     : !t.done && compareKey(t.deadline, k) < 0
                       ? '已逾期 · '
                       : ''}
+                  {/* v9.2.2：截止日恰为今天时标注（今天）；时间标签跟在日期后面 */}
                   截止 {md(t.deadline)}
+                  {t.deadline === k ? '（今天）' : ''}
                 </span>
               )}
+              {t.time && <span className={styles.ttime}>{t.time}</span>}
               {!t.rolledTo && (
                 <button className={styles.tdel} aria-label={`删除待办：${t.text}`} onClick={() => void deleteTodo(t.id)}>
                   ×

@@ -740,6 +740,8 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
 
     await waitFor(() => expect(screen.getByText('09:30')).toBeInTheDocument())
     expect(screen.getByText('14:00')).toBeInTheDocument()
+    // v9.2.2：截止日恰为今天的徽标标注「（今天）」；时间标签跟在日期后面
+    expect(screen.getAllByText('截止 9/29（今天）')).toHaveLength(2)
     const rows = within(screen.getByTestId('day-center')).getAllByRole('button', { name: /编辑待办：/ })
     expect(rows.map((r) => r.getAttribute('aria-label'))).toEqual([
       '编辑待办：预约体检',
