@@ -352,7 +352,7 @@ describe('App 冒烟', () => {
     await renderApp()
     fireEvent.click(screen.getByRole('button', { name: '菜单' }))
     const items = screen.getAllByRole('menuitem').map((el) => el.textContent)
-    expect(items).toEqual(['导出备份', '导入备份', '一键导出 MD', '纪念日设置', '习惯设置', '同步设置', '偏好设置', '使用手册', '版本更新'])
+    expect(items).toEqual(['导出备份', '导入备份', '一键导出 MD', '特殊日设置', '习惯设置', '同步设置', '偏好设置', '使用手册', '版本更新'])
     expect(screen.getByRole('switch')).toBeInTheDocument() // 夜间模式行（最下面，分隔线之后）
     expect(screen.getByText('夜间模式')).toBeInTheDocument()
 
@@ -363,9 +363,9 @@ describe('App 冒烟', () => {
     expect(localStorage.getItem('daycell-theme')).toBe('dark')
   })
 
-  it('v8.29 纪念日待办可勾选：圆圈勾掉划线置灰、再点取消恢复', async () => {
+  it('v8.29 特殊日待办可勾选：圆圈勾掉划线置灰、再点取消恢复', async () => {
     const store = await renderApp()
-    // 创建一个 09-29 的每年纪念日（today=2026-09-29 命中）
+    // 创建一个 09-29 的每年特殊日（today=2026-09-29 命中）
     await store.getState().createAnniversary({ title: '发工资日', date: '2025-09-29', repeat: 'yearly', isLunar: false })
 
     await waitFor(() => expect(document.body.textContent).toContain('发工资日'))
@@ -373,7 +373,7 @@ describe('App 冒烟', () => {
     const chk = screen.getByRole('button', { name: '标记完成：发工资日' })
     expect(chk).toHaveAttribute('aria-pressed', 'false')
 
-    // 勾掉 → 划线置灰（annivDones 持久化到当天×该纪念日）
+    // 勾掉 → 划线置灰（annivDones 持久化到当天×该特殊日）
     fireEvent.click(chk)
     await waitFor(() => expect(screen.getByRole('button', { name: '取消标记：发工资日' })).toHaveAttribute('aria-pressed', 'true'))
     expect(store.getState().detail?.annivDones).toContain(store.getState().annivList[0].id)
@@ -384,13 +384,13 @@ describe('App 冒烟', () => {
     expect(store.getState().detail?.annivDones).not.toContain(store.getState().annivList[0].id)
   })
 
-  it('v7.5 纪念日设置：从菜单进入、新增每周纪念日、列表显示', async () => {
+  it('v7.5 特殊日设置：从菜单进入、新增每周特殊日、列表显示', async () => {
     const store = await renderApp()
     fireEvent.click(screen.getByRole('button', { name: '菜单' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: '纪念日设置' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '特殊日设置' }))
 
     // 设置页出现（覆盖层），从空列表开始
-    expect(screen.getByRole('dialog', { name: '纪念日设置' })).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: '特殊日设置' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '＋ 新增' }))
 
     // 填名字、切每周、选周三

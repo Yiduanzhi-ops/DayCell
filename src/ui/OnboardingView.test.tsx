@@ -35,7 +35,7 @@ describe('首次使用引导（v8.22）', () => {
 
     expect(screen.getByRole('heading', { name: '欢迎使用 DayCell' })).toBeInTheDocument()
     expect(screen.getByText('以「一天」为格子的个人管理工具：待办、想法、习惯、目标，每日一页')).toBeInTheDocument()
-    for (const label of ['待办·习惯·想法', '目标·阶段·进度', '周 / 月双视图', '纪念日提醒', '多端同步', '本地备份']) {
+    for (const label of ['待办·习惯·想法', '目标·阶段·进度', '周 / 月双视图', '特殊日提醒', '多端同步', '本地备份']) {
       expect(screen.getByText(label)).toBeInTheDocument()
     }
     expect(screen.getByText('添加到主屏幕，获取 APP 使用体验')).toBeInTheDocument()

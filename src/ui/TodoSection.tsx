@@ -44,7 +44,7 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
   const todos = (cached ?? detail)?.todos ?? []
   // v7.6：已完成的自动沉底；未完成保持原序（Array.prototype.sort 稳定）
   const sorted = [...todos].sort((a, b) => Number(a.done) - Number(b.done))
-  // v8.27：当天命中的纪念日当作待办展示在待办列表最上方（置顶）
+  // v8.27：当天命中的特殊日当作待办展示在待办列表最上方（置顶）
   // v8.29：可勾选——勾选态存 annivchecks（annivDones），划线置灰，与普通待办同款圆圈
   const annis = (cached ?? detail)?.anniversaries ?? []
   const annivDones = new Set((cached ?? detail)?.annivDones ?? [])
@@ -83,7 +83,7 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
                   {aDone && <Check />}
                 </button>
                 <span className={styles.ttxt}>{a.title}</span>
-                <span className={styles.anniTag}>纪念日</span>
+                <span className={styles.anniTag}>特殊日</span>
               </div>
             )
           })}
