@@ -406,7 +406,7 @@ function TimePicker({
                   setOpen(false)
                 }}
               >
-                确定
+                保存
               </button>
             </div>
           </div>
