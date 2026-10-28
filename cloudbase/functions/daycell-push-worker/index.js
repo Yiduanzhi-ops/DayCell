@@ -186,10 +186,11 @@ function buildEveningReport(snapshot, today) {
   return lines;
 }
 
-// ============ 主入口（仅接受 timer 事件）============
+// ============ 主入口（timer 事件；test 模式用于真机验证）============
 exports.main = async (event) => {
   const isTimer = event && (event.Type === 'Timer' || event.TriggerName || event.triggerName || event.type === 'Timer');
-  if (!isTimer) {
+  const test = event && event.test;
+  if (!isTimer && !test) {
     return { ok: false, error: 'not_timer_event', eventType: event && event.Type };
   }
 
@@ -202,8 +203,18 @@ exports.main = async (event) => {
   }
   webpush.setVapidDetails(subject, pub, priv);
 
-  const hm = chinaHM();
-  const today = chinaDateKey();
+  // test 模式：event.test={time:'HH:mm', date:'YYYY-MM-DD', morning:true, evening:true}
+  // 跳过档位匹配、跳过当天去重（不写 last_*_sent），可连发早/晚各一条
+  let hm = chinaHM();
+  let today = chinaDateKey();
+  let forceMorning = false;
+  let forceEvening = false;
+  if (test) {
+    if (typeof test.time === 'string' && /^\d{2}:\d{2}$/.test(test.time)) hm = test.time;
+    if (typeof test.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(test.date)) today = test.date;
+    forceMorning = test.morning === true;
+    forceEvening = test.evening === true;
+  }
   const db = getApp().rdb();
 
   const res = await db.from('daycell_push_subscriptions').select('*');
@@ -213,15 +224,20 @@ exports.main = async (event) => {
   let cleaned = 0;
 
   for (const s of subs) {
-    const morningDue =
-      s.morning_enabled === true &&
-      s.morning_time === hm &&
-      (s.last_morning_sent === null || s.last_morning_sent < today);
-    const eveningDue =
-      s.evening_enabled === true &&
-      s.evening_time === hm &&
-      (s.last_evening_sent === null || s.last_evening_sent < today);
-    if (!morningDue && !eveningDue) continue;
+    // test 模式：按 force 标志直发对应日报；正常模式按档位+当天去重
+    const dueKinds = test
+      ? [forceMorning ? 'morning' : null, forceEvening ? 'evening' : null].filter(Boolean)
+      : [
+          s.morning_enabled === true && s.morning_time === hm &&
+            (s.last_morning_sent === null || s.last_morning_sent < today)
+            ? 'morning'
+            : null,
+          s.evening_enabled === true && s.evening_time === hm &&
+            (s.last_evening_sent === null || s.last_evening_sent < today)
+            ? 'evening'
+            : null,
+        ].filter(Boolean);
+    if (dueKinds.length === 0) continue;
 
     let snapshot = null;
     try {
@@ -236,54 +252,67 @@ exports.main = async (event) => {
       console.error('[push] snapshot read failed', s.user_id, e && e.message);
     }
 
-    const kind = morningDue ? 'morning' : 'evening';
-    const lines = snapshot
-      ? kind === 'morning'
-        ? buildMorningReport(snapshot, today)
-        : buildEveningReport(snapshot, today)
-      : [];
-    const title = kind === 'morning' ? 'DayCell 早间日报' : 'DayCell 晚间日报';
-    const body = lines.length > 0
-      ? lines.join('\n')
-      : kind === 'morning'
-        ? '今天暂无安排，记得好好休息'
-        : '今天全部完成，辛苦了';
-    const payload = {
-      title,
-      body,
-      data: { url: process.env.APP_URL || '/' },
-    };
+    for (const kind of dueKinds) {
+      const lines = snapshot
+        ? kind === 'morning'
+          ? buildMorningReport(snapshot, today)
+          : buildEveningReport(snapshot, today)
+        : [];
+      const title = kind === 'morning' ? 'DayCell 早间日报' : 'DayCell 晚间日报';
+      const body = lines.length > 0
+        ? lines.join('\n')
+        : kind === 'morning'
+          ? '今天暂无安排，记得好好休息'
+          : '今天全部完成，辛苦了';
+      const payload = {
+        title,
+        body,
+        data: { url: process.env.APP_URL || '/' },
+      };
 
-    try {
-      await webpush.sendNotification(
-        { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-        JSON.stringify(payload),
-      );
-      await db
-        .from('daycell_push_subscriptions')
-        .update(kind === 'morning' ? { last_morning_sent: today } : { last_evening_sent: today })
-        .eq('user_id', s.user_id)
-        .eq('endpoint', s.endpoint);
-      sent += 1;
-    } catch (e) {
-      const code = e && e.statusCode;
-      if (code === 404 || code === 410) {
-        try {
+      try {
+        await webpush.sendNotification(
+          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+          JSON.stringify(payload),
+        );
+        // test 模式不写 last_*_sent，避免污染真实去重
+        if (!test) {
           await db
             .from('daycell_push_subscriptions')
-            .delete()
+            .update(kind === 'morning' ? { last_morning_sent: today } : { last_evening_sent: today })
             .eq('user_id', s.user_id)
             .eq('endpoint', s.endpoint);
-          cleaned += 1;
-        } catch (e2) {
-          console.error('[push] cleanup failed', s.user_id, e2 && e2.message);
         }
-      } else {
-        failed += 1;
-        console.error('[push] send failed', s.user_id, code || (e && e.message));
+        sent += 1;
+      } catch (e) {
+        const code = e && e.statusCode;
+        if (code === 404 || code === 410) {
+          try {
+            await db
+              .from('daycell_push_subscriptions')
+              .delete()
+              .eq('user_id', s.user_id)
+              .eq('endpoint', s.endpoint);
+            cleaned += 1;
+          } catch (e2) {
+            console.error('[push] cleanup failed', s.user_id, e2 && e2.message);
+          }
+        } else {
+          failed += 1;
+          console.error('[push] send failed', s.user_id, code || (e && e.message));
+        }
       }
     }
   }
 
-  return { ok: true, hm, today, checked: subs.length, sent, failed, cleaned };
+  return {
+    ok: true,
+    hm,
+    today,
+    test: !!test,
+    checked: subs.length,
+    sent,
+    failed,
+    cleaned,
+  };
 };
