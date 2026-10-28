@@ -4,11 +4,12 @@ import { VitePWA } from 'vite-plugin-pwa'
 import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
-  // GitHub Pages 项目页部署在 https://Yiduanzhi-ops.github.io/DayCell/ 子路径下，
-  // 必须显式设置 base，否则构建产物的 /assets/... 绝对路径会指向站点根目录而 404。
-  // Tauri 桌面壳本地加载产物时由 beforeBuildCommand 注入 VITE_BASE=./（相对路径），
-  // 否则 tauri:// 协议下 /DayCell/assets 会 404（ADR 见 src-tauri/README 或 docs）。
-  base: process.env.VITE_BASE || '/DayCell/',
+  // base 用相对路径 './'（v9.3 修复）：
+  //  - CloudBase 预览站：根路径部署 → ./assets/... 解析为 /assets/... ✓
+  //  - GitHub Pages：子路径 /DayCell/ → ./assets/... 解析为 /DayCell/assets/... ✓
+  //  - 此前默认 '/DayCell/' 绝对前缀，CloudBase 根路径下全部资源 404 → 加载动画后白屏
+  //  - Tauri 桌面壳本地加载产物时由 beforeBuildCommand 注入 VITE_BASE=./（保持兼容）
+  base: process.env.VITE_BASE || './',
   plugins: [
     react(),
     // PWA（ADR-0002，v7.1 接线；v9.3 改 injectManifest 自定义 SW）：
