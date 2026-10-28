@@ -52,6 +52,43 @@
   overflow: hidden;
 }
 
+.groupTitle {
+  margin: 18px 2px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+
+/* v9.3 通知档位 chips */
+.chips {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+  max-width: 230px;
+}
+.chip {
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 99px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink-2);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.chip:hover {
+  border-color: var(--accent, #2e4ba6);
+  color: var(--accent, #2e4ba6);
+}
+.chipOn {
+  border-color: var(--accent, #2e4ba6);
+  background: var(--accent, #2e4ba6);
+  color: #fff;
+}
+
 .row {
   display: flex;
   align-items: center;

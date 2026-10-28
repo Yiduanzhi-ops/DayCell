@@ -181,6 +181,12 @@ export interface AppState {
   settingsOpen: boolean
   /** v8.62：周视图显示习惯（默认关 = v8.41 现状；开则每日行列出习惯名+打卡态） */
   weekViewHabits: boolean
+  /** v9.3：早间日报通知开关与档位（'HH:mm'，null=未设置） */
+  pushMorningEnabled: boolean
+  pushMorningTime: string | null
+  /** v9.3：晚间日报通知开关与档位（'HH:mm'，null=未设置） */
+  pushEveningEnabled: boolean
+  pushEveningTime: string | null
   /** v8.63：今天已「加入今日待办」的子任务 id（子任务行按钮两态 + 防重复判定） */
   subtaskTodayIds: string[]
   /** v8.22：首次使用引导是否打开（仅首次启动自动弹出；可从使用手册重看） */
@@ -353,6 +359,11 @@ export interface AppState {
   closeSettings(): void
   /** 周视图显示习惯（默认关）：写入 setting + 更新状态，周视图按此渲染 */
   setWeekViewHabits(on: boolean): Promise<void>
+  /** v9.3：保存早/晚通知偏好到本地（写 settings + 更新状态；云端上报由设置页完成） */
+  setPushPrefs(prefs: {
+    morning?: { enabled?: boolean; time?: string | null }
+    evening?: { enabled?: boolean; time?: string | null }
+  }): Promise<void>
 
   // ---- v8.22：首次使用引导 ----
   openOnboarding(): void
@@ -475,6 +486,11 @@ export function createAppStore(
     changelogOpen: false,
     settingsOpen: false,
     weekViewHabits: false,
+    // v9.3 通知默认：早晚都关、时间默认 08:00 / 21:00（开时若未设时间用默认档）
+    pushMorningEnabled: false,
+    pushMorningTime: null,
+    pushEveningEnabled: false,
+    pushEveningTime: null,
     subtaskTodayIds: [],
     onboardingOpen: false,
     syncStatus: syncEngine?.status() ?? null,
@@ -496,6 +512,12 @@ export function createAppStore(
       // v8.62 用户偏好设置：周视图显示习惯（默认关，保持 v8.41 现状）
       const weekViewHabits = (await repos.settings.get('weekViewHabits', false)) as boolean
       set({ weekViewHabits })
+      // v9.3 通知偏好（默认全关；时间 null → 用默认档 08:00 / 21:00）
+      const pushMorningEnabled = (await repos.settings.get('pushMorningEnabled', false)) as boolean
+      const pushMorningTime = (await repos.settings.get('pushMorningTime', null)) as string | null
+      const pushEveningEnabled = (await repos.settings.get('pushEveningEnabled', false)) as boolean
+      const pushEveningTime = (await repos.settings.get('pushEveningTime', null)) as string | null
+      set({ pushMorningEnabled, pushMorningTime, pushEveningEnabled, pushEveningTime })
       await get().refresh()
     },
 
@@ -1783,6 +1805,28 @@ export function createAppStore(
     async setWeekViewHabits(on: boolean) {
       await repos.settings.set('weekViewHabits', on)
       set({ weekViewHabits: on })
+    },
+
+    /** v9.3：保存早/晚通知偏好（本地设置；云端订阅上报由设置页调 pushService 完成） */
+    async setPushPrefs(prefs: {
+      morning?: { enabled?: boolean; time?: string | null }
+      evening?: { enabled?: boolean; time?: string | null }
+    }) {
+      const next = {
+        pushMorningEnabled: prefs.morning?.enabled ?? get().pushMorningEnabled,
+        pushMorningTime:
+          prefs.morning?.time !== undefined ? prefs.morning.time : get().pushMorningTime,
+        pushEveningEnabled: prefs.evening?.enabled ?? get().pushEveningEnabled,
+        pushEveningTime:
+          prefs.evening?.time !== undefined ? prefs.evening.time : get().pushEveningTime,
+      }
+      await Promise.all([
+        repos.settings.set('pushMorningEnabled', next.pushMorningEnabled),
+        repos.settings.set('pushMorningTime', next.pushMorningTime),
+        repos.settings.set('pushEveningEnabled', next.pushEveningEnabled),
+        repos.settings.set('pushEveningTime', next.pushEveningTime),
+      ])
+      set(next)
     },
 
     // ---- v8.22：首次使用引导 ----

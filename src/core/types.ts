@@ -247,6 +247,11 @@ export const SETTING_KEYS = [
   'onboarded',
   'weekStartsOn',
   'weekViewHabits',
+  // v9.3：通知偏好（早/晚开关 + 档位）
+  'pushMorningEnabled',
+  'pushMorningTime',
+  'pushEveningEnabled',
+  'pushEveningTime',
 ] as const
 
 export type SettingKey = (typeof SETTING_KEYS)[number]

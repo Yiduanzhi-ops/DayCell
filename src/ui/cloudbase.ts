@@ -132,8 +132,7 @@ export async function downloadSnapshot(
 }
 
 /** v9.2 AI 智能导入：一段话 → 结构化结果（云函数 /ai/import，DeepSeek 后端直连）
- *  返回 { structured, quota, usage }；429 = 今日次数用完 */
-export async function aiImport(
+ *  返回 { structured, quota, usage }；429 = 今日次数用完 */export async function aiImport(
   token: string,
   text: string,
   today: string,
@@ -181,6 +180,88 @@ export async function aiImport(
       },
       remaining: body.quota?.remaining,
     }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
+// ============ v9.3 Web Push 订阅 ============
+/** 早/晚通知偏好（与云端 push_subscriptions 字段一一对应） */
+export interface PushPrefs {
+  morning: { enabled: boolean; time: string | null }
+  evening: { enabled: boolean; time: string | null }
+}
+
+/** 订阅体：endpoint + 公钥 + 私钥（PushSubscription.toJSON 结构） */
+export interface PushSubscriptionBody {
+  endpoint: string
+  keys: { p256dh: string; auth: string }
+}
+
+/** 推送地址（VAPID 公钥，前端公开常量；private key 只存在云函数环境变量） */
+export const VAPID_PUBLIC_KEY =
+  'BJf_hZkINBNPruCuUaMF-2HIB8mAefqjbFpIkAe_vfYc0l8TE4gixt-Rix06-DEPFnYdOxHTxYeAy8a14E9BP6I'
+
+/**
+ * 保存推送订阅与早/晚通知偏好（云函数 /push/subscribe，一体 upsert）。
+ * 每次保存带完整 PushSubscription + 两组开关/时间；未授权时 subscription 传 null，
+ * 用 enabled=false 表达全关（v1 不主动删除 endpoint，保留以便日后重开）。
+ */
+export async function savePushSubscription(
+  token: string,
+  subscription: PushSubscriptionBody | null,
+  prefs: PushPrefs,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE}/push/subscribe`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        endpoint: subscription?.endpoint ?? '',
+        keys: subscription?.keys ?? { p256dh: '', auth: '' },
+        morning: {
+          enabled: prefs.morning.enabled,
+          time: prefs.morning.time,
+        },
+        evening: {
+          enabled: prefs.evening.enabled,
+          time: prefs.evening.time,
+        },
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai',
+      }),
+    })
+    const body = (await res.json()) as { ok?: boolean; error?: string }
+    if (!res.ok || !body.ok) {
+      return { ok: false, error: body.error ?? `HTTP ${res.status}` }
+    }
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
+/** 退订：从云端删除该 endpoint 的订阅（云函数 /push/unsubscribe） */
+export async function deletePushSubscription(
+  token: string,
+  endpoint: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE}/push/unsubscribe`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ endpoint }),
+    })
+    const body = (await res.json()) as { ok?: boolean; error?: string }
+    if (!res.ok || !body.ok) {
+      return { ok: false, error: body.error ?? `HTTP ${res.status}` }
+    }
+    return { ok: true }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) }
   }
