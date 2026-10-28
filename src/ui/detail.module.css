@@ -150,23 +150,21 @@
   border-radius: 4px; padding: 1px 6px; margin-top: 2px; white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+/* v9.2.4 待办类型独立行（日期/时间上方）：截止型 / 提醒型 分段控件 */
+.todoTypeRow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.todoTypeBtn {
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+  min-height: 26px; padding: 3px 14px; border-radius: 999px;
+  font-size: 11.5px; color: var(--ink-2);
+  border: 1px solid var(--line); background: var(--bg);
+}
+.todoTypeBtn:hover { background: var(--bg-hover); }
+.todoTypeOn { color: var(--accent); background: var(--accent-soft); border-color: var(--accent); font-weight: 600; }
+.todoTypeOnAt { color: #fff; background: #1d8a5f; border-color: #1d8a5f; }
 /* v9.2.2 具体时间选择行：点击「时间值」弹出底部 sheet，默认「不设置」
-   v9.2.4：截止/提醒切换提到表单第一层（与日期行同排，行样式统一） */
+   v9.2.4：类型切换已移出本行（在表单日期/时间上方）；本行只做时间 */
 .timeRow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .timeLabel { font-size: 11.5px; color: var(--ink-3); flex: 0 0 auto; }
-/* 截止 | 提醒 分段（第一层可见，选中色与行内 pill 语义一致：due 蓝 / at 绿） */
-.timeTypeSeg {
-  flex: 0 0 auto; display: inline-flex; align-items: center;
-  border: 1px solid var(--line); border-radius: 999px; overflow: hidden;
-  background: var(--bg); min-height: 26px;
-}
-.timeSegBtn {
-  border: none; background: transparent; font-size: 11.5px; color: var(--ink-2);
-  padding: 3px 12px; min-height: 26px;
-}
-.timeSegBtn:hover { background: var(--bg-hover); }
-.timeSegOn { color: var(--accent); background: var(--accent-soft); font-weight: 600; }
-.timeSegOnAt { color: #fff; background: #1d8a5f; }
 .timeBtn {
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 11.5px; color: var(--ink-2);

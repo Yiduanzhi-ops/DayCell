@@ -239,8 +239,27 @@ function TodoForm(): JSX.Element {
           if (e.key === 'Enter') { e.preventDefault(); void submit() }
         }}
       />
+      {/* v9.2.4：待办类型独立一行，放在日期/时间上方——截止型 / 提醒型 */}
+      <div className={styles.todoTypeRow} role="radiogroup" aria-label="待办类型">
+        <button
+          type="button"
+          className={`${styles.todoTypeBtn} ${tp === 'due' ? styles.todoTypeOn : ''}`}
+          aria-pressed={tp === 'due'}
+          onClick={() => setTp('due')}
+        >
+          截止型
+        </button>
+        <button
+          type="button"
+          className={`${styles.todoTypeBtn} ${tp === 'at' ? styles.todoTypeOn : ''} ${tp === 'at' ? styles.todoTypeOnAt : ''}`}
+          aria-pressed={tp === 'at'}
+          onClick={() => setTp('at')}
+        >
+          提醒型
+        </button>
+      </div>
       <DdlPicker value={ddl} onChange={setDdl} />
-      <TimePicker value={tm} type={tp} onTypeChange={setTp} onChange={setTm} />
+      <TimePicker value={tm} type={tp} onChange={setTm} />
       <FormActs onCancel={closeForm} onSave={submit} />
     </div>
   )
@@ -309,12 +328,10 @@ const WHEEL_PAD = 2
 function TimePicker({
   value,
   type,
-  onTypeChange,
   onChange,
 }: {
   value: string
   type: 'due' | 'at'
-  onTypeChange: (t: 'due' | 'at') => void
   onChange: (v: string) => void
 }): JSX.Element {
   const [open, setOpen] = useState(false)
@@ -332,26 +349,8 @@ function TimePicker({
 
   return (
     <div className={styles.timeRow}>
-      {/* v9.2.4：截止/提醒切换移到表单第一层（与日期行并列），不再藏在 sheet 最里面 */}
+      {/* v9.2.4：类型切换已移到表单上方独立行；这里只做时间 */}
       <span className={styles.timeLabel}>时间</span>
-      <div className={styles.timeTypeSeg} role="radiogroup" aria-label="时间类型">
-        <button
-          type="button"
-          className={`${styles.timeSegBtn} ${type === 'due' ? styles.timeSegOn : ''}`}
-          aria-pressed={type === 'due'}
-          onClick={() => onTypeChange('due')}
-        >
-          截止
-        </button>
-        <button
-          type="button"
-          className={`${styles.timeSegBtn} ${type === 'at' ? styles.timeSegOn : ''} ${type === 'at' ? styles.timeSegOnAt : ''}`}
-          aria-pressed={type === 'at'}
-          onClick={() => onTypeChange('at')}
-        >
-          提醒
-        </button>
-      </div>
       <button
         type="button"
         className={styles.timeBtn}
@@ -418,7 +417,13 @@ function TimePicker({
   )
 }
 
-/** 单列滚轮：原生滚动 + scroll-snap；选中项（中间行）高亮放大 */
+/**
+ * 单列滚轮：原生滚动 + 防抖吸附；选中项（中间行）高亮放大。
+ * v9.2.4 循环列表：values 渲染 3 份（0/1/2 段），初始定位到第 1 段选中项——
+ * 选中任意值（含 00）时上下都有真实数字，与相邻列视觉完全对称（iOS 无限滚轮效果）。
+ */
+const WHEEL_REPEAT = 3
+
 function Wheel({
   values,
   value,
@@ -431,18 +436,22 @@ function Wheel({
   ariaLabel: string
 }): JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
+  const len = values.length
   const idx = Math.max(0, values.indexOf(value))
-  // 首次挂载精确滚动到选中项居中：scrollTop = idx*ITEM + PAD*ITEM
-  // （上 pad 2×36=72px 之后，第 idx 项中心正好落在滚动容器中心；无 scroll-snap，避免 snap 与 pad 冲突偏位）
+  // 定位到第 1 段（offset=len）的选中项；居中公式：scrollTop = (idx+len)*ITEM + PAD*ITEM
+  const anchor = (idx + len) * WHEEL_ITEM + WHEEL_PAD * WHEEL_ITEM
   const anchored = useRef(false)
-  const lastIdx = useRef(-1)
+  const lastRaw = useRef(-1)
   const timer = useRef<number | undefined>(undefined)
+  // 当前滚到的段（相对 raw 索引），未滚动时为 anchor 段；只高亮该段内的选中值，避免 3 份重复高亮
+  const [curRaw, setCurRaw] = useState<number | null>(null)
+  const effSeg = ((curRaw ?? anchor) / len) | 0
   useEffect(() => {
     const el = ref.current
     if (el && !anchored.current) {
       anchored.current = true
       requestAnimationFrame(() => {
-        el.scrollTop = idx * WHEEL_ITEM + WHEEL_PAD * WHEEL_ITEM
+        el.scrollTop = anchor
       })
     }
     return () => {
@@ -450,6 +459,17 @@ function Wheel({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const rows = Array.from({ length: WHEEL_REPEAT }, (_, seg) =>
+    values.map((v, i) => (
+      <div
+        key={`${seg}-${i}`}
+        className={`${styles.wheelItem} ${seg === effSeg && v === value ? styles.wheelOn : ''}`}
+      >
+        {v}
+      </div>
+    ))
+  )
 
   return (
     <div
@@ -459,15 +479,16 @@ function Wheel({
       aria-label={ariaLabel}
       onScroll={(e) => {
         const el = e.currentTarget
-        const i = Math.max(0, Math.min(values.length - 1, Math.round((el.scrollTop - WHEEL_PAD * WHEEL_ITEM) / WHEEL_ITEM)))
-        if (i !== lastIdx.current) {
-          lastIdx.current = i
-          const v = values[i]
+        const raw = Math.round((el.scrollTop - WHEEL_PAD * WHEEL_ITEM) / WHEEL_ITEM)
+        if (raw !== lastRaw.current) {
+          lastRaw.current = raw
+          setCurRaw(raw)
+          const v = values[((raw % len) + len) % len]
           if (v !== undefined && v !== value) onChange(v)
         }
         if (timer.current) window.clearTimeout(timer.current)
         timer.current = window.setTimeout(() => {
-          const t = i * WHEEL_ITEM + WHEEL_PAD * WHEEL_ITEM
+          const t = raw * WHEEL_ITEM + WHEEL_PAD * WHEEL_ITEM
           const max = el.scrollHeight - el.clientHeight
           const target = Math.max(0, Math.min(max, t))
           if (Math.abs(el.scrollTop - target) > 0.5) el.scrollTop = target
@@ -477,11 +498,7 @@ function Wheel({
       {Array.from({ length: WHEEL_PAD }, (_, i) => (
         <div key={`pad-${i}`} className={styles.wheelPad} />
       ))}
-      {values.map((v) => (
-        <div key={v} className={`${styles.wheelItem} ${v === value ? styles.wheelOn : ''}`}>
-          {v}
-        </div>
-      ))}
+      {rows}
       {Array.from({ length: WHEEL_PAD }, (_, i) => (
         <div key={`padb-${i}`} className={styles.wheelPad} />
       ))}
@@ -559,8 +576,27 @@ function TodoEdit({ todo, onDone }: { todo: TodoRecord; onDone: () => void }): J
           if (e.key === 'Enter') { e.preventDefault(); finish(true) }
         }}
       />
+      {/* v9.2.4：待办类型独立一行（编辑态同步）——截止型 / 提醒型 */}
+      <div className={styles.todoTypeRow} role="radiogroup" aria-label="待办类型">
+        <button
+          type="button"
+          className={`${styles.todoTypeBtn} ${tp === 'due' ? styles.todoTypeOn : ''}`}
+          aria-pressed={tp === 'due'}
+          onClick={() => setTp('due')}
+        >
+          截止型
+        </button>
+        <button
+          type="button"
+          className={`${styles.todoTypeBtn} ${tp === 'at' ? styles.todoTypeOn : ''} ${tp === 'at' ? styles.todoTypeOnAt : ''}`}
+          aria-pressed={tp === 'at'}
+          onClick={() => setTp('at')}
+        >
+          提醒型
+        </button>
+      </div>
       <DdlPicker value={ddl} onChange={setDdl} />
-      <TimePicker value={tm} type={tp} onTypeChange={setTp} onChange={setTm} />
+      <TimePicker value={tm} type={tp} onChange={setTm} />
     </div>
   )
 }
