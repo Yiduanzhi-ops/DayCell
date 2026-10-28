@@ -1,0 +1,9 @@
+{
+  "name": "daycell-push-worker",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@cloudbase/node-sdk": "^3.9.1",
+    "web-push": "^3.6.7"
+  }
+}

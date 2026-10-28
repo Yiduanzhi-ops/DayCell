@@ -282,6 +282,116 @@ async function aiImport(event, uid) {
   }
 }
 
+// ========== Web Push 订阅（v9.3）：/push/subscribe + /push/unsubscribe ==========
+// 订阅与早晚通知开关一体 upsert：前端每次保存设置都带完整 PushSubscription 重传；
+// 实际推送由独立函数 daycell-push-worker（timer 触发）执行，本函数只负责存储。
+function isHHmm(s) {
+  return typeof s === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(s);
+}
+
+async function pushSubscribe(event, uid) {
+  const body = parseBody(event);
+  const endpoint = (body.endpoint || '').toString();
+  const keys = body.keys || {};
+  const p256dh = (keys.p256dh || '').toString();
+  const auth = (keys.auth || '').toString();
+  if (!endpoint || !p256dh || !auth) {
+    return json(400, { ok: false, error: 'subscription_required' });
+  }
+  const morning = body.morning || {};
+  const evening = body.evening || {};
+  const morningTime = isHHmm(morning.time) ? morning.time : '08:00';
+  const eveningTime = isHHmm(evening.time) ? evening.time : '21:00';
+  const timezone =
+    typeof body.timezone === 'string' && body.timezone ? body.timezone : 'Asia/Shanghai';
+  const db = getApp().rdb();
+  const now = new Date();
+  try {
+    const existing = await db
+      .from('daycell_push_subscriptions')
+      .select('id')
+      .eq('user_id', uid)
+      .eq('endpoint', endpoint)
+      .limit(1);
+    if (existing.data && existing.data[0]) {
+      await db
+        .from('daycell_push_subscriptions')
+        .update({
+          p256dh,
+          auth,
+          morning_enabled: !!morning.enabled,
+          morning_time: morningTime,
+          evening_enabled: !!evening.enabled,
+          evening_time: eveningTime,
+          timezone,
+          updated_at: now,
+        })
+        .eq('user_id', uid)
+        .eq('endpoint', endpoint);
+    } else {
+      const ins = await db
+        .from('daycell_push_subscriptions')
+        .insert({
+          user_id: uid,
+          endpoint,
+          p256dh,
+          auth,
+          morning_enabled: !!morning.enabled,
+          morning_time: morningTime,
+          evening_enabled: !!evening.enabled,
+          evening_time: eveningTime,
+          timezone,
+          updated_at: now,
+        });
+      if (ins.error) {
+        // 并发唯一冲突（同 endpoint 双端同时写）→ 兜底走 update
+        await db
+          .from('daycell_push_subscriptions')
+          .update({
+            p256dh,
+            auth,
+            morning_enabled: !!morning.enabled,
+            morning_time: morningTime,
+            evening_enabled: !!evening.enabled,
+            evening_time: eveningTime,
+            timezone,
+            updated_at: now,
+          })
+          .eq('user_id', uid)
+          .eq('endpoint', endpoint);
+      }
+    }
+    return json(200, { ok: true, savedAt: now.toISOString() });
+  } catch (e) {
+    return json(500, {
+      ok: false,
+      error: 'db_write_failed',
+      detail: String((e && e.message) || e),
+    });
+  }
+}
+
+async function pushUnsubscribe(event, uid) {
+  const body = parseBody(event);
+  const endpoint = (body.endpoint || '').toString();
+  if (!endpoint) return json(400, { ok: false, error: 'endpoint_required' });
+  const db = getApp().rdb();
+  try {
+    await db
+      .from('daycell_push_subscriptions')
+      .delete()
+      .eq('user_id', uid)
+      .eq('endpoint', endpoint);
+    return json(200, { ok: true });
+  } catch (e) {
+    return json(500, {
+      ok: false,
+      error: 'db_delete_failed',
+      detail: String((e && e.message) || e),
+    });
+  }
+}
+
 exports.main = async (event, context) => {
   const method = event.httpMethod || 'GET';
   const path = (event.path || '/').split('?')[0];
@@ -341,6 +451,20 @@ exports.main = async (event, context) => {
     const uid = extractUid(event);
     if (!uid) return json(401, { ok: false, error: 'unauthorized' });
     return aiImport(event, uid);
+  }
+
+  // Web Push：保存/更新订阅（含早晚通知开关与时间档位）
+  if (path === '/push/subscribe' && method === 'POST') {
+    const uid = extractUid(event);
+    if (!uid) return json(401, { ok: false, error: 'unauthorized' });
+    return pushSubscribe(event, uid);
+  }
+
+  // Web Push：删除订阅（用户关闭通知 / 设备失效）
+  if (path === '/push/unsubscribe' && method === 'POST') {
+    const uid = extractUid(event);
+    if (!uid) return json(401, { ok: false, error: 'unauthorized' });
+    return pushUnsubscribe(event, uid);
   }
 
   return json(404, { ok: false, error: 'not_found', path });

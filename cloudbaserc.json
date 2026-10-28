@@ -9,6 +9,22 @@
       "memorySize": 128,
       "installDependency": true,
       "description": "DayCell v9 后端 HTTP 总入口：健康检查 + 云同步（PG 快照，网关鉴权）"
+    },
+    {
+      "name": "daycell-push-worker",
+      "runtime": "Nodejs20.19",
+      "handler": "index.main",
+      "timeout": 30,
+      "memorySize": 128,
+      "installDependency": true,
+      "triggers": [
+        {
+          "name": "daycell-push-timer",
+          "type": "timer",
+          "config": "0 0,30 7-9,18-22 * * * *"
+        }
+      ],
+      "description": "DayCell 早间/晚间 Web Push 日报（timer 触发，北京时间每半小时扫档）"
     }
   ]
 }
