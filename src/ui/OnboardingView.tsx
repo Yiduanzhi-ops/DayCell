@@ -2,7 +2,7 @@
  * 首次使用引导（v8.22 onboarding）——全屏覆盖层，手机/桌面同构。
  *
  * 产品形态（与用户多轮原型迭代确认，v7 口径）：
- *  - 6 屏：总览 → 今日视图 → 周/月视图 → 目标管理 → 纪念日 → 数据安全
+ *  - 6 屏：总览 → 今日视图 → 周/月视图 → 目标管理 → 特殊日 → 数据安全
  *  - 仅首次出现：由 main.tsx 在启动时检测本地标记（daycell-onboarding-v1），
  *    未看过才打开；「跳过 / 开始使用」都会经 closeOnboarding 写入标记，之后不再打扰
  *  - 可从「使用手册」（ShareView）重新观看，重看不重置标记
@@ -23,7 +23,7 @@ const HIGHLIGHTS: { icon: string; label: string }[] = [
   { icon: '✓', label: '待办·习惯·想法' },
   { icon: '◎', label: '目标·阶段·进度' },
   { icon: '▦', label: '周 / 月双视图' },
-  { icon: '♥', label: '纪念日提醒' },
+  { icon: '♥', label: '特殊日提醒' },
   { icon: '⇄', label: '多端同步' },
   { icon: '▣', label: '本地备份' },
 ]
@@ -147,7 +147,7 @@ function IlluAnniv(): JSX.Element {
       <rect x="36" y="68" width="36" height="30" rx="8" fill="var(--bg)" stroke="var(--line)" />
       <text x="54" y="86" fontSize="11" fontWeight="700" fill="var(--ink)" textAnchor="middle">12</text>
       <rect x="38" y="90" width="32" height="12" rx="6" fill="#ffe9ea" />
-      <text x="54" y="99" fontSize="8" fill="#e05a63" textAnchor="middle">♥ 纪念日</text>
+      <text x="54" y="99" fontSize="8" fill="#e05a63" textAnchor="middle">♥ 特殊日</text>
       <rect x="84" y="68" width="36" height="30" rx="8" fill="var(--bg-subtle)" />
       <text x="102" y="86" fontSize="11" fill="var(--ink-3)" textAnchor="middle">13</text>
       <rect x="132" y="68" width="36" height="30" rx="8" fill="var(--bg-subtle)" />
@@ -211,7 +211,7 @@ const PAGES: { title: string; sub: string; points?: string[]; illu: () => JSX.El
     illu: IlluGoals,
   },
   {
-    title: '纪念日',
+    title: '特殊日',
     sub: '重要日子，自动提醒',
     points: ['每周 / 每月 / 每年', '月视图格内徽章展示', '自定义名称与日期'],
     illu: IlluAnniv,

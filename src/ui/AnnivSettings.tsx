@@ -1,5 +1,5 @@
 /**
- * 纪念日设置页（v7.5，PRD M11 补全）——全屏覆盖层，手机/桌面同构。
+ * 特殊日设置页（v7.5，PRD M11 补全）——全屏覆盖层，手机/桌面同构。
  *
  * 支持四种频率（用户拍板：每周 / 每月 / 每年 + 兼容既有的一次性数据）：
  *  - 每周：选星期几（date 存一个参考日期，匹配只看 dow）
@@ -8,7 +8,7 @@
  *  - 仅一次：完整日期（公历/农历）
  * 每周/每月仅公历（核心层防御：repo 也拒绝农历 weekly/monthly）。
  *
- * 展示规则：同日多纪念日时由 DayView 显示「前 2 个 +N」。
+ * 展示规则：同日多特殊日时由 DayView 显示「前 2 个 +N」。
  */
 import { useState } from 'react'
 import type { JSX } from 'react'
@@ -79,13 +79,13 @@ export function AnnivSettings(): JSX.Element {
   const [form, setForm] = useState<{ mode: 'add' } | { mode: 'edit'; rec: AnniversaryRecord } | null>(null)
 
   return (
-    <div className={styles.overlay} role="dialog" aria-label="纪念日设置">
+    <div className={styles.overlay} role="dialog" aria-label="特殊日设置">
       <div className={styles.page}>
         <header className={styles.head}>
           <button className={styles.back} onClick={closeAnniv} aria-label="返回">
             ← 返回
           </button>
-          <h1 className={styles.h1}>纪念日设置</h1>
+          <h1 className={styles.h1}>特殊日设置</h1>
           <button
             className={styles.addBtn}
             onClick={() => setForm({ mode: 'add' })}
@@ -98,7 +98,7 @@ export function AnnivSettings(): JSX.Element {
         {form === null ? (
           <ul className={styles.list}>
             {annivList.length === 0 && (
-              <li className={styles.empty}>还没有纪念日，点右上角「＋ 新增」添加一个。</li>
+              <li className={styles.empty}>还没有特殊日，点右上角「＋ 新增」添加一个。</li>
             )}
             {annivList.map((r) => (
               <li key={r.id} className={styles.item}>
@@ -113,7 +113,7 @@ export function AnnivSettings(): JSX.Element {
                   className={styles.delBtn}
                   aria-label={`删除${r.title}`}
                   onClick={() => {
-                    if (window.confirm(`删除纪念日「${r.title}」？`)) void deleteAnniversary(r.id)
+                    if (window.confirm(`删除特殊日「${r.title}」？`)) void deleteAnniversary(r.id)
                   }}
                 >
                   删除
@@ -176,7 +176,7 @@ function AnnivForm({ initial, onDone }: { initial: AnniversaryRecord | null; onD
   const save = async (): Promise<void> => {
     const t = title.trim()
     if (!t) {
-      showToast('请填写纪念日名称')
+      showToast('请填写特殊日名称')
       return
     }
     let input: AnniversaryInput
