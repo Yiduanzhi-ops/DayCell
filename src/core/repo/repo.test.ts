@@ -121,6 +121,7 @@ describe('todos.subtaskId（v8.63 子任务加入今日待办）', () => {
     const c = await repos.todos.create(k('2026-10-20'), '普通', undefined, undefined, undefined, undefined, 'due')
     expect(c.timeType).toBeUndefined()
     // 非法类型抛 BAD_VALUE
+    // @ts-expect-error 故意传非法 timeType，验证运行时校验抛 BAD_VALUE
     await expect(repos.todos.create(k('2026-10-20'), 'x', undefined, '14:00', undefined, undefined, 'start')).rejects.toMatchObject({
       validateCode: 'BAD_VALUE',
     })
@@ -137,6 +138,7 @@ describe('todos.subtaskId（v8.63 子任务加入今日待办）', () => {
     expect(rec.time).toBeUndefined()
     expect('timeType' in rec).toBe(false)
     // 非法 type 抛 BAD_VALUE
+    // @ts-expect-error 故意传非法 timeType，验证运行时校验抛 BAD_VALUE
     await expect(repos.todos.setTime(t.id, '14:00', 'start')).rejects.toMatchObject({
       validateCode: 'BAD_VALUE',
     })

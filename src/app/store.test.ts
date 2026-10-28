@@ -552,7 +552,8 @@ describe('写操作（repo 校验 → refresh → toast）', () => {
     expect(S(app).detail!.todos[1]!.timeType).toBe('at')
     // 无 time 的普通待办无 timeType
     await S(app).createTodo('买牛奶')
-    expect(S(app).detail!.todos[2]!.timeType).toBeUndefined()
+    const plain = S(app).detail!.todos.find((t) => t.text === '买牛奶')!
+    expect(plain.timeType).toBeUndefined()
     // updateTodoTime 显式设 type 覆盖
     const id = S(app).detail!.todos[0]!.id
     expect(await S(app).updateTodoTime(id, '15:00', 'at')).toBe(true)
