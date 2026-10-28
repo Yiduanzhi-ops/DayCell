@@ -11,6 +11,7 @@ import {
   parseDateKey,
   normalizeNumericInput,
   textLength,
+  parseTodoTime,
   LIMITS,
 } from './validate'
 
@@ -246,5 +247,27 @@ describe('parseDateKey', () => {
     expect(code(parseDateKey('2026-02-30'))).toBe('BAD_DATE')
     expect(code(parseDateKey('2026-9-29'))).toBe('BAD_DATE')
     expect(code(parseDateKey('not-a-date'))).toBe('BAD_DATE')
+  })
+})
+
+describe('parseTodoTime（v9.2.2 待办具体时间）', () => {
+  it('空串 = undefined（不设置）', () => {
+    expect(val(parseTodoTime(''))).toBeUndefined()
+    expect(val(parseTodoTime('   '))).toBeUndefined()
+  })
+
+  it('接受合法 HH:mm（含边界 00:00 / 23:59）', () => {
+    expect(val(parseTodoTime('09:30'))).toBe('09:30')
+    expect(val(parseTodoTime(' 14:05 '))).toBe('14:05')
+    expect(val(parseTodoTime('00:00'))).toBe('00:00')
+    expect(val(parseTodoTime('23:59'))).toBe('23:59')
+  })
+
+  it('拒绝非法时间', () => {
+    expect(code(parseTodoTime('25:00'))).toBe('BAD_VALUE')
+    expect(code(parseTodoTime('14:60'))).toBe('BAD_VALUE')
+    expect(code(parseTodoTime('9:30'))).toBe('BAD_VALUE')
+    expect(code(parseTodoTime('1430'))).toBe('BAD_VALUE')
+    expect(code(parseTodoTime('下午三点'))).toBe('BAD_VALUE')
   })
 })

@@ -729,4 +729,22 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     await waitFor(() => expect(screen.getByRole('button', { name: '加入今日待办：背单词' })).toBeInTheDocument())
     expect(screen.getByRole('button', { name: '打卡：背单词' })).toBeInTheDocument()
   })
+
+  it('v9.2.2 待办排序：有具体时间的按时刻置顶，无时间沉底；行内显示时间标签', async () => {
+    const store = await renderApp()
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
+    // 无时间 / 14:00 / 09:30 三条，期望顺序：09:30 → 14:00 → 无时间（稳定沉底）
+    await store.getState().createTodo('买牛奶')
+    await store.getState().createTodo('交周报', TODAY, '14:00')
+    await store.getState().createTodo('预约体检', TODAY, '09:30')
+
+    await waitFor(() => expect(screen.getByText('09:30')).toBeInTheDocument())
+    expect(screen.getByText('14:00')).toBeInTheDocument()
+    const rows = within(screen.getByTestId('day-center')).getAllByRole('button', { name: /编辑待办：/ })
+    expect(rows.map((r) => r.getAttribute('aria-label'))).toEqual([
+      '编辑待办：预约体检',
+      '编辑待办：交周报',
+      '编辑待办：买牛奶',
+    ])
+  })
 })

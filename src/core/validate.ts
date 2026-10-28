@@ -150,6 +150,15 @@ export function parseDeadline(raw: string): ParseResult<DateKey | undefined> {
   return parseDateKey(t)
 }
 
+/** v9.2.2 待办具体时间（可选）：空串 = 无时间；非空必须为 'HH:mm'（00:00–23:59） */
+const HHMM_RE = /^(?:[01]\d|2[0-3]):[0-5]\d$/
+export function parseTodoTime(raw: string): ParseResult<string | undefined> {
+  const t = raw.trim()
+  if (!t) return ok(undefined)
+  if (!HHMM_RE.test(t)) return err('BAD_VALUE', '时间格式不正确（如 14:30）')
+  return ok(t)
+}
+
 export const parseNoteText = (raw: string): ParseResult<string> =>
   parseText(raw, { field: '想法', max: LIMITS.noteText, multiline: true })
 

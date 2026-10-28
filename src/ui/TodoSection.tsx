@@ -42,8 +42,16 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
   const toggleAnnivDone = useApp((s) => s.toggleAnnivDone)
 
   const todos = (cached ?? detail)?.todos ?? []
-  // v7.6：已完成的自动沉底；未完成保持原序（Array.prototype.sort 稳定）
-  const sorted = [...todos].sort((a, b) => Number(a.done) - Number(b.done))
+  // v7.6：已完成的自动沉底；v9.2.2：未完成内「有具体时间 → 置顶按时刻升序」，无时间的保持原序（稳定排序）
+  const sorted = [...todos].sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1
+    const ta = a.time
+    const tb = b.time
+    if (ta && tb) return ta < tb ? -1 : 1
+    if (ta) return -1
+    if (tb) return 1
+    return 0
+  })
   // v8.27：当天命中的特殊日当作待办展示在待办列表最上方（置顶）
   // v8.29：可勾选——勾选态存 annivchecks（annivDones），划线置灰，与普通待办同款圆圈
   const annis = (cached ?? detail)?.anniversaries ?? []
@@ -124,6 +132,7 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
               )}
               {t.rolledTo && <span className={styles.rolled}>已顺延 →</span>}
               {t.rolledFrom && <span className={styles.rolled}>顺延自 {md(t.rolledFrom)}</span>}
+              {t.time && <span className={styles.ttime}>{t.time}</span>}
               {t.deadline && (
                 <span
                   className={`${styles.ddlBadge} ${
@@ -162,9 +171,11 @@ function TodoForm(): JSX.Element {
   const [v, setV] = useState('')
   // v8.53.1：默认截止日 = 今天（待办默认当天截止，没做完每天置顶提醒）
   const [ddl, setDdl] = useState<string>(todayKey)
+  // v9.2.2：具体时间可选，默认不设置
+  const [tm, setTm] = useState('')
 
   const submit = async (): Promise<void> => {
-    const ok = await createTodo(v, ddl || undefined)
+    const ok = await createTodo(v, ddl || undefined, tm || undefined)
     // v7.4：创建完收起表单（不再保留并聚焦"连续录入"——用户拍板改手动，需要时再点「+ 添加」）
     if (ok) closeForm()
   }
@@ -186,6 +197,7 @@ function TodoForm(): JSX.Element {
         }}
       />
       <DdlPicker value={ddl} onChange={setDdl} />
+      <TimePicker value={tm} onChange={setTm} />
       <FormActs onCancel={closeForm} onSave={submit} />
     </div>
   )
@@ -235,6 +247,128 @@ function fmtFullDate(k: string): string {
   return `${k.slice(0, 4)}年${Number(k.slice(5, 7))}月${Number(k.slice(8, 10))}日`
 }
 
+// ---------------------------------------------------------------------------
+// v9.2.2 具体时间（可选）：点击整行弹出滚轮选择器，默认「不设置」
+// 滚轮 = 原生滚动容器（scroll-snap 对齐），触摸/滚轮都能滑，手机体验接近系统滚轮
+// ---------------------------------------------------------------------------
+
+const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'))
+const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'))
+/** 每项高度（px），与 .wheelItem 的 height 保持一致 */
+const WHEEL_ITEM = 36
+/** 首尾占位项数（让选中项居中显示在中间行） */
+const WHEEL_PAD = 2
+
+function TimePicker({ value, onChange }: { value: string; onChange: (v: string) => void }): JSX.Element {
+  const [open, setOpen] = useState(false)
+  // 滚轮内部选中态：展开时对齐当前 value（无则 09:00 起步）
+  const [hh, setHh] = useState(value ? value.slice(0, 2) : '09')
+  const [mm, setMm] = useState(value ? value.slice(3, 5) : '00')
+
+  const openWheel = (): void => {
+    setHh(value ? value.slice(0, 2) : '09')
+    setMm(value ? value.slice(3, 5) : '00')
+    setOpen(true)
+  }
+
+  return (
+    <div className={styles.timeRow}>
+      <button
+        type="button"
+        className={styles.timeBtn}
+        onClick={openWheel}
+        aria-expanded={open}
+        aria-label="具体时间（可选）"
+      >
+        <span className={styles.timeLabel}>时间</span>
+        <span className={value ? styles.timeVal : styles.timeEmpty}>{value || '不设置'}</span>
+        <svg className={styles.timeChevron} viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <div className={styles.timeSheet}>
+          <div className={styles.timeWheels}>
+            <Wheel values={HOURS} value={hh} onChange={setHh} ariaLabel="时" />
+            <span className={styles.timeColon}>:</span>
+            <Wheel values={MINUTES} value={mm} onChange={setMm} ariaLabel="分" />
+          </div>
+          <div className={styles.timeActs}>
+            <button
+              type="button"
+              className={styles.timeClear}
+              onClick={() => {
+                onChange('')
+                setOpen(false)
+              }}
+            >
+              清除
+            </button>
+            <button
+              type="button"
+              className={styles.timeOk}
+              onClick={() => {
+                onChange(`${hh}:${mm}`)
+                setOpen(false)
+              }}
+            >
+              确定
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** 单列滚轮：原生滚动 + scroll-snap；选中项（中间行）高亮放大 */
+function Wheel({
+  values,
+  value,
+  onChange,
+  ariaLabel,
+}: {
+  values: string[]
+  value: string
+  onChange: (v: string) => void
+  ariaLabel: string
+}): JSX.Element {
+  const ref = useRef<HTMLDivElement>(null)
+  const idx = Math.max(0, values.indexOf(value))
+  // 选中值变化 → 滚动到中间行（顶部占 WHEEL_PAD 项后，第 idx 项正好落在中间）
+  useEffect(() => {
+    const el = ref.current
+    if (el) el.scrollTop = idx * WHEEL_ITEM
+  }, [idx])
+
+  return (
+    <div
+      ref={ref}
+      className={styles.wheel}
+      role="listbox"
+      aria-label={ariaLabel}
+      onScroll={(e) => {
+        const el = e.currentTarget
+        const i = Math.round(el.scrollTop / WHEEL_ITEM)
+        const v = values[Math.min(Math.max(i, 0), values.length - 1)]
+        if (v !== undefined && v !== value) onChange(v)
+      }}
+    >
+      {Array.from({ length: WHEEL_PAD }, (_, i) => (
+        <div key={`pad-${i}`} className={styles.wheelPad} />
+      ))}
+      {values.map((v) => (
+        <div key={v} className={`${styles.wheelItem} ${v === value ? styles.wheelOn : ''}`}>
+          {v}
+        </div>
+      ))}
+      {Array.from({ length: WHEEL_PAD }, (_, i) => (
+        <div key={`padb-${i}`} className={styles.wheelPad} />
+      ))}
+    </div>
+  )
+}
+
 /**
  * 就地编辑一条待办（US-13）。
  *
@@ -244,8 +378,11 @@ function fmtFullDate(k: string): string {
 function TodoEdit({ todo, onDone }: { todo: TodoRecord; onDone: () => void }): JSX.Element {
   const updateTodoText = useApp((s) => s.updateTodoText)
   const updateTodoDeadline = useApp((s) => s.updateTodoDeadline)
+  const updateTodoTime = useApp((s) => s.updateTodoTime)
   const [v, setV] = useState(todo.text)
   const [ddl, setDdl] = useState(todo.deadline ?? '')
+  // v9.2.2：具体时间（可选）
+  const [tm, setTm] = useState(todo.time ?? '')
   const done = useRef(false)
   // v8.55：blur 保存改为延迟一帧判断——焦点若转移到表单内（截止行的「今天/自定义」），
   // 说明用户正在改截止日，**不保存不关闭**，否则 date input 会被卸载、系统选择器弹不出来。
@@ -262,6 +399,9 @@ function TodoEdit({ todo, onDone }: { todo: TodoRecord; onDone: () => void }): J
       // v8.53：截止日变化（设/改/清）一并保存
       const next = ddl || null
       if (next !== (todo.deadline ?? null)) void updateTodoDeadline(todo.id, next)
+      // v9.2.2：具体时间变化（设/改/清）一并保存
+      const ntm = tm || null
+      if (ntm !== (todo.time ?? null)) void updateTodoTime(todo.id, ntm)
     }
     onDone()
   }
@@ -296,6 +436,7 @@ function TodoEdit({ todo, onDone }: { todo: TodoRecord; onDone: () => void }): J
         }}
       />
       <DdlPicker value={ddl} onChange={setDdl} />
+      <TimePicker value={tm} onChange={setTm} />
     </div>
   )
 }

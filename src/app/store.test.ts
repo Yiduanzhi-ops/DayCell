@@ -511,6 +511,37 @@ describe('写操作（repo 校验 → refresh → toast）', () => {
     expect(S(app).toast?.msg).toBe('记录不存在或已被删除')
   })
 
+  it('v9.2.2 createTodo 带具体时间：落库、toast；不带 = 无 time 字段', async () => {
+    const { app } = await makeApp()
+    const ok = await S(app).createTodo('交周报', TODAY, '14:30')
+    expect(ok).toBe(true)
+    const t = S(app).detail!.todos[0]!
+    expect(t.time).toBe('14:30')
+    expect(S(app).toast?.msg).toBe('已添加待办')
+    await S(app).createTodo('买牛奶')
+    expect(S(app).detail!.todos[1]!.time).toBeUndefined()
+  })
+
+  it('v9.2.2 createTodo 非法时间：core 文案进 toast，不落库', async () => {
+    const { app } = await makeApp()
+    const ok = await S(app).createTodo('交周报', '2026-10-28', '25:99')
+    expect(ok).toBe(false)
+    expect(S(app).toast?.msg).toBe('时间格式不正确（如 14:30）')
+    expect(S(app).detail?.todos).toEqual([])
+  })
+
+  it('v9.2.2 updateTodoTime：设/清具体时间 + toast', async () => {
+    const { app } = await makeApp()
+    await S(app).createTodo('交周报')
+    const id = S(app).detail!.todos[0]!.id
+    expect(await S(app).updateTodoTime(id, '09:00')).toBe(true)
+    expect(S(app).detail!.todos[0]!.time).toBe('09:00')
+    expect(S(app).toast?.msg).toBe('已设时间 09:00')
+    expect(await S(app).updateTodoTime(id, null)).toBe(true)
+    expect(S(app).detail!.todos[0]!.time).toBeUndefined()
+    expect(S(app).toast?.msg).toBe('已清除时间')
+  })
+
   it('toggleTodo：勾完 toast「完成了一件」；取消勾选不刷新 toast', async () => {
     const { app } = await makeApp()
     await S(app).createTodo('锻炼')

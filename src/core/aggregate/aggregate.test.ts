@@ -570,8 +570,8 @@ describe('v8.53 活跃 DDL 待办注入（每天出现）', () => {
   })
 
   it('v8.63 子任务「加入今日待办」的待办不参与顺延（当天有效）', async () => {
-    // 建子任务待办（create 第 4 参 subtaskId）
-    const st = await repos.todos.create(k('2026-10-20'), '背单词', undefined, 'st-1')
+    // 建子任务待办（v9.2.2 起 create 第 5 参 subtaskId，第 4 参为 time）
+    const st = await repos.todos.create(k('2026-10-20'), '背单词', undefined, undefined, 'st-1')
     await seedDay('2026-10-20', { todos: 1 }) // 普通待办
     const r = await repos.todos.rollOver(k('2026-10-20'), k('2026-10-21'))
     // 只顺延普通待办；子任务待办留在原地、无 rolledTo

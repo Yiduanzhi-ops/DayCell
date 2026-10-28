@@ -244,12 +244,15 @@ export interface AppState {
   closeForm(): void
   consumeFocus(): void
   consumeRestoreScroll(): void
-  createTodo(text: string, deadline?: string): Promise<boolean>
+  /** v9.2.2 第 3 参 time：具体时间（可选，'HH:mm'） */
+  createTodo(text: string, deadline?: string, time?: string): Promise<boolean>
   toggleTodo(id: string): Promise<void>
   /** 就地编辑待办文字（v7 / US-13 / 原 C3）。失败返回 false 并 toast core 文案 */
   updateTodoText(id: string, text: string): Promise<boolean>
   /** v8.53 设/清待办截止日（null = 清除，变回普通待办）；非法日期由 repo 校验 */
   updateTodoDeadline(id: string, deadline: string | null): Promise<boolean>
+  /** v9.2.2 设/清待办具体时间（null = 清除）；非法格式由 repo 校验 */
+  updateTodoTime(id: string, time: string | null): Promise<boolean>
   deleteTodo(id: string): Promise<void>
   createNote(text: string): Promise<boolean>
   /** 就地编辑想法正文（v7 / US-13 / 原 C3） */
@@ -778,11 +781,11 @@ export function createAppStore(
 
     // ---- 写操作：repo 校验（失败抛 DayCellError → toast 中文文案）→ refresh ----
 
-    async createTodo(text, deadline) {
+    async createTodo(text, deadline, time) {
       try {
         // v8.53 DDL 待办：date 落在截止日那天（截止日本地格子可见 + 其他天由聚合注入）
         const date = (deadline?.trim() ? deadline.trim() : get().selected) as DateKey
-        await repos.todos.create(date, text, deadline)
+        await repos.todos.create(date, text, deadline, time)
         set({ dataVer: get().dataVer + 1 })
         await get().refresh()
         get().showToast('已添加待办')
@@ -839,6 +842,20 @@ export function createAppStore(
       }
     },
 
+    /** v9.2.2 设/清待办具体时间 */
+    async updateTodoTime(id, time) {
+      try {
+        await repos.todos.setTime(id, time)
+        set({ dataVer: get().dataVer + 1 })
+        await get().refresh()
+        get().showToast(time ? `已设时间 ${time}` : '已清除时间')
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
     async deleteTodo(id) {
       try {
         const t = await repos.todos.byId(id)
@@ -876,7 +893,8 @@ export function createAppStore(
           return false
         }
         // v8.64 目标标题一并快照：待办行标注「· 目标名」；目标之后改名/删除不影响已加入待办
-        await repos.todos.create(date, subtask.title, undefined, subtaskId, d.goal.title)
+        // v9.2.2 参数位移：第 4 位改 time（undefined 占位），subtaskId/subtaskGoalTitle 后移到 5/6 位
+        await repos.todos.create(date, subtask.title, undefined, undefined, subtaskId, d.goal.title)
         set({ dataVer: get().dataVer + 1 })
         await get().refresh()
         get().showToast('已加入今日待办')

@@ -45,6 +45,8 @@ export interface TodoRecord extends DatedRecord {
   /** v8.53 截止日（可选）：带截止日的待办=DDL 待办，未完成时**每天出现**在日视图
    *  置顶组（按截止日紧迫度排序），完成或删除后消失；不参与顺延（rolledTo 机制） */
   deadline?: DateKey
+  /** v9.2.2 具体时间（可选）：'HH:mm'（如 '14:30'）。设了 → 今日视图置顶按时刻排 + 行内时间标签 + 通知文案带时刻 */
+  time?: string
   /**
    * v8.63 子任务来源（可选）：由目标子任务「加入今日待办」生成，text 快照子任务标题。
    * 语义：当天有效（date=加入当天）；可勾选（=当天打卡，联动 subtask.workDates）、

@@ -52,6 +52,7 @@ import {
   parseProgressNote,
   parseTodoText,
   parseDeadline,
+  parseTodoTime,
   type ParseResult,
 } from '../validate'
 
@@ -80,13 +81,15 @@ export interface RollOverResult {
 
 export interface TodoRepo {
   byDate(date: DateKey): Promise<TodoRecord[]>
-  /** v8.63 第 4 参 subtaskId：子任务「加入今日待办」来源标记（可选）；v8.64 第 5 参来源目标标题快照 */
-  create(date: DateKey, text: string, deadline?: string | null, subtaskId?: string, subtaskGoalTitle?: string): Promise<TodoRecord>
+  /** v9.2.2 第 4 参 time：具体时间（可选）；v8.63 第 5 参 subtaskId：子任务来源标记（可选）；v8.64 第 6 参来源目标标题快照 */
+  create(date: DateKey, text: string, deadline?: string | null, time?: string | null, subtaskId?: string, subtaskGoalTitle?: string): Promise<TodoRecord>
   /** v8.63 按 id 取待办（含已删除；toggle/delete 联动读取用） */
   byId(id: string): Promise<TodoRecord>
   setText(id: string, text: string): Promise<TodoRecord>
   /** v8.53 设/清截止日（null = 清除）；非法日期抛 BAD_DATE */
   setDeadline(id: string, deadline: string | null): Promise<TodoRecord>
+  /** v9.2.2 设/清具体时间（null = 清除）；非法格式抛 BAD_VALUE */
+  setTime(id: string, time: string | null): Promise<TodoRecord>
   toggle(id: string): Promise<TodoRecord>
   softDelete(id: string): Promise<void>
   rollOver(from: DateKey, to: DateKey): Promise<RollOverResult>
@@ -380,11 +383,13 @@ export function createRepos(deps: RepoDeps): Repos {
   const todos: TodoRepo = {
     byDate: (date) => store.byDate<TodoRecord>('todos', date, date),
 
-    async create(date, text, deadline, subtaskId, subtaskGoalTitle) {
+    async create(date, text, deadline, time, subtaskId, subtaskGoalTitle) {
       unwrap(parseDateKey(date))
       const t = unwrap(parseTodoText(text))
       // v8.53 可选截止日：空串/null/undefined = 普通待办；非空必须合法日期
       const ddl = deadline === undefined || deadline === null ? undefined : unwrap(parseDeadline(deadline))
+      // v9.2.2 可选具体时间：空串/null/undefined = 无时间；非空必须 HH:mm
+      const tm = time === undefined || time === null ? undefined : unwrap(parseTodoTime(time))
       // v8.63 可选子任务来源（加入今日待办）：子任务删除后该标记随待办保留（文字快照）
       const stid = subtaskId === undefined || subtaskId === null ? undefined : String(subtaskId).slice(0, 64)
       // v8.64 可选来源目标标题快照：待办行标注「· 目标名」用；同样截 64 字符
@@ -397,6 +402,7 @@ export function createRepos(deps: RepoDeps): Repos {
         text: t,
         done: false,
         ...(ddl ? { deadline: ddl } : {}),
+        ...(tm ? { time: tm } : {}),
         ...(stid ? { subtaskId: stid } : {}),
         ...(stGoal ? { subtaskGoalTitle: stGoal } : {}),
         createdAt: ts,
@@ -422,6 +428,16 @@ export function createRepos(deps: RepoDeps): Repos {
         return store.put<TodoRecord>('todos', rest)
       }
       return store.put<TodoRecord>('todos', { ...rec, deadline: unwrap(parseDeadline(deadline)) })
+    },
+
+    /** v9.2.2 设/清待办具体时间：null/undefined = 清除 */
+    async setTime(id, time) {
+      const rec = await mustGet<TodoRecord>('todos', id)
+      if (time === null || time === undefined) {
+        const { time: _drop, ...rest } = rec
+        return store.put<TodoRecord>('todos', rest)
+      }
+      return store.put<TodoRecord>('todos', { ...rec, time: unwrap(parseTodoTime(time)) })
     },
 
     /** v8.53 活跃 DDL 待办（未完成、未删除、带截止日）——聚合层注入"每天出现"用 */

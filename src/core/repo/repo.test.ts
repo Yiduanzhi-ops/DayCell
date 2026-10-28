@@ -75,8 +75,8 @@ describe('todos.create / byDate', () => {
 })
 
 describe('todos.subtaskId（v8.63 子任务加入今日待办）', () => {
-  it('create 第 4 参带 subtaskId → 记录携带；不带 → 无字段；byId 可读回', async () => {
-    const a = await repos.todos.create(k('2026-10-20'), '背单词', undefined, 'st-1')
+  it('create 第 5 参带 subtaskId → 记录携带；不带 → 无字段；byId 可读回（v9.2.2 起第 4 参为 time）', async () => {
+    const a = await repos.todos.create(k('2026-10-20'), '背单词', undefined, undefined, 'st-1')
     expect(a.subtaskId).toBe('st-1')
     const b = await repos.todos.create(k('2026-10-20'), '普通待办')
     expect(b.subtaskId).toBeUndefined()
@@ -84,11 +84,31 @@ describe('todos.subtaskId（v8.63 子任务加入今日待办）', () => {
     expect(back.subtaskId).toBe('st-1')
   })
 
-  it('v8.64 create 第 5 参 subtaskGoalTitle → 记录携带；不带 → 无字段', async () => {
-    const a = await repos.todos.create(k('2026-10-20'), '背单词', undefined, 'st-1', '考研上岸')
+  it('v8.64 create 第 6 参 subtaskGoalTitle → 记录携带；不带 → 无字段（v9.2.2 起第 4 参为 time）', async () => {
+    const a = await repos.todos.create(k('2026-10-20'), '背单词', undefined, undefined, 'st-1', '考研上岸')
     expect(a.subtaskGoalTitle).toBe('考研上岸')
-    const b = await repos.todos.create(k('2026-10-20'), '背单词', undefined, 'st-1')
+    const b = await repos.todos.create(k('2026-10-20'), '背单词', undefined, undefined, 'st-1')
     expect(b.subtaskGoalTitle).toBeUndefined()
+  })
+
+  it('v9.2.2 create 第 4 参带 time → 记录携带；不带 → 无字段；非法格式抛 BAD_VALUE', async () => {
+    const a = await repos.todos.create(k('2026-10-20'), '交周报', undefined, '14:30')
+    expect(a.time).toBe('14:30')
+    const b = await repos.todos.create(k('2026-10-20'), '普通待办')
+    expect(b.time).toBeUndefined()
+    await expect(repos.todos.create(k('2026-10-20'), 'x', undefined, '25:99')).rejects.toMatchObject({
+      validateCode: 'BAD_VALUE',
+    })
+  })
+
+  it('v9.2.2 setTime 设/改/清具体时间；清除后字段整体移除', async () => {
+    const t = await repos.todos.create(k('2026-10-20'), '交周报', undefined, '09:30')
+    await repos.todos.setTime(t.id, '14:00')
+    expect((await repos.todos.byDate(k('2026-10-20')))[0]!.time).toBe('14:00')
+    await repos.todos.setTime(t.id, null)
+    const rec = (await repos.todos.byDate(k('2026-10-20')))[0]!
+    expect(rec.time).toBeUndefined()
+    expect('time' in rec).toBe(false)
   })
 })
 describe('todos.deadline（v8.53 DDL 待办）', () => {  it('create 带截止日 → 记录带 deadline；不带 → 无字段', async () => {
