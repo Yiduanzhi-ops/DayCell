@@ -25,6 +25,15 @@
 }
 .addbtn:hover { background: var(--accent-soft); }
 
+/* v9.2 AI 智能导入入口（✦，与「+ 添加」并排；?dev=1 才显示） */
+.aiBtn {
+  flex: 0 0 auto; width: 32px; height: 32px; border-radius: 50%;
+  display: grid; place-items: center; color: var(--accent-strong);
+  background: var(--accent-soft); border: 1px solid var(--accent-line);
+}
+.aiBtn:hover { background: var(--accent); color: #fff; }
+.aiBtn:active { filter: brightness(0.92); }
+
 /* ---- 待办 ---- */
 .tlist { display: flex; flex-direction: column; }
 .titem { display: flex; align-items: flex-start; gap: 9px; padding: 6px 0; }

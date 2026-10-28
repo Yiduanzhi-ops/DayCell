@@ -119,6 +119,169 @@ async function downloadSnapshot(uid) {
   }
 }
 
+// ========== AI 智能导入（v9.2）：自由文本 → 结构化 JSON ==========
+// 架构：前端把一段话 POST 到这里 → 本函数直连 DeepSeek 官方 API（OpenAI 兼容）
+//       → 模型返回结构化 JSON → 前端预览、用户确认后才写入本地（本函数不落库）
+// 安全：DeepSeek key 只存在于云函数环境变量（process.env.DEEPSEEK_API_KEY），
+//       不写入代码、不进 git、不返回给前端。
+// v0.5 限额：每人每天 15 次（ai_usage 表按 user_id+usage_date 计数；免费额度 v1，
+//       将来会员差分只改 AI_DAILY_LIMIT 或按用户分档）。失败不消耗次数。
+const AI_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-flash';
+const AI_DAILY_LIMIT = 15;
+
+// 中国时区日期（云函数默认 UTC，直接 toISOString 会差半天）
+function chinaDateKey() {
+  return new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+// 读某用户当天已用次数（读失败按 0 处理，宽松不阻塞）
+async function readAiUsage(db, uid, todayKey) {
+  try {
+    const res = await db
+      .from('ai_usage')
+      .select('count')
+      .eq('user_id', uid)
+      .eq('usage_date', todayKey)
+      .limit(1);
+    const row = res.data && res.data[0];
+    return row ? Number(row.count) || 0 : 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
+// AI 成功调用后 +1（显式 INSERT/UPDATE，不依赖 upsert 特定语法；
+// 失败 console.error 留痕，但不阻塞主流程）
+async function bumpAiUsage(db, uid, todayKey) {
+  try {
+    const used = await readAiUsage(db, uid, todayKey);
+    const next = used + 1;
+    if (used === 0) {
+      // 当天无记录：先尝试 INSERT，若并发已存在则改 UPDATE
+      const ins = await db.from('ai_usage').insert({ user_id: uid, usage_date: todayKey, count: 1 });
+      if (ins.error) {
+        await db.from('ai_usage').update({ count: next }).eq('user_id', uid).eq('usage_date', todayKey);
+      }
+    } else {
+      await db.from('ai_usage').update({ count: next }).eq('user_id', uid).eq('usage_date', todayKey);
+    }
+    return true;
+  } catch (e) {
+    console.error('[ai_usage] bump failed:', e && e.message || e);
+    return false;
+  }
+}
+
+function buildImportPrompt(text, today) {
+  return {
+    role: 'system',
+    content:
+      '你是 DayCell 待办/习惯/笔记/目标应用的智能整理助手。' +
+      '用户会发来一段日常流水账（可能混有今天的待办、想法、想养成的习惯、目标等）。' +
+      '你的任务：把它整理成结构化 JSON，供用户确认后导入。\n' +
+      '【输出格式】只输出一个 JSON 对象，不要任何解释文字或 Markdown 代码块，结构如下：\n' +
+      '{\n' +
+      '  "todos": [{"text": "待办内容", "date": "YYYY-MM-DD", "deadline": null | "YYYY-MM-DD"}],\n' +
+      '  "habits": [{"name": "习惯名", "freq": {"kind": "daily"} | {"kind": "weekly", "weekdays": [0-6]}}],\n' +
+      '  "notes": [{"text": "想法/笔记内容"}],\n' +
+      '  "goals": [{"title": "目标标题", "note": "一句话阐述"}]\n' +
+      '}\n' +
+      '【规则】\n' +
+      '1. 日期语义：今天用 "' + today + '"；"明天/后天/下周一"等按今天 ' + today + ' 推算成具体 YYYY-MM-DD；没提时间的待办默认今天。\n' +
+      '2. 习惯：重复性动作（每天/每周几/隔天）归 habits；"每周一三五"→ {"kind":"weekly","weekdays":[1,3,5]}；星期映射 0=周日 6=周六。\n' +
+      '3. 想法、感慨、模糊内容归 notes；明确的长期目标/想达成的方向归 goals。' +
+      '4. **纪念日/周年等周期性日期（如"妈妈生日"）、复盘/回顾类内容（如"今天过得怎么样"）、' +
+      '某目标下的子任务（如"为减肥每周跑三次"）一律归 notes，不要新增其他分类**。\n' +
+      '5. 无法识别或空内容：对应数组给空数组，不要编造。\n' +
+      '6. 所有 text/name/title 保留用户原意，适度精简但不要改写语义。',
+  };
+}
+
+async function aiImport(event, uid) {
+  const body = parseBody(event);
+  const text = (body.text || '').toString().trim();
+  const todayKey = /^\d{4}-\d{2}-\d{2}$/.test(body.today || '') ? body.today : chinaDateKey();
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  const db = getApp().rdb();
+
+  if (!text) return json(400, { ok: false, error: 'text_required' });
+  if (!apiKey) return json(503, { ok: false, error: 'ai_not_configured', detail: 'DEEPSEEK_API_KEY 未配置' });
+
+  // v0.5 每日限额：>=15 直接拒绝（不消耗次数）
+  const used = await readAiUsage(db, uid, todayKey);
+  if (used >= AI_DAILY_LIMIT) {
+    return json(429, {
+      ok: false,
+      error: 'ai_quota_exceeded',
+      limit: AI_DAILY_LIMIT,
+      remaining: 0,
+      date: todayKey,
+    });
+  }
+
+  try {
+    const resp = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        messages: [
+          buildImportPrompt(text, todayKey),
+          { role: 'user', content: text },
+        ],
+        response_format: { type: 'json_object' },
+        thinking: { type: 'disabled' }, // 非思考模式：省 token、快，结构化抽取足够
+        max_tokens: 2000,
+      }),
+      timeout: 25000,
+    });
+
+    const data = await resp.json();
+    if (!resp.ok) {
+      return json(502, { ok: false, error: 'ai_upstream_error', detail: String(data.error && data.error.message || data) });
+    }
+    const content = data.choices && data.choices[0] && data.choices[0].message
+      ? data.choices[0].message.content
+      : null;
+    if (!content) return json(502, { ok: false, error: 'ai_empty_response' });
+
+    // 容错：模型可能用 ```json 包裹
+    const cleaned = content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+    let structured;
+    try {
+      structured = JSON.parse(cleaned);
+    } catch (e) {
+      return json(502, { ok: false, error: 'ai_bad_json', detail: String(e && e.message || e) });
+    }
+
+    // 成功后计数 +1（失败不消耗；bump 失败宽容处理）
+    await bumpAiUsage(db, uid, todayKey);
+
+    return json(200, {
+      ok: true,
+      today: todayKey,
+      structured: {
+        todos: Array.isArray(structured.todos) ? structured.todos : [],
+        habits: Array.isArray(structured.habits) ? structured.habits : [],
+        notes: Array.isArray(structured.notes) ? structured.notes : [],
+        goals: Array.isArray(structured.goals) ? structured.goals : [],
+      },
+      usage: data.usage || null,
+      quota: {
+        limit: AI_DAILY_LIMIT,
+        remaining: Math.max(0, AI_DAILY_LIMIT - used - 1),
+        date: todayKey,
+      },
+    });
+  } catch (e) {
+    // 调用失败不计数
+    return json(500, { ok: false, error: 'ai_call_failed', detail: String(e && e.message || e) });
+  }
+}
+
 exports.main = async (event, context) => {
   const method = event.httpMethod || 'GET';
   const path = (event.path || '/').split('?')[0];
@@ -130,7 +293,7 @@ exports.main = async (event, context) => {
 
   // 健康检查（网关鉴权已开启，需带有效 token）
   if (path === '/health' && method === 'GET') {
-    return json(200, { ok: true, service: 'daycell-api', version: 'v0.3', time: new Date().toISOString() });
+    return json(200, { ok: true, service: 'daycell-api', version: 'v0.5', time: new Date().toISOString() });
   }
 
   // 调试：返回 event 结构 + 提取到的 uid（实测确认字段用，可随时移除）
@@ -171,6 +334,13 @@ exports.main = async (event, context) => {
     const uid = extractUid(event);
     if (!uid) return json(401, { ok: false, error: 'unauthorized' });
     return downloadSnapshot(uid);
+  }
+
+  // AI 智能导入：一段话 → 结构化 JSON（DeepSeek 官方 API）
+  if (path === '/ai/import' && method === 'POST') {
+    const uid = extractUid(event);
+    if (!uid) return json(401, { ok: false, error: 'unauthorized' });
+    return aiImport(event, uid);
   }
 
   return json(404, { ok: false, error: 'not_found', path });

@@ -117,6 +117,13 @@
   padding: 10px 12px;
 }
 
+.meBox {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
 .mono {
   font-size: 13px;
   font-family: ui-monospace, monospace;

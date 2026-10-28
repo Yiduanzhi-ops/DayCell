@@ -130,3 +130,58 @@ export async function downloadSnapshot(
     return { ok: false, error: e instanceof Error ? e.message : String(e) }
   }
 }
+
+/** v9.2 AI 智能导入：一段话 → 结构化结果（云函数 /ai/import，DeepSeek 后端直连）
+ *  返回 { structured, quota, usage }；429 = 今日次数用完 */
+export async function aiImport(
+  token: string,
+  text: string,
+  today: string,
+): Promise<{
+  ok: boolean
+  structured?: {
+    todos: Array<{ text: string; date: string; deadline?: string | null }>
+    habits: Array<{ name: string; freq: { kind: 'daily' } | { kind: 'weekly'; weekdays: number[] } }>
+    notes: Array<{ text: string }>
+    goals: Array<{ title: string; note: string }>
+  }
+  remaining?: number
+  error?: string
+}> {
+  try {
+    const res = await fetch(`${API_BASE}/ai/import`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ text, today }),
+    })
+    const body = (await res.json()) as {
+      ok?: boolean
+      structured?: {
+        todos?: Array<{ text: string; date: string; deadline?: string | null }>
+        habits?: Array<{ name: string; freq: { kind: 'daily' } | { kind: 'weekly'; weekdays: number[] } }>
+        notes?: Array<{ text: string }>
+        goals?: Array<{ title: string; note: string }>
+      }
+      quota?: { remaining?: number }
+      error?: string
+    }
+    if (!res.ok || !body.ok) {
+      return { ok: false, error: body.error ?? `HTTP ${res.status}` }
+    }
+    return {
+      ok: true,
+      structured: {
+        todos: body.structured?.todos ?? [],
+        habits: body.structured?.habits ?? [],
+        notes: body.structured?.notes ?? [],
+        goals: body.structured?.goals ?? [],
+      },
+      remaining: body.quota?.remaining,
+    }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}

@@ -60,6 +60,14 @@ import { buildTransport, readSyncConfig, writeSyncConfig } from './sync'
 import { buildCloudTransport } from './cloudSync'
 
 export type View = 'day' | 'week' | 'month' | 'goals' | 'notes'
+
+/** v9.2 AI 智能导入：后端 /ai/import 返回的结构化结果（前端预览/编辑后确认） */
+export interface AiImportResult {
+  todos: Array<{ text: string; date: string; deadline?: string | null }>
+  habits: Array<{ name: string; freq: { kind: 'daily' } | { kind: 'weekly'; weekdays: number[] } }>
+  notes: Array<{ text: string }>
+  goals: Array<{ title: string; note: string }>
+}
 /** v6.1：内联表单是唯一录入入口，同一时刻最多展开一个 */
 export type FormKind = 'todo' | 'cost' | 'note'
 
@@ -157,6 +165,10 @@ export interface AppState {
   theme: 'light' | 'dark'
   /** v7.5：纪念日设置页是否打开（全屏覆盖层） */
   annivOpen: boolean
+  /** v9.2：AI 智能导入全屏弹层是否打开 */
+  aiOpen: boolean
+  /** v9.2：AI 导入今日剩余次数（-1=未知/未登录，面板据此展示与禁用） */
+  aiRemaining: number
   /** v8.0：习惯设置页是否打开（全屏覆盖层，菜单「习惯设置」进入） */
   habitsOpen: boolean
   /** v8.1：同步设置页是否打开（全屏覆盖层，菜单「同步设置」进入） */
@@ -211,6 +223,12 @@ export interface AppState {
   toggleNotePinned(id: string): Promise<void>
   /** v8.42 回顾页 [想法|复盘] 切换 */
   setReviewTab(tab: 'notes' | 'reviews'): void
+  /** v9.2 AI 智能导入：弹层开关 */
+  setAiOpen(open: boolean): void
+  /** v9.2 AI 智能导入：记录今日剩余次数（-1=未知） */
+  setAiRemaining(n: number): void
+  /** v9.2 AI 导入确认写入：按结构化结果落库（支持任意日期），返回成功条数 */
+  aiImportItems(items: AiImportResult): Promise<{ ok: boolean; count: number; error?: string }>
   /** v8.42 复盘列表翻页 */
   setReviewPage(p: number): void
   /** v8.42 写当日复盘（每日一条，upsert 覆盖） */
@@ -446,6 +464,8 @@ export function createAppStore(
 
     theme: readTheme(),
     annivOpen: false,
+    aiOpen: false,
+    aiRemaining: -1,
     habitsOpen: false,
     syncOpen: false,
     shareOpen: false,
@@ -933,6 +953,57 @@ export function createAppStore(
     setReviewTab(tab) {
       if (get().reviewTab === tab) return
       set({ reviewTab: tab, reviewPage: 1 })
+    },
+
+    setAiOpen(open) {
+      set({ aiOpen: open })
+    },
+
+    setAiRemaining(n) {
+      set({ aiRemaining: n })
+    },
+
+    async aiImportItems(items) {
+      try {
+        const { todos, habits, notes, goals } = items
+        let count = 0
+        for (const t of todos || []) {
+          const text = (t.text || '').trim()
+          if (!text) continue
+          const date = /^\d{4}-\d{2}-\d{2}$/.test(t.date || '') ? (t.date as DateKey) : get().selected
+          await repos.todos.create(date, text, t.deadline || undefined)
+          count++
+        }
+        for (const h of habits || []) {
+          const name = (h.name || '').trim()
+          if (!name || !h.freq) continue
+          await repos.habits.create({ name, freq: h.freq })
+          count++
+        }
+        for (const n of notes || []) {
+          const text = (n.text || '').trim()
+          if (!text) continue
+          await repos.notes.create(get().selected, text)
+          count++
+        }
+        for (const g of goals || []) {
+          const title = (g.title || '').trim()
+          if (!title) continue
+          await repos.goals.create({ title, note: (g.note || '').trim() })
+          count++
+        }
+        if (count === 0) {
+          return { ok: false, count: 0, error: 'empty' }
+        }
+        set({ dataVer: get().dataVer + 1 })
+        await get().refresh()
+        await get().refreshGoals()
+        await get().refreshHabits()
+        get().showToast(`已导入 ${count} 条`)
+        return { ok: true, count }
+      } catch (e) {
+        return { ok: false, count: 0, error: errMsg(e) }
+      }
     },
 
     setReviewPage(p) {

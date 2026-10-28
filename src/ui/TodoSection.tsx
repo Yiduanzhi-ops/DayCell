@@ -12,6 +12,7 @@ import { compareKey, type DateKey } from '@core'
 import { useApp } from '@/app/context'
 import { Check } from './icons'
 import { FormActs } from './forms'
+import { isDevMode } from './devflag'
 import styles from './detail.module.css'
 
 /** 'YYYY-MM-DD' → 'M/D'（顺延来源标签用） */
@@ -40,6 +41,7 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
   const toggleTodo = useApp((s) => s.toggleTodo)
   const deleteTodo = useApp((s) => s.deleteTodo)
   const toggleAnnivDone = useApp((s) => s.toggleAnnivDone)
+  const setAiOpen = useApp((s) => s.setAiOpen)
 
   const todos = (cached ?? detail)?.todos ?? []
   // v7.6：已完成的自动沉底；未完成保持原序（Array.prototype.sort 稳定）
@@ -58,6 +60,18 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
         <h3>待办</h3>
         {total > 0 && <span className={styles.n}>{done}/{total}</span>}
         <span className={styles.line} />
+        {!date && isDevMode() && (
+          <button
+            className={styles.aiBtn}
+            onClick={() => setAiOpen(true)}
+            aria-label="AI 智能导入"
+            title="AI 智能导入"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 2.5l1.9 4.9a.5.5 0 0 0 .3.3l4.9 1.9a.5.5 0 0 1 0 .9l-4.9 1.9a.5.5 0 0 0-.3.3l-1.9 4.9a.5.5 0 0 1-.9 0l-1.9-4.9a.5.5 0 0 0-.3-.3L4 10.5a.5.5 0 0 1 0-.9l4.9-1.9a.5.5 0 0 0 .3-.3L11.1 2.5a.5.5 0 0 1 .9 0zM19 14l.8 2.2a.5.5 0 0 0 .3.3l2.2.8a.5.5 0 0 1 0 .9l-2.2.8a.5.5 0 0 0-.3.3L19 21.5a.5.5 0 0 1-.9 0l-.8-2.2a.5.5 0 0 0-.3-.3l-2.2-.8a.5.5 0 0 1 0-.9l2.2-.8a.5.5 0 0 0 .3-.3l.8-2.2a.5.5 0 0 1 .9 0z" />
+            </svg>
+          </button>
+        )}
         <button
           className={styles.addbtn}
           onClick={() => openForm('todo')}

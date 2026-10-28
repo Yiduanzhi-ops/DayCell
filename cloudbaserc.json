@@ -5,10 +5,10 @@
       "name": "daycell-api",
       "runtime": "Nodejs20.19",
       "handler": "index.main",
-      "timeout": 3,
+      "timeout": 10,
       "memorySize": 128,
-      "installDependency": false,
-      "description": "DayCell v9 后端 HTTP 总入口：健康检查 + 路由骨架"
+      "installDependency": true,
+      "description": "DayCell v9 后端 HTTP 总入口：健康检查 + 云同步（PG 快照，网关鉴权）"
     }
   ]
 }

@@ -19,7 +19,6 @@ import {
   fetchMe,
   getAccessToken,
   getCloudApp,
-  isCloudLoggedIn,
   uploadSnapshot,
 } from './cloudbase'
 import styles from './CloudSyncPanel.module.css'
@@ -78,10 +77,20 @@ export function CloudSyncPanel(): JSX.Element {
 
   // v9.1：刷新后恢复登录态显示（auth 会话持久在 localStorage）；已登录则激活自动同步。
   // 仅 idle 时执行一次——避免每次打开设置页都重复激活/同步。
+  // v9.2 修复：getLoginState() 可能残留 uid 但 accessToken 已失效（登录态误判），
+  // 必须异步验证 token 真实可拿才显示「已恢复」；否则停留 idle 露出登录表单，允许重新登录。
   useEffect(() => {
-    if (isCloudLoggedIn() && login.phase === 'idle') {
-      setLogin({ phase: 'done', email: '（会话已恢复）' })
-      setCloudSyncEnabled(true)
+    if (login.phase !== 'idle') return
+    let alive = true
+    void (async () => {
+      const token = await getAccessToken()
+      if (token && alive) {
+        setLogin({ phase: 'done', email: '（会话已恢复）' })
+        setCloudSyncEnabled(true)
+      }
+    })()
+    return () => {
+      alive = false
     }
   }, [login.phase, setCloudSyncEnabled])
 

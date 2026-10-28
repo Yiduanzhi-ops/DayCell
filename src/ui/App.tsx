@@ -25,6 +25,7 @@ import { NotesView } from './NotesView'
 import { HabitsView } from './HabitsView'
 import { SyncSettings } from './SyncSettings'
 import { ShareView } from './ShareView'
+import { AIImportView } from './AIImportView'
 import { ChangelogView } from './ChangelogView'
 import { SettingsView } from './SettingsView'
 import { OnboardingView } from './OnboardingView'
@@ -54,6 +55,7 @@ function Shell(): JSX.Element {
   const habitsOpen = useApp((s) => s.habitsOpen)
   const syncOpen = useApp((s) => s.syncOpen)
   const shareOpen = useApp((s) => s.shareOpen)
+  const aiOpen = useApp((s) => s.aiOpen)
   const changelogOpen = useApp((s) => s.changelogOpen)
   const settingsOpen = useApp((s) => s.settingsOpen)
   const onboardingOpen = useApp((s) => s.onboardingOpen)
@@ -149,6 +151,7 @@ function Shell(): JSX.Element {
       {habitsOpen && <HabitsView />}
       {syncOpen && <SyncSettings />}
       {shareOpen && <ShareView />}
+      {aiOpen && <AIImportView />}
       {changelogOpen && <ChangelogView />}
       {settingsOpen && <SettingsView />}
       {onboardingOpen && <OnboardingView />}
