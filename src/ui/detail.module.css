@@ -119,10 +119,34 @@
   position: absolute; inset: 0; opacity: 0; cursor: pointer;
   width: 100%; height: 100%; border: none; background: transparent; outline: none;
 }
-/* v9.2.2 待办具体时间：行内蓝色小标签（置于截止徽标前） */
+/* v9.2.2 待办具体时间：行内时间 pill——due 截止蓝（ttime）/ 逾期红（ttimeLate）/ 逾期完成淡红（ttimeLateDone），at 提醒绿（tat）/ 过点灰（tatPast） */
 .ttime {
   flex: 0 0 auto; font-size: 10.5px; font-weight: 700;
   color: var(--accent); background: var(--accent-soft);
+  border-radius: 4px; padding: 1px 6px; margin-top: 2px; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.ttimeLate {
+  flex: 0 0 auto; font-size: 10.5px; font-weight: 700;
+  color: var(--danger, #e5484d); background: rgba(229, 72, 77, 0.08);
+  border-radius: 4px; padding: 1px 6px; margin-top: 2px; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.ttimeLateDone {
+  flex: 0 0 auto; font-size: 10.5px; font-weight: 700;
+  color: var(--danger, #e5484d); background: rgba(229, 72, 77, 0.05);
+  border-radius: 4px; padding: 1px 6px; margin-top: 2px; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.tat {
+  flex: 0 0 auto; font-size: 10.5px; font-weight: 700;
+  color: #1d8a5f; background: rgba(29, 138, 95, 0.1);
+  border-radius: 4px; padding: 1px 6px; margin-top: 2px; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.tatPast {
+  flex: 0 0 auto; font-size: 10.5px; font-weight: 700;
+  color: #9aa2ab; background: rgba(154, 162, 171, 0.1);
   border-radius: 4px; padding: 1px 6px; margin-top: 2px; white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
@@ -139,11 +163,33 @@
 .timeVal { color: var(--accent); font-weight: 600; }
 .timeEmpty { color: var(--ink-3); }
 .timeChevron { width: 12px; height: 12px; flex: 0 0 auto; margin-left: auto; }
-/* 滚轮弹层 */
-.timeSheet {
-  background: var(--bg-hover); border: 1px solid var(--line);
-  border-radius: 14px; padding: 8px 12px;
+/* v9.2.3 底部 sheet：fixed 遮罩（点遮罩=取消）+ 面板贴底；z-index 低于全屏弹层(60) */
+.timeMask {
+  position: fixed; inset: 0; z-index: 55;
+  background: rgba(15, 20, 30, 0.42);
+  display: flex; align-items: flex-end;
 }
+.timeSheet {
+  width: 100%;
+  background: var(--bg);
+  border-radius: 20px 20px 0 0;
+  padding: 10px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -10px 30px rgba(20, 30, 50, 0.18);
+}
+.timeSheetHead { display: flex; align-items: center; padding: 2px 2px 0; }
+.timeSheetTitle { font-size: 14px; font-weight: 700; color: var(--ink-1); }
+.timeSheetNote { font-size: 11px; color: var(--ink-3); margin-left: auto; }
+.timeTypes { display: flex; gap: 8px; padding: 12px 0 4px; }
+.timeChip {
+  flex: 1; text-align: center; font-size: 13px; font-weight: 600;
+  padding: 8px 0; border-radius: 10px;
+  border: 1.5px solid var(--line); color: var(--ink-3); background: var(--bg);
+}
+.timeChipOn { background: var(--accent); border-color: var(--accent); color: #fff; }
+.timeChipOnAt { background: #1d8a5f; border-color: #1d8a5f; color: #fff; }
+.timeBigWrap { text-align: center; padding: 6px 0 4px; }
+.timeBig { font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--accent); }
+.timeBigAt { color: #1d8a5f; }
 .timeWheels { display: flex; justify-content: center; align-items: center; gap: 6px; height: 180px; }
 .timeColon { font-size: 20px; font-weight: 700; color: var(--ink-2); }
 .wheel {

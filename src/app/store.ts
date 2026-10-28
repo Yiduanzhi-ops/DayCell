@@ -244,15 +244,15 @@ export interface AppState {
   closeForm(): void
   consumeFocus(): void
   consumeRestoreScroll(): void
-  /** v9.2.2 第 3 参 time：具体时间（可选，'HH:mm'） */
-  createTodo(text: string, deadline?: string, time?: string): Promise<boolean>
+  /** v9.2.2 第 3 参 time：具体时间（可选，'HH:mm'）；v9.2.3 第 4 参 timeType：'due'|'at'（可选） */
+  createTodo(text: string, deadline?: string, time?: string, timeType?: 'due' | 'at'): Promise<boolean>
   toggleTodo(id: string): Promise<void>
   /** 就地编辑待办文字（v7 / US-13 / 原 C3）。失败返回 false 并 toast core 文案 */
   updateTodoText(id: string, text: string): Promise<boolean>
   /** v8.53 设/清待办截止日（null = 清除，变回普通待办）；非法日期由 repo 校验 */
   updateTodoDeadline(id: string, deadline: string | null): Promise<boolean>
-  /** v9.2.2 设/清待办具体时间（null = 清除）；非法格式由 repo 校验 */
-  updateTodoTime(id: string, time: string | null): Promise<boolean>
+  /** v9.2.2 设/清待办具体时间（null = 清除）；v9.2.3 可同时设 timeType（null = 清除）；非法格式由 repo 校验 */
+  updateTodoTime(id: string, time: string | null, timeType?: 'due' | 'at' | null): Promise<boolean>
   deleteTodo(id: string): Promise<void>
   createNote(text: string): Promise<boolean>
   /** 就地编辑想法正文（v7 / US-13 / 原 C3） */
@@ -781,11 +781,11 @@ export function createAppStore(
 
     // ---- 写操作：repo 校验（失败抛 DayCellError → toast 中文文案）→ refresh ----
 
-    async createTodo(text, deadline, time) {
+    async createTodo(text, deadline, time, timeType) {
       try {
         // v8.53 DDL 待办：date 落在截止日那天（截止日本地格子可见 + 其他天由聚合注入）
         const date = (deadline?.trim() ? deadline.trim() : get().selected) as DateKey
-        await repos.todos.create(date, text, deadline, time)
+        await repos.todos.create(date, text, deadline, time, undefined, undefined, timeType)
         set({ dataVer: get().dataVer + 1 })
         await get().refresh()
         get().showToast('已添加待办')
@@ -842,10 +842,10 @@ export function createAppStore(
       }
     },
 
-    /** v9.2.2 设/清待办具体时间 */
-    async updateTodoTime(id, time) {
+    /** v9.2.2 设/清待办具体时间；v9.2.3 可同时设 timeType */
+    async updateTodoTime(id, time, timeType) {
       try {
-        await repos.todos.setTime(id, time)
+        await repos.todos.setTime(id, time, timeType)
         set({ dataVer: get().dataVer + 1 })
         await get().refresh()
         get().showToast(time ? `已设时间 ${time}` : '已清除时间')

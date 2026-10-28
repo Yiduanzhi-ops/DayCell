@@ -738,15 +738,29 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     await store.getState().createTodo('交周报', TODAY, '14:00')
     await store.getState().createTodo('预约体检', TODAY, '09:30')
 
-    await waitFor(() => expect(screen.getByText('09:30')).toBeInTheDocument())
-    expect(screen.getByText('14:00')).toBeInTheDocument()
-    // v9.2.2：截止日恰为今天的徽标标注「（今天）」；时间标签跟在日期后面
-    expect(screen.getAllByText('截止 9/29（今天）')).toHaveLength(2)
+    await waitFor(() => expect(screen.getByText('截止 今天 09:30')).toBeInTheDocument())
+    expect(screen.getByText('截止 今天 14:00')).toBeInTheDocument()
+    // v9.2.3：今天只写「今天」不写日期；老数据无 timeType 且有截止日 → 按截止型展示
+    expect(screen.queryByText('截止 9/29（今天）')).not.toBeInTheDocument()
     const rows = within(screen.getByTestId('day-center')).getAllByRole('button', { name: /编辑待办：/ })
     expect(rows.map((r) => r.getAttribute('aria-label'))).toEqual([
       '编辑待办：预约体检',
       '编辑待办：交周报',
       '编辑待办：买牛奶',
     ])
+  })
+
+  it('v9.2.3 提醒型（timeType=at）：无截止日显示「HH:mm 提醒」，不标逾期；过点置灰类不出现', async () => {
+    const store = await renderApp()
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
+    await store.getState().createTodo('健身', undefined, '18:00', 'at')
+    await store.getState().createTodo('给导师回电话', TODAY, '14:00', 'at')
+    await store.getState().createTodo('交周报', TODAY, '08:00', 'at') // 提醒日今天、时刻已过：不标逾期、仅置灰
+
+    await waitFor(() => expect(screen.getByText('今天 14:00 提醒')).toBeInTheDocument())
+    expect(screen.getByText('18:00 提醒')).toBeInTheDocument()
+    expect(screen.getByText('今天 08:00 提醒')).toBeInTheDocument()
+    // at 型即使提醒时刻/日期已过：不出现「已逾期」文案（区别于截止型）
+    expect(screen.queryByText(/已逾期/)).not.toBeInTheDocument()
   })
 })

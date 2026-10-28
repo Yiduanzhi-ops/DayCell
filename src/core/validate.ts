@@ -159,6 +159,14 @@ export function parseTodoTime(raw: string): ParseResult<string | undefined> {
   return ok(t)
 }
 
+/** v9.2.3 时间语义：'due'=截止时刻 / 'at'=提醒时刻；空串 = undefined（沿用默认推导） */
+export function parseTodoTimeType(raw: string): ParseResult<'due' | 'at' | undefined> {
+  const t = raw.trim()
+  if (!t) return ok(undefined)
+  if (t !== 'due' && t !== 'at') return err('BAD_VALUE', '时间类型不正确')
+  return ok(t)
+}
+
 export const parseNoteText = (raw: string): ParseResult<string> =>
   parseText(raw, { field: '想法', max: LIMITS.noteText, multiline: true })
 

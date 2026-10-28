@@ -12,6 +12,7 @@ import {
   normalizeNumericInput,
   textLength,
   parseTodoTime,
+  parseTodoTimeType,
   LIMITS,
 } from './validate'
 
@@ -269,5 +270,23 @@ describe('parseTodoTime（v9.2.2 待办具体时间）', () => {
     expect(code(parseTodoTime('9:30'))).toBe('BAD_VALUE')
     expect(code(parseTodoTime('1430'))).toBe('BAD_VALUE')
     expect(code(parseTodoTime('下午三点'))).toBe('BAD_VALUE')
+  })
+})
+
+describe('parseTodoTimeType（v9.2.3 时间语义）', () => {
+  it('空串 = undefined（沿用默认推导）', () => {
+    expect(val(parseTodoTimeType(''))).toBeUndefined()
+    expect(val(parseTodoTimeType('  '))).toBeUndefined()
+  })
+
+  it('接受 due / at', () => {
+    expect(val(parseTodoTimeType('due'))).toBe('due')
+    expect(val(parseTodoTimeType(' at '))).toBe('at')
+  })
+
+  it('拒绝其他值', () => {
+    expect(code(parseTodoTimeType('start'))).toBe('BAD_VALUE')
+    expect(code(parseTodoTimeType('DDL'))).toBe('BAD_VALUE')
+    expect(code(parseTodoTimeType('提醒'))).toBe('BAD_VALUE')
   })
 })

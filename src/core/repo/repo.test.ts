@@ -110,6 +110,37 @@ describe('todos.subtaskId（v8.63 子任务加入今日待办）', () => {
     expect(rec.time).toBeUndefined()
     expect('time' in rec).toBe(false)
   })
+
+  it('v9.2.3 create 第 7 参带 timeType → 随 time 一起写入；不带 → 无字段', async () => {
+    const a = await repos.todos.create(k('2026-10-20'), '开会', '2026-10-28', '14:00', undefined, undefined, 'due')
+    expect(a.time).toBe('14:00')
+    expect(a.timeType).toBe('due')
+    const b = await repos.todos.create(k('2026-10-20'), '健身', undefined, '18:00', undefined, undefined, 'at')
+    expect(b.timeType).toBe('at')
+    // 无 time 时即使传了 timeType 也不写入（timeType 只随 time 有意义）
+    const c = await repos.todos.create(k('2026-10-20'), '普通', undefined, undefined, undefined, undefined, 'due')
+    expect(c.timeType).toBeUndefined()
+    // 非法类型抛 BAD_VALUE
+    await expect(repos.todos.create(k('2026-10-20'), 'x', undefined, '14:00', undefined, undefined, 'start')).rejects.toMatchObject({
+      validateCode: 'BAD_VALUE',
+    })
+  })
+
+  it('v9.2.3 setTime 带 timeType：设 type 写入、显式清除、清 time 连带清除 type', async () => {
+    const t = await repos.todos.create(k('2026-10-20'), '开会', '2026-10-28', '14:00', undefined, undefined, 'due')
+    // 显式设 'at' 覆盖
+    await repos.todos.setTime(t.id, '15:00', 'at')
+    expect((await repos.todos.byDate(k('2026-10-20')))[0]!.timeType).toBe('at')
+    // 清 time → type 一并移除
+    await repos.todos.setTime(t.id, null)
+    const rec = (await repos.todos.byDate(k('2026-10-20')))[0]!
+    expect(rec.time).toBeUndefined()
+    expect('timeType' in rec).toBe(false)
+    // 非法 type 抛 BAD_VALUE
+    await expect(repos.todos.setTime(t.id, '14:00', 'start')).rejects.toMatchObject({
+      validateCode: 'BAD_VALUE',
+    })
+  })
 })
 describe('todos.deadline（v8.53 DDL 待办）', () => {  it('create 带截止日 → 记录带 deadline；不带 → 无字段', async () => {
     const a = await repos.todos.create(k('2026-10-20'), '交作业', '2026-10-25')

@@ -17,6 +17,42 @@ import styles from './detail.module.css'
 /** 'YYYY-MM-DD' → 'M/D'（顺延来源标签用） */
 const md = (k: string): string => `${Number(k.slice(5, 7))}/${Number(k.slice(8, 10))}`
 
+/** 当前本地时刻 'HH:mm'（at 型过点置灰判定用） */
+const nowHm = (): string => {
+  const d = new Date()
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+/**
+ * v9.2.3 行内时间标签：due 截止蓝（逾期红、逾期完成淡红）/ at 提醒绿（当天过点置灰）。
+ * 今天只写「今天」；无 timeType 老数据：有截止日按 due、无按 at 推导。
+ */
+function TimePill({ t, k }: { t: TodoRecord; k: DateKey }): JSX.Element {
+  const isDue = (t.timeType ?? (t.deadline ? 'due' : 'at')) === 'due'
+  const late = isDue && !!t.deadline && compareKey(t.deadline, k) < 0
+  const overdueDone = isDue && isOverdueDone(t)
+  const day = t.deadline ? (t.deadline === k ? '今天' : md(t.deadline)) : ''
+  const label = isDue
+    ? `${overdueDone ? '逾期完成 · ' : late && !t.done ? '已逾期 · ' : ''}截止 ${day} ${t.time}`
+        .replace(/\s{2,}/g, ' ')
+        .trim()
+    : day
+      ? `${day} ${t.time} 提醒`
+      : `${t.time} 提醒`
+  // at 型仅提醒日当天比较时刻（未来日不置灰）
+  const past = !isDue && !!t.time && (!t.deadline || t.deadline === k) && t.time <= nowHm()
+  const cls = isDue
+    ? overdueDone
+      ? styles.ttimeLateDone
+      : late && !t.done
+        ? styles.ttimeLate
+        : styles.ttime
+    : past
+      ? styles.tatPast
+      : styles.tat
+  return <span className={cls}>{label}</span>
+}
+
 /** 待办区块（M4：CRUD + 勾选；US-04 顺延痕迹展示；US-13 点文字就地编辑，v7）。
  *  v8.21：加 date prop——两侧页（滑动预览相邻日）传 date 渲染**静态完整版**：
  *  不读全局 edit（不展开表单/就地编辑态），只读展示；中间页（date 缺省）保持交互。
@@ -132,7 +168,10 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
               )}
               {t.rolledTo && <span className={styles.rolled}>已顺延 →</span>}
               {t.rolledFrom && <span className={styles.rolled}>顺延自 {md(t.rolledFrom)}</span>}
-              {t.deadline && (
+              {/* v9.2.3 时间标签合并为单枚语义 pill：截止蓝（逾期红）/ 提醒绿（过点灰），今天只写「今天」 */}
+              {t.time ? (
+                <TimePill t={t} k={k} />
+              ) : t.deadline ? (
                 <span
                   className={`${styles.ddlBadge} ${
                     !t.done && compareKey(t.deadline, k) < 0 ? styles.ddlLate : ''
@@ -143,12 +182,11 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
                     : !t.done && compareKey(t.deadline, k) < 0
                       ? '已逾期 · '
                       : ''}
-                  {/* v9.2.2：截止日恰为今天时标注（今天）；时间标签跟在日期后面 */}
+                  {/* v9.2.2：截止日恰为今天时标注（今天） */}
                   截止 {md(t.deadline)}
                   {t.deadline === k ? '（今天）' : ''}
                 </span>
-              )}
-              {t.time && <span className={styles.ttime}>{t.time}</span>}
+              ) : null}
               {!t.rolledTo && (
                 <button className={styles.tdel} aria-label={`删除待办：${t.text}`} onClick={() => void deleteTodo(t.id)}>
                   ×
@@ -175,9 +213,11 @@ function TodoForm(): JSX.Element {
   const [ddl, setDdl] = useState<string>(todayKey)
   // v9.2.2：具体时间可选，默认不设置
   const [tm, setTm] = useState('')
+  // v9.2.3：时间语义（截止/提醒）。表单默认日期=今天 → 默认「截止」；用户可在 sheet 内切换
+  const [tp, setTp] = useState<'due' | 'at'>('due')
 
   const submit = async (): Promise<void> => {
-    const ok = await createTodo(v, ddl || undefined, tm || undefined)
+    const ok = await createTodo(v, ddl || undefined, tm || undefined, tp)
     // v7.4：创建完收起表单（不再保留并聚焦"连续录入"——用户拍板改手动，需要时再点「+ 添加」）
     if (ok) closeForm()
   }
@@ -199,7 +239,7 @@ function TodoForm(): JSX.Element {
         }}
       />
       <DdlPicker value={ddl} onChange={setDdl} />
-      <TimePicker value={tm} onChange={setTm} />
+      <TimePicker value={tm} type={tp} onTypeChange={setTp} onChange={setTm} />
       <FormActs onCancel={closeForm} onSave={submit} />
     </div>
   )
@@ -218,7 +258,8 @@ function DdlPicker({ value, onChange }: { value: string; onChange: (v: string) =
   const custom = value && value !== t
   return (
     <div className={styles.ddlRow}>
-      <span className={styles.ddlLabel}>截止</span>
+      {/* v9.2.3：语义从「截止」改为「日期」——提醒型也会在别的时间设日期 */}
+      <span className={styles.ddlLabel}>日期</span>
       <button
         type="button"
         className={`${styles.ddlChip} ${value === t ? styles.ddlOn : ''}`}
@@ -250,8 +291,11 @@ function fmtFullDate(k: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// v9.2.2 具体时间（可选）：点击整行弹出滚轮选择器，默认「不设置」
+// v9.2.2 具体时间（可选）：点击整行弹出**底部 sheet**（遮罩 + 面板），默认「不设置」
+// v9.2.3 sheet 内加「截止 / 提醒」类型切换 chip：
+//   设了日期默认「截止」（due）、没设默认「提醒」（at）；确定才提交（点遮罩 = 取消不保存）
 // 滚轮 = 原生滚动容器（scroll-snap 对齐），触摸/滚轮都能滑，手机体验接近系统滚轮
+// 弹出前先收起手机键盘（blur 活动元素），避免底部面板与键盘重叠
 // ---------------------------------------------------------------------------
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'))
@@ -261,15 +305,36 @@ const WHEEL_ITEM = 36
 /** 首尾占位项数（让选中项居中显示在中间行） */
 const WHEEL_PAD = 2
 
-function TimePicker({ value, onChange }: { value: string; onChange: (v: string) => void }): JSX.Element {
+/** v9.2.3 sheet 内类型 chip：'due'=截止时刻 / 'at'=提醒时刻 */
+const TIME_TYPES: { id: 'due' | 'at'; label: string }[] = [
+  { id: 'due', label: '截止' },
+  { id: 'at', label: '提醒' },
+]
+
+function TimePicker({
+  value,
+  type,
+  onTypeChange,
+  onChange,
+}: {
+  value: string
+  type: 'due' | 'at'
+  onTypeChange: (t: 'due' | 'at') => void
+  onChange: (v: string) => void
+}): JSX.Element {
   const [open, setOpen] = useState(false)
   // 滚轮内部选中态：展开时对齐当前 value（无则 09:00 起步）
   const [hh, setHh] = useState(value ? value.slice(0, 2) : '09')
   const [mm, setMm] = useState(value ? value.slice(3, 5) : '00')
+  // sheet 内部临时类型：打开时快照父级；确定才提交（点遮罩取消即丢弃）
+  const [lt, setLt] = useState<'due' | 'at'>(type)
 
   const openWheel = (): void => {
     setHh(value ? value.slice(0, 2) : '09')
     setMm(value ? value.slice(3, 5) : '00')
+    setLt(type)
+    // v9.2.3 先收起手机键盘：底部 sheet 弹出时避免与键盘重叠（iOS/Android 焦点 blur 后键盘回落）
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
     setOpen(true)
   }
 
@@ -289,33 +354,64 @@ function TimePicker({ value, onChange }: { value: string; onChange: (v: string) 
         </svg>
       </button>
       {open && (
-        <div className={styles.timeSheet}>
-          <div className={styles.timeWheels}>
-            <Wheel values={HOURS} value={hh} onChange={setHh} ariaLabel="时" />
-            <span className={styles.timeColon}>:</span>
-            <Wheel values={MINUTES} value={mm} onChange={setMm} ariaLabel="分" />
-          </div>
-          <div className={styles.timeActs}>
-            <button
-              type="button"
-              className={styles.timeClear}
-              onClick={() => {
-                onChange('')
-                setOpen(false)
-              }}
-            >
-              清除
-            </button>
-            <button
-              type="button"
-              className={styles.timeOk}
-              onClick={() => {
-                onChange(`${hh}:${mm}`)
-                setOpen(false)
-              }}
-            >
-              确定
-            </button>
+        <div className={styles.timeMask} onMouseDown={() => setOpen(false)}>
+          <div
+            className={styles.timeSheet}
+            role="dialog"
+            aria-label="选择时间"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className={styles.timeSheetHead}>
+              <span className={styles.timeSheetTitle}>选择时间</span>
+              <span className={styles.timeSheetNote}>点遮罩取消</span>
+            </div>
+            <div className={styles.timeTypes}>
+              {TIME_TYPES.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  className={`${styles.timeChip} ${lt === t.id ? styles.timeChipOn : ''} ${lt === t.id && t.id === 'at' ? styles.timeChipOnAt : ''}`}
+                  aria-pressed={lt === t.id}
+                  onClick={() => setLt(t.id)}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <div className={styles.timeBigWrap}>
+              <span className={`${styles.timeBig} ${lt === 'at' ? styles.timeBigAt : ''}`}>
+                {`${hh}:${mm}`}
+              </span>
+            </div>
+            <div className={styles.timeWheels}>
+              <Wheel values={HOURS} value={hh} onChange={setHh} ariaLabel="时" />
+              <span className={styles.timeColon}>:</span>
+              <Wheel values={MINUTES} value={mm} onChange={setMm} ariaLabel="分" />
+            </div>
+            <div className={styles.timeActs}>
+              <button
+                type="button"
+                className={styles.timeClear}
+                onClick={() => {
+                  onChange('')
+                  onTypeChange(type)
+                  setOpen(false)
+                }}
+              >
+                清除
+              </button>
+              <button
+                type="button"
+                className={styles.timeOk}
+                onClick={() => {
+                  onChange(`${hh}:${mm}`)
+                  onTypeChange(lt)
+                  setOpen(false)
+                }}
+              >
+                确定
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -385,6 +481,8 @@ function TodoEdit({ todo, onDone }: { todo: TodoRecord; onDone: () => void }): J
   const [ddl, setDdl] = useState(todo.deadline ?? '')
   // v9.2.2：具体时间（可选）
   const [tm, setTm] = useState(todo.time ?? '')
+  // v9.2.3：时间语义。老数据无 timeType → 有截止日按「截止」、无截止日按「提醒」推导
+  const [tp, setTp] = useState<'due' | 'at'>(todo.timeType ?? (todo.deadline ? 'due' : 'at'))
   const done = useRef(false)
   // v8.55：blur 保存改为延迟一帧判断——焦点若转移到表单内（截止行的「今天/自定义」），
   // 说明用户正在改截止日，**不保存不关闭**，否则 date input 会被卸载、系统选择器弹不出来。
@@ -401,9 +499,11 @@ function TodoEdit({ todo, onDone }: { todo: TodoRecord; onDone: () => void }): J
       // v8.53：截止日变化（设/改/清）一并保存
       const next = ddl || null
       if (next !== (todo.deadline ?? null)) void updateTodoDeadline(todo.id, next)
-      // v9.2.2：具体时间变化（设/改/清）一并保存
+      // v9.2.2：具体时间变化（设/改/清）一并保存；v9.2.3 type 变化也一并提交
       const ntm = tm || null
-      if (ntm !== (todo.time ?? null)) void updateTodoTime(todo.id, ntm)
+      // 推导基准：老数据无 timeType 时按 deadline 有无推导；编辑后以当前 tp 为准
+      const baseTp = todo.timeType ?? (todo.deadline ? 'due' : 'at')
+      if (ntm !== (todo.time ?? null) || tp !== baseTp) void updateTodoTime(todo.id, ntm, tp)
     }
     onDone()
   }
@@ -438,7 +538,7 @@ function TodoEdit({ todo, onDone }: { todo: TodoRecord; onDone: () => void }): J
         }}
       />
       <DdlPicker value={ddl} onChange={setDdl} />
-      <TimePicker value={tm} onChange={setTm} />
+      <TimePicker value={tm} type={tp} onTypeChange={setTp} onChange={setTm} />
     </div>
   )
 }

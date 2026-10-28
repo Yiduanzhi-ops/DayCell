@@ -569,6 +569,18 @@ describe('v8.53 活跃 DDL 待办注入（每天出现）', () => {
     expect(left.some((t) => t.text === 'DDL任务' && !t.rolledTo)).toBe(true)
   })
 
+  it('v9.2.3 提醒型（timeType=at）不逐日注入：只在提醒日期当天显示', async () => {
+    // 提醒型待办挂在提醒日（date=deadline=10-25），创建于 10-20
+    await repos.todos.create(k('2026-10-25'), '健身提醒', '2026-10-25', '18:00', undefined, undefined, 'at')
+    // 提醒日前一天：不出现（不同于截止型逐日注入）
+    expect((await agg.aggregateDayDetail(k('2026-10-24'))).todos).toHaveLength(0)
+    // 提醒日当天：本地格子可见
+    expect((await agg.aggregateDayDetail(k('2026-10-25'))).todos.map((t) => t.text)).toContain('健身提醒')
+    // 对比：同日创建的截止型在提醒日前一天仍注入
+    await repos.todos.create(k('2026-10-25'), '交作业', '2026-10-25', '18:00', undefined, undefined, 'due')
+    expect((await agg.aggregateDayDetail(k('2026-10-24'))).todos.map((t) => t.text)).toContain('交作业')
+  })
+
   it('v8.63 子任务「加入今日待办」的待办不参与顺延（当天有效）', async () => {
     // 建子任务待办（v9.2.2 起 create 第 5 参 subtaskId，第 4 参为 time）
     const st = await repos.todos.create(k('2026-10-20'), '背单词', undefined, undefined, 'st-1')

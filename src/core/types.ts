@@ -47,6 +47,11 @@ export interface TodoRecord extends DatedRecord {
   deadline?: DateKey
   /** v9.2.2 具体时间（可选）：'HH:mm'（如 '14:30'）。设了 → 今日视图置顶按时刻排 + 行内时间标签 + 通知文案带时刻 */
   time?: string
+  /** v9.2.3 时间语义（可选，仅随 time 存在时有意义）：
+   *  'due'=截止时刻（配合 deadline，展示「截止 X 14:00」，逾期标红）；
+   *  'at'=提醒/开始时刻（只在提醒日期当天显示，展示「X 14:00 提醒」，过点置灰、不标逾期）。
+   *  老数据无此字段时：有 deadline 按 due 展示，无 deadline 按 at 展示。 */
+  timeType?: 'due' | 'at'
   /**
    * v8.63 子任务来源（可选）：由目标子任务「加入今日待办」生成，text 快照子任务标题。
    * 语义：当天有效（date=加入当天）；可勾选（=当天打卡，联动 subtask.workDates）、
