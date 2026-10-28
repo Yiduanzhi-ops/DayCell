@@ -112,7 +112,8 @@
 /* v9.2.1 AI 导入横幅：待办区块上方独立整行入口（?dev=1 才显示） */
 .aiBanner {
   flex: 0 0 auto;
-  display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%;
+  position: relative;
+  display: flex; align-items: center; gap: 10px; width: 100%;
   padding: 10px 12px;
   border-radius: 14px;
   background: var(--accent-soft);
@@ -126,7 +127,11 @@
   display: grid; place-items: center;
   color: #fff; background: var(--accent-strong);
 }
-.aiBannerTxt { flex: 0 0 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; align-items: center; text-align: center; }
+.aiBannerTxt {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  min-width: 0; max-width: 70%;
+  display: flex; flex-direction: column; gap: 2px; align-items: center; text-align: center;
+}
 .aiBannerMain {
   font-size: 14px; font-weight: 700; color: var(--ink-1);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -135,7 +140,7 @@
   font-size: 11px; color: var(--ink-4);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.aiBannerArrow { flex: 0 0 auto; font-size: 18px; color: var(--accent-strong); font-weight: 300; }
+.aiBannerArrow { flex: 0 0 auto; margin-left: auto; font-size: 18px; color: var(--accent-strong); font-weight: 300; }
 .roll button {
   font-size: 11.5px;
   padding: 4px 11px;
