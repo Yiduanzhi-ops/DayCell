@@ -243,7 +243,7 @@ function TodoForm(): JSX.Element {
       <div className={styles.todoTypeRow} role="radiogroup" aria-label="待办类型">
         <button
           type="button"
-          className={`${styles.todoTypeBtn} ${tp === 'at' ? styles.todoTypeOn : ''} ${tp === 'at' ? styles.todoTypeOnAt : ''}`}
+          className={`${styles.todoTypeBtn} ${tp === 'at' ? styles.todoTypeOn : ''}`}
           aria-pressed={tp === 'at'}
           onClick={() => setTp('at')}
         >
@@ -589,7 +589,7 @@ function TodoEdit({ todo, onDone }: { todo: TodoRecord; onDone: () => void }): J
         </button>
         <button
           type="button"
-          className={`${styles.todoTypeBtn} ${tp === 'at' ? styles.todoTypeOn : ''} ${tp === 'at' ? styles.todoTypeOnAt : ''}`}
+          className={`${styles.todoTypeBtn} ${tp === 'at' ? styles.todoTypeOn : ''}`}
           aria-pressed={tp === 'at'}
           onClick={() => setTp('at')}
         >

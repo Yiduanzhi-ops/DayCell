@@ -160,7 +160,7 @@
 }
 .todoTypeBtn:hover { background: var(--bg-hover); }
 .todoTypeOn { color: var(--accent); background: var(--accent-soft); border-color: var(--accent); font-weight: 600; }
-.todoTypeOnAt { color: #fff; background: #1d8a5f; border-color: #1d8a5f; }
+/* v9.2.10：提醒型选中态与截止型一致（去掉绿色），不再单独着色 */
 /* v9.2.8 时间行改用与日期行同款 ddlRow/ddlChip/ddlDateWrap（见上方 .ddl* 定义）；
    底部 sheet 样式保持不变 */
 /* v9.2.3 底部 sheet：fixed 遮罩（点遮罩=取消）+ 面板贴底；z-index 低于全屏弹层(60) */
