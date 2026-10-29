@@ -8,7 +8,7 @@
  * 存储：repos.settings（localStorage 持久化），切换即时生效（无需重启）。
  * 样式与偏好设置页共用 SettingsView.module.css，保持一致视觉。
  */
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import { isCloudLoggedIn, type PushPrefs } from './cloudbase'
@@ -43,52 +43,65 @@ export function NotificationSettingsView(): JSX.Element {
   const pushEveningTime = useApp((s) => s.pushEveningTime)
   const setPushPrefs = useApp((s) => s.setPushPrefs)
 
-  const [busy, setBusy] = useState(false)
   const [pushError, setPushError] = useState<string | null>(null)
   const pushSupport = getPushSupport()
   const cloudLoggedIn = isCloudLoggedIn()
 
+  /** 待同步的最新意图（快速连点时只保留最后一次，避免请求乱序） */
+  const pendingRef = useRef<PushPrefs | null>(null)
+  const syncingRef = useRef(false)
+
   /**
-   * 应用早/晚偏好变更：先同步云端（授权+上报），成功后写本地。
-   * 云端失败不改本地（开关回弹），并按原因给引导文案。
+   * 应用早/晚偏好变更：先乐观更新本地（点击立即生效），再同步云端。
+   * 云端失败回滚到点击前状态并按原因给引导文案。
    * patch 为部分更新：缺省字段沿用当前 store 值。
    */
   const applyPushPrefs = async (patch: {
     morning?: { enabled?: boolean; time?: string | null }
     evening?: { enabled?: boolean; time?: string | null }
   }) => {
-    if (busy) return
-    setBusy(true)
+    const prev: PushPrefs = {
+      morning: { enabled: pushMorningEnabled, time: pushMorningTime },
+      evening: { enabled: pushEveningEnabled, time: pushEveningTime },
+    }
+    const next: PushPrefs = {
+      morning: {
+        enabled: patch.morning?.enabled ?? prev.morning.enabled,
+        time: patch.morning?.time !== undefined ? patch.morning.time : prev.morning.time,
+      },
+      evening: {
+        enabled: patch.evening?.enabled ?? prev.evening.enabled,
+        time: patch.evening?.time !== undefined ? patch.evening.time : prev.evening.time,
+      },
+    }
+    // 1) 乐观更新：本地立即反映选中/开关（不等云端，点击即有反馈）
+    setPushError(null)
+    await setPushPrefs(next)
+    // 2) 记录最新意图；若已有同步在跑，循环结束后会用这份最新值续传
+    pendingRef.current = next
+    if (syncingRef.current) return
+    syncingRef.current = true
     try {
-      const next: PushPrefs = {
-        morning: {
-          enabled: patch.morning?.enabled ?? pushMorningEnabled,
-          time: patch.morning?.time !== undefined ? patch.morning.time : pushMorningTime,
-        },
-        evening: {
-          enabled: patch.evening?.enabled ?? pushEveningEnabled,
-          time: patch.evening?.time !== undefined ? patch.evening.time : pushEveningTime,
-        },
-      }
-      const res = await syncPushPrefs(next)
-      if (!res.ok) {
-        if (res.loginRequired) {
-          setPushError('需先登录云同步才能开启通知：偏好设置 → 同步设置，用邮箱登录')
-        } else if (res.permissionDenied) {
-          setPushError('通知权限被拒绝，请在浏览器设置中允许本网站的通知后重试')
-        } else {
-          setPushError(res.error ?? '通知设置保存失败')
+      while (pendingRef.current) {
+        const target = pendingRef.current
+        pendingRef.current = null
+        const res = await syncPushPrefs(target)
+        if (!res.ok) {
+          // 云端失败：回滚到点击前状态
+          await setPushPrefs(prev)
+          if (res.loginRequired) {
+            setPushError('需先登录云同步才能开启通知：偏好设置 → 同步设置，用邮箱登录')
+          } else if (res.permissionDenied) {
+            setPushError('通知权限被拒绝，请在浏览器设置中允许本网站的通知后重试')
+          } else {
+            setPushError(res.error ?? '通知设置保存失败')
+          }
+          return
         }
-        return
       }
-      setPushError(null)
-      await setPushPrefs({
-        morning: { enabled: next.morning.enabled, time: next.morning.time },
-        evening: { enabled: next.evening.enabled, time: next.evening.time },
-      })
-      showToast(next.morning.enabled || next.evening.enabled ? '通知已开启' : '通知已关闭')
+      showToast('通知设置已保存')
     } finally {
-      setBusy(false)
+      syncingRef.current = false
     }
   }
 

@@ -76,16 +76,28 @@
   background: var(--bg);
   color: var(--ink-2);
   font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
+  /* 清除 iOS Safari 点击高亮：避免选中态文字被系统蓝色半透明层盖住 */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
 }
 .chip:hover {
   border-color: var(--accent, #2e4ba6);
   color: var(--accent, #2e4ba6);
 }
+.chip:active {
+  transform: scale(0.97);
+}
 .chipOn {
   border-color: var(--accent, #2e4ba6);
   background: var(--accent, #2e4ba6);
+  color: #fff;
+  font-weight: 600;
+}
+.chipOn:hover {
   color: #fff;
 }
 

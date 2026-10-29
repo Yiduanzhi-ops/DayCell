@@ -307,59 +307,29 @@ async function pushSubscribe(event, uid) {
   const db = getApp().rdb();
   const now = new Date();
   try {
-    const existing = await db
+    // upsert（POST + on_conflict）绕开 PATCH 401：PostgREST 环境下 PATCH 被网关拒绝
+    //（实测 GET 200 / POST 201 / PATCH 401），改用 onConflict=(user_id,endpoint) 一次写入。
+    const row = {
+      user_id: uid,
+      endpoint,
+      p256dh,
+      auth,
+      morning_enabled: !!morning.enabled,
+      morning_time: morningTime,
+      evening_enabled: !!evening.enabled,
+      evening_time: eveningTime,
+      timezone,
+      updated_at: now,
+    };
+    const res = await db
       .from('daycell_push_subscriptions')
-      .select('id')
-      .eq('user_id', uid)
-      .eq('endpoint', endpoint)
-      .limit(1);
-    if (existing.data && existing.data[0]) {
-      await db
-        .from('daycell_push_subscriptions')
-        .update({
-          p256dh,
-          auth,
-          morning_enabled: !!morning.enabled,
-          morning_time: morningTime,
-          evening_enabled: !!evening.enabled,
-          evening_time: eveningTime,
-          timezone,
-          updated_at: now,
-        })
-        .eq('user_id', uid)
-        .eq('endpoint', endpoint);
-    } else {
-      const ins = await db
-        .from('daycell_push_subscriptions')
-        .insert({
-          user_id: uid,
-          endpoint,
-          p256dh,
-          auth,
-          morning_enabled: !!morning.enabled,
-          morning_time: morningTime,
-          evening_enabled: !!evening.enabled,
-          evening_time: eveningTime,
-          timezone,
-          updated_at: now,
-        });
-      if (ins.error) {
-        // 并发唯一冲突（同 endpoint 双端同时写）→ 兜底走 update
-        await db
-          .from('daycell_push_subscriptions')
-          .update({
-            p256dh,
-            auth,
-            morning_enabled: !!morning.enabled,
-            morning_time: morningTime,
-            evening_enabled: !!evening.enabled,
-            evening_time: eveningTime,
-            timezone,
-            updated_at: now,
-          })
-          .eq('user_id', uid)
-          .eq('endpoint', endpoint);
-      }
+      .upsert(row, { onConflict: 'user_id,endpoint' });
+    if (res.error) {
+      return json(500, {
+        ok: false,
+        error: 'db_write_failed',
+        detail: String((res.error && res.error.message) || res.error),
+      });
     }
     return json(200, { ok: true, savedAt: now.toISOString() });
   } catch (e) {
