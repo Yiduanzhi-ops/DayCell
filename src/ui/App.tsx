@@ -6,7 +6,7 @@
  *  - 手机 <900px：三视图各自全屏，非日视图时日详情 display:none
  * JS 只在**导航行为**上分叉（点格子是"切右栏"还是"跳日视图"），见 store.selectFromCalendar。
  */
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import type { JSX } from 'react'
 import type { StoreApi } from 'zustand'
 import type { AppState } from '@/app/store'
@@ -14,7 +14,7 @@ import { AppStoreContext, useApp } from '@/app/context'
 import { applyTheme } from '@/app/store'
 import { ensureFirstVisitMarks } from './telemetry'
 import { watchKeyboardInset } from './keyboardInset'
-import { ensureSession } from './cloudbase'
+import { ensureSession, isCloudLoggedIn } from './cloudbase'
 import { TopBar } from './TopBar'
 import { TabBar } from './TabBar'
 import { DayView } from './DayView'
@@ -80,27 +80,46 @@ function Shell(): JSX.Element {
   // v8.61 全弹窗键盘适配：visualViewport → --kb-inset，弹窗随键盘顶起
   useEffect(() => watchKeyboardInset(), [])
 
-  // v9.7 默认登录：启动恢复会话；无登录态（且未选过「先本地体验」）→ 打开登录引导页。
-  // 本地体验标记持久化：用户点过「先本地体验」后，下次启动直接进本地模式，不强迫登录。
+  // v9.7 默认登录：启动恢复会话；无登录态时——从未选过「先本地体验」或跳过标记已超 30 天 → 打开登录引导页。
+  // 本地体验标记为时间戳：点跳过时写入当前时间；30 天到期后再次引导（常驻轻提示兜底，见下方 localHint）。
+  const SKIP_WINDOW = 30 * 24 * 3600 * 1000
   useEffect(() => {
     let cancelled = false
     void (async () => {
       const type = await ensureSession()
       if (cancelled) return
       if (type === 'none') {
-        let skip = false
+        let skipTs = 0
         try {
-          skip = localStorage.getItem('daycell_skip_login') === '1'
+          const raw = localStorage.getItem('daycell_skip_login')
+          if (raw) {
+            const n = Number(raw)
+            skipTs = Number.isFinite(n) && n > 0 ? n : 0 // 旧值 '1' 视为已过期
+          }
         } catch {
-          skip = false
+          skipTs = 0
         }
-        if (!skip) openAccount()
+        if (!skipTs || Date.now() - skipTs > SKIP_WINDOW) openAccount()
       }
     })()
     return () => {
       cancelled = true
     }
   }, [])
+
+  // v9.7 本地模式常驻轻提示：未登录时显示「未登录 · 数据仅在本机」，点击进登录页；
+  // 可关闭（本次会话内不显示，下次打开再现）；登录成功后自动隐藏。
+  const [localHint, setLocalHint] = useState(() => {
+    if (isCloudLoggedIn()) return false
+    try {
+      return sessionStorage.getItem('daycell_dismiss_login_hint') !== '1'
+    } catch {
+      return true
+    }
+  })
+  useEffect(() => {
+    if (!accountOpen && isCloudLoggedIn() && localHint) setLocalHint(false)
+  }, [accountOpen, localHint])
 
   // 全局快捷键（S4 / D17·v7）：j/k、←/→ 翻周/月（今天视图 no-op），d/t 回今天、w 周、m 月，
   // Esc 收起表单或返回。输入控件聚焦时跳过（表单里 Enter/Esc 有自己的语义）；IME 组合中跳过，
@@ -149,6 +168,27 @@ function Shell(): JSX.Element {
         </div>
       )}
       <TopBar />
+      {localHint && (
+        <div className={styles.localHint} data-testid="local-hint">
+          <button className={styles.localHintMain} onClick={openAccount}>
+            未登录 · 数据仅在本机
+          </button>
+          <button
+            className={styles.localHintClose}
+            aria-label="关闭提示"
+            onClick={() => {
+              setLocalHint(false)
+              try {
+                sessionStorage.setItem('daycell_dismiss_login_hint', '1')
+              } catch {
+                // 隐私模式写失败：下次打开再显示
+              }
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
       <div className={styles.main}>
         {/* v7.9：目标视图整屏替换日历 + 详情（无日期语义，不渲染 .cal/.detail）。v8.13：想法视图同 */}
         {view === 'goals' ? (

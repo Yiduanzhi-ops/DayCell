@@ -496,7 +496,8 @@ export function AccountSettingsView(): JSX.Element {
               className={styles.localEntry}
               onClick={() => {
                 try {
-                  localStorage.setItem('daycell_skip_login', '1')
+                  // v9.7：记时间戳而非 '1'——30 天到期后重新引导登录
+                  localStorage.setItem('daycell_skip_login', String(Date.now()))
                 } catch {
                   // 隐私模式下写入失败不影响：仅下次启动会再次显示登录引导
                 }

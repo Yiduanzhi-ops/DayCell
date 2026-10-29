@@ -23,6 +23,40 @@
   line-height: 1.5;
 }
 
+/* v9.7 本地模式常驻轻提示：未登录 · 数据仅在本机（可关闭，本次会话内不显示） */
+.localHint {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(60, 60, 67, 0.04);
+  border-bottom: 1px solid rgba(60, 60, 67, 0.08);
+  font-size: 12px;
+  color: #86868b;
+}
+.localHintMain {
+  flex: 0 1 auto;
+  border: 0;
+  background: none;
+  padding: 6px 0;
+  font-size: 12px;
+  color: #86868b;
+  cursor: pointer;
+}
+.localHintMain:hover {
+  color: #007aff;
+}
+.localHintClose {
+  flex: 0 0 auto;
+  border: 0;
+  background: none;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #a1a1a6;
+  cursor: pointer;
+}
+
 .main {
   flex: 1 1 auto;
   min-height: 0;

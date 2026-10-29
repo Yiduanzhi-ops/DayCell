@@ -36,9 +36,10 @@ const TODAY = '2026-09-29' as DateKey
 async function renderApp() {
   // v7.5：夜间模式读 localStorage，测试间必须清掉，否则上个用例切了 dark 会串场
   localStorage.clear()
-  // v9.7 默认登录：测试场景模拟「已选择本地体验」的用户——启动不弹登录引导页，
-  // 否则每个用例都会先被登录页 overlay 挡住（产品行为：首启未登录默认弹登录引导）。
-  localStorage.setItem('daycell_skip_login', '1')
+  // v9.7 默认登录：测试场景模拟「近期已选择本地体验」的用户——启动不弹登录引导页，
+  // 否则每个用例都会先被登录页 overlay 挡住（产品行为：首启未登录默认弹登录引导；
+  // 跳过标记为时间戳，30 天内不再次引导）。
+  localStorage.setItem('daycell_skip_login', String(Date.now()))
   const bundle = await initCore({
     store: createMemoryStore(),
     skipLunar: true,
@@ -765,5 +766,22 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     expect(screen.getByText('今天 08:00 提醒')).toBeInTheDocument()
     // at 型即使提醒时刻/日期已过：不出现「已逾期」文案（区别于截止型）
     expect(screen.queryByText(/已逾期/)).not.toBeInTheDocument()
+  })
+
+  it('v9.7 本地模式常驻轻提示：显示「未登录」→ 点击打开登录页 → 关闭后本会话不再显示', async () => {
+    await renderApp()
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
+    // 本地模式（测试 renderApp 模拟「近期跳过」且无登录态）→ 提示条常驻
+    const hint = screen.getByTestId('local-hint')
+    expect(hint.textContent).toContain('未登录 · 数据仅在本机')
+    // 点击主按钮 → 打开账号/登录页
+    fireEvent.click(screen.getByText('未登录 · 数据仅在本机'))
+    await waitFor(() => expect(document.body.textContent).toContain('验证码'))
+    // 关闭登录页（页内「← 返回」）
+    fireEvent.click(screen.getAllByText('← 返回')[0])
+    // 关闭提示条（提示条自身 ✕）→ 本次会话不再显示；localStorage 不写标记（下次打开仍出现）
+    fireEvent.click(screen.getByText('✕'))
+    expect(screen.queryByTestId('local-hint')).not.toBeInTheDocument()
+    expect(sessionStorage.getItem('daycell_dismiss_login_hint')).toBe('1')
   })
 })

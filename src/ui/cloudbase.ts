@@ -41,8 +41,17 @@ export async function getAccessToken(): Promise<string | null> {
 /** 是否已有云会话（邮箱或匿名都算；同步判断，启动用）。
  *  CloudBase 登录态持久在 localStorage（key=`user_info_${envId}`），同步可用。 */
 export function isCloudLoggedIn(): boolean {
+  // v9.7：会话真实键是 credentials_<envId>（含 access_token）；user_info 只是用户资料缓存，
+  // 登出/会话失效时可能残留——以 credentials 为准，与 ensureSession 恢复逻辑一致。
   try {
-    return localStorage.getItem(`user_info_${CLOUD_ENV}`) != null
+    const raw = localStorage.getItem(`credentials_${CLOUD_ENV}`)
+    if (!raw) return false
+    try {
+      const o = JSON.parse(raw) as { access_token?: unknown }
+      return typeof o.access_token === 'string' && o.access_token.length > 0
+    } catch {
+      return false
+    }
   } catch {
     return false
   }
