@@ -88,6 +88,24 @@ export function AccountSettingsView(): JSX.Element {
   })
   const otpRefs = useRef<Array<HTMLInputElement | null>>([])
 
+  // v9.7 第 3 步：拉云端备份状态 + 会员状态（两处复用：恢复会话 / 登录成功）
+  const refreshCloudState = async (token: string): Promise<void> => {
+    const s = await fetchSyncStatus(token)
+    if (s.ok && s.status) {
+      setCloudStatus(s.status)
+    } else if (s.error) {
+      setStatusErr(s.error)
+    }
+    const m = await fetchMember(token)
+    if (m.ok) {
+      setMemberInfo({
+        member: m.member ?? false,
+        memberExpiresAt: m.memberExpiresAt ?? null,
+        deviceLimit: m.deviceLimit ?? 1,
+      })
+    }
+  }
+
   // v9.1：刷新后恢复登录态（auth 会话持久在 localStorage）；已登录则激活自动同步。
   // v9.2：getLoginState() 可能残留 uid 但 accessToken 已失效，须异步验证 token 真实可拿才显示「已恢复」。
   // v9.6：区分邮箱（done）与匿名（anon）会话；无会话则尝试匿名登录（A2）。
@@ -105,21 +123,7 @@ export function AccountSettingsView(): JSX.Element {
           setLogin({ phase: 'done', email: '（会话已恢复）' })
           setCloudSyncEnabled(true)
           // 拉云端备份状态（失败不阻塞，展示区会显示缺省文案）
-          const s = await fetchSyncStatus(token)
-          if (s.ok && s.status) {
-            setCloudStatus(s.status)
-          } else if (s.error) {
-            setStatusErr(s.error)
-          }
-          // v9.7 第 3 步：会员状态（member / 到期 / 设备上限）
-          const m = await fetchMember(token)
-          if (m.ok) {
-            setMemberInfo({
-              member: m.member ?? false,
-              memberExpiresAt: m.memberExpiresAt ?? null,
-              deviceLimit: m.deviceLimit ?? 1,
-            })
-          }
+          await refreshCloudState(token)
         }
       } else if (type === 'anonymous') {
         // 历史匿名会话（v9.6 及以前创建）：归入本地体验态展示，不创建新匿名会话
@@ -176,6 +180,9 @@ export function AccountSettingsView(): JSX.Element {
         uid: typeof state === 'string' ? state : (state as { uid?: string })?.uid,
       })
       setCloudSyncEnabled(true)
+      // v9.7 第 3 步：登录成功同样拉云端状态与会员（否则会员区一直「获取中」）
+      const tk = await getAccessToken()
+      if (tk) await refreshCloudState(tk)
     } catch (e) {
       setVerifyErr(cleanErr(e instanceof Error ? e.message : String(e)))
     } finally {
