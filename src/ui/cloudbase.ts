@@ -8,8 +8,9 @@
  */
 import cloudbase from '@cloudbase/js-sdk'
 
-export const API_BASE =
-  'https://coding-daycell-d3g1vgq8g521cb2a6.service.tcloudbase.com/daycell-api'
+export const API_BASE = import.meta.env.DEV
+  ? '/daycell-api'
+  : 'https://coding-daycell-d3g1vgq8g521cb2a6.service.tcloudbase.com/daycell-api'
 
 /** CloudBase 环境 ID（来自 cloudbaserc.json / 控制台） */
 export const CLOUD_ENV = 'coding-daycell-d3g1vgq8g521cb2a6'

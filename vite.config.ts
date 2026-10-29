@@ -96,5 +96,14 @@ export default defineConfig({
     host: '127.0.0.1',
     port: 5188,
     strictPort: true,
+    // v9.5 本地调试：dev 下前端以同源 /daycell-api 访问后端，
+    // 由 Vite 代理转发到 CloudBase 网关，绕开安全域名（CORS）白名单限制
+    proxy: {
+      '/daycell-api': {
+        target: 'https://coding-daycell-d3g1vgq8g521cb2a6.service.tcloudbase.com',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
 })

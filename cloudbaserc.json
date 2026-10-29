@@ -26,5 +26,13 @@
       ],
       "description": "DayCell 早间/晚间 Web Push 日报（timer 触发，北京时间每半小时扫档）"
     }
-  ]
+  ],
+  "app": {
+    "serviceName": "daycell-preview2",
+    "framework": "static",
+    "installCommand": "",
+    "buildCommand": "",
+    "outputDir": "./dist",
+    "deployPath": "/"
+  }
 }
