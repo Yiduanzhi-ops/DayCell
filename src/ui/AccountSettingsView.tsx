@@ -5,10 +5,11 @@
  *  1. 账号区：邮箱免密登录（输邮箱 → 邮件验证码 → 登录）；已登录显示账号卡片 + 退出
  *  2. 同步区（登录后）：立即上传 / 从云端恢复（v9 自动同步：启动拉取 + 变更推送）
  *
- * 复用 cloudbase.ts 的 API 与 CloudSyncPanel 的状态机（去掉调试元素：健康检查、/me JSON）。
+ * v9.5 独立登录页：未登录 = 白净全屏登录页（产品 Logo + 大标题 + 自动多端同步卖点 + 六格验证码），
+ * 登录后 = 分组管理页。复用 cloudbase.ts 的 API 与 CloudSyncPanel 的状态机（去掉调试元素）。
  * 旧版 Gitee 同步保留为兼容入口（底部「旧版同步」跳转 SyncSettings）。
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import type { BackupFile } from '@core'
 import { useApp } from '@/app/context'
@@ -19,6 +20,8 @@ import {
   uploadSnapshot,
 } from './cloudbase'
 import styles from './SettingsView.module.css'
+
+const LOGO_URL = `${import.meta.env.BASE_URL}logo.png`
 
 type LoginState =
   | { phase: 'idle' }
@@ -57,9 +60,11 @@ export function AccountSettingsView(): JSX.Element {
   const [login, setLogin] = useState<LoginState>({ phase: 'idle' })
   const [email, setEmail] = useState('')
   const [otp, setOtp] = useState('')
+  const [verifyErr, setVerifyErr] = useState('')
   const [otpData, setOtpData] = useState<OtpData | null>(null)
   const [verifying, setVerifying] = useState(false)
   const [sync, setSync] = useState<SyncState>({ phase: 'idle' })
+  const otpRefs = useRef<Array<HTMLInputElement | null>>([])
 
   // v9.1：刷新后恢复登录态（auth 会话持久在 localStorage）；已登录则激活自动同步。
   // v9.2：getLoginState() 可能残留 uid 但 accessToken 已失效，须异步验证 token 真实可拿才显示「已恢复」。
@@ -93,6 +98,7 @@ export function AccountSettingsView(): JSX.Element {
         return
       }
       setOtpData(res.data)
+      setVerifyErr('')
       setLogin({ phase: 'sent', email: addr })
     } catch (e) {
       setLogin({ phase: 'error', message: cleanErr(e instanceof Error ? e.message : String(e)) })
@@ -101,16 +107,17 @@ export function AccountSettingsView(): JSX.Element {
 
   const onVerify = async (): Promise<void> => {
     const token = otp.trim()
-    if (!token || verifying) return
+    if (token.length < 6 || verifying) return
     setVerifying(true)
+    setVerifyErr('')
     try {
       if (!otpData?.verifyOtp) {
-        setLogin({ phase: 'error', message: '验证回调缺失，请重新发送邮件' })
+        setVerifyErr('验证回调缺失，请重新发送邮件')
         return
       }
       const r = (await otpData.verifyOtp({ token })) as { error?: { message?: string } }
       if (r.error) {
-        setLogin({ phase: 'error', message: cleanErr(r.error.message ?? '验证失败') })
+        setVerifyErr(cleanErr(r.error.message ?? '验证失败'))
         return
       }
       const auth = getCloudApp().auth()
@@ -122,9 +129,26 @@ export function AccountSettingsView(): JSX.Element {
       })
       setCloudSyncEnabled(true)
     } catch (e) {
-      setLogin({ phase: 'error', message: cleanErr(e instanceof Error ? e.message : String(e)) })
+      setVerifyErr(cleanErr(e instanceof Error ? e.message : String(e)))
     } finally {
       setVerifying(false)
+    }
+  }
+
+  const onOtpChange = (i: number, raw: string): void => {
+    const v = raw.replace(/\D/g, '').slice(-1)
+    setOtp((prev) => {
+      const arr = prev.split('')
+      arr[i] = v
+      const next = arr.join('')
+      if (v && i < 5) otpRefs.current[i + 1]?.focus()
+      return next
+    })
+  }
+
+  const onOtpKeyDown = (i: number, e: React.KeyboardEvent<HTMLInputElement>): void => {
+    if (e.key === 'Backspace' && otp[i] === '' && i > 0) {
+      otpRefs.current[i - 1]?.focus()
     }
   }
 
@@ -182,6 +206,7 @@ export function AccountSettingsView(): JSX.Element {
     setLogin({ phase: 'idle' })
     setOtp('')
     setOtpData(null)
+    setVerifyErr('')
     setSync({ phase: 'idle' })
   }
 
@@ -189,6 +214,7 @@ export function AccountSettingsView(): JSX.Element {
     setLogin({ phase: 'idle' })
     setOtp('')
     setOtpData(null)
+    setVerifyErr('')
   }
 
   const onGitee = (): void => {
@@ -196,138 +222,190 @@ export function AccountSettingsView(): JSX.Element {
     openSync()
   }
 
-  return (
-    <div className={styles.overlay}>
-      <div className={styles.page}>
-        <div className={styles.head}>
-          <button className={styles.back} onClick={closeAccount}>
-            ← 返回
-          </button>
-          <h1 className={styles.h1}>账号与同步</h1>
-          <span className={styles.headSpacer} />
-        </div>
+  /* —— 已登录：分组管理页 —— */
+  if (login.phase === 'done') {
+    return (
+      <div className={styles.overlay}>
+        <div className={styles.page}>
+          <div className={styles.head}>
+            <button className={styles.back} onClick={closeAccount}>
+              ← 返回
+            </button>
+            <h1 className={styles.h1}>账号与同步</h1>
+            <span className={styles.headSpacer} />
+          </div>
 
-        <div className={styles.body}>
-          {/* —— 账号区 —— */}
-          <div className={styles.groupTitle}>账号</div>
-          <div className={styles.group}>
-            {login.phase === 'done' ? (
+          <div className={styles.body}>
+            <div className={styles.groupTitle}>账号</div>
+            <div className={styles.group}>
               <div className={styles.accountCard}>
                 <div className={styles.okLine}>✓ 已登录</div>
                 <div className={styles.accountMail}>{login.email}</div>
                 {login.uid && <div className={styles.accountUid}>uid {login.uid.slice(0, 10)}…</div>}
                 <div className={styles.btnRow}>
-                  <button
-                    className={styles.btnDanger}
-                    onClick={() => void onSignOut()}
-                  >
+                  <button className={styles.btnDanger} onClick={() => void onSignOut()}>
                     退出登录
                   </button>
                 </div>
               </div>
-            ) : login.phase === 'sent' ? (
-              <div className={styles.accountForm}>
-                <div className={styles.okLine}>✓ 验证码已发送到 {login.email}</div>
-                <p className={styles.rowDesc}>请查收邮件，把 6 位验证码填到下面（有效期较短，尽快输入）。</p>
-                <input
-                  className={styles.input}
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  placeholder="邮件中的验证码"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                />
-                <div className={styles.btnRow}>
-                  <button
-                    className={styles.btnPrimary}
-                    disabled={otp.trim() === '' || verifying}
-                    onClick={() => void onVerify()}
-                  >
-                    {verifying ? '登录中…' : '验证并登录'}
-                  </button>
-                  <button className={styles.btnGhost} onClick={onReset}>
-                    重发 / 换邮箱
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className={styles.accountForm}>
-                {login.phase === 'error' && (
-                  <div className={styles.errLine}>✗ {login.message}</div>
-                )}
-                <p className={styles.rowDesc}>
-                  登录后可跨设备云同步、使用 AI 智能导入与通知推送。不登录也能正常记账，数据仅保存在本机。
-                </p>
-                <input
-                  className={styles.input}
-                  type="email"
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  placeholder="你的邮箱"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-                <div className={styles.btnRow}>
-                  <button
-                    className={styles.btnPrimary}
-                    disabled={email.trim() === '' || login.phase === 'sending'}
-                    onClick={() => void onSendOtp()}
-                  >
-                    {login.phase === 'sending' ? '发送中…' : '发送验证码邮件'}
-                  </button>
-                </div>
-                <p className={styles.rowDesc}>无需设置密码，换设备只需再次验证邮箱。</p>
-              </div>
-            )}
-          </div>
+            </div>
 
-          {/* —— 同步区（登录后） —— */}
-          {login.phase === 'done' && (
-            <>
-              <div className={styles.groupTitle}>同步</div>
-              <div className={styles.group}>
-                <div className={styles.row}>
-                  <div className={styles.rowText}>
-                    <div className={styles.rowTitle}>云端同步</div>
-                    <div className={styles.rowDesc}>打开 App 自动拉取，改动后自动推送；也可手动操作。</div>
-                  </div>
+            <div className={styles.groupTitle}>同步</div>
+            <div className={styles.group}>
+              <div className={styles.row}>
+                <div className={styles.rowText}>
+                  <div className={styles.rowTitle}>云端同步</div>
+                  <div className={styles.rowDesc}>打开 App 自动拉取，改动后自动推送；也可手动操作。</div>
                 </div>
-                <div className={styles.btnRowPadded}>
-                  <button
-                    className={styles.btnPrimary}
-                    disabled={sync.phase === 'busy'}
-                    onClick={() => void onUpload()}
-                  >
-                    {sync.phase === 'busy' && sync.action === 'upload' ? '上传中…' : '立即上传到云端'}
-                  </button>
-                  <button
-                    className={styles.btnGhost}
-                    disabled={sync.phase === 'busy'}
-                    onClick={() => void onDownload()}
-                  >
-                    {sync.phase === 'busy' && sync.action === 'download' ? '恢复中…' : '从云端恢复'}
-                  </button>
-                </div>
-                {sync.phase === 'ok' && <div className={styles.okLine}>✓ {sync.info}</div>}
-                {sync.phase === 'fail' && <div className={styles.errLine}>✗ {sync.error}</div>}
               </div>
-            </>
-          )}
+              <div className={styles.btnRowPadded}>
+                <button
+                  className={styles.btnPrimary}
+                  disabled={sync.phase === 'busy'}
+                  onClick={() => void onUpload()}
+                >
+                  {sync.phase === 'busy' && sync.action === 'upload' ? '上传中…' : '立即上传到云端'}
+                </button>
+                <button
+                  className={styles.btnGhost}
+                  disabled={sync.phase === 'busy'}
+                  onClick={() => void onDownload()}
+                >
+                  {sync.phase === 'busy' && sync.action === 'download' ? '恢复中…' : '从云端恢复'}
+                </button>
+              </div>
+              {sync.phase === 'ok' && <div className={styles.okLine}>✓ {sync.info}</div>}
+              {sync.phase === 'fail' && <div className={styles.errLine}>✗ {sync.error}</div>}
+            </div>
 
-          {/* —— 兼容区 —— */}
-          <div className={styles.groupTitle}>其他</div>
-          <div className={styles.group}>
-            <button className={styles.row} role="menuitem" onClick={onGitee}>
-              <div className={styles.rowText}>
-                <div className={styles.rowTitle}>旧版同步（Gitee 仓库）</div>
-                <div className={styles.rowDesc}>v8 时代的 Gitee 配置方式，仅老用户兼容使用</div>
-              </div>
-              <span className={styles.chevron}>›</span>
-            </button>
+            <div className={styles.groupTitle}>其他</div>
+            <div className={styles.group}>
+              <button className={styles.row} role="menuitem" onClick={onGitee}>
+                <div className={styles.rowText}>
+                  <div className={styles.rowTitle}>旧版同步（Gitee 仓库）</div>
+                  <div className={styles.rowDesc}>v8 时代的 Gitee 配置方式，仅老用户兼容使用</div>
+                </div>
+                <span className={styles.chevron}>›</span>
+              </button>
+            </div>
           </div>
         </div>
+      </div>
+    )
+  }
+
+  /* —— 未登录：独立登录页 —— */
+  const sending = login.phase === 'sending'
+
+  return (
+    <div className={styles.overlay}>
+      <div className={styles.authPage}>
+        <button className={styles.authBack} onClick={closeAccount}>
+          ← 返回
+        </button>
+
+        {login.phase === 'sent' ? (
+          /* —— 验证码页 —— */
+          <div className={styles.authInner}>
+            <div className={styles.authLogo}>
+              <img src={LOGO_URL} alt="" aria-hidden="true" />
+            </div>
+            <h1 className={styles.authTitle}>输入验证码</h1>
+            <p className={styles.authSub}>
+              验证码已发送至
+              <br />
+              <b>{login.email}</b>
+            </p>
+            {verifyErr && <div className={styles.authErr}>{verifyErr}</div>}
+            <div className={styles.otpRow}>
+              {Array.from({ length: 6 }, (_, i) => (
+                <input
+                  key={i}
+                  ref={(el) => {
+                    otpRefs.current[i] = el
+                  }}
+                  className={styles.otpCell}
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete={i === 0 ? 'one-time-code' : 'off'}
+                  maxLength={1}
+                  value={otp[i] ?? ''}
+                  onChange={(e) => onOtpChange(i, e.target.value)}
+                  onKeyDown={(e) => onOtpKeyDown(i, e)}
+                />
+              ))}
+            </div>
+            <button
+              className={styles.authPrimary}
+              disabled={otp.length < 6 || verifying}
+              onClick={() => void onVerify()}
+            >
+              {verifying ? '登录中…' : '登录'}
+            </button>
+            <p className={styles.otpActions}>
+              没收到？
+              <button
+                onClick={() => {
+                  setEmail(login.email)
+                  void onSendOtp()
+                }}
+                disabled={sending}
+              >
+                {sending ? '重新发送中…' : '重新发送'}
+              </button>
+            </p>
+            <p className={styles.otpBack}>
+              <button onClick={onReset}>换一个邮箱</button>
+            </p>
+            <p className={styles.authPrivacy}>验证码 10 分钟内有效 · 登录后自动多端同步</p>
+          </div>
+        ) : (
+          /* —— 邮箱登录页 —— */
+          <div className={styles.authInner}>
+            <div className={styles.authLogo}>
+              <img src={LOGO_URL} alt="" aria-hidden="true" />
+            </div>
+            <h1 className={styles.authTitle}>登录 DayCell</h1>
+            <p className={styles.authSub}>
+              登录后<b>自动多端同步</b>，换设备数据不丢。
+              <br />
+              还可使用 <b>AI 智能导入</b>与<b>通知推送</b>。
+              <br />
+              不登录也能正常记账，数据仅保存在本机。
+            </p>
+            {login.phase === 'error' && <div className={styles.authErr}>{login.message}</div>}
+            <label className={styles.authField}>
+              <input
+                type="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                autoComplete="email"
+                placeholder="name@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && email.trim() !== '' && !sending) void onSendOtp()
+                }}
+              />
+            </label>
+            <button
+              className={styles.authPrimary}
+              disabled={email.trim() === '' || sending}
+              onClick={() => void onSendOtp()}
+            >
+              {sending ? '发送中…' : '获取验证码'}
+            </button>
+            <p className={styles.authHint}>
+              验证码会发送到你的邮箱，<b>10 分钟内有效</b>。无需设置密码。
+            </p>
+            <p className={styles.authPrivacy}>
+              数据同步与存储由腾讯云 CloudBase 提供
+              <br />
+              你的数据仅用于 DayCell 账号服务
+            </p>
+          </div>
+        )}
       </div>
     </div>
   )

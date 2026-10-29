@@ -284,3 +284,180 @@ button.row:hover { background: var(--bg-hover); }
   font-size: 13px;
   color: #c0392b;
 }
+
+/* ===== v9.5 独立登录页（白净背景 + 产品 Logo + 六格验证码） ===== */
+.authPage {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  padding: 46px 30px 32px;
+  overflow-y: auto;
+  color: #1d1d1f;
+}
+.authBack {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  background: none;
+  border: none;
+  color: #0071e3;
+  font-size: 16px;
+  padding: 10px 14px;
+  cursor: pointer;
+  border-radius: 8px;
+}
+.authBack:active { opacity: 0.5; }
+.authInner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-width: 340px;
+  margin: 0 auto;
+  width: 100%;
+}
+.authLogo {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  margin: 0 auto 22px;
+  box-shadow: 0 8px 22px rgba(0, 113, 227, 0.18);
+  overflow: hidden;
+}
+.authLogo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.authTitle {
+  text-align: center;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+  color: #1d1d1f;
+}
+.authSub {
+  text-align: center;
+  font-size: 14.5px;
+  color: #6e6e73;
+  margin: 0 0 30px;
+  line-height: 1.65;
+}
+.authSub b { color: #1d1d1f; font-weight: 600; }
+.authErr {
+  background: rgba(192, 57, 43, 0.08);
+  color: #c0392b;
+  font-size: 13px;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+.authField {
+  background: #fff;
+  border-radius: 14px;
+  padding: 0 16px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.authField input {
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 17px;
+  width: 100%;
+  outline: none;
+  color: #1d1d1f;
+}
+.authField input::placeholder { color: #aeaeb2; }
+.authField:focus-within {
+  border-color: #0071e3;
+  box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.14);
+}
+.authPrimary {
+  width: 100%;
+  height: 52px;
+  background: #0071e3;
+  color: #fff;
+  border: none;
+  border-radius: 14px;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 16px;
+  transition: transform 0.12s ease, background 0.15s ease;
+}
+.authPrimary:active { transform: scale(0.97); }
+.authPrimary:disabled { opacity: 0.45; cursor: default; }
+.authHint {
+  font-size: 13px;
+  color: #6e6e73;
+  margin-top: 18px;
+  text-align: center;
+  line-height: 1.6;
+}
+.authPrivacy {
+  margin-top: 28px;
+  font-size: 11.5px;
+  color: #8e8e93;
+  text-align: center;
+  line-height: 1.6;
+}
+.otpRow {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+.otpCell {
+  width: calc((100% - 50px) / 6);
+  height: 56px;
+  text-align: center;
+  font-size: 26px;
+  font-weight: 600;
+  border: none;
+  border-radius: 12px;
+  background: #f2f2f7;
+  outline: none;
+  color: #1d1d1f;
+  transition: box-shadow 0.15s ease, background 0.15s ease;
+}
+.otpCell:focus {
+  box-shadow: 0 0 0 2px #0071e3;
+  background: #fff;
+}
+.otpActions {
+  margin-top: 18px;
+  text-align: center;
+  font-size: 15px;
+  color: #6e6e73;
+}
+.otpActions button {
+  background: none;
+  border: none;
+  color: #0071e3;
+  font: inherit;
+  cursor: pointer;
+  padding: 6px 10px;
+}
+.otpBack {
+  margin-top: 4px;
+  text-align: center;
+  font-size: 12.5px;
+  color: #8e8e93;
+}
+.otpBack button {
+  background: none;
+  border: none;
+  color: #0071e3;
+  font: inherit;
+  cursor: pointer;
+  padding: 4px 8px;
+}
