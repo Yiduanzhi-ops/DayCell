@@ -62,7 +62,12 @@ export function AIImportView(): JSX.Element {
   const [editing, setEditing] = useState<string | null>(null)
   const [editingVal, setEditingVal] = useState('')
   const [listening, setListening] = useState(false)
+  /** 录音已进行秒数（实时反馈，用户边说边看） */
+  const [recSec, setRecSec] = useState(0)
+  /** 本次导入是否语音发起（loading 文案区分） */
+  const [viaVoice, setViaVoice] = useState(false)
   const recordRef = useRef<VoiceRecordHandle | null>(null)
+  const recTimer = useRef<number | null>(null)
 
   const canSpeech = speechSupported()
 
@@ -240,6 +245,7 @@ export function AIImportView(): JSX.Element {
         return
       }
       setListening(false)
+      if (recTimer.current) window.clearInterval(recTimer.current)
       const token = await getAccessToken()
       if (!token) {
         setErr('需要先登录才能使用（主菜单 → 账号与同步）')
@@ -264,13 +270,21 @@ export function AIImportView(): JSX.Element {
     try {
       const rec = startVoiceRecord(30)
       recordRef.current = rec
+      setViaVoice(true)
+      setRecSec(0)
       setListening(true)
+      // 录音时长实时反馈
+      const started = Date.now()
+      recTimer.current = window.setInterval(() => {
+        setRecSec(Math.min(30, Math.floor((Date.now() - started) / 1000)))
+      }, 1000)
     } catch {
       setErr('无法访问麦克风，请检查浏览器权限')
     }
   }
 
   const close = (): void => {
+    if (recTimer.current) window.clearInterval(recTimer.current)
     recordRef.current?.cancel()
     setAiOpen(false)
   }
@@ -324,7 +338,7 @@ export function AIImportView(): JSX.Element {
                     <path d="M5 11a7 7 0 0 0 14 0" />
                     <path d="M12 18v3.5" />
                   </svg>
-                  {listening ? '录音中…（30 秒内）点一下结束' : '语音'}
+                  {listening ? `录音中 ${recSec}s（30 秒内）点一下结束` : '语音'}
                 </button>
               )}
               <button
@@ -344,7 +358,7 @@ export function AIImportView(): JSX.Element {
         {phase === 'analyzing' && (
           <div className={styles.loading} data-testid="ai-loading">
             <div className={styles.spinner} aria-hidden="true" />
-            <p>AI 正在整理…</p>
+            <p>{viaVoice ? '正在识别语音…' : 'AI 正在整理…'}</p>
             <p className={styles.loadingSub}>识别待办 / 习惯 / 想法 / 目标</p>
           </div>
         )}

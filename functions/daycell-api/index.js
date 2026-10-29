@@ -382,14 +382,20 @@ function buildImportPrompt(text, today) {
 }
 
 // v9.7 语音输入：腾讯云 ASR 一句话识别（短语音 ≤60s）。
-// 密钥优先级：① 云函数运行角色注入的 SCF 临时密钥（TENCENTCLOUD_SECRETID/KEY/SESSIONTOKEN，需在控制台给函数绑角色并授权 QcloudASR 权限）
-//             ② 环境变量 TENCENT_ASR_SECRET_ID / TENCENT_ASR_SECRET_KEY（用户手动在控制台配置，永久密钥）
+// 密钥优先级：① 环境变量 TENCENT_ASR_SECRET_ID / TENCENT_ASR_SECRET_KEY（控制台配置的永久密钥，
+//              本地实测有 ASR 权限——优先使用）；
+//             ② 云函数运行角色注入的 SCF 临时密钥（TENCENTCLOUD_SECRETID/KEY/SESSIONTOKEN，
+//              需在控制台给函数绑角色并授权 QcloudASR 权限，否则报 not authorized）。
 // 都不存在时返回 null → 接口 503 asr_not_configured。
 function getAsrClient() {
-  const secretId =
-    process.env.TENCENTCLOUD_SECRETID || process.env.TENCENT_ASR_SECRET_ID || '';
-  const secretKey =
-    process.env.TENCENTCLOUD_SECRETKEY || process.env.TENCENT_ASR_SECRET_KEY || '';
+  const permanent =
+    process.env.TENCENT_ASR_SECRET_ID && process.env.TENCENT_ASR_SECRET_KEY;
+  const secretId = permanent
+    ? process.env.TENCENT_ASR_SECRET_ID
+    : process.env.TENCENTCLOUD_SECRETID || '';
+  const secretKey = permanent
+    ? process.env.TENCENT_ASR_SECRET_KEY
+    : process.env.TENCENTCLOUD_SECRETKEY || '';
   if (!secretId || !secretKey) return null;
   try {
     const AsrClient = tencentcloud.asr.v20190614.Client;
@@ -397,7 +403,7 @@ function getAsrClient() {
       credential: {
         secretId,
         secretKey,
-        token: process.env.TENCENTCLOUD_SESSIONTOKEN || undefined,
+        token: permanent ? undefined : process.env.TENCENTCLOUD_SESSIONTOKEN,
       },
       region: 'ap-shanghai',
       profile: {

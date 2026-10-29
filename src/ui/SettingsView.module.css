@@ -502,6 +502,21 @@ button.row:hover { background: var(--bg-hover); }
 .localEntry:active {
   color: #1d1d1f;
 }
+.devFill {
+  margin-top: 10px;
+  background: none;
+  border: 1px dashed #c7c7cc;
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 13px;
+  color: #6e6e73;
+  cursor: pointer;
+  width: 100%;
+}
+.devFill:active {
+  background: #f5f5f7;
+  color: #1d1d1f;
+}
 .otpRow {
   display: flex;
   gap: 10px;

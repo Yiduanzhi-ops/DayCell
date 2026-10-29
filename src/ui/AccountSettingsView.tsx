@@ -593,6 +593,13 @@ export function AccountSettingsView(): JSX.Element {
             >
               {sending ? '发送中…' : '获取验证码'}
             </button>
+            <button
+              type="button"
+              className={styles.devFill}
+              onClick={() => setEmail('18804475608@163.com')}
+            >
+              开发者测试：一键填入账号 18804475608@163.com
+            </button>
             <p className={styles.authHint}>
               验证码会发送到你的邮箱，<b>10 分钟内有效</b>。
             </p>
