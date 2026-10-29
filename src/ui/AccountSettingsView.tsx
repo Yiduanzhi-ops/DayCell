@@ -322,13 +322,13 @@ export function AccountSettingsView(): JSX.Element {
             </div>
             <h1 className={styles.authTitle}>匿名使用中</h1>
             <p className={styles.authSub}>
-              数据保存在本机与云端匿名空间，换设备或清除浏览器数据后将无法找回。登录邮箱后，数据会自动升级到你的账号并开始多端同步。
+              数据仅保存在本机，未开启云备份。登录邮箱后自动开启云同步，数据备份到云端、换设备不丢。
             </p>
             <button className={styles.authPrimary} onClick={() => setLogin({ phase: 'idle' })}>
               升级为邮箱登录
             </button>
             <p className={styles.authHint}>
-              邮箱登录后可跨设备云同步、使用 AI 智能导入与通知推送。
+              邮箱登录免费，解锁云同步、AI 智能导入与通知推送。
             </p>
             <p className={styles.authPrivacy}>
               匿名身份由腾讯云 CloudBase 提供
