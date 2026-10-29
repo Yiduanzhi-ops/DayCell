@@ -8,9 +8,9 @@
  * 「今天」按钮只在选中日 ≠ 今天时出现（US-09）。
  * 翻页箭头在今天视图下由 CSS 隐藏——v7 起日视图不翻日（D19），行为层 shift() 也是 no-op。
  *
- * ## v7.5 右上角菜单（手机端同位置）——菜单项顺序（用户拍板，v8.3 加「分享与手册」（v8.6 更名「使用手册」）、v8.4 加「版本更新」并移除「关于」占位）：
- * 导出备份 → 导入备份 → 一键导出 MD（点开弹本周/本月）→ 特殊日设置
- * → 习惯设置（v8.0）→ 同步设置（v8.1）→ 分隔线
+ * ## v7.5 右上角菜单（手机端同位置）——菜单项顺序（用户拍板，v8.3 加「分享与手册」（v8.6 更名「使用手册」）、v8.4 加「版本更新」并移除「关于」占位、v9.5「账号与同步」置顶）：
+ * 账号与同步（v9.5，置顶）→ 导出备份 → 导入备份 → 一键导出 MD（点开弹本周/本月）→ 特殊日设置
+ * → 习惯设置（v8.0）→ 偏好设置（v8.63 更名）→ 通知设置（v9.3）→ 分隔线
  * → 使用手册（v8.3 分享与手册 → v8.6 更名）→ 版本更新（v8.4）→ 夜间模式（手动开关，最下面）
  * 菜单按钮（v8.4 起）：浅色圆角按钮 + 三横汉堡图标（原先的省略号太小不显眼）。
  * 导入走隐藏 <input type=file>；MD 二级菜单返回上级。
@@ -123,6 +123,16 @@ export function TopBar(): JSX.Element {
                   role="menuitem"
                   onClick={() => {
                     closeMenu()
+                    openAccount()
+                  }}
+                >
+                  账号与同步
+                </button>
+                <button
+                  className={styles.mi}
+                  role="menuitem"
+                  onClick={() => {
+                    closeMenu()
                     void exportBackup()
                   }}
                 >
@@ -153,16 +163,6 @@ export function TopBar(): JSX.Element {
                   }}
                 >
                   习惯设置
-                </button>
-                <button
-                  className={styles.mi}
-                  role="menuitem"
-                  onClick={() => {
-                    closeMenu()
-                    openAccount()
-                  }}
-                >
-                  账号与同步
                 </button>
                 <button
                   className={styles.mi}
