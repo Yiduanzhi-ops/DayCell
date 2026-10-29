@@ -3,6 +3,7 @@
   "version": "0.2.0",
   "private": true,
   "dependencies": {
-    "@cloudbase/node-sdk": "^3.9.1"
+    "@cloudbase/node-sdk": "^3.9.1",
+    "tencentcloud-sdk-nodejs": "^4.1.335"
   }
 }

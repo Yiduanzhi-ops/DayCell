@@ -3,6 +3,7 @@
 //       → 网关通过 HTTP 头注入调用者身份（x-userid，/me 实测确认）→ 云函数用 uid 存取快照
 // 安全底线：user_id 一律取自网关注入的登录身份，绝不接受请求方自报
 const cloudbase = require('@cloudbase/node-sdk');
+const tencentcloud = require('tencentcloud-sdk-nodejs');
 
 let app = null;
 function getApp() {
@@ -371,14 +372,72 @@ function buildImportPrompt(text, today) {
   };
 }
 
+// v9.7 语音输入：腾讯云 ASR 一句话识别（短语音 ≤60s）。
+// 密钥优先级：① 云函数运行角色注入的 SCF 临时密钥（TENCENTCLOUD_SECRETID/KEY/SESSIONTOKEN，需在控制台给函数绑角色并授权 QcloudASR 权限）
+//             ② 环境变量 TENCENT_ASR_SECRET_ID / TENCENT_ASR_SECRET_KEY（用户手动在控制台配置，永久密钥）
+// 都不存在时返回 null → 接口 503 asr_not_configured。
+function getAsrClient() {
+  const secretId =
+    process.env.TENCENTCLOUD_SECRETID || process.env.TENCENT_ASR_SECRET_ID || '';
+  const secretKey =
+    process.env.TENCENTCLOUD_SECRETKEY || process.env.TENCENT_ASR_SECRET_KEY || '';
+  if (!secretId || !secretKey) return null;
+  try {
+    const AsrClient = tencentcloud.asr.v20190614.Client;
+    const client = new AsrClient({
+      credential: {
+        secretId,
+        secretKey,
+        token: process.env.TENCENTCLOUD_SESSIONTOKEN || undefined,
+      },
+      region: 'ap-shanghai',
+      profile: {
+        httpProfile: { endpoint: 'asr.tencentcloudapi.com', reqTimeout: 20 },
+      },
+    });
+    return client;
+  } catch (e) {
+    console.error('[asr] client init failed:', (e && e.message) || e);
+    return null;
+  }
+}
+
+// 一句话识别：base64 音频（16kHz 单声道 WAV 最佳）→ 文本。失败 throw。
+async function asrSentence(base64Audio, format) {
+  const client = getAsrClient();
+  if (!client) {
+    const err = new Error('asr_not_configured');
+    err.code = 'asr_not_configured';
+    throw err;
+  }
+  const resp = await client.SentenceRecognition({
+    ProjectId: 0,
+    SubServiceType: 2, // 一句话识别
+    EngSerViceType: '16k_zh',
+    SourceType: 1, // 1 = Data 里直接传语音数据
+    VoiceFormat: format || 'wav',
+    Data: base64Audio,
+  });
+  const text = resp && resp.Result ? String(resp.Result).trim() : '';
+  if (!text) {
+    const err = new Error('asr_empty_result');
+    err.code = 'asr_empty_result';
+    throw err;
+  }
+  return text;
+}
+
 async function aiImport(event, uid) {
   const body = parseBody(event);
   const text = (body.text || '').toString().trim();
+  // v9.7 语音：body.audio = base64 音频，body.format = 'wav'（默认）；有 audio 则先 ASR 转文本再分类
+  const audio = (body.audio || '').toString().trim();
+  const audioFormat = (body.format || 'wav').toString().toLowerCase();
   const todayKey = /^\d{4}-\d{2}-\d{2}$/.test(body.today || '') ? body.today : chinaDateKey();
   const apiKey = process.env.DEEPSEEK_API_KEY;
   const db = getApp().rdb();
 
-  if (!text) return json(400, { ok: false, error: 'text_required' });
+  if (!text && !audio) return json(400, { ok: false, error: 'text_required' });
   if (!apiKey) return json(503, { ok: false, error: 'ai_not_configured', detail: 'DEEPSEEK_API_KEY 未配置' });
 
   // v9.7 配额：会员按天（MEMBER_AI_DAILY_LIMIT），非会员按累计总额（FREE_AI_TOTAL_LIMIT）。
@@ -405,6 +464,25 @@ async function aiImport(event, uid) {
     });
   }
 
+  // v9.7 语音：有 audio 时先 ASR 转文本（失败不消耗配额）
+  let finalText = text;
+  if (audio) {
+    try {
+      finalText = await asrSentence(audio, audioFormat);
+    } catch (e) {
+      if (e && e.code === 'asr_not_configured') {
+        return json(503, {
+          ok: false,
+          error: 'asr_not_configured',
+          detail: '语音识别未配置（云函数需绑定运行角色并授权 ASR，或配置 TENCENT_ASR_SECRET_ID/KEY）',
+        });
+      }
+      console.error('[asr] failed:', (e && e.message) || e);
+      return json(502, { ok: false, error: 'asr_failed', detail: String((e && e.message) || e) });
+    }
+  }
+  if (!finalText) return json(400, { ok: false, error: 'text_required' });
+
   try {
     const resp = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',
@@ -415,8 +493,8 @@ async function aiImport(event, uid) {
       body: JSON.stringify({
         model: AI_MODEL,
         messages: [
-          buildImportPrompt(text, todayKey),
-          { role: 'user', content: text },
+          buildImportPrompt(finalText, todayKey),
+          { role: 'user', content: finalText },
         ],
         response_format: { type: 'json_object' },
         thinking: { type: 'disabled' }, // 非思考模式：省 token、快，结构化抽取足够

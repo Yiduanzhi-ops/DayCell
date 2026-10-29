@@ -7,12 +7,12 @@
  * 配额：由后端返回（非会员试用总额 / 会员每日），前端不写死数字；0 时整理按钮禁用。
  * 设计：语音引擎走 voiceInput.ts 抽象（MVP Web Speech，预留腾讯云 ASR）。
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import type { AiImportResult } from '@/app/store'
 import { aiImport, aiQuota, getAccessToken } from './cloudbase'
-import { speechSupported, transcribeSpeech } from './voiceInput'
+import { speechSupported, startVoiceRecord, type VoiceRecordHandle } from './voiceInput'
 import styles from './AIImportView.module.css'
 
 /** 示例 chips（点击即填入，降低空输入门槛） */
@@ -62,6 +62,7 @@ export function AIImportView(): JSX.Element {
   const [editing, setEditing] = useState<string | null>(null)
   const [editingVal, setEditingVal] = useState('')
   const [listening, setListening] = useState(false)
+  const recordRef = useRef<VoiceRecordHandle | null>(null)
 
   const canSpeech = speechSupported()
 
@@ -159,22 +160,8 @@ export function AIImportView(): JSX.Element {
     setEditing(null)
   }
 
-  /** 整理（调后端） */
-  const onAnalyze = async (): Promise<void> => {
-    if (!text.trim() || phase === 'analyzing') return
-    if (aiRemaining === 0) {
-      setErr('AI 使用次数已用完')
-      return
-    }
-    setErr(null)
-    setPhase('analyzing')
-    const token = await getAccessToken()
-    if (!token) {
-      setErr('需要先登录才能使用（主菜单 → 账号与同步）')
-      setPhase('input')
-      return
-    }
-    const res = await aiImport(token, text.trim(), today)
+  /** 统一处理整理结果（文本导入 / 语音导入共用）：配额、空结果、进预览 */
+  const applyImportResult = (res: Awaited<ReturnType<typeof aiImport>>): void => {
     if (!res.ok) {
       if (res.error === 'ai_quota_exceeded') {
         setAiRemaining(0)
@@ -184,6 +171,8 @@ export function AIImportView(): JSX.Element {
             ? 'AI 试用次数已用完，开通会员可继续使用'
             : '今日 AI 次数已用完，明天再来吧',
         )
+      } else if (res.error === 'asr_not_configured') {
+        setErr('语音识别暂未开通，先用文字输入吧')
       } else {
         setErr(`整理失败：${res.error === 'unauthorized' ? '登录已失效，请重新登录' : (res.error ?? '未知错误')}`)
       }
@@ -200,6 +189,25 @@ export function AIImportView(): JSX.Element {
     setResult(s)
     setUnchecked(new Set())
     setPhase('preview')
+  }
+
+  /** 整理（调后端） */
+  const onAnalyze = async (): Promise<void> => {
+    if (!text.trim() || phase === 'analyzing') return
+    if (aiRemaining === 0) {
+      setErr('AI 使用次数已用完')
+      return
+    }
+    setErr(null)
+    setPhase('analyzing')
+    const token = await getAccessToken()
+    if (!token) {
+      setErr('需要先登录才能使用（主菜单 → 账号与同步）')
+      setPhase('input')
+      return
+    }
+    const res = await aiImport(token, text.trim(), today)
+    applyImportResult(res)
   }
 
   /** 确认导入 */
@@ -222,25 +230,48 @@ export function AIImportView(): JSX.Element {
     }
   }
 
-  /** 语音输入（Web Speech MVP） */
-  const onVoice = async (): Promise<void> => {
-    if (listening) return
-    setListening(true)
+  /** 语音输入（v9.7 腾讯云 ASR：录音 → 停止 → 上传 → 直接出预览，一次请求） */
+  const onVoiceClick = async (): Promise<void> => {
+    if (listening) {
+      // 第二次点击：停止录音并上传
+      const rec = recordRef.current
+      if (!rec) {
+        setListening(false)
+        return
+      }
+      setListening(false)
+      const token = await getAccessToken()
+      if (!token) {
+        setErr('需要先登录才能使用（主菜单 → 账号与同步）')
+        rec.cancel()
+        return
+      }
+      setPhase('analyzing')
+      try {
+        const { data } = await rec.stop()
+        const res = await aiImport(token, '', today, { data, format: 'wav' })
+        applyImportResult(res)
+      } catch (e) {
+        setErr(`语音识别失败：${e instanceof Error ? e.message : String(e)}`)
+        setPhase('input')
+      }
+      return
+    }
+    // 第一次点击：开始录音（60 秒到点自动停止）
     setErr(null)
     try {
-      const spoken = await transcribeSpeech({
-        lang: 'zh-CN',
-        onInterim: () => {},
-      })
-      if (spoken) setText((t) => (t.trim() ? `${t.trim()}，${spoken}` : spoken))
-    } catch (e) {
-      setErr(`语音识别失败：${e instanceof Error ? e.message : String(e)}`)
-    } finally {
-      setListening(false)
+      const rec = startVoiceRecord(60)
+      recordRef.current = rec
+      setListening(true)
+    } catch {
+      setErr('无法访问麦克风，请检查浏览器权限')
     }
   }
 
-  const close = (): void => setAiOpen(false)
+  const close = (): void => {
+    recordRef.current?.cancel()
+    setAiOpen(false)
+  }
 
   return (
     <div className={styles.overlay} data-testid="ai-import-view">
@@ -282,8 +313,8 @@ export function AIImportView(): JSX.Element {
                 <button
                   type="button"
                   className={`${styles.voice} ${listening ? styles.voiceOn : ''}`}
-                  onClick={() => void onVoice()}
-                  aria-label={listening ? '正在聆听…' : '语音输入'}
+                  onClick={() => void onVoiceClick()}
+                  aria-label={listening ? '正在录音，点击停止' : '语音输入'}
                 >
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                     strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -291,7 +322,7 @@ export function AIImportView(): JSX.Element {
                     <path d="M5 11a7 7 0 0 0 14 0" />
                     <path d="M12 18v3.5" />
                   </svg>
-                  {listening ? '聆听中…' : '语音'}
+                  {listening ? '录音中…点一下结束' : '语音'}
                 </button>
               )}
               <button

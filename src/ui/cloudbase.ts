@@ -296,6 +296,7 @@ export async function aiImport(
   token: string,
   text: string,
   today: string,
+  audio?: { data: string; format?: string },
 ): Promise<{
   ok: boolean
   structured?: {
@@ -315,7 +316,13 @@ export async function aiImport(
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ text, today }),
+      body: JSON.stringify({
+        text,
+        today,
+        // v9.7 语音：audio = WAV base64（由 voiceInput 录音产生），后端 ASR 转文本后走同一分类流程
+        audio: audio ? audio.data : undefined,
+        format: audio ? (audio.format ?? 'wav') : undefined,
+      }),
     })
     const body = (await res.json()) as {
       ok?: boolean
