@@ -16,8 +16,10 @@ import { useApp } from '@/app/context'
 import {
   downloadSnapshot,
   ensureSession,
+  fetchSyncStatus,
   getAccessToken,
   getCloudApp,
+  type CloudSyncStatus,
   uploadSnapshot,
 } from './cloudbase'
 import styles from './SettingsView.module.css'
@@ -69,6 +71,9 @@ export function AccountSettingsView(): JSX.Element {
   const [otpData, setOtpData] = useState<OtpData | null>(null)
   const [verifying, setVerifying] = useState(false)
   const [sync, setSync] = useState<SyncState>({ phase: 'idle' })
+  // v9.6 云端备份状态（上次同步/记录数/设备数）：登录后拉取，「数据不会丢」可见性
+  const [cloudStatus, setCloudStatus] = useState<CloudSyncStatus | null>(null)
+  const [statusErr, setStatusErr] = useState('')
   const otpRefs = useRef<Array<HTMLInputElement | null>>([])
 
   // v9.1：刷新后恢复登录态（auth 会话持久在 localStorage）；已登录则激活自动同步。
@@ -87,6 +92,13 @@ export function AccountSettingsView(): JSX.Element {
         if (token) {
           setLogin({ phase: 'done', email: '（会话已恢复）' })
           setCloudSyncEnabled(true)
+          // 拉云端备份状态（失败不阻塞，展示区会显示缺省文案）
+          const s = await fetchSyncStatus(token)
+          if (s.ok && s.status) {
+            setCloudStatus(s.status)
+          } else if (s.error) {
+            setStatusErr(s.error)
+          }
         }
       } else if (type === 'anonymous') {
         setLogin({ phase: 'anon' })
@@ -182,8 +194,19 @@ export function AccountSettingsView(): JSX.Element {
     setSync(
       r.ok
         ? { phase: 'ok', action: 'upload', info: r.id != null ? `已上传到云端（快照 id=${r.id}）` : '已上传到云端' }
-        : { phase: 'fail', action: 'upload', error: r.error ?? '上传失败' },
+        : r.error === 'device_limit'
+          ? {
+              phase: 'fail',
+              action: 'upload',
+              error: `免费档仅支持 1 台设备云同步，第二台设备需升级会员（即将上线）`,
+            }
+          : { phase: 'fail', action: 'upload', error: r.error ?? '上传失败' },
     )
+    // 上传成功后刷新备份状态（设备登记可能变化）
+    if (r.ok) {
+      const s = await fetchSyncStatus(token)
+      if (s.ok && s.status) setCloudStatus(s.status)
+    }
   }
 
   const onDownload = async (): Promise<void> => {
@@ -266,6 +289,32 @@ export function AccountSettingsView(): JSX.Element {
 
             <div className={styles.groupTitle}>同步</div>
             <div className={styles.group}>
+              {/* v9.6 云备份状态：「数据不会丢」可见性 */}
+              {cloudStatus && (
+                <div className={styles.cloudStatusCard}>
+                  <div className={styles.okLine}>
+                    ✓ 云端已备份
+                    {cloudStatus.recordCount > 0 ? ` · 共 ${cloudStatus.recordCount} 条记录` : ''}
+                  </div>
+                  <div className={styles.cloudStatusDesc}>
+                    {cloudStatus.lastSyncAt
+                      ? `上次同步 ${new Date(cloudStatus.lastSyncAt).toLocaleString('zh-CN', { hour12: false })}`
+                      : '尚未上传过快照'}
+                    {cloudStatus.devices.length > 0
+                      ? ` · 已登记设备 ${cloudStatus.devices.length}/${cloudStatus.deviceLimit}`
+                      : ''}
+                    {cloudStatus.devices.length >= cloudStatus.deviceLimit && cloudStatus.deviceLimit > 1
+                      ? ''
+                      : ''}
+                  </div>
+                  {cloudStatus.devices.length >= cloudStatus.deviceLimit && (
+                    <div className={styles.cloudStatusHint}>
+                      免费档支持 {cloudStatus.deviceLimit} 台设备同步，更多设备需升级会员
+                    </div>
+                  )}
+                </div>
+              )}
+              {statusErr && <div className={styles.errLine}>✗ 备份状态读取失败：{statusErr}</div>}
               <div className={styles.row}>
                 <div className={styles.rowText}>
                   <div className={styles.rowTitle}>云端同步</div>

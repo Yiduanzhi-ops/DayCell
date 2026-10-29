@@ -143,12 +143,29 @@ export async function fetchMe(token: string): Promise<{ ok: boolean; data?: unkn
   }
 }
 
+/** 设备标识：云同步设备登记用（免费档限 1 台设备）。
+ *  持久化在 localStorage，多标签页/重装后共享；清缓存/无痕会换新（等价新设备）。 */
+export function getDeviceId(): string {
+  try {
+    let id = localStorage.getItem('daycell_device_id')
+    if (!id) {
+      id =
+        (globalThis.crypto?.randomUUID?.() ??
+          `dev-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`)
+      localStorage.setItem('daycell_device_id', id)
+    }
+    return id
+  } catch {
+    return `dev-${Date.now()}`
+  }
+}
+
 /** v9 云同步：上传整包快照到云端（云函数 /sync/upload，网关鉴权后强制写入 user_id=x-userid） */
 export async function uploadSnapshot(
   token: string,
   snapshot: unknown,
   version: string,
-): Promise<{ ok: boolean; id?: number | null; error?: string }> {
+): Promise<{ ok: boolean; id?: number | null; error?: string; deviceLimit?: number }> {
   try {
     const res = await fetch(`${API_BASE}/sync/upload`, {
       method: 'POST',
@@ -156,11 +173,16 @@ export async function uploadSnapshot(
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ snapshot, version }),
+      body: JSON.stringify({ snapshot, version, deviceId: getDeviceId() }),
     })
-    const body = (await res.json()) as { ok?: boolean; id?: number | null; error?: string }
+    const body = (await res.json()) as {
+      ok?: boolean
+      id?: number | null
+      error?: string
+      limit?: number
+    }
     if (!res.ok || !body.ok) {
-      return { ok: false, error: body.error ?? `HTTP ${res.status}` }
+      return { ok: false, error: body.error ?? `HTTP ${res.status}`, deviceLimit: body.limit }
     }
     return { ok: true, id: body.id ?? null }
   } catch (e) {
@@ -188,6 +210,51 @@ export async function downloadSnapshot(
       return { ok: false, error: body.error ?? `HTTP ${res.status}` }
     }
     return { ok: true, snapshot: body.snapshot, version: body.version, savedAt: body.savedAt }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
+/** v9.6 云同步状态：最近备份时间 + 备份记录数 + 已登记设备（账号页「数据不会丢」可见性）。
+ *  免费档 deviceLimit=1；第二台设备上传会被后端 403 device_limit。 */
+export interface CloudSyncStatus {
+  lastSyncAt: string | null
+  recordCount: number
+  devices: Array<{ deviceId: string; lastSeenAt: string | null }>
+  deviceLimit: number
+}
+
+export async function fetchSyncStatus(
+  token: string,
+): Promise<{ ok: boolean; status?: CloudSyncStatus; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE}/sync/status`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const body = (await res.json()) as {
+      ok?: boolean
+      lastSyncAt?: string | null
+      recordCount?: number
+      devices?: Array<{ device_id?: string; last_seen_at?: string | null }>
+      deviceLimit?: number
+      error?: string
+    }
+    if (!res.ok || !body.ok) {
+      return { ok: false, error: body.error ?? `HTTP ${res.status}` }
+    }
+    return {
+      ok: true,
+      status: {
+        lastSyncAt: body.lastSyncAt ?? null,
+        recordCount: body.recordCount ?? 0,
+        devices: (body.devices ?? []).map((d) => ({
+          deviceId: d.device_id ?? '',
+          lastSeenAt: d.last_seen_at ?? null,
+        })),
+        deviceLimit: body.deviceLimit ?? 1,
+      },
+    }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) }
   }

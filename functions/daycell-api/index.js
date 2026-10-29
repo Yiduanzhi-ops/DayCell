@@ -64,15 +64,55 @@ function extractUid(event) {
   return null;
 }
 
+// v0.6 设备登记：云同步免费档限 1 台设备（daycell_devices 表）。
+// 已登记设备刷新 last_seen；新设备超限返回 403 device_limit（会员分档后改上限或按 uid 读配置）。
+const FREE_DEVICE_LIMIT = 1;
+
+async function ensureDeviceRegistered(db, uid, deviceId) {
+  if (!deviceId) return { ok: true, limitReached: false, devices: 0, limit: FREE_DEVICE_LIMIT };
+  try {
+    const res = await db.from('daycell_devices').select('device_id').eq('user_id', uid);
+    const rows = res.data || [];
+    if (rows.some((r) => r.device_id === deviceId)) {
+      await db
+        .from('daycell_devices')
+        .update({ last_seen_at: new Date() })
+        .eq('user_id', uid)
+        .eq('device_id', deviceId);
+      return { ok: true, limitReached: false, devices: rows.length, limit: FREE_DEVICE_LIMIT };
+    }
+    if (rows.length >= FREE_DEVICE_LIMIT) {
+      return { ok: false, limitReached: true, devices: rows.length, limit: FREE_DEVICE_LIMIT };
+    }
+    await db.from('daycell_devices').insert({ user_id: uid, device_id: deviceId });
+    return { ok: true, limitReached: false, devices: rows.length + 1, limit: FREE_DEVICE_LIMIT };
+  } catch (e) {
+    // 登记失败不阻断上传（宽松），仅留痕
+    console.error('[devices] ensure failed:', (e && e.message) || e);
+    return { ok: true, limitReached: false, devices: 0, limit: FREE_DEVICE_LIMIT };
+  }
+}
+
 // 上传整包快照
 async function uploadSnapshot(event, uid) {
   const body = parseBody(event);
   const snapshot = body.snapshot;
   const version = body.version || '1';
+  const deviceId = String(body.deviceId || '').slice(0, 64);
   if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
     return json(400, { ok: false, error: 'snapshot_required' });
   }
   const db = getApp().rdb();
+  const dev = await ensureDeviceRegistered(db, uid, deviceId);
+  if (!dev.ok || dev.limitReached) {
+    return json(403, {
+      ok: false,
+      error: 'device_limit',
+      limit: dev.limit,
+      devices: dev.devices,
+      message: 'free_device_limit',
+    });
+  }
   try {
     const res = await db
       .from('daycell_snapshots')
@@ -362,6 +402,41 @@ async function pushUnsubscribe(event, uid) {
   }
 }
 
+// 云同步状态：最近备份时间 + 备份记录数 + 已登记设备（账号页「数据不会丢」可见性用）
+async function syncStatus(uid) {
+  const db = getApp().rdb();
+  try {
+    const snap = await db
+      .from('daycell_snapshots')
+      .select('snapshot, created_at')
+      .eq('user_id', uid)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    const row = snap.data && snap.data[0];
+    const devs = await db.from('daycell_devices').select('device_id, last_seen_at').eq('user_id', uid);
+    const devices = (devs.data || []).map((d) => ({
+      deviceId: d.device_id,
+      lastSeenAt: d.last_seen_at,
+    }));
+    let recordCount = 0;
+    if (row && row.snapshot && typeof row.snapshot === 'object') {
+      for (const k of ['todos', 'habits', 'notes', 'goals', 'reviews', 'subtasks']) {
+        const arr = row.snapshot[k];
+        if (Array.isArray(arr)) recordCount += arr.length;
+      }
+    }
+    return json(200, {
+      ok: true,
+      lastSyncAt: row ? row.created_at : null,
+      recordCount,
+      devices,
+      deviceLimit: FREE_DEVICE_LIMIT,
+    });
+  } catch (e) {
+    return json(500, { ok: false, error: 'db_read_failed', detail: String((e && e.message) || e) });
+  }
+}
+
 exports.main = async (event, context) => {
   const method = event.httpMethod || 'GET';
   const path = (event.path || '/').split('?')[0];
@@ -373,7 +448,7 @@ exports.main = async (event, context) => {
 
   // 健康检查（网关鉴权已开启，需带有效 token）
   if (path === '/health' && method === 'GET') {
-    return json(200, { ok: true, service: 'daycell-api', version: 'v0.5', time: new Date().toISOString() });
+    return json(200, { ok: true, service: 'daycell-api', version: 'v0.6', time: new Date().toISOString() });
   }
 
   // 调试：返回 event 结构 + 提取到的 uid（实测确认字段用，可随时移除）
@@ -407,6 +482,13 @@ exports.main = async (event, context) => {
     const uid = extractUid(event);
     if (!uid) return json(401, { ok: false, error: 'unauthorized' });
     return uploadSnapshot(event, uid);
+  }
+
+  // 云同步：状态（最近备份时间 + 记录数 + 设备登记）
+  if (path === '/sync/status' && method === 'GET') {
+    const uid = extractUid(event);
+    if (!uid) return json(401, { ok: false, error: 'unauthorized' });
+    return syncStatus(uid);
   }
 
   // 云同步：下载
