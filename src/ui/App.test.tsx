@@ -352,7 +352,7 @@ describe('App 冒烟', () => {
     await renderApp()
     fireEvent.click(screen.getByRole('button', { name: '菜单' }))
     const items = screen.getAllByRole('menuitem').map((el) => el.textContent)
-    expect(items).toEqual(['导出备份', '导入备份', '一键导出 MD', '特殊日设置', '习惯设置', '同步设置', '偏好设置', '通知设置', '使用手册', '版本更新'])
+    expect(items).toEqual(['导出备份', '导入备份', '一键导出 MD', '特殊日设置', '习惯设置', '账号与同步', '偏好设置', '通知设置', '使用手册', '版本更新'])
     expect(screen.getByRole('switch')).toBeInTheDocument() // 夜间模式行（最下面，分隔线之后）
     expect(screen.getByText('夜间模式')).toBeInTheDocument()
 

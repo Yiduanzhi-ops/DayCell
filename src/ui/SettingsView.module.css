@@ -173,3 +173,114 @@ button.row:hover { background: var(--bg-hover); }
   color: #c0392b;
   background: color-mix(in srgb, #c0392b 10%, transparent);
 }
+
+/* ===== v9.5 账号与同步页 ===== */
+
+.input {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 15px;
+  outline: none;
+  box-sizing: border-box;
+}
+.input:focus {
+  border-color: var(--accent, #2e4ba6);
+}
+
+.accountForm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--bg);
+}
+.accountForm .rowDesc {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ink-3);
+}
+
+.accountCard {
+  padding: 16px;
+  background: var(--bg);
+  text-align: center;
+}
+.accountMail {
+  margin-top: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  word-break: break-all;
+}
+.accountUid {
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.btnRow {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+.btnRow > button {
+  flex: 1;
+  min-height: 42px;
+  border-radius: 10px;
+  border: none;
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.12s ease, opacity 0.15s ease;
+}
+.btnRow > button:active { transform: scale(0.97); }
+.btnRow > button:disabled { opacity: 0.45; cursor: default; }
+
+.btnPrimary {
+  background: var(--accent, #2e4ba6);
+  color: #fff;
+}
+.btnGhost {
+  background: color-mix(in srgb, var(--ink-3) 14%, transparent);
+  color: var(--ink);
+}
+.btnDanger {
+  background: color-mix(in srgb, #c0392b 10%, transparent);
+  color: #c0392b;
+}
+
+.btnRowPadded {
+  display: flex;
+  gap: 10px;
+  padding: 4px 16px 14px;
+  background: var(--bg);
+}
+.btnRowPadded > button {
+  flex: 1;
+  min-height: 40px;
+  border-radius: 10px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.12s ease, opacity 0.15s ease;
+}
+.btnRowPadded > button:active { transform: scale(0.97); }
+.btnRowPadded > button:disabled { opacity: 0.45; cursor: default; }
+
+.okLine {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e8e3e;
+}
+.errLine {
+  font-size: 13px;
+  color: #c0392b;
+}

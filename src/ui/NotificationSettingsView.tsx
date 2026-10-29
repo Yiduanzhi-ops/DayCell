@@ -90,7 +90,7 @@ export function NotificationSettingsView(): JSX.Element {
           // 云端失败：回滚到点击前状态
           await setPushPrefs(prev)
           if (res.loginRequired) {
-            setPushError('需先登录云同步才能开启通知：偏好设置 → 同步设置，用邮箱登录')
+            setPushError('需先登录才能开启通知：主菜单 → 账号与同步，用邮箱登录')
           } else if (res.permissionDenied) {
             setPushError('通知权限被拒绝，请在浏览器设置中允许本网站的通知后重试')
           } else {
@@ -136,7 +136,7 @@ export function NotificationSettingsView(): JSX.Element {
         <div className={styles.body}>
           {!cloudLoggedIn && (
             <div className={styles.pushStatus} role="alert">
-              通知需要登录云同步后才能开启：请先到「偏好设置 → 同步设置」用邮箱登录
+              通知需要登录后才能开启：请先到「主菜单 → 账号与同步」用邮箱登录
             </div>
           )}
           {pushError && (

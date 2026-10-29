@@ -137,7 +137,7 @@ export interface SyncResult {
 export async function syncPushPrefs(prefs: PushPrefs): Promise<SyncResult> {
   const token = await getAccessToken()
   if (!token) {
-    return { ok: false, loginRequired: true, error: '请先登录云同步（设置 → 同步设置）' }
+    return { ok: false, loginRequired: true, error: '请先登录（主菜单 → 账号与同步）' }
   }
 
   const anyEnabled = prefs.morning.enabled || prefs.evening.enabled

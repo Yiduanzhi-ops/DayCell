@@ -181,6 +181,8 @@ export interface AppState {
   settingsOpen: boolean
   /** v9.3：通知设置页是否打开（全屏覆盖层，偏好设置 → 通知设置进入） */
   notificationSettingsOpen: boolean
+  /** v9.5：账号与同步页是否打开（全屏覆盖层，主菜单「账号与同步」进入） */
+  accountOpen: boolean
   /** v8.62：周视图显示习惯（默认关 = v8.41 现状；开则每日行列出习惯名+打卡态） */
   weekViewHabits: boolean
   /** v9.3：早间日报通知开关与档位（'HH:mm'，null=未设置） */
@@ -341,6 +343,8 @@ export interface AppState {
   // ---- v8.1：坚果云同步 ----
   openSync(): void
   closeSync(): void
+  openAccount(): void
+  closeAccount(): void
   /** 保存同步配置（localStorage + 引擎重建 + 立即同步一次） */
   saveSyncConfig(cfg: GiteeConfig): Promise<boolean>
   /** v9：启用/停用 CloudBase 云同步（登录=启用 CloudBase 传输层，优先于 Gitee；登出=回落到 Gitee 配置或停用） */
@@ -491,6 +495,7 @@ export function createAppStore(
     changelogOpen: false,
     settingsOpen: false,
     notificationSettingsOpen: false,
+    accountOpen: false,
     weekViewHabits: false,
     // v9.3 通知默认：早晚都关、时间默认 08:00 / 21:00（开时若未设时间用默认档）
     pushMorningEnabled: false,
@@ -1733,6 +1738,15 @@ export function createAppStore(
 
     closeSync() {
       set({ syncOpen: false })
+    },
+
+    // ---- v9.5：账号与同步（独立页，主菜单「账号与同步」进入）----
+    openAccount() {
+      set({ accountOpen: true })
+    },
+
+    closeAccount() {
+      set({ accountOpen: false })
     },
 
     async saveSyncConfig(cfg) {

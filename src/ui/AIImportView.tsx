@@ -148,7 +148,7 @@ export function AIImportView(): JSX.Element {
     setPhase('analyzing')
     const token = await getAccessToken()
     if (!token) {
-      setErr('需要先登录才能使用（设置 → 云同步）')
+      setErr('需要先登录才能使用（主菜单 → 账号与同步）')
       setPhase('input')
       return
     }

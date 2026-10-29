@@ -37,7 +37,7 @@ export function TopBar(): JSX.Element {
   const setTheme = useApp((s) => s.setTheme)
   const openAnniv = useApp((s) => s.openAnniv)
   const openHabits = useApp((s) => s.openHabits)
-  const openSync = useApp((s) => s.openSync)
+  const openAccount = useApp((s) => s.openAccount)
   const openShare = useApp((s) => s.openShare)
   const openChangelog = useApp((s) => s.openChangelog)
   const openSettings = useApp((s) => s.openSettings)
@@ -159,10 +159,10 @@ export function TopBar(): JSX.Element {
                   role="menuitem"
                   onClick={() => {
                     closeMenu()
-                    openSync()
+                    openAccount()
                   }}
                 >
-                  同步设置
+                  账号与同步
                 </button>
                 <button
                   className={styles.mi}

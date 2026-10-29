@@ -29,6 +29,7 @@ import { AIImportView } from './AIImportView'
 import { ChangelogView } from './ChangelogView'
 import { SettingsView } from './SettingsView'
 import { NotificationSettingsView } from './NotificationSettingsView'
+import { AccountSettingsView } from './AccountSettingsView'
 import { OnboardingView } from './OnboardingView'
 import styles from './App.module.css'
 
@@ -60,6 +61,7 @@ function Shell(): JSX.Element {
   const changelogOpen = useApp((s) => s.changelogOpen)
   const settingsOpen = useApp((s) => s.settingsOpen)
   const notificationSettingsOpen = useApp((s) => s.notificationSettingsOpen)
+  const accountOpen = useApp((s) => s.accountOpen)
   const onboardingOpen = useApp((s) => s.onboardingOpen)
 
   // v7.5 夜间模式：store 里 setTheme 已同步 localStorage 与 <html>；这里兜底保证
@@ -157,6 +159,7 @@ function Shell(): JSX.Element {
       {changelogOpen && <ChangelogView />}
       {settingsOpen && <SettingsView />}
       {notificationSettingsOpen && <NotificationSettingsView />}
+      {accountOpen && <AccountSettingsView />}
       {onboardingOpen && <OnboardingView />}
     </div>
   )
