@@ -20,3 +20,6 @@ Thumbs.db
 *.local
 .idea/
 .vscode/
+
+# 云函数密钥配置（含腾讯云密钥，禁止入库）
+cloudbaserc.json
