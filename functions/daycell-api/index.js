@@ -164,10 +164,18 @@ async function downloadSnapshot(uid) {
 //       → 模型返回结构化 JSON → 前端预览、用户确认后才写入本地（本函数不落库）
 // 安全：DeepSeek key 只存在于云函数环境变量（process.env.DEEPSEEK_API_KEY），
 //       不写入代码、不进 git、不返回给前端。
-// v0.5 限额：每人每天 15 次（ai_usage 表按 user_id+usage_date 计数；免费额度 v1，
-//       将来会员差分只改 AI_DAILY_LIMIT 或按用户分档）。失败不消耗次数。
+// v9.7 配额 v2：非会员 AI 智能导入试用**总额 5 次**（累计、不重置）；
+//       会员每天 100 次（按天重置）。配额数字只存后端，前端展示均由后端返回。
+//       ai_usage（按天）继续记每日次数；新增 ai_usage_total（按用户累计）记试用总额。
+//       getMembership 当前恒返回非会员，第 3 步会员状态落库后替换为查库。
 const AI_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-flash';
-const AI_DAILY_LIMIT = 15;
+const FREE_AI_TOTAL_LIMIT = 5;
+const MEMBER_AI_DAILY_LIMIT = 100;
+
+// 会员状态：第 3 步落库（users.membership / 兑换码核销）前恒为非会员
+async function getMembership(db, uid) {
+  return false;
+}
 
 // 中国时区日期（云函数默认 UTC，直接 toISOString 会差半天）
 function chinaDateKey() {
@@ -212,6 +220,41 @@ async function bumpAiUsage(db, uid, todayKey) {
   }
 }
 
+// 读某用户累计试用次数（ai_usage_total，按 user 一行累计；读失败按 0 宽松处理）
+async function readAiTotal(db, uid) {
+  try {
+    const res = await db
+      .from('ai_usage_total')
+      .select('total_count')
+      .eq('user_id', uid)
+      .limit(1);
+    const row = res.data && res.data[0];
+    return row ? Number(row.total_count) || 0 : 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
+// 累计次数 +1（显式 INSERT/UPDATE；失败 console.error 留痕，不阻塞主流程）
+async function bumpAiTotal(db, uid) {
+  try {
+    const used = await readAiTotal(db, uid);
+    const next = used + 1;
+    if (used === 0) {
+      const ins = await db.from('ai_usage_total').insert({ user_id: uid, total_count: 1 });
+      if (ins.error) {
+        await db.from('ai_usage_total').update({ total_count: next }).eq('user_id', uid);
+      }
+    } else {
+      await db.from('ai_usage_total').update({ total_count: next }).eq('user_id', uid);
+    }
+    return true;
+  } catch (e) {
+    console.error('[ai_usage_total] bump failed:', e && e.message || e);
+    return false;
+  }
+}
+
 function buildImportPrompt(text, today) {
   return {
     role: 'system',
@@ -247,14 +290,26 @@ async function aiImport(event, uid) {
   if (!text) return json(400, { ok: false, error: 'text_required' });
   if (!apiKey) return json(503, { ok: false, error: 'ai_not_configured', detail: 'DEEPSEEK_API_KEY 未配置' });
 
-  // v0.5 每日限额：>=15 直接拒绝（不消耗次数）
-  const used = await readAiUsage(db, uid, todayKey);
-  if (used >= AI_DAILY_LIMIT) {
+  // v9.7 配额：会员按天（MEMBER_AI_DAILY_LIMIT），非会员按累计总额（FREE_AI_TOTAL_LIMIT）。
+  // 失败不消耗次数。
+  const member = await getMembership(db, uid);
+  let used = 0, limit, mode;
+  if (member) {
+    used = await readAiUsage(db, uid, todayKey);
+    limit = MEMBER_AI_DAILY_LIMIT;
+    mode = 'daily';
+  } else {
+    used = await readAiTotal(db, uid);
+    limit = FREE_AI_TOTAL_LIMIT;
+    mode = 'trial_total';
+  }
+  if (used >= limit) {
     return json(429, {
       ok: false,
       error: 'ai_quota_exceeded',
-      limit: AI_DAILY_LIMIT,
+      limit,
       remaining: 0,
+      mode,
       date: todayKey,
     });
   }
@@ -297,8 +352,12 @@ async function aiImport(event, uid) {
       return json(502, { ok: false, error: 'ai_bad_json', detail: String(e && e.message || e) });
     }
 
-    // 成功后计数 +1（失败不消耗；bump 失败宽容处理）
-    await bumpAiUsage(db, uid, todayKey);
+    // 成功后计数 +1：会员按天记，非会员按累计记（失败不消耗；bump 失败宽容处理）
+    if (member) {
+      await bumpAiUsage(db, uid, todayKey);
+    } else {
+      await bumpAiTotal(db, uid);
+    }
 
     return json(200, {
       ok: true,
@@ -311,8 +370,9 @@ async function aiImport(event, uid) {
       },
       usage: data.usage || null,
       quota: {
-        limit: AI_DAILY_LIMIT,
-        remaining: Math.max(0, AI_DAILY_LIMIT - used - 1),
+        mode,
+        limit,
+        remaining: Math.max(0, limit - used - 1),
         date: todayKey,
       },
     });

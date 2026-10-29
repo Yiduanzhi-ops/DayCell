@@ -4,7 +4,7 @@
  * 流程：输入一段话（支持语音，能力可用时显示麦克风按钮）→ 调 /ai/import
  *       → 预览（四组：待办/习惯/想法/目标，默认全勾，每条可编辑文字/日期/频率）
  *       → 确认导入（store.aiImportItems 落库，支持任意日期）→ toast 返回。
- * 配额：面板顶部显示今日剩余次数（-1=未知）；0 时整理按钮禁用。
+ * 配额：由后端返回（非会员试用总额 / 会员每日），前端不写死数字；0 时整理按钮禁用。
  * 设计：语音引擎走 voiceInput.ts 抽象（MVP Web Speech，预留腾讯云 ASR）。
  */
 import { useMemo, useState } from 'react'
@@ -141,7 +141,7 @@ export function AIImportView(): JSX.Element {
   const onAnalyze = async (): Promise<void> => {
     if (!text.trim() || phase === 'analyzing') return
     if (aiRemaining === 0) {
-      setErr('今日 AI 次数已用完，明天再来吧')
+      setErr('AI 使用次数已用完')
       return
     }
     setErr(null)
@@ -156,7 +156,12 @@ export function AIImportView(): JSX.Element {
     if (!res.ok) {
       if (res.error === 'ai_quota_exceeded') {
         setAiRemaining(0)
-        setErr('今日 AI 次数已用完，明天再来吧')
+        // v9.7：配额文案由后端 mode 决定——非会员试用总额用完引导开通；会员每日用完明天再来
+        setErr(
+          res.mode === 'trial_total'
+            ? 'AI 试用次数已用完，开通会员可继续使用'
+            : '今日 AI 次数已用完，明天再来吧',
+        )
       } else {
         setErr(`整理失败：${res.error === 'unauthorized' ? '登录已失效，请重新登录' : (res.error ?? '未知错误')}`)
       }

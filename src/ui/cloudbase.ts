@@ -240,8 +240,10 @@ export async function fetchSyncStatus(
   }
 }
 
-/** v9.2 AI 智能导入：一段话 → 结构化结果（云函数 /ai/import，DeepSeek 后端直连）
- *  返回 { structured, quota, usage }；429 = 今日次数用完 */export async function aiImport(
+/** v9.7 AI 智能导入：一段话 → 结构化结果（云函数 /ai/import，DeepSeek 后端直连）。
+ *  配额数字只由后端返回（非会员试用总额 / 会员每日），前端不写死。
+ *  返回 { structured, quota, usage }；429 = ai_quota_exceeded（mode: trial_total | daily） */
+export async function aiImport(
   token: string,
   text: string,
   today: string,
@@ -255,6 +257,7 @@ export async function fetchSyncStatus(
   }
   remaining?: number
   error?: string
+  mode?: 'trial_total' | 'daily'
 }> {
   try {
     const res = await fetch(`${API_BASE}/ai/import`, {
@@ -275,9 +278,10 @@ export async function fetchSyncStatus(
       }
       quota?: { remaining?: number }
       error?: string
+      mode?: 'trial_total' | 'daily'
     }
     if (!res.ok || !body.ok) {
-      return { ok: false, error: body.error ?? `HTTP ${res.status}` }
+      return { ok: false, error: body.error ?? `HTTP ${res.status}`, mode: body.mode }
     }
     return {
       ok: true,
@@ -288,6 +292,7 @@ export async function fetchSyncStatus(
         goals: body.structured?.goals ?? [],
       },
       remaining: body.quota?.remaining,
+      mode: body.mode,
     }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) }
