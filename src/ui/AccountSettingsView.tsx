@@ -393,7 +393,7 @@ export function AccountSettingsView(): JSX.Element {
               {sending ? '发送中…' : '获取验证码'}
             </button>
             <p className={styles.authHint}>
-              验证码会发送到你的邮箱，<b>10 分钟内有效</b>。无需设置密码。
+              验证码会发送到你的邮箱，<b>10 分钟内有效</b>。
             </p>
             <p className={styles.authPrivacy}>
               数据同步与存储由腾讯云 CloudBase 提供
