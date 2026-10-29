@@ -342,10 +342,10 @@ button.row:hover { background: var(--bg-hover); }
 }
 .authSub {
   text-align: center;
-  font-size: 14.5px;
+  font-size: 13px;
   color: #6e6e73;
-  margin: 0 0 30px;
-  line-height: 1.65;
+  margin: 0 0 28px;
+  line-height: 1.5;
 }
 .authSub b { color: #1d1d1f; font-weight: 600; }
 .authErr {

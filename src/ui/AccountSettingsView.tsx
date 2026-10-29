@@ -367,11 +367,7 @@ export function AccountSettingsView(): JSX.Element {
             </div>
             <h1 className={styles.authTitle}>登录 DayCell</h1>
             <p className={styles.authSub}>
-              登录后<b>自动多端同步</b>，换设备数据不丢。
-              <br />
-              还可使用 <b>AI 智能导入</b>与<b>通知推送</b>。
-              <br />
-              不登录也能正常记账，数据仅保存在本机。
+              登录后自动多端同步，换设备数据不丢
             </p>
             {login.phase === 'error' && <div className={styles.authErr}>{login.message}</div>}
             <label className={styles.authField}>
