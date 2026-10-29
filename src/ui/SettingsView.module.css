@@ -306,6 +306,29 @@ button.row:hover { background: var(--bg-hover); }
   line-height: 1.5;
 }
 
+/* v9.7 第 3 步：兑换码输入行 */
+.redeemRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.redeemInput {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid rgba(60, 60, 67, 0.18);
+  border-radius: 8px;
+  font-size: 14px;
+  color: #1d1d1f;
+  background: rgba(255, 255, 255, 0.7);
+}
+.redeemInput:focus {
+  outline: none;
+  border-color: #007aff;
+}
+
 /* ===== v9.5 独立登录页（白净背景 + 产品 Logo + 六格验证码） ===== */
 .authPage {
   position: absolute;

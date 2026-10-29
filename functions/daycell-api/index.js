@@ -64,12 +64,15 @@ function extractUid(event) {
   return null;
 }
 
-// v0.6 设备登记：云同步免费档限 1 台设备（daycell_devices 表）。
-// 已登记设备刷新 last_seen；新设备超限返回 403 device_limit（会员分档后改上限或按 uid 读配置）。
+// v0.6 设备登记：云同步免费档限 1 台设备（daycell_devices 表）；会员 5 台（v9.7 第 3 步分档）。
+// 已登记设备刷新 last_seen；新设备超限返回 403 device_limit。
 const FREE_DEVICE_LIMIT = 1;
+const MEMBER_DEVICE_LIMIT = 5;
 
 async function ensureDeviceRegistered(db, uid, deviceId) {
-  if (!deviceId) return { ok: true, limitReached: false, devices: 0, limit: FREE_DEVICE_LIMIT };
+  const member = await getMembership(db, uid);
+  const limit = member ? MEMBER_DEVICE_LIMIT : FREE_DEVICE_LIMIT;
+  if (!deviceId) return { ok: true, limitReached: false, devices: 0, limit };
   try {
     const res = await db.from('daycell_devices').select('device_id').eq('user_id', uid);
     const rows = res.data || [];
@@ -79,17 +82,17 @@ async function ensureDeviceRegistered(db, uid, deviceId) {
         .update({ last_seen_at: new Date() })
         .eq('user_id', uid)
         .eq('device_id', deviceId);
-      return { ok: true, limitReached: false, devices: rows.length, limit: FREE_DEVICE_LIMIT };
+      return { ok: true, limitReached: false, devices: rows.length, limit };
     }
-    if (rows.length >= FREE_DEVICE_LIMIT) {
-      return { ok: false, limitReached: true, devices: rows.length, limit: FREE_DEVICE_LIMIT };
+    if (rows.length >= limit) {
+      return { ok: false, limitReached: true, devices: rows.length, limit };
     }
     await db.from('daycell_devices').insert({ user_id: uid, device_id: deviceId });
-    return { ok: true, limitReached: false, devices: rows.length + 1, limit: FREE_DEVICE_LIMIT };
+    return { ok: true, limitReached: false, devices: rows.length + 1, limit };
   } catch (e) {
     // 登记失败不阻断上传（宽松），仅留痕
     console.error('[devices] ensure failed:', (e && e.message) || e);
-    return { ok: true, limitReached: false, devices: 0, limit: FREE_DEVICE_LIMIT };
+    return { ok: true, limitReached: false, devices: 0, limit };
   }
 }
 
@@ -172,9 +175,97 @@ const AI_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-flash';
 const FREE_AI_TOTAL_LIMIT = 5;
 const MEMBER_AI_DAILY_LIMIT = 100;
 
-// 会员状态：第 3 步落库（users.membership / 兑换码核销）前恒为非会员
+// 会员状态（v9.7 第 3 步）：daycell_members 表，member_expires_at > now() 即会员。
+// 读失败按非会员宽松处理（不阻断主流程）。
 async function getMembership(db, uid) {
-  return false;
+  if (!uid) return false;
+  try {
+    const res = await db
+      .from('daycell_members')
+      .select('member_expires_at')
+      .eq('user_id', uid)
+      .limit(1);
+    const row = res.data && res.data[0];
+    if (!row) return false;
+    const exp = new Date(row.member_expires_at).getTime();
+    return Number.isFinite(exp) && exp > Date.now();
+  } catch (e) {
+    return false;
+  }
+}
+
+// 会员到期时间（未开通返回 null；读失败 null 宽松）
+async function getMemberExpiry(db, uid) {
+  try {
+    const res = await db
+      .from('daycell_members')
+      .select('member_expires_at')
+      .eq('user_id', uid)
+      .limit(1);
+    const row = res.data && res.data[0];
+    if (!row) return null;
+    const d = new Date(row.member_expires_at);
+    return Number.isFinite(d.getTime()) ? d.toISOString() : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// 兑换码核销（v9.7 第 3 步）：码存在且未用 → 标记核销 + 给用户加会员时长（续期顺延）
+async function redeemCode(event, uid) {
+  const body = parseBody(event);
+  const code = String(body.code || '').trim().toUpperCase();
+  if (!code) return json(400, { ok: false, error: 'code_required' });
+  const db = getApp().rdb();
+  try {
+    const res = await db
+      .from('daycell_redeem_codes')
+      .select('code, plan, duration_days, status')
+      .eq('code', code)
+      .limit(1);
+    const row = res.data && res.data[0];
+    if (!row) return json(404, { ok: false, error: 'invalid_code' });
+    if (row.status !== 'unused') return json(409, { ok: false, error: 'code_used' });
+    const days = Number(row.duration_days) || 30;
+    // 加时长：已有会员则从到期时刻顺延（过期则从 now 起），否则从 now 起
+    const existing = await db
+      .from('daycell_members')
+      .select('member_expires_at')
+      .eq('user_id', uid)
+      .limit(1);
+    const exRow = existing.data && existing.data[0];
+    const base = exRow ? Math.max(Date.now(), new Date(exRow.member_expires_at).getTime()) : Date.now();
+    const newExp = new Date(base + days * 24 * 3600 * 1000);
+    if (exRow) {
+      await db
+        .from('daycell_members')
+        .update({ member_expires_at: newExp, updated_at: new Date() })
+        .eq('user_id', uid);
+    } else {
+      await db.from('daycell_members').insert({ user_id: uid, member_expires_at: newExp });
+    }
+    await db
+      .from('daycell_redeem_codes')
+      .update({ status: 'redeemed', redeemed_by: uid, redeemed_at: new Date() })
+      .eq('code', code);
+    return json(200, { ok: true, expiresAt: newExp.toISOString(), plan: row.plan, days });
+  } catch (e) {
+    console.error('[redeem] failed:', (e && e.message) || e);
+    return json(500, { ok: false, error: 'redeem_failed' });
+  }
+}
+
+// 会员状态查询（v9.7 第 3 步）：当前是否会员 + 到期时间 + 云同步设备上限
+async function memberInfo(uid) {
+  const db = getApp().rdb();
+  const member = await getMembership(db, uid);
+  const expiresAt = await getMemberExpiry(db, uid);
+  return json(200, {
+    ok: true,
+    member,
+    memberExpiresAt: expiresAt,
+    deviceLimit: member ? MEMBER_DEVICE_LIMIT : FREE_DEVICE_LIMIT,
+  });
 }
 
 // 中国时区日期（云函数默认 UTC，直接 toISOString 会差半天）
@@ -582,6 +673,20 @@ exports.main = async (event, context) => {
     const uid = extractUid(event);
     if (!uid) return json(401, { ok: false, error: 'unauthorized' });
     return downloadSnapshot(uid);
+  }
+
+  // 会员状态查询（v9.7 第 3 步）：是否会员 + 到期时间 + 设备上限
+  if (path === '/member' && method === 'GET') {
+    const uid = extractUid(event);
+    if (!uid) return json(401, { ok: false, error: 'unauthorized' });
+    return memberInfo(uid);
+  }
+
+  // 兑换码核销（v9.7 第 3 步）
+  if (path === '/redeem' && method === 'POST') {
+    const uid = extractUid(event);
+    if (!uid) return json(401, { ok: false, error: 'unauthorized' });
+    return redeemCode(event, uid);
   }
 
   // AI 配额查询：当前身份（非会员试用总额 / 会员每日）与剩余次数

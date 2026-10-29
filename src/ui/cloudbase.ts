@@ -429,3 +429,67 @@ export async function deletePushSubscription(
     return { ok: false, error: e instanceof Error ? e.message : String(e) }
   }
 }
+
+// ---- v9.7 第 3 步：会员状态与兑换码 ----
+
+/** 会员状态查询（云函数 /member）：member + 到期时间 + 云同步设备上限 */
+export async function fetchMember(token: string): Promise<{
+  ok: boolean
+  member?: boolean
+  memberExpiresAt?: string | null
+  deviceLimit?: number
+  error?: string
+}> {
+  try {
+    const res = await fetch(`${API_BASE}/member`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const body = (await res.json()) as {
+      ok?: boolean
+      member?: boolean
+      memberExpiresAt?: string | null
+      deviceLimit?: number
+      error?: string
+    }
+    if (!res.ok || !body.ok) {
+      return { ok: false, error: body.error ?? `HTTP ${res.status}` }
+    }
+    return {
+      ok: true,
+      member: body.member,
+      memberExpiresAt: body.memberExpiresAt ?? null,
+      deviceLimit: body.deviceLimit,
+    }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
+/** 兑换码核销（云函数 /redeem）：成功返回新的会员到期时间 */
+export async function redeemCode(
+  token: string,
+  code: string,
+): Promise<{ ok: boolean; expiresAt?: string; days?: number; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE}/redeem`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ code }),
+    })
+    const body = (await res.json()) as {
+      ok?: boolean
+      expiresAt?: string
+      days?: number
+      error?: string
+    }
+    if (!res.ok || !body.ok) {
+      return { ok: false, error: body.error ?? `HTTP ${res.status}` }
+    }
+    return { ok: true, expiresAt: body.expiresAt, days: body.days }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
