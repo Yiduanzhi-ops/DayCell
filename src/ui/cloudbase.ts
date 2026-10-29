@@ -38,12 +38,73 @@ export async function getAccessToken(): Promise<string | null> {
   }
 }
 
-/** 是否已登录（auth 登录态持久在 localStorage，刷新后可恢复；同步判断，启动用） */
+/** 是否已有云会话（邮箱或匿名都算；同步判断，启动用）。
+ *  CloudBase 登录态持久在 localStorage（key=`user_info_${envId}`），同步可用。 */
 export function isCloudLoggedIn(): boolean {
   try {
-    return getCloudApp().auth().getLoginState?.() != null
+    return localStorage.getItem(`user_info_${CLOUD_ENV}`) != null
   } catch {
     return false
+  }
+}
+
+export type CloudLoginType = 'email' | 'anonymous' | 'none'
+
+/** 当前登录类型（异步）：email=邮箱/账号登录；anonymous=匿名会话；none=纯本地未登录。
+ *  getLoginState() 是异步的且返回 LoginState 实例，须 await；邮箱用户 user_info 有 email 字段，
+ *  匿名用户无邮箱 → 用 email 字段区分。 */
+export async function getCloudLoginType(): Promise<CloudLoginType> {
+  try {
+    const auth = getCloudApp().auth()
+    const st = (await auth.getLoginState?.()) ?? null
+    if (!st) return 'none'
+    const info = (st as { user?: { getLocalUserInfo?: () => unknown } }).user?.getLocalUserInfo?.() as
+      | { email?: string }
+      | undefined
+    if (info?.email) return 'email'
+    return 'anonymous'
+  } catch {
+    return 'none'
+  }
+}
+
+/** A2 匿名模式：启动时确保有会话。
+ *  规则：
+ *   1. 无登录态 → 自动匿名登录（失败静默回退纯本地）
+ *   2. 有登录态但 accessToken 已失效（残留 user_info，如 refresh 过期）→ 先清理残留会话，再匿名登录
+ *   3. 有效登录态（email/anonymous）→ 原样保留
+ *  匿名会话同样有 accessToken，AI 导入/云同步/通知后端按匿名 uid 独立配额与存储。 */
+export async function ensureSession(): Promise<CloudLoginType> {
+  const cur = await getCloudLoginType()
+  if (cur === 'none') {
+    return anonymousLogin()
+  }
+  const token = await getAccessToken()
+  if (token) return cur
+  // 残留会话 token 已失效：清理后重建（匿名）
+  try {
+    await getCloudApp().auth().signOut?.()
+  } catch {
+    // 忽略清理异常
+  }
+  return anonymousLogin()
+}
+
+/** 自动匿名登录：SDK 失败返回 { data, error } 不抛异常，必须检查 error */
+async function anonymousLogin(): Promise<CloudLoginType> {
+  try {
+    const auth = getCloudApp().auth()
+    const r = (await auth.signInAnonymously?.()) as
+      | { error?: { message?: string; category?: string } }
+      | undefined
+    if (r?.error) {
+      console.warn('[DayCell] 匿名登录失败:', r.error.category ?? '', r.error.message ?? '')
+      return 'none'
+    }
+    return getCloudLoginType()
+  } catch (e) {
+    console.warn('[DayCell] 匿名登录异常:', e instanceof Error ? e.message : String(e))
+    return 'none'
   }
 }
 

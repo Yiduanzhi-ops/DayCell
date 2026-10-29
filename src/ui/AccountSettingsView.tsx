@@ -15,6 +15,7 @@ import type { BackupFile } from '@core'
 import { useApp } from '@/app/context'
 import {
   downloadSnapshot,
+  ensureSession,
   getAccessToken,
   getCloudApp,
   uploadSnapshot,
@@ -27,6 +28,7 @@ type LoginState =
   | { phase: 'idle' }
   | { phase: 'sending' }
   | { phase: 'sent'; email: string }
+  | { phase: 'anon' }
   | { phase: 'done'; email: string; uid?: string }
   | { phase: 'error'; message: string }
 
@@ -58,6 +60,9 @@ export function AccountSettingsView(): JSX.Element {
   const setCloudSyncEnabled = useApp((s) => s.setCloudSyncEnabled)
 
   const [login, setLogin] = useState<LoginState>({ phase: 'idle' })
+  // v9.6：会话恢复只尝试一次（组件挂载时）。否则匿名页点「升级为邮箱登录」切到 idle 会再次
+  // 触发自动匿名登录，把用户弹回匿名页，永远进不了邮箱登录页。
+  const restoredRef = useRef(false)
   const [email, setEmail] = useState('')
   const [otp, setOtp] = useState('')
   const [verifyErr, setVerifyErr] = useState('')
@@ -68,14 +73,23 @@ export function AccountSettingsView(): JSX.Element {
 
   // v9.1：刷新后恢复登录态（auth 会话持久在 localStorage）；已登录则激活自动同步。
   // v9.2：getLoginState() 可能残留 uid 但 accessToken 已失效，须异步验证 token 真实可拿才显示「已恢复」。
+  // v9.6：区分邮箱（done）与匿名（anon）会话；无会话则尝试匿名登录（A2）。
   useEffect(() => {
     if (login.phase !== 'idle') return
+    if (restoredRef.current) return
+    restoredRef.current = true
     let alive = true
     void (async () => {
-      const token = await getAccessToken()
-      if (token && alive) {
-        setLogin({ phase: 'done', email: '（会话已恢复）' })
-        setCloudSyncEnabled(true)
+      const type = await ensureSession()
+      if (!alive) return
+      if (type === 'email') {
+        const token = await getAccessToken()
+        if (token) {
+          setLogin({ phase: 'done', email: '（会话已恢复）' })
+          setCloudSyncEnabled(true)
+        }
+      } else if (type === 'anonymous') {
+        setLogin({ phase: 'anon' })
       }
     })()
     return () => {
@@ -288,6 +302,39 @@ export function AccountSettingsView(): JSX.Element {
                 <span className={styles.chevron}>›</span>
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  /* —— 匿名使用中（A2）：白净页 + 升级入口 —— */
+  if (login.phase === 'anon') {
+    return (
+      <div className={styles.overlay}>
+        <div className={styles.authPage}>
+          <button className={styles.authBack} onClick={closeAccount}>
+            ← 返回
+          </button>
+          <div className={styles.authInner}>
+            <div className={styles.authLogo}>
+              <img src={LOGO_URL} alt="" aria-hidden="true" />
+            </div>
+            <h1 className={styles.authTitle}>匿名使用中</h1>
+            <p className={styles.authSub}>
+              数据保存在本机与云端匿名空间，换设备或清除浏览器数据后将无法找回。登录邮箱后，数据会自动升级到你的账号并开始多端同步。
+            </p>
+            <button className={styles.authPrimary} onClick={() => setLogin({ phase: 'idle' })}>
+              升级为邮箱登录
+            </button>
+            <p className={styles.authHint}>
+              邮箱登录后可跨设备云同步、使用 AI 智能导入与通知推送。
+            </p>
+            <p className={styles.authPrivacy}>
+              匿名身份由腾讯云 CloudBase 提供
+              <br />
+              你的数据仅用于 DayCell 服务
+            </p>
           </div>
         </div>
       </div>
