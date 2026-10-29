@@ -497,6 +497,32 @@ async function syncStatus(uid) {
   }
 }
 
+// AI 配额查询（v9.7）：不消耗次数，只读返回当前身份模式与剩余次数。数字只在后端。
+async function aiQuota(uid) {
+  const db = getApp().rdb();
+  const todayKey = chinaDateKey();
+  const member = await getMembership(db, uid);
+  let used, limit, mode;
+  if (member) {
+    used = await readAiUsage(db, uid, todayKey);
+    limit = MEMBER_AI_DAILY_LIMIT;
+    mode = 'daily';
+  } else {
+    used = await readAiTotal(db, uid);
+    limit = FREE_AI_TOTAL_LIMIT;
+    mode = 'trial_total';
+  }
+  return json(200, {
+    ok: true,
+    member,
+    mode,
+    limit,
+    used,
+    remaining: Math.max(0, limit - used),
+    date: todayKey,
+  });
+}
+
 exports.main = async (event, context) => {
   const method = event.httpMethod || 'GET';
   const path = (event.path || '/').split('?')[0];
@@ -556,6 +582,13 @@ exports.main = async (event, context) => {
     const uid = extractUid(event);
     if (!uid) return json(401, { ok: false, error: 'unauthorized' });
     return downloadSnapshot(uid);
+  }
+
+  // AI 配额查询：当前身份（非会员试用总额 / 会员每日）与剩余次数
+  if (path === '/ai/quota' && method === 'GET') {
+    const uid = extractUid(event);
+    if (!uid) return json(401, { ok: false, error: 'unauthorized' });
+    return aiQuota(uid);
   }
 
   // AI 智能导入：一段话 → 结构化 JSON（DeepSeek 官方 API）

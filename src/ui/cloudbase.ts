@@ -240,6 +240,46 @@ export async function fetchSyncStatus(
   }
 }
 
+/** v9.7 AI 配额查询：读当前身份模式（非会员试用总额 / 会员每日）与剩余次数，不消耗次数。
+ *  配额数字只在后端。 */
+export async function aiQuota(token: string): Promise<{
+  ok: boolean
+  member?: boolean
+  mode?: 'trial_total' | 'daily'
+  limit?: number
+  used?: number
+  remaining?: number
+  error?: string
+}> {
+  try {
+    const res = await fetch(`${API_BASE}/ai/quota`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const body = (await res.json()) as {
+      ok?: boolean
+      member?: boolean
+      mode?: 'trial_total' | 'daily'
+      limit?: number
+      used?: number
+      remaining?: number
+      error?: string
+    }
+    if (!res.ok || !body.ok) {
+      return { ok: false, error: body.error ?? `HTTP ${res.status}` }
+    }
+    return {
+      ok: true,
+      member: body.member,
+      mode: body.mode,
+      limit: body.limit,
+      used: body.used,
+      remaining: body.remaining,
+    }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
 /** v9.7 AI 智能导入：一段话 → 结构化结果（云函数 /ai/import，DeepSeek 后端直连）。
  *  配额数字只由后端返回（非会员试用总额 / 会员每日），前端不写死。
  *  返回 { structured, quota, usage }；429 = ai_quota_exceeded（mode: trial_total | daily） */

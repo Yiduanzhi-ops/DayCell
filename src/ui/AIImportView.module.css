@@ -71,6 +71,13 @@
   flex-direction: column;
   gap: 10px;
 }
+/* v9.7 配额行：顶部显示剩余次数（后端返回），未登录不显示 */
+.quotaLine {
+  font-size: 12px;
+  color: #86868b;
+  text-align: center;
+  padding: 2px 0;
+}
 .area {
   width: 100%;
   box-sizing: border-box;

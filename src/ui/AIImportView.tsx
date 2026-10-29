@@ -7,11 +7,11 @@
  * 配额：由后端返回（非会员试用总额 / 会员每日），前端不写死数字；0 时整理按钮禁用。
  * 设计：语音引擎走 voiceInput.ts 抽象（MVP Web Speech，预留腾讯云 ASR）。
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import type { AiImportResult } from '@/app/store'
-import { aiImport, getAccessToken } from './cloudbase'
+import { aiImport, aiQuota, getAccessToken } from './cloudbase'
 import { speechSupported, transcribeSpeech } from './voiceInput'
 import styles from './AIImportView.module.css'
 
@@ -64,6 +64,28 @@ export function AIImportView(): JSX.Element {
   const [listening, setListening] = useState(false)
 
   const canSpeech = speechSupported()
+
+  // v9.7 配额显示：打开即拉取当前身份剩余次数（不消耗）；未登录/失败时静默，剩余保持未知
+  const [quotaLine, setQuotaLine] = useState<string | null>(null)
+  useEffect(() => {
+    let alive = true
+    void (async () => {
+      const token = await getAccessToken()
+      if (!token) return
+      const q = await aiQuota(token)
+      if (!alive || !q.ok || q.remaining == null) return
+      if (q.remaining === 0) setAiRemaining(0)
+      setQuotaLine(
+        q.mode === 'trial_total'
+          ? `AI 试用剩余 ${q.remaining} 次`
+          : `今日 AI 剩余 ${q.remaining} 次`,
+      )
+    })()
+    return () => {
+      alive = false
+    }
+  }, [setAiRemaining])
+
   const checkedCount = useMemo(() => {
     if (!result) return 0
     let n = 0
@@ -233,6 +255,7 @@ export function AIImportView(): JSX.Element {
 
         {phase === 'input' && (
           <div className={styles.inputWrap}>
+            {quotaLine && <div className={styles.quotaLine} data-testid="ai-quota">{quotaLine}</div>}
             <textarea
               className={styles.area}
               value={text}
