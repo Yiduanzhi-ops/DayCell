@@ -354,9 +354,11 @@ export function AccountSettingsView(): JSX.Element {
             <div className={styles.groupTitle}>会员</div>
             <div className={styles.group}>
               {memberInfo === null ? (
-                <div className={styles.cloudStatusDesc}>会员状态加载中…</div>
+                <div className={styles.memberCard}>
+                  <div className={styles.cloudStatusDesc}>会员状态加载中…</div>
+                </div>
               ) : memberInfo.member ? (
-                <div className={styles.cloudStatusCard}>
+                <div className={styles.memberCard}>
                   <div className={styles.okLine}>✓ 会员生效中</div>
                   <div className={styles.cloudStatusDesc}>
                     到期{' '}
@@ -367,7 +369,7 @@ export function AccountSettingsView(): JSX.Element {
                   <div className={styles.cloudStatusDesc}>云同步 {memberInfo.deviceLimit} 台 · AI 每日 100 次 · 推送</div>
                 </div>
               ) : (
-                <div className={styles.cloudStatusCard}>
+                <div className={styles.memberCard}>
                   <div className={styles.cloudStatusHint}>当前为免费版</div>
                   <div className={styles.cloudStatusDesc}>
                     云同步 {memberInfo.deviceLimit} 台设备 · AI 试用 5 次 · 推送为会员专属
@@ -381,7 +383,7 @@ export function AccountSettingsView(): JSX.Element {
                       data-testid="redeem-input"
                     />
                     <button
-                      className={styles.btnPrimary}
+                      className={styles.redeemBtn}
                       disabled={redeemState.phase === 'busy' || !redeemCodeVal.trim()}
                       onClick={() => void onRedeem()}
                       data-testid="redeem-btn"

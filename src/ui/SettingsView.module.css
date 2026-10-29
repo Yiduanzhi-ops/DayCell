@@ -285,12 +285,22 @@ button.row:hover { background: var(--bg-hover); }
   color: #c0392b;
 }
 
-/* v9.6 云端备份状态卡（「数据不会丢」可见性） */
+/* v9.6 云端备份状态卡（「数据不会丢」可见性）
+   v9.7 视觉改版：同步区灰卡与白框留出间距（悬浮感），会员区用 memberCard 满铺 */
 .cloudStatusCard {
   border: 1px solid #e8e8ed;
   border-radius: 12px;
   padding: 12px 14px;
-  margin: 0 16px 12px;
+  margin: 12px 16px 12px;
+  background: #f7f7f8;
+}
+
+/* v9.7 会员区：灰卡满铺白色矩形框（不留边距缝） */
+.memberCard {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  padding: 16px;
   background: #f7f7f8;
 }
 .cloudStatusDesc {
@@ -306,27 +316,52 @@ button.row:hover { background: var(--bg-hover); }
   line-height: 1.5;
 }
 
-/* v9.7 第 3 步：兑换码输入行 */
+/* v9.7 第 3 步：兑换码一体式（白底容器内嵌输入框 + 深色按钮） */
 .redeemRow {
   display: flex;
-  gap: 8px;
-  margin-top: 10px;
+  align-items: center;
+  gap: 4px;
+  margin-top: 12px;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(60, 60, 67, 0.14);
+  border-radius: 10px;
 }
 .redeemInput {
   flex: 1;
   min-width: 0;
-  box-sizing: border-box;
-  height: 36px;
+  height: 30px;
   padding: 0 10px;
-  border: 1px solid rgba(60, 60, 67, 0.18);
-  border-radius: 8px;
+  border: none;
+  background: transparent;
   font-size: 14px;
   color: #1d1d1f;
-  background: rgba(255, 255, 255, 0.7);
 }
 .redeemInput:focus {
   outline: none;
-  border-color: #007aff;
+}
+.redeemInput::placeholder {
+  color: #b0b0b5;
+}
+.redeemBtn {
+  flex: 0 0 auto;
+  height: 30px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 7px;
+  background: #1d1d1f;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+.redeemBtn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.redeemBtn:not(:disabled):active {
+  transform: scale(0.97);
 }
 
 /* ===== v9.5 独立登录页（白净背景 + 产品 Logo + 六格验证码） ===== */
