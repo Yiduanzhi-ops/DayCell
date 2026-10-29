@@ -31,8 +31,17 @@ function json(statusCode, body) {
 function parseBody(event) {
   if (!event.body) return {};
   if (typeof event.body === 'object') return event.body;
+  // 语音请求走 application/octet-stream（网关 6MB 通道），网关会把原始 body 以 base64 传入
+  let raw = event.body;
+  if (event.isBase64Encoded) {
+    try {
+      raw = Buffer.from(raw, 'base64').toString('utf8');
+    } catch {
+      return {};
+    }
+  }
   try {
-    return JSON.parse(event.body);
+    return JSON.parse(raw);
   } catch {
     return {};
   }
@@ -467,6 +476,10 @@ async function aiImport(event, uid) {
   // v9.7 语音：有 audio 时先 ASR 转文本（失败不消耗配额）
   let finalText = text;
   if (audio) {
+    // 413 防御：音频 base64 超过 3MB 直接拒绝（网关层请求体上限兜底，前端已限 1.4MB）
+    if (audio.length > 3 * 1024 * 1024) {
+      return json(413, { ok: false, error: 'audio_too_large', detail: '语音文件过大，请说短一点再试' });
+    }
     try {
       finalText = await asrSentence(audio, audioFormat);
     } catch (e) {

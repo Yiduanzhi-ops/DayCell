@@ -314,7 +314,9 @@ export async function aiImport(
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
+        // 语音：改走 application/octet-stream（网关「其他类型」6MB 通道）。
+        // application/json 属「文本类型」仅 100KB，10s 语音 base64 ≈ 430KB 必 413。
+        'Content-Type': audio ? 'application/octet-stream' : 'application/json',
       },
       body: JSON.stringify({
         text,

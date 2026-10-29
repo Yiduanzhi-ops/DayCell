@@ -252,15 +252,17 @@ export function AIImportView(): JSX.Element {
         const res = await aiImport(token, '', today, { data, format: 'wav' })
         applyImportResult(res)
       } catch (e) {
-        setErr(`语音识别失败：${e instanceof Error ? e.message : String(e)}`)
+        const msg = e instanceof Error ? e.message : String(e)
+        if (msg === 'audio-too-large') setErr('录音太长（超过约 50 秒），请说短一点再试')
+        else setErr(`语音识别失败：${msg}`)
         setPhase('input')
       }
       return
     }
-    // 第一次点击：开始录音（60 秒到点自动停止）
+    // 第一次点击：开始录音（30 秒到点自动停止）
     setErr(null)
     try {
-      const rec = startVoiceRecord(60)
+      const rec = startVoiceRecord(30)
       recordRef.current = rec
       setListening(true)
     } catch {
@@ -322,7 +324,7 @@ export function AIImportView(): JSX.Element {
                     <path d="M5 11a7 7 0 0 0 14 0" />
                     <path d="M12 18v3.5" />
                   </svg>
-                  {listening ? '录音中…点一下结束' : '语音'}
+                  {listening ? '录音中…（30 秒内）点一下结束' : '语音'}
                 </button>
               )}
               <button

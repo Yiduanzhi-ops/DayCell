@@ -17,6 +17,9 @@ export interface VoiceAudio {
   format: 'wav'
 }
 
+/** 语音 base64 上限：约 2.5MB（30s ≈ 1.3MB；6MB 网关通道下兜底保护） */
+export const AUDIO_B64_MAX = 2_500_000
+
 export interface VoiceRecordHandle {
   /** 停止录音并返回 WAV base64 */
   stop(): Promise<VoiceAudio>
@@ -41,7 +44,7 @@ function createDeferred<T>(): Deferred<T> {
 }
 
 /** 开始录音。maxSec 到点自动停止并 resolve。 */
-export function startVoiceRecord(maxSec = 60): VoiceRecordHandle {
+export function startVoiceRecord(maxSec = 30): VoiceRecordHandle {
   const deferred = createDeferred<VoiceAudio>()
   let stream: MediaStream | null = null
   let ctx: AudioContext | null = null
@@ -97,6 +100,12 @@ export function startVoiceRecord(maxSec = 60): VoiceRecordHandle {
       const wav = encodeWav16(out, 16000)
       void toBase64(wav).then(
         (data) => {
+          // 413 防护：WAV base64 超过约 2.5MB（≈16kHz/16bit 58 秒）直接拒绝，
+          // 双保险——正常 30 秒上限不会触发
+          if (data.length > AUDIO_B64_MAX) {
+            deferred.reject(new Error('audio-too-large'))
+            return
+          }
           if (data) deferred.resolve({ data, format: 'wav' })
           else deferred.reject(new Error('encode-failed'))
         },
