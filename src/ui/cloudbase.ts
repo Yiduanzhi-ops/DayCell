@@ -68,44 +68,24 @@ export async function getCloudLoginType(): Promise<CloudLoginType> {
   }
 }
 
-/** A2 匿名模式：启动时确保有会话。
+/** 会话恢复（v9.7 默认登录改造）：启动时恢复已有登录态。
  *  规则：
- *   1. 无登录态 → 自动匿名登录（失败静默回退纯本地）
- *   2. 有登录态但 accessToken 已失效（残留 user_info，如 refresh 过期）→ 先清理残留会话，再匿名登录
- *   3. 有效登录态（email/anonymous）→ 原样保留
- *  匿名会话同样有 accessToken，AI 导入/云同步/通知后端按匿名 uid 独立配额与存储。 */
+ *   1. 无登录态 → 返回 'none'（本地模式；不再自动匿名登录，由 App 弹登录引导）
+ *   2. 有登录态但 accessToken 已失效（残留 user_info，如 refresh 过期）→ 清理残留会话，返回 'none'
+ *   3. 有效登录态（email / 历史匿名）→ 原样保留，返回对应类型
+ *  'none' = 本地体验模式：数据只存本机，云同步/AI/通知点击时引导登录。 */
 export async function ensureSession(): Promise<CloudLoginType> {
   const cur = await getCloudLoginType()
-  if (cur === 'none') {
-    return anonymousLogin()
-  }
+  if (cur === 'none') return 'none'
   const token = await getAccessToken()
   if (token) return cur
-  // 残留会话 token 已失效：清理后重建（匿名）
+  // 残留会话 token 已失效：清理残留，回到本地模式
   try {
     await getCloudApp().auth().signOut?.()
   } catch {
     // 忽略清理异常
   }
-  return anonymousLogin()
-}
-
-/** 自动匿名登录：SDK 失败返回 { data, error } 不抛异常，必须检查 error */
-async function anonymousLogin(): Promise<CloudLoginType> {
-  try {
-    const auth = getCloudApp().auth()
-    const r = (await auth.signInAnonymously?.()) as
-      | { error?: { message?: string; category?: string } }
-      | undefined
-    if (r?.error) {
-      console.warn('[DayCell] 匿名登录失败:', r.error.category ?? '', r.error.message ?? '')
-      return 'none'
-    }
-    return getCloudLoginType()
-  } catch (e) {
-    console.warn('[DayCell] 匿名登录异常:', e instanceof Error ? e.message : String(e))
-    return 'none'
-  }
+  return 'none'
 }
 
 /** 健康检查：确认前端 → 云函数全链路可用（网关鉴权后需带 token） */

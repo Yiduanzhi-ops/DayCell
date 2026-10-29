@@ -63,6 +63,7 @@ function Shell(): JSX.Element {
   const settingsOpen = useApp((s) => s.settingsOpen)
   const notificationSettingsOpen = useApp((s) => s.notificationSettingsOpen)
   const accountOpen = useApp((s) => s.accountOpen)
+  const openAccount = useApp((s) => s.openAccount)
   const onboardingOpen = useApp((s) => s.onboardingOpen)
 
   // v7.5 夜间模式：store 里 setTheme 已同步 localStorage 与 <html>；这里兜底保证
@@ -79,10 +80,26 @@ function Shell(): JSX.Element {
   // v8.61 全弹窗键盘适配：visualViewport → --kb-inset，弹窗随键盘顶起
   useEffect(() => watchKeyboardInset(), [])
 
-  // v9.6 A2 匿名模式：启动自动确保会话——无登录态则匿名登录（失败静默回退纯本地）。
-  // 匿名会话同样有 token，AI 导入/云同步/通知按匿名 uid 独立配额与存储。
+  // v9.7 默认登录：启动恢复会话；无登录态（且未选过「先本地体验」）→ 打开登录引导页。
+  // 本地体验标记持久化：用户点过「先本地体验」后，下次启动直接进本地模式，不强迫登录。
   useEffect(() => {
-    void ensureSession()
+    let cancelled = false
+    void (async () => {
+      const type = await ensureSession()
+      if (cancelled) return
+      if (type === 'none') {
+        let skip = false
+        try {
+          skip = localStorage.getItem('daycell_skip_login') === '1'
+        } catch {
+          skip = false
+        }
+        if (!skip) openAccount()
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   // 全局快捷键（S4 / D17·v7）：j/k、←/→ 翻周/月（今天视图 no-op），d/t 回今天、w 周、m 月，

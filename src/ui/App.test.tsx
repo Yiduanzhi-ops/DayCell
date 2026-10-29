@@ -36,6 +36,9 @@ const TODAY = '2026-09-29' as DateKey
 async function renderApp() {
   // v7.5：夜间模式读 localStorage，测试间必须清掉，否则上个用例切了 dark 会串场
   localStorage.clear()
+  // v9.7 默认登录：测试场景模拟「已选择本地体验」的用户——启动不弹登录引导页，
+  // 否则每个用例都会先被登录页 overlay 挡住（产品行为：首启未登录默认弹登录引导）。
+  localStorage.setItem('daycell_skip_login', '1')
   const bundle = await initCore({
     store: createMemoryStore(),
     skipLunar: true,

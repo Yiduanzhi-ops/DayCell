@@ -101,6 +101,7 @@ export function AccountSettingsView(): JSX.Element {
           }
         }
       } else if (type === 'anonymous') {
+        // 历史匿名会话（v9.6 及以前创建）：归入本地体验态展示，不创建新匿名会话
         setLogin({ phase: 'anon' })
       }
     })()
@@ -357,7 +358,7 @@ export function AccountSettingsView(): JSX.Element {
     )
   }
 
-  /* —— 匿名使用中（A2）：白净页 + 升级入口 —— */
+  /* —— 本地体验中：白净页 + 登录入口（历史匿名会话与本地模式统一展示） —— */
   if (login.phase === 'anon') {
     return (
       <div className={styles.overlay}>
@@ -369,20 +370,15 @@ export function AccountSettingsView(): JSX.Element {
             <div className={styles.authLogo}>
               <img src={LOGO_URL} alt="" aria-hidden="true" />
             </div>
-            <h1 className={styles.authTitle}>匿名使用中</h1>
+            <h1 className={styles.authTitle}>本地体验中</h1>
             <p className={styles.authSub}>
               数据仅保存在本机，未开启云备份。登录邮箱后自动开启云同步，数据备份到云端、换设备不丢。
             </p>
             <button className={styles.authPrimary} onClick={() => setLogin({ phase: 'idle' })}>
-              升级为邮箱登录
+              登录邮箱
             </button>
             <p className={styles.authHint}>
               邮箱登录免费，解锁云同步、AI 智能导入与通知推送。
-            </p>
-            <p className={styles.authPrivacy}>
-              匿名身份由腾讯云 CloudBase 提供
-              <br />
-              你的数据仅用于 DayCell 服务
             </p>
           </div>
         </div>
@@ -496,6 +492,19 @@ export function AccountSettingsView(): JSX.Element {
               <br />
               你的数据仅用于 DayCell 账号服务
             </p>
+            <button
+              className={styles.localEntry}
+              onClick={() => {
+                try {
+                  localStorage.setItem('daycell_skip_login', '1')
+                } catch {
+                  // 隐私模式下写入失败不影响：仅下次启动会再次显示登录引导
+                }
+                closeAccount()
+              }}
+            >
+              先本地体验 ›
+            </button>
           </div>
         )}
       </div>

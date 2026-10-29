@@ -8,16 +8,16 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.65'
+const CURRENT_VERSION = 'v9.7'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
-    version: 'v8.65',
-    date: '2026-10-26',
+    version: 'v9.7',
+    date: '2026-10-29',
     items: [
-      '修复：同步/导入备份时偶发「备份文件损坏：settings 含未知设置项」——设置键校验改为单一来源，新增设置项（含「周视图显示习惯」）自动被识别，不再误判损坏',
+      '默认登录：首次打开进入登录引导页，登录一次长期有效；底部「先本地体验」可跳过，数据仅保存在本机',
     ],
   },
   {

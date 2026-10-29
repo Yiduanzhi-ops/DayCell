@@ -431,6 +431,19 @@ button.row:hover { background: var(--bg-hover); }
   text-align: center;
   line-height: 1.6;
 }
+/* v9.7 登录页底部「先本地体验」隐藏入口 */
+.localEntry {
+  margin-top: 18px;
+  background: none;
+  border: none;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: #86868b;
+  cursor: pointer;
+}
+.localEntry:active {
+  color: #1d1d1f;
+}
 .otpRow {
   display: flex;
   gap: 10px;
