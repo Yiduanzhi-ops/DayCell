@@ -658,7 +658,7 @@ export function AIImportView(): JSX.Element {
                         >
                           {freqLabel(freq)}
                         </span>
-                        {edFreq && (
+                        {(edFreq || editing === `${k}:freqWk`) && (
                           <div className={styles.freqPick}>
                             <button
                               type="button"
