@@ -118,7 +118,7 @@ export function AIImportView(): JSX.Element {
   }
 
   /** 开始就地编辑某条 */
-  const startEdit = (k: string, field: 'text' | 'date' | 'freq' | 'deadline', init: string): void => {
+  const startEdit = (k: string, field: 'text' | 'date' | 'time' | 'deadline' | 'freq', init: string): void => {
     setEditing(`${k}:${field}`)
     setEditingVal(init)
   }
@@ -155,6 +155,8 @@ export function AIImportView(): JSX.Element {
             text: string
             date: string
             deadline?: string | null
+            time?: string | null
+            timeType?: 'due' | 'at' | null
           }
           next.todos[i] = rest
         } else if (/^\d{4}-\d{2}-\d{2}$/.test(t)) {
@@ -162,7 +164,24 @@ export function AIImportView(): JSX.Element {
         }
       }
       setResult(next)
-    } else if (field === 'freq' && g === 'habit') {
+    } else if (field === 'time' && g === 'todo') {
+      // v9.9：具体时间可改/可切类型（time:HH:MM 或 type:due|at）。函数式更新防连续提交互相覆盖
+      const v = val.trim()
+      setResult((prev) => {
+        if (!prev) return prev
+        const next = { ...prev }
+        if (next.todos[i]) {
+          if (v.startsWith('time:')) {
+            const hm = v.slice(5)
+            if (/^\d{2}:\d{2}$/.test(hm)) next.todos[i] = { ...next.todos[i], time: hm }
+          } else if (v === 'type:due' || v === 'type:at') {
+            const tt = v.slice(5) as 'due' | 'at'
+            if (next.todos[i].time) next.todos[i] = { ...next.todos[i], timeType: tt }
+          }
+        }
+        return next
+      })
+    } else if ((field === 'freq' || field === 'freqWk') && g === 'habit') {
       // val 形如 'daily' 或 'weekly:1,3,5'
       const t = val.trim()
       const next = { ...result }
@@ -490,7 +509,19 @@ export function AIImportView(): JSX.Element {
                             截止 {dateLabel(t.deadline, today)}
                           </span>
                         )}
-                        {edDate && (
+                        {t.time && (
+                          <span
+                            className={`${styles.tag} ${styles.tagTime}`}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => startEdit(k, 'time', t.time as string)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') startEdit(k, 'time', t.time as string)
+                            }}
+                          >
+                            {t.timeType === 'due' ? `截止 ${t.time}` : t.time}
+                          </span>
+                        )}                        {edDate && (
                           <div className={styles.datePick}>
                             {['今天', '明天', '后天'].map((w, di) => {
                               const d = new Date(today + 'T00:00:00')
@@ -548,6 +579,32 @@ export function AIImportView(): JSX.Element {
                               onClick={() => commitEdit('')}
                             >
                               清除
+                            </button>
+                          </div>
+                        )}
+                        {editing === `${k}:time` && (
+                          <div className={styles.datePick}>
+                            <input
+                              type="time"
+                              className={styles.dateInput}
+                              defaultValue={t.time ?? ''}
+                              onBlur={(e) => {
+                                if (e.target.value) commitEdit(`time:${e.target.value}`)
+                              }}
+                            />
+                            <button
+                              type="button"
+                              className={`${styles.dateOpt} ${t.timeType === 'due' ? styles.on : ''}`}
+                              onClick={() => commitEdit('type:due')}
+                            >
+                              截止时刻
+                            </button>
+                            <button
+                              type="button"
+                              className={`${styles.dateOpt} ${t.timeType === 'at' ? styles.on : ''}`}
+                              onClick={() => commitEdit('type:at')}
+                            >
+                              提醒时刻
                             </button>
                           </div>
                         )}

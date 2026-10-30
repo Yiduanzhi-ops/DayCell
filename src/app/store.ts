@@ -63,7 +63,13 @@ export type View = 'day' | 'week' | 'month' | 'goals' | 'notes'
 
 /** v9.2 AI 智能导入：后端 /ai/import 返回的结构化结果（前端预览/编辑后确认） */
 export interface AiImportResult {
-  todos: Array<{ text: string; date: string; deadline?: string | null }>
+  todos: Array<{
+    text: string
+    date: string
+    deadline?: string | null
+    time?: string | null
+    timeType?: 'due' | 'at' | null
+  }>
   habits: Array<{ name: string; freq: { kind: 'daily' } | { kind: 'weekly'; weekdays: number[] } }>
   notes: Array<{ text: string }>
   goals: Array<{ title: string; note: string }>
@@ -1022,7 +1028,9 @@ export function createAppStore(
           const text = (t.text || '').trim()
           if (!text) continue
           const date = /^\d{4}-\d{2}-\d{2}$/.test(t.date || '') ? (t.date as DateKey) : get().selected
-          await repos.todos.create(date, text, t.deadline || undefined)
+          const time = /^\d{2}:\d{2}$/.test(t.time || '') ? t.time : null
+          const timeType = t.timeType === 'due' || t.timeType === 'at' ? t.timeType : null
+          await repos.todos.create(date, text, t.deadline || null, time, undefined, undefined, timeType)
           count++
         }
         for (const h of habits || []) {

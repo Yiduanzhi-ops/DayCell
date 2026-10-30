@@ -301,7 +301,7 @@ export async function aiImport(
 ): Promise<{
   ok: boolean
   structured?: {
-    todos: Array<{ text: string; date: string; deadline?: string | null }>
+    todos: Array<{ text: string; date: string; deadline?: string | null; time?: string | null; timeType?: 'due' | 'at' | null }>
     habits: Array<{ name: string; freq: { kind: 'daily' } | { kind: 'weekly'; weekdays: number[] } }>
     notes: Array<{ text: string }>
     goals: Array<{ title: string; note: string }>
@@ -333,7 +333,7 @@ export async function aiImport(
     const body = (await res.json()) as {
       ok?: boolean
       structured?: {
-        todos?: Array<{ text: string; date: string; deadline?: string | null }>
+        todos?: Array<{ text: string; date: string; deadline?: string | null; time?: string | null; timeType?: 'due' | 'at' | null }>
         habits?: Array<{ name: string; freq: { kind: 'daily' } | { kind: 'weekly'; weekdays: number[] } }>
         notes?: Array<{ text: string }>
         goals?: Array<{ title: string; note: string }>

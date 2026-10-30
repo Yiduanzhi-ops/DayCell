@@ -365,7 +365,7 @@ function buildImportPrompt(text, today) {
       '你的任务：把它整理成结构化 JSON，供用户确认后导入。\n' +
       '【输出格式】只输出一个 JSON 对象，不要任何解释文字或 Markdown 代码块，结构如下：\n' +
       '{\n' +
-      '  "todos": [{"text": "待办内容", "date": "YYYY-MM-DD", "deadline": null | "YYYY-MM-DD"}],\n' +
+      '  "todos": [{"text": "待办内容", "date": "YYYY-MM-DD", "deadline": null | "YYYY-MM-DD", "time": null | "HH:MM", "timeType": null | "due" | "at"}],\n' +
       '  "habits": [{"name": "习惯名", "freq": {"kind": "daily"} | {"kind": "weekly", "weekdays": [0-6]}}],\n' +
       '  "notes": [{"text": "想法/笔记内容"}],\n' +
       '  "goals": [{"title": "目标标题", "note": "一句话阐述"}]\n' +
@@ -375,6 +375,8 @@ function buildImportPrompt(text, today) {
       '2. **截止日期**：用户说"截止/最晚/在X前/DDL/月底前/下个月X号前"等 → deadline 填推算出的具体 YYYY-MM-DD；' +
       '"下个月的X号/下月X号"按今天 ' + today + ' 推算到下个月对应日（月末说"下个月31号"则取该月最后一天）。' +
       'date 保持执行日（默认今天），不要与 deadline 混同；没提截止 → deadline 必须为 null。\n' +
+      '2.5. **具体时间**：用户说"下午3点/三点半/9点前交"等 → time 填 "HH:MM"（24 小时制）；' +
+      '"X点前/X点截止" → timeType 填 "due"；"X点/X点半 做/开会/提醒" → timeType 填 "at"；没提时间 → time 和 timeType 都为 null。\n' +
       '3. 习惯：重复性动作（每天/每周几/隔天）归 habits；"每周一三五"→ {"kind":"weekly","weekdays":[1,3,5]}；星期映射 0=周日 6=周六。\n' +
       '4. 想法、感慨、模糊内容归 notes；明确的长期目标/想达成的方向归 goals。' +
       '5. **纪念日/周年等周期性日期（如"妈妈生日"）、复盘/回顾类内容（如"今天过得怎么样"）、' +

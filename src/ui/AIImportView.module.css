@@ -339,6 +339,11 @@
   background: rgba(192, 57, 43, 0.08);
   font-weight: 600;
 }
+.tagTime {
+  color: #0a5ed6;
+  background: rgba(10, 94, 214, 0.08);
+  font-weight: 600;
+}
 .goalNote {
   flex-basis: 100%;
   font-size: 11px;
