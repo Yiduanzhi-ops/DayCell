@@ -297,6 +297,7 @@ export async function aiImport(
   text: string,
   today: string,
   audio?: { data: string; format?: string },
+  opts?: { transcribeOnly?: boolean },
 ): Promise<{
   ok: boolean
   structured?: {
@@ -305,6 +306,7 @@ export async function aiImport(
     notes: Array<{ text: string }>
     goals: Array<{ title: string; note: string }>
   }
+  text?: string
   remaining?: number
   error?: string
   mode?: 'trial_total' | 'daily'
@@ -324,6 +326,8 @@ export async function aiImport(
         // v9.7 语音：audio = WAV base64（由 voiceInput 录音产生），后端 ASR 转文本后走同一分类流程
         audio: audio ? audio.data : undefined,
         format: audio ? (audio.format ?? 'wav') : undefined,
+        // v9.8 实时听写：仅转写不分类（不扣配额），文字由用户确认后再点「整理」
+        transcribe_only: opts?.transcribeOnly ? true : undefined,
       }),
     })
     const body = (await res.json()) as {
@@ -337,9 +341,14 @@ export async function aiImport(
       quota?: { remaining?: number }
       error?: string
       mode?: 'trial_total' | 'daily'
+      text?: string
     }
     if (!res.ok || !body.ok) {
       return { ok: false, error: body.error ?? `HTTP ${res.status}`, mode: body.mode }
+    }
+    // v9.8 实时听写：transcribe_only 模式只返回 text
+    if (opts?.transcribeOnly) {
+      return { ok: true, text: body.text ?? '' }
     }
     return {
       ok: true,

@@ -93,7 +93,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 300,
   },
   server: {
-    host: '127.0.0.1',
+    host: '0.0.0.0',
     port: 5188,
     strictPort: true,
     // v9.5 本地调试：dev 下前端以同源 /daycell-api 访问后端，

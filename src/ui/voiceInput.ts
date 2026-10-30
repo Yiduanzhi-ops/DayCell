@@ -23,6 +23,8 @@ export const AUDIO_B64_MAX = 2_500_000
 export interface VoiceRecordHandle {
   /** 停止录音并返回 WAV base64 */
   stop(): Promise<VoiceAudio>
+  /** 取「上次取走之后新增」的音频（WAV base64）。无新增返回 null。v9.8 实时听写用 */
+  takeLatestAudio(): Promise<string | null>
   /** 取消（释放麦克风，stop 的 Promise 会 reject） */
   cancel(): void
 }
@@ -53,6 +55,8 @@ export function startVoiceRecord(maxSec = 30): VoiceRecordHandle {
   let stopped = false
   let settled = false
   let autoTimer: number | undefined
+  /** 已消费样本数（takeLatestAudio 推进；实时听写增量用） */
+  let consumed = 0
 
   const cleanup = (): void => {
     if (autoTimer !== undefined) window.clearTimeout(autoTimer)
@@ -127,6 +131,32 @@ export function startVoiceRecord(maxSec = 30): VoiceRecordHandle {
     return deferred.promise
   }
 
+  /** v9.8 实时听写：把自上次 takeLatestAudio 之后新增的样本编码成 WAV base64 返回（无新增返回 null） */
+  const takeLatestAudio = (): Promise<string | null> => {
+    let total = 0
+    for (const c of chunks) total += c.length
+    const unread = total - consumed
+    if (unread <= 0) return Promise.resolve(null)
+    const merged = new Float32Array(unread)
+    let off = 0
+    let skip = consumed
+    for (const c of chunks) {
+      if (skip >= c.length) {
+        skip -= c.length
+        continue
+      }
+      const len = c.length - skip
+      merged.set(c.subarray(skip, c.length), off)
+      off += len
+      skip = 0
+    }
+    consumed = total
+    const rate = ctx ? ctx.sampleRate : 16000
+    const out = rate === 16000 ? merged : downsampleLinear(merged, rate, 16000)
+    const wav = encodeWav16(out, 16000)
+    return toBase64(wav).then((data) => (data ? data : null))
+  }
+
   const cancel = (): void => {
     if (settled) return
     settled = true
@@ -166,7 +196,7 @@ export function startVoiceRecord(maxSec = 30): VoiceRecordHandle {
     }
   })()
 
-  return { stop, cancel }
+  return { stop, takeLatestAudio, cancel }
 }
 
 /** 线性插值降采样 */

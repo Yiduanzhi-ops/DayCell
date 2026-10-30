@@ -68,6 +68,8 @@ export function AIImportView(): JSX.Element {
   const [viaVoice, setViaVoice] = useState(false)
   const recordRef = useRef<VoiceRecordHandle | null>(null)
   const recTimer = useRef<number | null>(null)
+  /** v9.8 实时听写定时器 */
+  const listenTimer = useRef<number | null>(null)
 
   const canSpeech = speechSupported()
 
@@ -116,7 +118,7 @@ export function AIImportView(): JSX.Element {
   }
 
   /** 开始就地编辑某条 */
-  const startEdit = (k: string, field: 'text' | 'date' | 'freq', init: string): void => {
+  const startEdit = (k: string, field: 'text' | 'date' | 'freq' | 'deadline', init: string): void => {
     setEditing(`${k}:${field}`)
     setEditingVal(init)
   }
@@ -143,6 +145,23 @@ export function AIImportView(): JSX.Element {
         if (next.todos[i]) next.todos[i] = { ...next.todos[i], date: val }
         setResult(next)
       }
+    } else if (field === 'deadline' && g === 'todo') {
+      // v9.8：截止日期可改/可清。空串 = 清除截止；否则必须是 YYYY-MM-DD
+      const t = val.trim()
+      const next = { ...result }
+      if (next.todos[i]) {
+        if (t === '') {
+          const { deadline: _omit, ...rest } = next.todos[i] as {
+            text: string
+            date: string
+            deadline?: string | null
+          }
+          next.todos[i] = rest
+        } else if (/^\d{4}-\d{2}-\d{2}$/.test(t)) {
+          next.todos[i] = { ...next.todos[i], deadline: t }
+        }
+      }
+      setResult(next)
     } else if (field === 'freq' && g === 'habit') {
       // val 形如 'daily' 或 'weekly:1,3,5'
       const t = val.trim()
@@ -235,37 +254,44 @@ export function AIImportView(): JSX.Element {
     }
   }
 
-  /** 语音输入（v9.7 腾讯云 ASR：录音 → 停止 → 上传 → 直接出预览，一次请求） */
+  /** 语音输入 v9.8：边说边出字 —— 录音中每 3.5s 把新增音频转成文字实时追加进输入框；
+   *  停止后文字留在框里、不自动整理，由用户检查修改后自己点「整理」。 */
   const onVoiceClick = async (): Promise<void> => {
     if (listening) {
-      // 第二次点击：停止录音并上传
-      const rec = recordRef.current
-      if (!rec) {
-        setListening(false)
-        return
-      }
-      setListening(false)
+      // 第二次点击：停止录音，最后一段增量转写补进框里（不自动整理）
       if (recTimer.current) window.clearInterval(recTimer.current)
+      if (listenTimer.current) window.clearInterval(listenTimer.current)
+      const rec = recordRef.current
+      setListening(false)
+      setViaVoice(false)
+      if (!rec) return
       const token = await getAccessToken()
       if (!token) {
         setErr('需要先登录才能使用（主菜单 → 账号与同步）')
         rec.cancel()
         return
       }
-      setPhase('analyzing')
+      // 最后一段增量（若实时定时器还没取走）
       try {
-        const { data } = await rec.stop()
-        const res = await aiImport(token, '', today, { data, format: 'wav' })
-        applyImportResult(res)
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e)
-        if (msg === 'audio-too-large') setErr('录音太长（超过约 50 秒），请说短一点再试')
-        else setErr(`语音识别失败：${msg}`)
-        setPhase('input')
+        const tail = await rec.takeLatestAudio()
+        if (tail) {
+          const r = await aiImport(token, '', today, { data: tail, format: 'wav' }, { transcribeOnly: true })
+          const rt = r.ok ? r.text?.trim() ?? '' : ''
+          if (rt) {
+            setText((prev) => {
+              const p = prev.trim()
+              return p ? `${p} ${rt}` : rt
+            })
+          }
+        }
+      } catch {
+        /* 实时片段已尽力，最后一段失败不阻塞停止 */
       }
+      // 释放麦克风（转写已完成，结果已入框，不再自动走分类）
+      void rec.stop().catch(() => undefined)
       return
     }
-    // 第一次点击：开始录音（30 秒到点自动停止）
+    // 第一次点击：开始录音 + 实时听写
     setErr(null)
     try {
       const rec = startVoiceRecord(30)
@@ -278,6 +304,33 @@ export function AIImportView(): JSX.Element {
       recTimer.current = window.setInterval(() => {
         setRecSec(Math.min(30, Math.floor((Date.now() - started) / 1000)))
       }, 1000)
+      // 实时听写：每 3.5s 取新增音频 → 仅转写 → 追加进输入框（边说边出字）
+      let busy = false
+      listenTimer.current = window.setInterval(() => {
+        if (busy || !recordRef.current) return
+        busy = true
+        void (async () => {
+          try {
+            const token = await getAccessToken()
+            if (!token) return
+            const seg = await rec.takeLatestAudio()
+            if (seg) {
+              const r = await aiImport(token, '', today, { data: seg, format: 'wav' }, { transcribeOnly: true })
+              const rt = r.ok ? r.text?.trim() ?? '' : ''
+              if (rt) {
+                setText((prev) => {
+                  const p = prev.trim()
+                  return p ? `${p} ${rt}` : rt
+                })
+              }
+            }
+          } catch {
+            /* 单段失败静默，下个周期重试 */
+          } finally {
+            busy = false
+          }
+        })()
+      }, 3500)
     } catch {
       setErr('无法访问麦克风，请检查浏览器权限')
     }
@@ -285,6 +338,7 @@ export function AIImportView(): JSX.Element {
 
   const close = (): void => {
     if (recTimer.current) window.clearInterval(recTimer.current)
+    if (listenTimer.current) window.clearInterval(listenTimer.current)
     recordRef.current?.cancel()
     setAiOpen(false)
   }
@@ -338,7 +392,7 @@ export function AIImportView(): JSX.Element {
                     <path d="M5 11a7 7 0 0 0 14 0" />
                     <path d="M12 18v3.5" />
                   </svg>
-                  {listening ? `录音中 ${recSec}s（30 秒内）点一下结束` : '语音'}
+                  {listening ? `录音中 ${recSec}s · 边说边出字` : '语音'}
                 </button>
               )}
               <button
@@ -423,6 +477,19 @@ export function AIImportView(): JSX.Element {
                         >
                           {dateLabel(t.date, today)}
                         </span>
+                        {t.deadline && (
+                          <span
+                            className={`${styles.tag} ${styles.tagDeadline}`}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => startEdit(k, 'deadline', t.deadline ?? '')}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') startEdit(k, 'deadline', t.deadline ?? '')
+                            }}
+                          >
+                            截止 {dateLabel(t.deadline, today)}
+                          </span>
+                        )}
                         {edDate && (
                           <div className={styles.datePick}>
                             {['今天', '明天', '后天'].map((w, di) => {
@@ -448,6 +515,40 @@ export function AIImportView(): JSX.Element {
                                 if (e.target.value) commitEdit(e.target.value)
                               }}
                             />
+                          </div>
+                        )}
+                        {editing === `${k}:deadline` && (
+                          <div className={styles.datePick}>
+                            {['明天', '后天', '一周后'].map((w, di) => {
+                              const d = new Date(today + 'T00:00:00')
+                              d.setDate(d.getDate() + [1, 2, 7][di])
+                              const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+                              return (
+                                <button
+                                  key={w}
+                                  type="button"
+                                  className={styles.dateOpt}
+                                  onClick={() => commitEdit(val)}
+                                >
+                                  {w}
+                                </button>
+                              )
+                            })}
+                            <input
+                              type="date"
+                              className={styles.dateInput}
+                              defaultValue={t.deadline ?? undefined}
+                              onBlur={(e) => {
+                                if (e.target.value) commitEdit(e.target.value)
+                              }}
+                            />
+                            <button
+                              type="button"
+                              className={styles.dateOpt}
+                              onClick={() => commitEdit('')}
+                            >
+                              清除
+                            </button>
                           </div>
                         )}
                       </div>

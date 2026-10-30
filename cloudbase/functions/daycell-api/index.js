@@ -372,12 +372,15 @@ function buildImportPrompt(text, today) {
       '}\n' +
       '【规则】\n' +
       '1. 日期语义：今天用 "' + today + '"；"明天/后天/下周一"等按今天 ' + today + ' 推算成具体 YYYY-MM-DD；没提时间的待办默认今天。\n' +
-      '2. 习惯：重复性动作（每天/每周几/隔天）归 habits；"每周一三五"→ {"kind":"weekly","weekdays":[1,3,5]}；星期映射 0=周日 6=周六。\n' +
-      '3. 想法、感慨、模糊内容归 notes；明确的长期目标/想达成的方向归 goals。' +
-      '4. **纪念日/周年等周期性日期（如"妈妈生日"）、复盘/回顾类内容（如"今天过得怎么样"）、' +
+      '2. **截止日期**：用户说"截止/最晚/在X前/DDL/月底前/下个月X号前"等 → deadline 填推算出的具体 YYYY-MM-DD；' +
+      '"下个月的X号/下月X号"按今天 ' + today + ' 推算到下个月对应日（月末说"下个月31号"则取该月最后一天）。' +
+      'date 保持执行日（默认今天），不要与 deadline 混同；没提截止 → deadline 必须为 null。\n' +
+      '3. 习惯：重复性动作（每天/每周几/隔天）归 habits；"每周一三五"→ {"kind":"weekly","weekdays":[1,3,5]}；星期映射 0=周日 6=周六。\n' +
+      '4. 想法、感慨、模糊内容归 notes；明确的长期目标/想达成的方向归 goals。' +
+      '5. **纪念日/周年等周期性日期（如"妈妈生日"）、复盘/回顾类内容（如"今天过得怎么样"）、' +
       '某目标下的子任务（如"为减肥每周跑三次"）一律归 notes，不要新增其他分类**。\n' +
-      '5. 无法识别或空内容：对应数组给空数组，不要编造。\n' +
-      '6. 所有 text/name/title 保留用户原意，适度精简但不要改写语义。',
+      '6. 无法识别或空内容：对应数组给空数组，不要编造。\n' +
+      '7. 所有 text/name/title 保留用户原意，适度精简但不要改写语义。',
   };
 }
 
@@ -454,6 +457,25 @@ async function aiImport(event, uid) {
 
   if (!text && !audio) return json(400, { ok: false, error: 'text_required' });
   if (!apiKey) return json(503, { ok: false, error: 'ai_not_configured', detail: 'DEEPSEEK_API_KEY 未配置' });
+
+  // v9.8 实时听写：transcribe_only = 只做 ASR 转文本返回（边说边出字用），不分类、不扣配额。
+  // 前端把语音分成小段实时送来，后端只返回识别文本，由用户确认后再走上面的正式分类。
+  if (body.transcribe_only === true || body.transcribe_only === 'true') {
+    if (!audio) return json(400, { ok: false, error: 'text_required', detail: 'transcribe_only 需要 audio' });
+    if (audio.length > 3 * 1024 * 1024) {
+      return json(413, { ok: false, error: 'audio_too_large', detail: '语音文件过大，请说短一点再试' });
+    }
+    try {
+      const t = await asrSentence(audio, audioFormat);
+      return json(200, { ok: true, text: t, transcribeOnly: true });
+    } catch (e) {
+      if (e && e.code === 'asr_not_configured') {
+        return json(503, { ok: false, error: 'asr_not_configured', detail: 'ASR 未配置' });
+      }
+      console.error('[ai/import] transcribe failed:', e && (e.message || e.code) || e);
+      return json(502, { ok: false, error: 'asr_failed', detail: (e && (e.message || e.code)) || 'asr failed' });
+    }
+  }
 
   // v9.7 配额：会员按天（MEMBER_AI_DAILY_LIMIT），非会员按累计总额（FREE_AI_TOTAL_LIMIT）。
   // 失败不消耗次数。

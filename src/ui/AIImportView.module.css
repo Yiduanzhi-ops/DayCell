@@ -329,11 +329,15 @@
   color: var(--accent-strong);
   background: var(--accent-soft);
   border-radius: 5px;
-  padding: 2px 7px;
-  cursor: pointer;
+  padding: 2px 7px;  cursor: pointer;
   min-height: 22px;
   display: inline-flex;
   align-items: center;
+}
+.tagDeadline {
+  color: #c0392b;
+  background: rgba(192, 57, 43, 0.08);
+  font-weight: 600;
 }
 .goalNote {
   flex-basis: 100%;
