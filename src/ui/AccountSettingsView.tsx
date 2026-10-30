@@ -180,6 +180,8 @@ export function AccountSettingsView(): JSX.Element {
         uid: typeof state === 'string' ? state : (state as { uid?: string })?.uid,
       })
       setCloudSyncEnabled(true)
+      // v9.9.1 登录成功自动回到今天视图（不再停在账号模块）；云端状态与会员信息继续后台刷新
+      closeAccount()
       // v9.7 第 3 步：登录成功同样拉云端状态与会员（否则会员区一直「获取中」）
       const tk = await getAccessToken()
       if (tk) await refreshCloudState(tk)
