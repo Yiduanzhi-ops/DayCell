@@ -54,6 +54,16 @@ export function AIImportView(): JSX.Element {
 
   const [phase, setPhase] = useState<'input' | 'analyzing' | 'preview'>('input')
   const [text, setText] = useState('')
+  /** v9.9.1 输入框改为非受控（ref 权威）：录音"边说边出字"异步追加与用户同时打字
+   *  不再互相覆盖（受控 value 在异步重渲染时会吞掉用户刚输入的字符） */
+  const areaRef = useRef<HTMLTextAreaElement | null>(null)
+  const appendVoiceText = (rt: string): void => {
+    const el = areaRef.current
+    const cur = el ? el.value : text
+    const next = cur.trim() ? `${cur.trim()} ${rt}` : rt
+    if (el) el.value = next
+    setText(next)
+  }
   const [err, setErr] = useState<string | null>(null)
   const [result, setResult] = useState<AiImportResult | null>(null)
   /** 未勾选（取消导入）的条目 key：`${group}:${index}`；默认全勾 */
@@ -297,10 +307,8 @@ export function AIImportView(): JSX.Element {
           const r = await aiImport(token, '', today, { data: tail, format: 'wav' }, { transcribeOnly: true })
           const rt = r.ok ? r.text?.trim() ?? '' : ''
           if (rt) {
-            setText((prev) => {
-              const p = prev.trim()
-              return p ? `${p} ${rt}` : rt
-            })
+            // v9.9.1 追加到输入框（DOM 权威），不覆盖已有文字/用户正在打的字
+            appendVoiceText(rt)
           }
         }
       } catch {
@@ -337,10 +345,8 @@ export function AIImportView(): JSX.Element {
               const r = await aiImport(token, '', today, { data: seg, format: 'wav' }, { transcribeOnly: true })
               const rt = r.ok ? r.text?.trim() ?? '' : ''
               if (rt) {
-                setText((prev) => {
-                  const p = prev.trim()
-                  return p ? `${p} ${rt}` : rt
-                })
+                // v9.9.1 追加到输入框（DOM 权威），边说边出字
+                appendVoiceText(rt)
               }
             }
           } catch {
@@ -377,8 +383,9 @@ export function AIImportView(): JSX.Element {
           <div className={styles.inputWrap}>
             {quotaLine && <div className={styles.quotaLine} data-testid="ai-quota">{quotaLine}</div>}
             <textarea
+              ref={areaRef}
               className={styles.area}
-              value={text}
+              defaultValue={text}
               onChange={(e) => setText(e.target.value)}
               placeholder={'把今天要做的、想记的、想养成的习惯都写下来…\n\n支持「明天」「下周一」「每周三」等说法'}
               rows={6}
@@ -390,7 +397,10 @@ export function AIImportView(): JSX.Element {
                   key={ex}
                   type="button"
                   className={styles.chip}
-                  onClick={() => setText(ex)}
+                  onClick={() => {
+                    if (areaRef.current) areaRef.current.value = ex
+                    setText(ex)
+                  }}
                 >
                   {ex.length > 18 ? `${ex.slice(0, 18)}…` : ex}
                 </button>
