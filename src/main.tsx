@@ -88,6 +88,18 @@ async function main(): Promise<void> {
       navigator.serviceWorker
         .register('sw.js', { updateViaCache: 'none' })
         .then((reg) => {
+          // v9.9.1 主动更新检查 + 接管后自动刷新：
+          // iOS Safari 主屏 PWA 只在被动周期/导航时检查新 SW（常 ≥24h），主屏刷新仍旧版
+          // （无痕无旧 SW 所以直接新版）。这里显式 reg.update()（updateViaCache:none 已绕
+          // HTTP 缓存），发现新版本 → 新 SW 安装即 skipWaiting 接管 → controllerchange →
+          // 自动 reload 一次拿新版。无新版本时 update() 无副作用、不会触发 reload。
+          void reg.update()
+          let refreshing = false
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (refreshing) return
+            refreshing = true
+            window.location.reload()
+          })
           // autoUpdate 生成的 sw.js 自带 install 时 skipWaiting，这里再兜一层：若出现 waiting
           // 状态的新 SW（极端时序），主动让它接管，保证下次导航即新版
           reg.waiting?.postMessage({ type: 'SKIP_WAITING' })
