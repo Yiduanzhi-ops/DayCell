@@ -8,11 +8,21 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.13'
+const CURRENT_VERSION = 'v9.14'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.14',
+    date: '2026-11-02',
+    items: [
+      '目标新增「文件夹」：可创建/收藏/删除文件夹，目标列表顶部按文件夹过滤（收藏置顶）',
+      '新建/编辑目标可选「放入文件夹」（不选 = 未分类）；详情页新增「移动到文件夹」入口，其余结构保持原样',
+      '文件夹可折叠：点进某个文件夹后，组头箭头收起/展开该文件夹的目标（状态持久保存）',
+      '删除文件夹时目标自动移出到未分类，目标本身不会被删除；老用户数据无需迁移，文件夹能力即开即用',
+    ],
+  },
   {
     version: 'v9.13',
     date: '2026-11-02',

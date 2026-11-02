@@ -54,10 +54,12 @@ function NewGoalSheet({ onClose }: { onClose: () => void }): JSX.Element {
   const createGoal = useApp((s) => s.createGoal)
   const [title, setTitle] = useState('')
   const [note, setNote] = useState('')
+  // v9.14 放入文件夹：null = 未分类（可跳过）
+  const [folderId, setFolderId] = useState<string | null>(null)
 
   const submit = async (): Promise<void> => {
     if (!title.trim()) return
-    const ok = await createGoal(title.trim(), note.trim())
+    const ok = await createGoal(title.trim(), note.trim(), folderId)
     if (ok) onClose()
   }
 
@@ -86,6 +88,11 @@ function NewGoalSheet({ onClose }: { onClose: () => void }): JSX.Element {
           onChange={(e) => setNote(e.target.value)}
         />
       </div>
+      {/* v9.14 放入文件夹：不选 = 未分类 */}
+      <div className={styles.field}>
+        <label>放入文件夹（可选）</label>
+        <FolderPick value={folderId} onChange={setFolderId} />
+      </div>
       <div className={styles.act}>
         <button className={styles.btnSoft} onClick={onClose}>取消</button>
         <button
@@ -95,6 +102,195 @@ function NewGoalSheet({ onClose }: { onClose: () => void }): JSX.Element {
         >
           创建
         </button>
+      </div>
+    </Sheet>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// v9.14 文件夹选择 chips（新建目标 / 移动到文件夹 共用）
+// value: null = 未分类（清空 folderId）；includeNull 关闭时不出现「未分类」项
+// ---------------------------------------------------------------------------
+
+function FolderPick({
+  value,
+  onChange,
+  includeNull = true,
+}: {
+  value: string | null
+  onChange: (id: string | null) => void
+  includeNull?: boolean
+}): JSX.Element {
+  const folderList = useApp((s) => s.folderList)
+  return (
+    <div className={styles.folderPick}>
+      {includeNull && (
+        <button
+          type="button"
+          className={value === null ? `${styles.folderPickChip} ${styles.folderPickOn}` : styles.folderPickChip}
+          onClick={() => onChange(null)}
+        >
+          未分类
+        </button>
+      )}
+      {folderList.map(({ folder }) => (
+        <button
+          type="button"
+          key={folder.id}
+          className={value === folder.id ? `${styles.folderPickChip} ${styles.folderPickOn}` : styles.folderPickChip}
+          onClick={() => onChange(folder.id)}
+        >
+          {folder.favorite ? '★ ' : ''}{folder.name}
+        </button>
+      ))}
+      {folderList.length === 0 && includeNull && (
+        <span className={styles.folderPickEmpty}>还没有文件夹，目标会放在「未分类」，之后可在详情页移动到文件夹</span>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// v9.14 新建文件夹弹层
+// ---------------------------------------------------------------------------
+
+function NewFolderSheet({ onClose }: { onClose: () => void }): JSX.Element {
+  const createFolder = useApp((s) => s.createFolder)
+  const [name, setName] = useState('')
+
+  const submit = async (): Promise<void> => {
+    if (!name.trim()) return
+    const ok = await createFolder(name.trim())
+    if (ok) onClose()
+  }
+
+  return (
+    <Sheet title="新建文件夹" onCancel={onClose}>
+      <div className={styles.field}>
+        <label>文件夹名称</label>
+        <input
+          type="text"
+          placeholder="如：2026 考证"
+          value={name}
+          maxLength={12}
+          autoFocus
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void submit()
+          }}
+        />
+        <div className={styles.hint}>文件夹是一层扁平分类，不嵌套。目标不随文件夹删除。</div>
+      </div>
+      <div className={styles.act}>
+        <button className={styles.btnSoft} onClick={onClose}>取消</button>
+        <button className={styles.btnPrimary} disabled={!name.trim()} onClick={() => void submit()}>创建</button>
+      </div>
+    </Sheet>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// v9.14 删除文件夹确认弹层（明示：目标自动移出到未分类，目标本身不删除）
+// ---------------------------------------------------------------------------
+
+function DeleteFolderConfirm({
+  folder,
+  onClose,
+  onDeleted,
+}: {
+  folder: FolderSummary
+  onClose: () => void
+  onDeleted?: () => void
+}): JSX.Element {
+  const deleteFolder = useApp((s) => s.deleteFolder)
+  return (
+    <Sheet title="删除文件夹" onCancel={onClose}>
+      <p className={styles.confirmText}>
+        删除「{folder.folder.name}」后，文件夹里的 <b>{folder.count}</b> 个目标将自动移出到未分类，目标本身不会被删除。
+      </p>
+      <div className={styles.act}>
+        <button className={styles.btnSoft} onClick={onClose}>取消</button>
+        <button
+          className={styles.btnDanger}
+          onClick={() => {
+            void deleteFolder(folder.folder.id).then((ok) => {
+              if (ok) onDeleted?.()
+              onClose()
+            })
+          }}
+        >
+          删除文件夹
+        </button>
+      </div>
+    </Sheet>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// v9.14 文件夹组头菜单（收藏/取消收藏、删除）
+// ---------------------------------------------------------------------------
+
+function FolderMenuSheet({
+  folder,
+  onClose,
+  onDeleted,
+}: {
+  folder: FolderSummary
+  onClose: () => void
+  onDeleted?: () => void
+}): JSX.Element {
+  const toggleFolderFavorite = useApp((s) => s.toggleFolderFavorite)
+  const [confirmDel, setConfirmDel] = useState(false)
+  const fav = folder.folder.favorite ?? false
+  return (
+    <Sheet title={folder.folder.name} onCancel={onClose}>
+      <div className={styles.menuList}>
+        <button
+          className={styles.menuItem}
+          onClick={() => {
+            void toggleFolderFavorite(folder.folder.id)
+            onClose()
+          }}
+        >
+          <span className={styles.menuIcon}>{fav ? '★' : '☆'}</span>
+          {fav ? '取消收藏' : '收藏文件夹'}
+        </button>
+        <button className={`${styles.menuItem} ${styles.menuItemDanger}`} onClick={() => setConfirmDel(true)}>
+          <span className={styles.menuIcon}>🗑</span>
+          删除文件夹
+        </button>
+      </div>
+      {confirmDel && <DeleteFolderConfirm folder={folder} onClose={onClose} onDeleted={onDeleted} />}
+    </Sheet>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// v9.14 移动到文件夹（详情页入口；保持详情页其余结构原样）
+// ---------------------------------------------------------------------------
+
+function MoveGoalSheet({ goal, onClose }: { goal: GoalRecord; onClose: () => void }): JSX.Element {
+  const moveGoalToFolder = useApp((s) => s.moveGoalToFolder)
+  const folderList = useApp((s) => s.folderList)
+  const [pick, setPick] = useState<string | null>(goal.folderId ?? null)
+  const current = folderList.find((x) => x.folder.id === goal.folderId)
+
+  const submit = async (): Promise<void> => {
+    const ok = await moveGoalToFolder(goal.id, pick)
+    if (ok) onClose()
+  }
+
+  return (
+    <Sheet title="移动到文件夹" onCancel={onClose}>
+      {current && (
+        <div className={styles.hint} style={{ marginBottom: 10 }}>
+          当前在「{current.folder.name}」
+        </div>
+      )}
+      <FolderPick value={pick} onChange={setPick} />
+      <div className={styles.act}>
+        <button className={styles.btnSoft} onClick={onClose}>取消</button>
+        <button className={styles.btnPrimary} onClick={() => void submit()}>移动</button>
       </div>
     </Sheet>
   )
@@ -638,6 +834,8 @@ function GoalDetail({
   const [progNoteDraft, setProgNoteDraft] = useState(goal.progress?.note ?? '')
   const [stageSheet, setStageSheet] = useState<null | 'new' | StageRecord>(null)
   const [subtaskSheet, setSubtaskSheet] = useState(false)
+  // v9.14 移动到文件夹（详情页唯一新增入口；其余结构保持原样）
+  const [moveSheet, setMoveSheet] = useState(false)
   // v8.5 双视图：阶段（时间维度）| 子任务（执行维度），各自进度独立
   const [viewMode, setViewMode] = useState<'stages' | 'subtasks'>('subtasks') // v8.7 默认子任务视图
 
@@ -696,10 +894,15 @@ function GoalDetail({
         >
           {goal.done ? '恢复进行中' : '标记完成'}
         </button>
+        {/* v9.14 移动到文件夹：详情页唯一新增入口 */}
+        <button className={styles.moveGoalBtn} onClick={() => setMoveSheet(true)} aria-label="移动到文件夹">
+          移动到文件夹
+        </button>
         <button className={styles.deleteGoal} onClick={removeGoal} aria-label="删除目标" title="删除目标">
           删除
         </button>
       </div>
+      {moveSheet && <MoveGoalSheet goal={goal} onClose={() => setMoveSheet(false)} />}
 
       {/* 目标阐述：详情页顶部主展示 */}
       <div className={styles.noteBox}>
@@ -884,14 +1087,27 @@ function GoalDetail({
 
 function GoalList(): JSX.Element {
   const goalList = useApp((s) => s.goalList)
+  const folderList = useApp((s) => s.folderList)
   const openGoal = useApp((s) => s.openGoal)
   const setGoalDone = useApp((s) => s.setGoalDone)
   const toggleGoalFavorite = useApp((s) => s.toggleGoalFavorite)
+  const setFolderCollapsed = useApp((s) => s.setFolderCollapsed)
   const [newOpen, setNewOpen] = useState(false)
+  // v9.14 文件夹区：'all' = 平铺（保持原样两组）；folderId = 只看该文件夹（组头可折叠，持久化）
+  const [filter, setFilter] = useState<string | 'all'>('all')
+  const [folderSheet, setFolderSheet] = useState(false)
+  const [menuFor, setMenuFor] = useState<FolderSummary | null>(null)
 
   // v7.9 补：进行中的在前（aggregate 已排序），已完成的沉底成组
   const active = goalList.filter((x) => !x.goal.done)
   const done = goalList.filter((x) => x.goal.done)
+
+  // v9.14 卡片所属文件夹小标签（folderId 归一化已由 aggregate 完成：无效/已删 → null）
+  const folderNameOf = (folderId?: string): string | null => {
+    if (!folderId) return null
+    const f = folderList.find((x) => x.folder.id === folderId)
+    return f ? f.folder.name : null
+  }
 
   const renderGroup = (
     title: string,
@@ -949,6 +1165,10 @@ function GoalList(): JSX.Element {
             </span>
           </h2>
           <div className={styles.meta}>
+            {/* v9.14 所属文件夹小标签（未分类不显示） */}
+            {folderNameOf(goal.folderId) && (
+              <span className={styles.folderTag}>{folderNameOf(goal.folderId)}</span>
+            )}
             <span>进度</span>
             <span className={styles.pct}>
               {current?.pct !== undefined ? `${current.pct}%` : '—'}
@@ -981,11 +1201,91 @@ function GoalList(): JSX.Element {
     </section>
   )
 
+  // v9.14 文件夹过滤视图：组头（折叠箭头 + 名字 + N + ···菜单），折叠状态持久化
+  const renderFolderView = (): JSX.Element | null => {
+    const fs = folderList.find((x) => x.folder.id === filter)
+    if (!fs) return null
+    const items = goalList.filter((x) => x.goal.folderId === fs.folder.id)
+    const collapsed = fs.folder.collapsed ?? false
+    return (
+      <section>
+        <div className={styles.folderGroupHead}>
+          <button
+            className={styles.folderCollapse}
+            aria-label={collapsed ? '展开文件夹' : '折叠文件夹'}
+            onClick={() => void setFolderCollapsed(fs.folder.id, !collapsed)}
+          >
+            {collapsed ? '▸' : '▾'}
+          </button>
+          <span className={styles.folderGroupTitle}>
+            {fs.folder.favorite ? '★ ' : ''}{fs.folder.name}（{items.length}）
+          </span>
+          <button className={styles.folderGroupMenu} aria-label="文件夹菜单" onClick={() => setMenuFor(fs)}>
+            ···
+          </button>
+        </div>
+        {collapsed ? (
+          <div className={styles.groupEmpty}>已折叠 · {items.length} 个目标</div>
+        ) : items.length === 0 ? (
+          <div className={styles.empty}>
+            <span className={styles.emptyBig}>◎</span>
+            这个文件夹还没有目标
+            <br />
+            点「＋ 新建目标」时选择放入，或在详情页移动进来
+          </div>
+        ) : (
+          renderGroup('文件夹中的目标', items, false)
+        )}
+      </section>
+    )
+  }
+
+  // v9.14 文件夹 chips 区（无文件夹时不显示，老用户界面零变化）
+  const folderBar = folderList.length > 0 ? (
+    <div className={styles.folderBar}>
+      <button
+        className={filter === 'all' ? `${styles.folderChip} ${styles.folderChipOn}` : styles.folderChip}
+        onClick={() => setFilter('all')}
+      >
+        全部
+      </button>
+      {folderList.map(({ folder, count }) => (
+        <button
+          key={folder.id}
+          className={filter === folder.id ? `${styles.folderChip} ${styles.folderChipOn}` : styles.folderChip}
+          onClick={() => setFilter(folder.id)}
+        >
+          {folder.favorite ? '★ ' : ''}{folder.name} {count}
+        </button>
+      ))}
+      <button className={styles.folderNew} onClick={() => setFolderSheet(true)}>
+        ＋ 新建文件夹
+      </button>
+    </div>
+  ) : (
+    <div className={styles.folderBar}>
+      <button className={styles.folderNew} onClick={() => setFolderSheet(true)}>
+        ＋ 新建文件夹
+      </button>
+    </div>
+  )
+
   return (
     <div className={styles.list}>
-      {renderGroup('进行中的目标', active, false)}
-      {done.length > 0 && renderGroup('已完成的目标', done, true)}
+      {folderBar}
+      {filter === 'all' ? (
+        <>
+          {renderGroup('进行中的目标', active, false)}
+          {done.length > 0 && renderGroup('已完成的目标', done, true)}
+        </>
+      ) : (
+        renderFolderView()
+      )}
       {newOpen && <NewGoalSheet onClose={() => setNewOpen(false)} />}
+      {folderSheet && <NewFolderSheet onClose={() => setFolderSheet(false)} />}
+      {menuFor && (
+        <FolderMenuSheet folder={menuFor} onClose={() => setMenuFor(null)} onDeleted={() => setFilter('all')} />
+      )}
     </div>
   )
 }

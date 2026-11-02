@@ -53,6 +53,8 @@ export const LIMITS = {
   /** v8.42 每日复盘（每日一条，同想法上限） */
   reviewText: 5000,
   habitName: 30,
+  /** v9.14 文件夹名（chips/组标题展示，短） */
+  folderName: 12,
   /** 99,999,999 元 = 9,999,999,900 分（PRD E7） */
   maxAmountCents: 9_999_999_900,
 } as const
@@ -195,6 +197,10 @@ export const parseCategoryName = (raw: string): ParseResult<string> =>
 
 export const parseGoalTitle = (raw: string): ParseResult<string> =>
   parseText(raw, { field: '目标名称', max: LIMITS.goalTitle })
+
+/** v9.14 文件夹名：必填、非空、≤12 字 */
+export const parseFolderName = (raw: string): ParseResult<string> =>
+  parseText(raw, { field: '文件夹名称', max: LIMITS.folderName })
 
 export const parseStageTitle = (raw: string): ParseResult<string> =>
   parseText(raw, { field: '阶段名称', max: LIMITS.stageTitle })

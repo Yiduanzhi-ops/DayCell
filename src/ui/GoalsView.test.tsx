@@ -498,3 +498,89 @@ describe('目标模块（v7.9）', () => {
     expect(screen.queryByText('已完成框架')).not.toBeInTheDocument()
   })
 })
+
+// ===========================================================================
+// v9.14 目标文件夹（chips 区 / 新建选夹 / 卡片标签 / 详情移动 / 删夹移出未分类）
+// ===========================================================================
+
+describe('目标文件夹（v9.14）', () => {
+  it('新建文件夹 → chips 出现；新建目标可选放入 → 卡片显示文件夹标签', async () => {
+    await renderApp()
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => expect(screen.getByText(/进行中的目标/)).toBeInTheDocument())
+
+    // 无文件夹时仍显示「新建文件夹」入口
+    expect(screen.getByRole('button', { name: '＋ 新建文件夹' })).toBeInTheDocument()
+
+    // 新建文件夹
+    fireEvent.click(screen.getByRole('button', { name: '＋ 新建文件夹' }))
+    fireEvent.change(screen.getByPlaceholderText(/2026 考证/), { target: { value: '2026 考证' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: '2026 考证 0' })).toBeInTheDocument())
+
+    // 新建目标 → 表单里选「放入文件夹」→ 卡片带标签
+    fireEvent.click(screen.getByRole('button', { name: '＋ 新建目标' }))
+    fireEvent.change(screen.getByPlaceholderText(/复习考公/), { target: { value: '考公刷题' } })
+    fireEvent.click(screen.getByRole('button', { name: '2026 考证' }))
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
+    await waitFor(() => expect(screen.getByText('考公刷题')).toBeInTheDocument())
+    expect(screen.getByText('2026 考证 1')).toBeInTheDocument()
+    // 卡片 meta 里的文件夹小标签
+    expect(screen.getAllByText('2026 考证').length).toBeGreaterThan(0)
+  })
+
+  it('详情页「移动到文件夹」：从未分类移入 → 卡片标签出现', async () => {
+    const { store } = await renderAppWrap()
+    const s = store.getState()
+    await s.createFolder('学习')
+    await s.createGoal('英语', '', null)
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => expect(screen.getByText('英语')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByText('英语'))
+    await waitFor(() => expect(screen.getByRole('button', { name: '移动到文件夹' })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: '移动到文件夹' }))
+    await waitFor(() => expect(screen.getByRole('dialog', { name: '移动到文件夹' })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: '学习' }))
+    fireEvent.click(screen.getByRole('button', { name: '移动' }))
+    // 回列表，卡片带「学习」标签
+    await waitFor(() => expect(screen.getAllByText('学习').length).toBeGreaterThan(0))
+  })
+
+  it('过滤视图：组头折叠持久化 + 删除文件夹 → 目标自动移出到未分类', async () => {
+    const { store } = await renderAppWrap()
+    const s = store.getState()
+    await s.createFolder('工作')
+    const fid = store.getState().folderList[0]?.folder.id
+    expect(fid).toBeTruthy()
+    await s.createGoal('交付上线', '', fid)
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: /工作 \d/ })).toBeInTheDocument())
+
+    // 进过滤视图 → 组头出现 → 折叠
+    fireEvent.click(screen.getByRole('button', { name: /工作 \d/ }))
+    await waitFor(() => expect(screen.getByText('工作（1）')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: '折叠文件夹' }))
+    await waitFor(() => expect(screen.getByText(/已折叠 · 1 个目标/)).toBeInTheDocument())
+
+    // 菜单 → 删除文件夹 → 确认
+    fireEvent.click(screen.getByRole('button', { name: '文件夹菜单' }))
+    await waitFor(() => expect(screen.getByText('删除文件夹')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('删除文件夹'))
+    await waitFor(() => expect(screen.getByText(/自动移出到未分类/)).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: '删除文件夹' }))
+    // 回到「全部」，chips 消失，目标仍在（未分类）
+    await waitFor(() => expect(screen.getByText('交付上线')).toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: /工作 \d/ })).not.toBeInTheDocument()
+  })
+})
+
+/** 与 renderApp 同款，但返回 store 供直接调 action 造数据 */
+async function renderAppWrap() {
+  localStorage.clear()
+  const bundle = await initCore({ store: createMemoryStore(), skipLunar: true })
+  const store = createAppStore(bundle, { today: TODAY, isNarrow: () => false })
+  await store.getState().init()
+  render(<App store={store} />)
+  return { store }
+}

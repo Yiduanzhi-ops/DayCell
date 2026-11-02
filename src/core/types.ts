@@ -145,6 +145,22 @@ export interface GoalRecord extends CoreRecord {
    *  旧记录/旧备份无此字段 → 读路径一律按 false 归一化；favoritedAt 仅收藏时写入 */
   favorite?: boolean
   favoritedAt?: number
+  /** v9.14 目标所属文件夹（可空 = 未分类，直接创建目标天然成立）。
+   *  旧记录/旧备份无此字段 → 读路径一律按 null 归一化；删除文件夹后目标自动归入未分类（读路径归一化，不改记录） */
+  folderId?: string
+}
+
+/** v9.14 目标文件夹：一层扁平，不嵌套。文件夹可创建/删除/收藏/折叠；
+ *  删除文件夹时其内目标**自动移出到未分类**（读路径归一化：folder 不存在或已墓碑即视为未分类）。
+ *  旧记录/旧备份无此表 → 读路径按空列表处理 */
+export interface FolderRecord extends CoreRecord {
+  type: 'folder'
+  name: string
+  /** v9.14 文件夹收藏：置顶排序（与目标收藏同套路：favoritedAt 仅收藏时写入） */
+  favorite?: boolean
+  favoritedAt?: number
+  /** v9.14 折叠状态：折叠时列表只显示文件夹标题行，隐藏其内目标 */
+  collapsed?: boolean
 }
 
 export interface StageRecord extends CoreRecord {
@@ -273,6 +289,7 @@ export type StoreName =
   | 'checkins'
   | 'annivchecks'
   | 'reviews'
+  | 'folders'
   | 'settings'
 
 /** 存放带归属日内容记录的 store（v8.42 加 reviews） */
@@ -293,6 +310,7 @@ export const ALL_STORES: readonly StoreName[] = [
   'checkins',
   'annivchecks',
   'reviews',
+  'folders',
   'settings',
 ]
 
@@ -322,5 +340,6 @@ export interface RecordTable {
   checkins: CheckinRecord[]
   annivchecks: AnnivCheckRecord[]
   reviews: ReviewRecord[]
+  folders: FolderRecord[]
   settings: SettingRecord[]
 }

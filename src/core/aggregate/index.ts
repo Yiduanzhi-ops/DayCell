@@ -42,6 +42,7 @@ import type {
   AnniversaryRecord,
   DateKey,
   ExpenseRecord,
+  FolderRecord,
   GoalRecord,
   HabitFreq,
   HabitRecord,
@@ -145,7 +146,7 @@ export interface MonthSummary {
   costCents: number
 }
 
-/** v7.9 目标列表的一行（列表页唯一数据源）；v8.7 加 subtaskCount（子任务数）；v8.45 加 activeDays（已进行天数） */
+/** v7.9 目标列表的一行（列表页唯一数据源）；v8.7 加 subtaskCount（子任务数）；v8.45 加 activeDays（已进行天数）；v9.14 加 folder（所属文件夹，读路径归一化） */
 export interface GoalSummary {
   goal: GoalRecord
   /** 活阶段数（不含墓碑） */
@@ -156,6 +157,16 @@ export interface GoalSummary {
   current: { id: string; title: string; pct?: number } | null
   /** v8.45 目标已进行天数：该目标所有活子任务 workDates 的并集大小（去重） */
   activeDays: number
+  /** v9.14 所属文件夹（活）。null = 未分类：
+   *  目标没有 folderId、folderId 指向已删除/墓碑文件夹 → 一律归入未分类（删除文件夹 = 目标自动移出，不改目标记录） */
+  folder: { id: string; name: string; collapsed: boolean } | null
+}
+
+/** v9.14 文件夹列表的一行（chips/分组用）：活文件夹，收藏置顶 + createdAt 升序 */
+export interface FolderSummary {
+  folder: FolderRecord
+  /** 该文件夹内目标数（活目标，读路径归一化后统计） */
+  count: number
 }
 
 /** v8.0 今日习惯的一行（纯勾选打卡项，不进待办） */
@@ -199,6 +210,8 @@ export interface Aggregates {
   aggregateDayDetail(date: DateKey): Promise<DayDetail>
   /** v7.9 目标列表：全部活目标 + 阶段数 + 当前阶段 */
   goalSummaries(): Promise<GoalSummary[]>
+  /** v9.14 目标文件夹列表（chips/分组用）：活文件夹，收藏置顶 + createdAt 升序 */
+  foldersAll(): Promise<FolderSummary[]>
   /** v7.9 某目标的全部活阶段：当前置顶，其余按 createdAt 升序 */
   stagesOfGoal(goalId: string): Promise<StageRecord[]>
   /** v8.5 某目标的全部活子任务：未完成在前、完成后沉底，各组按 createdAt 升序 */
@@ -426,12 +439,19 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
   // -------------------------------------------------------------------------
 
   const goalSummaries = async (): Promise<GoalSummary[]> => {
-    const [goalsList, stagesList, subtasksList] = await Promise.all([
+    const [goalsList, stagesList, subtasksList, foldersList] = await Promise.all([
       repos.goals.all(),
       store.all<StageRecord>('stages'),
       store.all<SubtaskRecord>('subtasks'),
+      store.all<FolderRecord>('folders'),
     ])
     const live = goalsList.filter((g) => !g.deleted)
+    // v9.14 文件夹映射：folderId → 活文件夹（墓碑/不存在的 folderId 一律未分类）
+    const folderById = new Map<string, { id: string; name: string; collapsed: boolean }>()
+    for (const f of foldersList) {
+      if (f.deleted) continue
+      folderById.set(f.id, { id: f.id, name: f.name, collapsed: f.collapsed ?? false })
+    }
     const stageGroups = new Map<string, StageRecord[]>()
     for (const s of stagesList) {
       if (s.deleted) continue
@@ -479,8 +499,28 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
         subtaskCount: subtaskGroups.get(goal.id) ?? 0,
         current: cur ? { id: cur.id, title: cur.title, pct: cur.pct } : null,
         activeDays: activeDaySets.get(goal.id)?.size ?? 0,
+        // v9.14 folderId 归一化：无字段/指向已删文件夹 → null（未分类）
+        folder: goal.folderId ? (folderById.get(goal.folderId) ?? null) : null,
       }
     })
+  }
+
+  /** v9.14 文件夹列表：活文件夹，收藏置顶（内部按收藏时间新的在前）+ createdAt 升序；附目标数（读路径归一化后） */
+  const foldersAll = async (): Promise<FolderSummary[]> => {
+    const [folderList, goalsList] = await Promise.all([repos.folders.all(), repos.goals.all()])
+    const liveFolders = [...folderList].sort((a, b) => {
+      const af = a.favorite ?? false
+      const bf = b.favorite ?? false
+      if (af !== bf) return af ? -1 : 1
+      if (af && bf) return (b.favoritedAt ?? 0) - (a.favoritedAt ?? 0)
+      return a.createdAt - b.createdAt
+    })
+    const liveGoals = goalsList.filter((g) => !g.deleted)
+    return liveFolders.map((folder) => ({
+      folder,
+      // folderId === 本文件夹的目标数；指向已删文件夹/无字段的目标天然归未分类（不进任何文件夹计数）
+      count: liveGoals.filter((g) => g.folderId === folder.id).length,
+    }))
   }
 
   const stagesOfGoal = async (goalId: string): Promise<StageRecord[]> => {
@@ -707,6 +747,7 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
     },
 
     goalSummaries,
+    foldersAll,
     stagesOfGoal,
     subtasksOfGoal,
 

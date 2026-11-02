@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DayCell · 目标文件夹功能原型</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230a84ff'/%3E%3Cpath d='M8 10.5h4l2 2h10v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 8 21.5z' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#f2f2f7; --card:#fff; --sep:#e5e5ea; --sep2:#c7c7cc;
+  --txt:#1d1d1f; --sub:#8e8e93; --sub2:#98989d;
+  --blue:#0a84ff; --yellow:#f5b301; --green:#34c759; --red:#ff3b30;
+  --scrim:rgba(0,0,0,.35);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Microsoft YaHei",sans-serif;
+  background:#161617; color:var(--txt); display:flex; flex-direction:column; align-items:center;
+  min-height:100%; padding:28px 16px 36px;
+}
+.page-title{color:#f5f5f7;font-size:15px;font-weight:600;letter-spacing:.01em;margin-bottom:20px}
+.page-title span{color:#86868b;font-weight:400}
+.hint{color:#6e6e73;font-size:12px;margin-top:18px;text-align:center;line-height:1.7;max-width:430px}
+.hint b{color:#a1a1a6;font-weight:600}
+
+/* ============ iPhone 壳 ============ */
+.phone{
+  width:390px;height:844px;background:var(--bg);border-radius:50px;position:relative;
+  box-shadow:0 40px 90px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.08) inset;
+  overflow:hidden;flex-shrink:0;
+}
+.statusbar{
+  height:47px;display:flex;align-items:center;justify-content:space-between;
+  padding:14px 28px 0;position:absolute;top:0;left:0;right:0;z-index:5;
+  font-size:15px;font-weight:600;color:var(--txt);pointer-events:none;
+}
+.statusbar .time{letter-spacing:.02em}
+.statusbar .sysicons{display:flex;gap:5px;align-items:center}
+.statusbar svg{display:block}
+.island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:126px;height:37px;background:#000;border-radius:20px;z-index:6}
+
+/* ============ App 内容 ============ */
+.app{position:absolute;inset:0;padding-top:47px;display:flex;flex-direction:column;overflow:hidden}
+.navbar{
+  padding:8px 18px 10px;display:flex;align-items:flex-end;justify-content:space-between;
+}
+.navbar h1{font-size:32px;font-weight:700;letter-spacing:-.02em}
+.navbar .count{font-size:13px;color:var(--sub);margin:2px 0 4px 4px}
+.nav-add{
+  width:34px;height:34px;border-radius:50%;background:var(--blue);border:none;color:#fff;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  transition:transform .12s ease, opacity .12s ease;
+}
+.nav-add:active{transform:scale(.92);opacity:.85}
+.nav-add svg{width:17px;height:17px}
+
+/* 文件夹 chips */
+.folders{
+  display:flex;gap:8px;padding:4px 18px 12px;overflow-x:auto;scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;
+}
+.folders::-webkit-scrollbar{display:none}
+.chip{
+  flex-shrink:0;display:inline-flex;align-items:center;gap:6px;padding:0 14px;height:34px;
+  border-radius:17px;background:var(--card);border:1px solid var(--sep);color:var(--txt);
+  font-size:14px;font-weight:500;cursor:pointer;transition:all .15s ease;
+}
+.chip svg{width:14px;height:14px;color:var(--sub2);flex-shrink:0}
+.chip .n{color:var(--sub);font-size:12px;font-weight:400}
+.chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.chip.on svg{color:rgba(255,255,255,.85)}
+.chip.on .n{color:rgba(255,255,255,.85)}
+.chip.add{background:transparent;border-style:dashed;border-color:var(--sep2);color:var(--sub)}
+.chip.add:active{opacity:.6}
+
+/* 列表 */
+.list{flex:1;overflow-y:auto;padding:0 18px 90px;-webkit-overflow-scrolling:touch}
+.group{display:flex;align-items:baseline;gap:8px;padding:14px 2px 8px}
+.group .g-name{font-size:13px;font-weight:600;color:var(--sub)}
+.group .g-n{font-size:12px;color:var(--sub2)}
+.group .g-star{margin-left:auto;font-size:12px;color:var(--yellow);font-weight:600}
+.g-more{
+  width:26px;height:26px;border-radius:50%;border:none;background:transparent;cursor:pointer;
+  color:var(--sub2);display:flex;align-items:center;justify-content:center;margin-left:2px;
+}
+.g-fold{
+  width:26px;height:26px;border-radius:50%;border:none;background:transparent;cursor:pointer;
+  color:var(--sub2);display:flex;align-items:center;justify-content:center;margin-left:-6px;font-size:13px;
+}
+.g-fold:active{background:#e5e5ea}
+.g-more:active{background:#e5e5ea}
+.g-more svg{width:15px;height:15px}
+.card{
+  background:var(--card);border-radius:14px;padding:14px 16px;margin-bottom:10px;
+  display:flex;align-items:center;gap:12px;cursor:pointer;border:1px solid transparent;
+  transition:transform .12s ease, box-shadow .12s ease;
+}
+.card:active{transform:scale(.985)}
+.card.done{opacity:.55}
+.circle{
+  width:26px;height:26px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  border:1.5px solid var(--sep2);color:transparent;font-size:14px;
+}
+.circle.done{background:var(--green);border-color:var(--green);color:#fff}
+.card-main{flex:1;min-width:0}
+.card-title{font-size:16px;font-weight:600;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+.card-title .done-txt{font-size:12px;color:var(--green);font-weight:600}
+.card-tags{display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap}
+.tag{
+  font-size:11px;font-weight:500;color:var(--blue);background:rgba(10,132,255,.1);
+  padding:2px 8px;border-radius:6px;display:inline-flex;align-items:center;gap:4px;
+}
+.tag svg{width:11px;height:11px}
+.tag .idle{color:var(--sub2);background:rgba(142,142,147,.12)}
+.progress{margin-top:8px;height:4px;background:#f0f0f2;border-radius:2px;overflow:hidden}
+.progress i{display:block;height:100%;background:var(--blue);border-radius:2px;transition:width .3s ease}
+.progress i.full{background:var(--green)}
+.pct{font-size:12px;color:var(--sub);margin-top:5px;font-weight:500}
+.more{
+  width:30px;height:30px;border-radius:50%;border:none;background:transparent;cursor:pointer;
+  color:var(--sub2);display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.more svg{width:17px;height:17px}
+.empty{
+  background:var(--card);border-radius:14px;padding:26px 20px;text-align:center;color:var(--sub);
+  font-size:14px;line-height:1.7;margin-top:4px;border:1px dashed var(--sep2);
+}
+.empty b{color:var(--txt)}
+
+/* ============ Sheet / 弹层 ============ */
+.scrim{position:absolute;inset:0;background:var(--scrim);opacity:0;pointer-events:none;transition:opacity .2s ease;z-index:20}
+.scrim.show{opacity:1;pointer-events:auto}
+.sheet{
+  position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:20px 20px 0 0;z-index:30;
+  transform:translateY(105%);transition:transform .28s cubic-bezier(.32,.72,0,1);padding:8px 18px calc(16px + env(safe-area-inset-bottom));
+  padding-bottom:18px;
+}
+.sheet.show{transform:translateY(0)}
+.grab{width:36px;height:5px;border-radius:3px;background:#e5e5ea;margin:6px auto 12px}
+.sheet h3{font-size:17px;font-weight:700;margin-bottom:4px;text-align:center}
+.sheet .sub{font-size:13px;color:var(--sub);text-align:center;margin-bottom:14px}
+.sheet .field{margin:10px 0}
+.sheet .field label{display:block;font-size:13px;font-weight:600;color:var(--sub);margin-bottom:6px}
+.sheet input[type=text]{
+  width:100%;height:44px;border-radius:10px;border:1px solid var(--sep2);background:var(--bg);
+  font-size:16px;padding:0 12px;outline:none;transition:border-color .15s ease;
+}
+.sheet input[type=text]:focus{border-color:var(--blue)}
+.sheet input[type=text]::placeholder{color:var(--sep2)}
+.sheet .btnrow{display:flex;gap:10px;margin-top:16px}
+.btn{
+  flex:1;height:46px;border-radius:12px;font-size:16px;font-weight:600;border:none;cursor:pointer;
+  transition:transform .12s ease, opacity .12s ease;
+}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--blue);color:#fff}
+.btn.danger{background:var(--red);color:#fff}
+.btn.ghost{background:#f2f2f7;color:var(--txt)}
+.btn.plain{background:transparent;color:var(--blue);box-shadow:none;border:none;height:auto;font-weight:400}
+.btn:disabled{opacity:.4;pointer-events:none}
+
+/* 菜单 sheet 行 */
+.mrow{
+  display:flex;align-items:center;gap:14px;height:52px;padding:0 8px;border-radius:12px;
+  cursor:pointer;transition:background .12s ease;font-size:16px;
+}
+.mrow:active{background:#f2f2f7}
+.mrow svg{width:20px;height:20px;flex-shrink:0}
+.mrow .danger-txt{color:var(--red)}
+.mrow.on svg,.mrow.on .star-on{color:var(--yellow)}
+
+/* 选择 chips（表单内） */
+.pickchips{display:flex;flex-wrap:wrap;gap:8px}
+.pick{
+  height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--sep);background:var(--card);
+  font-size:14px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:var(--txt);
+  transition:all .15s ease;
+}
+.pick svg{width:13px;height:13px;color:var(--sub2)}
+.pick.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.pick.on svg{color:#fff}
+
+/* 全屏表单 */
+.formpage{
+  position:absolute;inset:0;background:var(--bg);z-index:40;display:flex;flex-direction:column;
+  transform:translateX(100%);transition:transform .3s cubic-bezier(.32,.72,0,1);
+}
+.formpage.show{transform:translateX(0)}
+.formbar{display:flex;align-items:center;padding:6px 10px 0;gap:4px}
+.backbtn{
+  width:38px;height:38px;border-radius:50%;border:none;background:transparent;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;color:var(--blue);
+}
+.backbtn svg{width:22px;height:22px}
+.formbar h2{font-size:17px;font-weight:700;flex:1;text-align:center;margin-right:38px}
+.formbody{flex:1;overflow-y:auto;padding:18px 18px 30px;-webkit-overflow-scrolling:touch}
+.formbody .field{margin-bottom:16px}
+.formbody .field label{display:block;font-size:13px;font-weight:600;color:var(--sub);margin-bottom:7px}
+.formbody input[type=text],.formbody textarea{
+  width:100%;border-radius:12px;border:1px solid var(--sep2);background:var(--card);font-size:16px;
+  padding:12px;outline:none;font-family:inherit;resize:none;
+}
+.formbody input[type=text]:focus,.formbody textarea:focus{border-color:var(--blue)}
+.formbody textarea{min-height:84px;line-height:1.5}
+.formbody .field .req{color:var(--red);margin-left:2px}
+.range-row{display:flex;align-items:center;gap:12px}
+.range-row input[type=range]{flex:1;accent-color:var(--blue);height:28px}
+.range-val{font-size:14px;color:var(--blue);font-weight:700;min-width:38px;text-align:right}
+.formfooter{padding:10px 18px 22px;border-top:1px solid var(--sep);background:var(--card)}
+/* 删除确认内联描述 */
+.deldesc{font-size:13px;color:var(--sub);text-align:center;line-height:1.6;margin-bottom:4px}
+.deldesc b{color:var(--txt);font-weight:600}
+.toast{
+  position:absolute;left:50%;bottom:96px;transform:translateX(-50%) translateY(12px);z-index:60;
+  background:rgba(28,28,30,.92);color:#fff;font-size:13px;font-weight:500;padding:10px 16px;border-radius:12px;
+  opacity:0;pointer-events:none;transition:opacity .2s ease, transform .2s ease;white-space:nowrap;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (prefers-reduced-motion: reduce){
+  .sheet,.formpage,.scrim,.toast,.nav-add,.chip,.card,.btn,.mrow{transition:none}
+}
+@media (max-width:460px){
+  body{padding:14px 0 24px}
+  .phone{width:100%;height:calc(100dvh - 110px);min-height:640px;border-radius:0}
+  .page-title{display:none}
+}
+</style>
+</head>
+<body>
+<div class="page-title">DayCell <span>· 目标文件夹功能原型</span></div>
+
+<div class="phone" id="phone">
+  <div class="statusbar">
+    <span class="time">9:41</span>
+    <span class="sysicons">
+      <svg width="17" height="11" viewBox="0 0 17 11" fill="none"><rect x="0" y="7" width="3" height="4" rx="1" fill="currentColor"/><rect x="4.5" y="4.5" width="3" height="6.5" rx="1" fill="currentColor"/><rect x="9" y="2" width="3" height="9" rx="1" fill="currentColor"/><rect x="13.5" y="0" width="3" height="11" rx="1" fill="currentColor"/></svg>
+      <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="currentColor" opacity="0.4"/><rect x="2" y="2" width="15" height="8" rx="2" fill="currentColor"/><path d="M23 4v4a2.5 2.5 0 0 0 0-4z" fill="currentColor"/></svg>
+    </span>
+  </div>
+  <div class="island"></div>
+
+  <div class="app" id="app"><!-- 由 JS 渲染 --></div>
+
+  <div class="scrim" id="scrim"></div>
+
+  <!-- Sheet 容器（通用） -->
+  <div class="sheet" id="sheet"></div>
+
+  <!-- 全屏表单 -->
+  <div class="formpage" id="formpage"></div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<div class="hint">
+  原型演示 · <b>文件夹</b>：创建 / 收藏 / 删除（目标自动移出到未分类）· 目标可不属于任何文件夹<br>
+  点：文件夹 chip 过滤 · 「+」新建目标 · 卡片「···」管理 · 新建目标表单可选「放入文件夹」<br>
+  数据为演示样例，非真实用户数据
+</div>
+
+<script>
+/* ================= 状态与数据 ================= */
+const state = {
+  folders: [
+    { id:'f1', name:'2026 考证', fav:true, collapsed:false },
+    { id:'f2', name:'生活杂事', fav:false, collapsed:false },
+    { id:'f3', name:'健身', fav:false, collapsed:false },
+  ],
+  goals: [
+    { id:'g1', title:'软考高级', note:'系统架构设计师', folder:'f1', pct:60, done:false },
+    { id:'g2', title:'一汽入职准备', note:'材料与流程清单', folder:'f1', pct:100, done:true },
+    { id:'g3', title:'小红书账号运营', note:'周更 2 篇', folder:'f1', pct:40, done:false },
+    { id:'g4', title:'整理房间', note:'断舍离一轮', folder:'f2', pct:100, done:true },
+    { id:'g5', title:'学会做三道家常菜', note:'番茄炒蛋 / 红烧肉 / 炖排骨', folder:null, pct:30, done:false },
+    { id:'g6', title:'晨跑计划', note:'每周三次 5 公里', folder:null, pct:0, done:false },
+  ],
+  filter:'all',       // 'all' | folderId
+  sheet:null,         // null | {type:'folderMenu', folderId} | {type:'deleteFolder', folderId}
+  editing:null,       // null | {goalId?} 打开表单（null=新建）
+  toast:'',
+}
+const $ = (s)=>document.querySelector(s)
+const app = $('#app'), sheet=$('#sheet'), scrim=$('#scrim'), formpage=$('#formpage')
+
+const ICON = {
+  folder:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" stroke-linejoin="round"/></svg>',
+  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>',
+  star:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.6l2.9 5.9 6.5.95-4.7 4.6 1.1 6.5L12 17.6l-5.8 3.05 1.1-6.5-4.7-4.6 6.5-.95z"/></svg>',
+  starLine:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2.6l2.9 5.9 6.5.95-4.7 4.6 1.1 6.5L12 17.6l-5.8 3.05 1.1-6.5-4.7-4.6 6.5-.95z" stroke-linejoin="round"/></svg>',
+  more:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m3 0l-.8 12.1a2 2 0 0 1-2 1.9H8.8a2 2 0 0 1-2-1.9L6 7m4 4v6m4-6v6"/></svg>',
+  back:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+}
+
+/* ================= 渲染 ================= */
+function folderName(id){ const f=state.folders.find(x=>x.id===id); return f?f.name:'未分类' }
+
+function chipRow(){
+  const fc = [...state.folders].sort((a,b)=> (b.fav?1:0)-(a.fav?1:0))
+  const allN = state.goals.length
+  let h = `<button class="chip ${state.filter==='all'?'on':''}" data-f="all">全部<span class="n">${allN}</span></button>`
+  for(const f of fc){
+    const n = state.goals.filter(g=>g.folder===f.id).length
+    h += `<button class="chip ${state.filter===f.id?'on':''}" data-f="${f.id}">${f.fav?ICON.star:ICON.folder}<span>${f.name}</span><span class="n">${n}</span></button>`
+  }
+  h += `<button class="chip add" data-act="newfolder">${ICON.plus}<span>新建文件夹</span></button>`
+  return h
+}
+
+function goalCard(g){
+  const f = g.folder ? folderName(g.folder) : null
+  const pct = g.pct
+  return `<div class="card ${g.done?'done':''}" data-goal="${g.id}">
+    <div class="circle ${g.done?'done':''}">${g.done?ICON.check:''}</div>
+    <div class="card-main">
+      <div class="card-title">${g.title}${g.done?'<span class="done-txt">已完成</span>':''}</div>
+      ${g.note?`<div style="font-size:13px;color:var(--sub);margin-top:3px">${g.note}</div>`:''}
+      <div class="card-tags">${f?`<span class="tag">${ICON.folder}${f}</span>`:''}${!f?'<span class="tag" style="color:var(--sub2);background:rgba(142,142,147,.12)">未分类</span>':''}</div>
+      <div class="progress"><i style="width:${pct}%" class="${pct===100?'full':''}"></i></div>
+      <div class="pct">${pct===100?'已完成':pct===0?'未开始':pct+'%'}</div>
+    </div>
+    <button class="more" data-more="${g.id}">${ICON.more}</button>
+  </div>`
+}
+
+function groupBlock(name, star, goals, fid){
+  if(!goals.length) return ''
+  let h = `<div class="group"><span class="g-name">${name}</span><span class="g-n">${goals.length}</span>${star?'<span class="g-star">收藏</span>':''}`
+  if(fid) h += `<button class="g-more" data-fm="${fid}" aria-label="管理文件夹">${ICON.more}</button>`
+  h += `</div>`
+  h += goals.map(goalCard).join('')
+  return h
+}
+
+function renderList(){
+  const fcs = [...state.folders].sort((a,b)=>(b.fav?1:0)-(a.fav?1:0))
+  let body = ''
+  if(state.filter==='all'){
+    const orphan = state.goals.filter(g=>!g.folder)
+    body += groupBlock('未分类', false, orphan)
+    for(const f of fcs){
+      body += groupBlock(f.name, f.fav, state.goals.filter(g=>g.folder===f.id), f.id)
+    }
+  }else{
+    const f = state.folders.find(x=>x.id===state.filter)
+    const gs = state.goals.filter(g=>g.folder===state.filter)
+    if(f){
+      const collapsed = f.collapsed ?? false
+      body = `<div class="group">
+        <button class="g-fold" data-toggle-col="${f.id}" aria-label="${collapsed?'展开文件夹':'折叠文件夹'}">${collapsed?'▸':'▾'}</button>
+        <span class="g-name">${f.fav?ICON.star+' ':''}${f.name}</span><span class="g-n">${gs.length}</span>
+        <button class="g-more" data-fm="${f.id}" aria-label="管理文件夹">${ICON.more}</button>
+      </div>`
+      body += collapsed
+        ? `<div class="empty"><b>已折叠 · ${gs.length} 个目标</b></div>`
+        : (gs.length
+            ? gs.map(goalCard).join('')
+            : `<div class="empty"><b>「${f.name}」还没有目标</b><br>点右上角「+」新建目标，选择放入这个文件夹</div>`)
+    }
+  }
+  if(!state.goals.length){
+    body = `<div class="empty"><b>还没有目标</b><br>点右上角「+」创建第一个目标</div>`
+  }
+  return body
+}
+
+function render(){
+  app.innerHTML = `
+    <div class="navbar">
+      <div>
+        <h1>目标</h1>
+        <div class="count">${state.goals.length} 个目标 · ${state.folders.length} 个文件夹</div>
+      </div>
+      <button class="nav-add" data-act="newgoal" aria-label="新建目标">${ICON.plus}</button>
+    </div>
+    <div class="folders">${chipRow()}</div>
+    <div class="list">${renderList()}</div>
+  `
+  closeSheet(true)
+}
+
+/* ================= Sheet ================= */
+function openSheet(html, keepScrim=true){
+  sheet.innerHTML = html
+  sheet.classList.add('show')
+  if(keepScrim) scrim.classList.add('show')
+}
+function closeSheet(fast){
+  sheet.classList.remove('show')
+  scrim.classList.remove('show')
+  if(!fast){ setTimeout(()=>{ sheet.innerHTML='' },280) } else { sheet.innerHTML='' }
+}
+
+function showToast(t){
+  const el=$('#toast'); el.textContent=t; el.classList.add('show')
+  clearTimeout(showToast._t)
+  showToast._t=setTimeout(()=>el.classList.remove('show'),2200)
+}
+
+/* ================= 表单（新建/编辑目标） ================= */
+function openGoalForm(goal){
+  state.editing = goal ? goal.id : null
+  const g = goal || { title:'', note:'', folder:null, pct:0, done:false }
+  const picks = [['none','未分类']].concat(state.folders.map(f=>[f.id,f.fav?('★ '+f.name):f.name]))
+  const cur = g.folder || 'none'
+  const pickHtml = picks.map(([id,n])=>`<button class="pick ${id===cur?'on':''}" data-folder="${id}">${id!=='none'?ICON.folder:''}${n}</button>`).join('')
+  formpage.innerHTML = `
+    <div class="formbar">
+      <button class="backbtn" data-act="closeform">${ICON.back}</button>
+      <h2>${goal?'编辑目标':'新建目标'}</h2>
+    </div>
+    <div class="formbody">
+      <div class="field"><label>标题<span class="req">*</span></label>
+        <input type="text" id="f-title" value="${g.title}" placeholder="例如：复习考公"></div>
+      <div class="field"><label>阐述 / 总结沉淀</label>
+        <textarea id="f-note" placeholder="可选，一句话描述这个目标">${g.note}</textarea></div>
+      <div class="field"><label>放入文件夹</label>
+        <div class="pickchips">${pickHtml}</div>
+        <div style="font-size:12px;color:var(--sub2);margin-top:6px">不选 = 目标独立存在（未分类），之后可在编辑里随时调整</div></div>
+      <div class="field"><label>当前进度</label>
+        <div class="range-row"><input type="range" id="f-pct" min="0" max="100" step="5" value="${g.pct}"><span class="range-val" id="f-pctv">${g.pct}%</span></div></div>
+    </div>
+    <div class="formfooter">
+      <button class="btn primary" style="width:100%" data-act="savegoal">${goal?'保存修改':'创建目标'}</button>
+    </div>
+  `
+  formpage.classList.add('show')
+  formpage.querySelector('#f-pct').addEventListener('input',e=>{ $('#f-pctv').textContent = e.target.value+'%' })
+}
+function closeForm(){ formpage.classList.remove('show'); state.editing=null }
+
+/* ================= 事件 ================= */
+app.addEventListener('click', e=>{
+  const chip = e.target.closest('[data-f]')
+  if(chip){ state.filter = chip.dataset.f==='all'?'all':chip.dataset.f; render(); return }
+
+  const col = e.target.closest('[data-toggle-col]')
+  if(col){
+    const f = state.folders.find(x=>x.id===col.dataset.toggleCol)
+    if(f){ f.collapsed = !f.collapsed; render() }
+    return
+  }
+
+  const act = e.target.closest('[data-act]')
+  if(act){
+    const a = act.dataset.act
+    if(a==='newfolder'){ showNewFolder(); return }
+    if(a==='newgoal'){ openGoalForm(null); return }
+  }
+
+  const fm = e.target.closest('[data-fm]')
+  if(fm){
+    const id = fm.dataset.fm
+    const f = state.folders.find(x=>x.id===id)
+    openSheet(`
+      <div class="grab"></div>
+      <div style="text-align:center;font-size:16px;font-weight:700;margin-bottom:12px">${f.name}</div>
+      <div class="mrow ${f.fav?'on':''}" data-toggle-fav="${id}">${f.fav?ICON.star:ICON.starLine}<span class="${f.fav?'star-on':''}">${f.fav?'取消收藏':'收藏文件夹'}</span></div>
+      <div class="mrow" data-del-folder="${id}">${ICON.trash}<span class="danger-txt">删除文件夹</span></div>
+      <div style="height:6px"></div>
+    `)
+    return
+  }
+
+  const more = e.target.closest('[data-more]')
+  if(more){
+    const g = state.goals.find(x=>x.id===more.dataset.more)
+    if(g){
+      openSheet(`
+        <div class="grab"></div>
+        <div class="mrow" data-m="edit">${ICON.folder}编辑目标</div>
+        <div class="mrow" data-m="del">${ICON.trash}<span class="danger-txt">删除目标</span></div>
+        <div style="height:6px"></div>
+      `)
+    }
+    return
+  }
+
+  const card = e.target.closest('[data-goal]')
+  if(card){ openGoalForm(state.goals.find(x=>x.id===card.dataset.goal)); return }
+})
+
+sheet.addEventListener('click', e=>{
+  const delFolder = e.target.closest('[data-del-folder]')
+  if(delFolder){
+    const id = delFolder.dataset.delFolder
+    const f = state.folders.find(x=>x.id===id)
+    const n = state.goals.filter(g=>g.folder===id).length
+    openSheet(`
+      <div class="grab"></div>
+      <h3>删除文件夹「${f.name}」？</h3>
+      <div class="deldesc">${n?`文件夹内的 <b>${n} 个目标</b> 将自动移出到未分类，<b>目标本身不会被删除</b>`:'文件夹目前没有目标'}</div>
+      <div class="btnrow">
+        <button class="btn ghost" data-cancel>取消</button>
+        <button class="btn danger" data-confirm-del="${id}">删除文件夹</button>
+      </div>
+    `)
+    return
+  }
+  const confirmDel = e.target.closest('[data-confirm-del]')
+  if(confirmDel){
+    const id = confirmDel.dataset.confirmDel
+    const f = state.folders.find(x=>x.id===id)
+    state.goals.forEach(g=>{ if(g.folder===id) g.folder=null })
+    state.folders = state.folders.filter(x=>x.id!==id)
+    if(state.filter===id) state.filter='all'
+    const moved = state.goals.filter(g=>g.title).length
+    showToast(`已删除文件夹「${f.name}」，目标已移出到未分类`)
+    render(); return
+  }
+  const toggleFav = e.target.closest('[data-toggle-fav]')
+  if(toggleFav){
+    const id = toggleFav.dataset.toggleFav
+    const f = state.folders.find(x=>x.id===id)
+    f.fav = !f.fav
+    showToast(f.fav?`已收藏「${f.name}」`:`已取消收藏「${f.name}」`)
+    render(); return
+  }
+  const editRow = e.target.closest('[data-m="edit"]')
+  if(editRow){ closeSheet(); return }
+  const delRow = e.target.closest('[data-m="del"]')
+  if(delRow){
+    const gid = '' // 目标删除演示：关闭并提示（原型不演示目标删除主流程）
+    showToast('删除目标（原型占位）')
+    closeSheet(); return
+  }
+  if(e.target.closest('[data-cancel]')){ closeSheet(); return }
+})
+
+function showNewFolder(){
+  openSheet(`
+    <div class="grab"></div>
+    <h3>新建文件夹</h3>
+    <div class="sub">文件夹用于归类目标；目标可以不放入任何文件夹</div>
+    <div class="field"><input type="text" id="nf-name" placeholder="文件夹名称" maxlength="12"></div>
+    <div class="btnrow">
+      <button class="btn ghost" data-cancel>取消</button>
+      <button class="btn primary" id="nf-ok">创建</button>
+    </div>
+  `, true)
+  const input = $('#nf-name')
+  input.focus()
+  const doCreate = ()=>{
+    const name = input.value.trim()
+    if(!name){ input.focus(); input.style.borderColor='var(--red)'; return }
+    state.folders.push({ id:'f'+Date.now(), name, fav:false })
+    state.filter = 'all'
+    showToast(`已创建文件夹「${name}」`)
+    render()
+  }
+  $('#nf-ok').addEventListener('click', doCreate)
+  input.addEventListener('keydown', e=>{ if(e.key==='Enter') doCreate() })
+}
+
+formpage.addEventListener('click', e=>{
+  const act = e.target.closest('[data-act]')
+  if(act && act.dataset.act==='closeform'){ closeForm(); return }
+  const pick = e.target.closest('[data-folder]')
+  if(pick){
+    formpage.querySelectorAll('.pick').forEach(p=>p.classList.remove('on'))
+    pick.classList.add('on')
+    return
+  }
+  const save = e.target.closest('[data-act="savegoal"]')
+  if(save){
+    const title = $('#f-title').value.trim()
+    if(!title){ $('#f-title').focus(); $('#f-title').style.borderColor='var(--red)'; return }
+    const folder = formpage.querySelector('.pick.on')?.dataset.folder
+    const pct = parseInt($('#f-pct').value,10)
+    if(state.editing){
+      const g = state.goals.find(x=>x.id===state.editing)
+      g.title = title; g.note = $('#f-note').value.trim()
+      g.folder = folder==='none'?null:folder; g.pct = pct
+      showToast('已保存目标修改')
+    }else{
+      state.goals.push({ id:'g'+Date.now(), title, note:$('#f-note').value.trim(), folder:folder==='none'?null:folder, pct, done:false })
+      showToast('已创建目标')
+    }
+    closeForm(); render()
+  }
+})
+
+scrim.addEventListener('click', closeSheet)
+
+/* ================= 启动 ================= */
+render()
+</script>
+</body>
+</html>

@@ -147,6 +147,8 @@ export interface AppState {
   annivList: AnniversaryRecord[]
   /** v7.9：目标列表（目标 tab 数据源） */
   goalList: GoalSummary[]
+  /** v9.14：目标文件夹列表（chips/分组/移动目标用；收藏置顶） */
+  folderList: FolderSummary[]
   /** v7.9：打开中的目标详情（null = 目标列表页）。v8.5 加 subtasks（阶段/子任务双视图） */
   goalDetail: { goal: GoalRecord; stages: StageRecord[]; subtasks: SubtaskRecord[] } | null
   /** v8.0：今日习惯（selected 日该做的习惯 + 打卡状态） */
@@ -333,14 +335,22 @@ export interface AppState {
   /** 进入目标详情：加载目标 + 其全部阶段 */
   openGoal(id: string): Promise<void>
   closeGoal(): void
-  createGoal(title: string, note: string): Promise<boolean>
-  updateGoal(id: string, patch: { title?: string; note?: string; progress?: ProgressField | undefined }): Promise<boolean>
+  createGoal(title: string, note: string, folderId?: string | null): Promise<boolean>
+  updateGoal(id: string, patch: { title?: string; note?: string; progress?: ProgressField | undefined; folderId?: string | null }): Promise<boolean>
   /** 目标整体完成/取消完成（完成的目标沉底到「已完成」列表） */
   setGoalDone(id: string, done: boolean): Promise<boolean>
   /** v8.43 目标收藏/取消收藏（列表置顶；仅目标列表页操作） */
   toggleGoalFavorite(id: string): Promise<void>
   /** 删目标（连带其全部阶段，repo 维护） */
   deleteGoal(id: string): Promise<boolean>
+  // ---- v9.14：目标文件夹（创建/删除/收藏/折叠；不嵌套；删夹不删目标） ----
+  refreshFolders(): Promise<void>
+  createFolder(name: string): Promise<boolean>
+  deleteFolder(id: string): Promise<boolean>
+  toggleFolderFavorite(id: string): Promise<boolean>
+  setFolderCollapsed(id: string, collapsed: boolean): Promise<boolean>
+  /** 移动目标到文件夹：folderId null = 移出到未分类 */
+  moveGoalToFolder(goalId: string, folderId: string | null): Promise<boolean>
   createStage(input: StageInput): Promise<boolean>
   updateStage(id: string, patch: Partial<Omit<StageInput, 'goalId' | 'pct'>> & { pct?: number | null }): Promise<boolean>
   /** 设为当前（同目标互斥） */
@@ -503,6 +513,7 @@ export function createAppStore(
     cats: [],
     annivList: [],
     goalList: [],
+    folderList: [],
     goalDetail: null,
     habitDay: null,
     habitList: [],
@@ -585,10 +596,14 @@ export function createAppStore(
         const subtaskTodayIds = todayTodos.filter((t) => t.subtaskId).map((t) => t.subtaskId!)
         set({ subtaskTodayIds })
         // v7.9 目标视图：不加载日历聚合，只刷目标列表（goalList 是它的唯一数据源）
+        // v9.14：同页加载文件夹列表（chips/分组/移动目标用）
         if (view === 'goals') {
-          const goalList = await aggregates.goalSummaries()
+          const [goalList, folderList] = await Promise.all([
+            aggregates.goalSummaries(),
+            aggregates.foldersAll(),
+          ])
           if (seq !== loadSeq) return
-          set({ goalList, loading: false })
+          set({ goalList, folderList, loading: false })
           return
         }
         // v8.13 想法视图：不加载日历聚合，只刷想法列表（notesList 是它的唯一数据源）
@@ -1422,6 +1437,79 @@ export function createAppStore(
       }
     },
 
+    // ---- v9.14 目标文件夹 ----
+
+    async refreshFolders() {
+      try {
+        const folderList = await aggregates.foldersAll()
+        set({ folderList })
+      } catch (e) {
+        get().showToast(errMsg(e))
+      }
+    },
+
+    async createFolder(name) {
+      try {
+        await repos.folders.create({ name })
+        const folderList = await aggregates.foldersAll()
+        set({ folderList })
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async deleteFolder(id) {
+      try {
+        await repos.folders.softDelete(id)
+        // 删夹不删目标：目标保留原 folderId，聚合读路径归一化为未分类
+        const [folderList, goalList] = await Promise.all([
+          aggregates.foldersAll(),
+          aggregates.goalSummaries(),
+        ])
+        set({ folderList, goalList })
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async toggleFolderFavorite(id) {
+      try {
+        const f = get().folderList.find((x) => x.folder.id === id)
+        await repos.folders.setFavorite(id, !(f?.folder.favorite ?? false))
+        await get().refreshFolders()
+      } catch (e) {
+        get().showToast(errMsg(e))
+      }
+    },
+
+    async setFolderCollapsed(id, collapsed) {
+      try {
+        await repos.folders.setCollapsed(id, collapsed)
+        await get().refreshFolders()
+      } catch (e) {
+        get().showToast(errMsg(e))
+      }
+    },
+
+    async moveGoalToFolder(goalId, folderId) {
+      try {
+        await repos.goals.update(goalId, { folderId })
+        const [goalList, folderList] = await Promise.all([
+          aggregates.goalSummaries(),
+          aggregates.foldersAll(),
+        ])
+        set({ goalList, folderList })
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
     async openGoal(id) {
       try {
         const [goal, stages, subtasks] = await Promise.all([
@@ -1445,11 +1533,12 @@ export function createAppStore(
       void get().refreshGoals()
     },
 
-    async createGoal(title, note) {
+    async createGoal(title, note, folderId) {
       try {
-        await repos.goals.create({ title, note })
+        await repos.goals.create({ title, note, folderId })
         set({ dataVer: get().dataVer + 1 })
         await get().refreshGoals()
+        await get().refreshFolders()
         get().showToast('已创建目标')
         return true
       } catch (e) {
@@ -1464,6 +1553,7 @@ export function createAppStore(
         set({ dataVer: get().dataVer + 1 })
         set((s) => (s.goalDetail && s.goalDetail.goal.id === id ? { goalDetail: { ...s.goalDetail, goal } } : s))
         await get().refreshGoals()
+        if ('folderId' in patch) await get().refreshFolders()
         get().showToast('已更新目标')
         return true
       } catch (e) {

@@ -23,6 +23,7 @@ import type {
   CategoryRecord,
   CheckinRecord,
   ExpenseRecord,
+  FolderRecord,
   GoalRecord,
   HabitRecord,
   NoteRecord,
@@ -117,7 +118,7 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
 
   /** 全量读本地（含墓碑；settings 单独走 allSettings） */
   const loadLocal = async (): Promise<RecordTable> => {
-    const [todos, notes, expenses, anniversaries, categories, goals, stages, subtasks, habits, checkins, annivchecks, reviews, settings] =
+    const [todos, notes, expenses, anniversaries, categories, goals, stages, subtasks, habits, checkins, annivchecks, reviews, folders, settings] =
       await Promise.all([
         deps.store.all<TodoRecord>('todos', { includeDeleted: true }),
         deps.store.all<NoteRecord>('notes', { includeDeleted: true }),
@@ -131,9 +132,10 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
         deps.store.all<CheckinRecord>('checkins', { includeDeleted: true }),
         deps.store.all<AnnivCheckRecord>('annivchecks', { includeDeleted: true }),
         deps.store.all<ReviewRecord>('reviews', { includeDeleted: true }),
+        deps.store.all<FolderRecord>('folders', { includeDeleted: true }),
         deps.store.allSettings(),
       ])
-    return { todos, notes, expenses, anniversaries, categories, goals, stages, subtasks, habits, checkins, annivchecks, reviews, settings }
+    return { todos, notes, expenses, anniversaries, categories, goals, stages, subtasks, habits, checkins, annivchecks, reviews, folders, settings }
   }
 
   /** 把合并结果写回本地：单事务 + keepTimestamps（否则 updatedAt 全变"刚刚"，
@@ -143,7 +145,7 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
     try {
       let changed = false
       const tables: Array<keyof Omit<RecordTable, 'settings'>> = [
-        'todos', 'notes', 'expenses', 'anniversaries', 'categories', 'goals', 'stages', 'subtasks', 'habits', 'checkins', 'annivchecks', 'reviews',
+        'todos', 'notes', 'expenses', 'anniversaries', 'categories', 'goals', 'stages', 'subtasks', 'habits', 'checkins', 'annivchecks', 'reviews', 'folders',
       ]
       await deps.store.tx(async (scope) => {
         for (const name of tables) {

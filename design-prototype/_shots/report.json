@@ -1,7 +1,7 @@
 {
-  "src": "Excel导入待办原型.html",
-  "url": "file:///home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/Excel%E5%AF%BC%E5%85%A5%E5%BE%85%E5%8A%9E%E5%8E%9F%E5%9E%8B.html",
-  "outdir": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots",
+  "src": "目标文件夹功能原型.html",
+  "url": "file:///Users/wangduanmao/DayCell/design-prototype/%E7%9B%AE%E6%A0%87%E6%96%87%E4%BB%B6%E5%A4%B9%E5%8A%9F%E8%83%BD%E5%8E%9F%E5%9E%8B.html",
+  "outdir": "/Users/wangduanmao/DayCell/design-prototype/_shots",
   "include": [
     "lint",
     "screenshots",
@@ -9,20 +9,19 @@
   ],
   "shots": {
     "desktop": {
-      "revealed": 0,
-      "screenshot": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots/Excel导入待办原型_desktop.jpg",
-      "screenshotBytes": 46789,
+      "screenshot": "/Users/wangduanmao/DayCell/design-prototype/_shots/目标文件夹功能原型_desktop.jpg",
+      "screenshotBytes": 28239,
       "truncated": false,
       "structure": {
-        "title": "DayCell · Excel 导入待办原型",
-        "firstH1": "Excel 导入待办 · 交互原型",
+        "title": "DayCell · 目标文件夹功能原型",
+        "firstH1": "目标",
         "viewport": {
           "w": 1440,
-          "h": 900
+          "h": 757
         },
         "fullpage": {
           "w": 1440,
-          "h": 947
+          "h": 1033
         },
         "counts": {
           "section": 0,
@@ -30,31 +29,31 @@
           "h2": 0,
           "img": 0,
           "canvas": 0,
-          "svg": 8,
-          "links": 1,
-          "buttons": 9
+          "svg": 21,
+          "links": 0,
+          "buttons": 14
         }
       },
       "consoleErrors": [],
       "consoleWarnings": [],
       "horizontalOverflow": [],
-      "resourceErrors": []
+      "resourceErrors": [],
+      "reportSource": "cdp"
     },
     "mobile": {
-      "revealed": 0,
-      "screenshot": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots/Excel导入待办原型_mobile.jpg",
-      "screenshotBytes": 74839,
+      "screenshot": "/Users/wangduanmao/DayCell/design-prototype/_shots/目标文件夹功能原型_mobile.jpg",
+      "screenshotBytes": 43014,
       "truncated": false,
       "structure": {
-        "title": "DayCell · Excel 导入待办原型",
-        "firstH1": "Excel 导入待办 · 交互原型",
+        "title": "DayCell · 目标文件夹功能原型",
+        "firstH1": "目标",
         "viewport": {
-          "w": 390,
-          "h": 844
+          "w": 500,
+          "h": 701
         },
         "fullpage": {
-          "w": 390,
-          "h": 1711
+          "w": 500,
+          "h": 1033
         },
         "counts": {
           "section": 0,
@@ -62,33 +61,38 @@
           "h2": 0,
           "img": 0,
           "canvas": 0,
-          "svg": 8,
-          "links": 1,
-          "buttons": 9
+          "svg": 21,
+          "links": 0,
+          "buttons": 14
         }
       },
       "consoleErrors": [],
       "consoleWarnings": [],
       "horizontalOverflow": [],
-      "resourceErrors": []
+      "resourceErrors": [],
+      "reportSource": "cdp"
     }
   },
-  "engine": "playwright",
-  "chromiumExec": "/opt/vm/preinstall/ms-playwright/chromium-1169/chrome-linux/chrome",
-  "elapsedSec": 4.94,
+  "engine": "chrome_cli",
+  "chromiumExec": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  "engineDegraded": true,
+  "engineDegradedReason": "playwright 未装",
+  "elapsedSec": 7.94,
   "schemaVersion": 2,
   "status": "pass",
   "engineInfo": {
-    "name": "playwright",
-    "degraded": false,
-    "degradedReasons": []
+    "name": "chrome_cli",
+    "degraded": true,
+    "degradedReasons": [
+      "playwright 未装"
+    ]
   },
   "input": {
-    "original": "Excel导入待办原型.html",
-    "resolvedPath": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/Excel导入待办原型.html",
-    "baseUrl": "file:///home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/Excel%E5%AF%BC%E5%85%A5%E5%BE%85%E5%8A%9E%E5%8E%9F%E5%9E%8B.html",
+    "original": "目标文件夹功能原型.html",
+    "resolvedPath": "/Users/wangduanmao/DayCell/design-prototype/目标文件夹功能原型.html",
+    "baseUrl": "file:///Users/wangduanmao/DayCell/design-prototype/%E7%9B%AE%E6%A0%87%E6%96%87%E4%BB%B6%E5%A4%B9%E5%8A%9F%E8%83%BD%E5%8E%9F%E5%9E%8B.html",
     "protocol": "file",
-    "cwd": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype",
+    "cwd": "/Users/wangduanmao/DayCell/design-prototype",
     "mediaMode": {
       "reducedMotion": true
     }
@@ -97,8 +101,8 @@
     "screenshots": [
       {
         "viewport": "desktop",
-        "path": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots/Excel导入待办原型_desktop.jpg",
-        "size": 46789,
+        "path": "/Users/wangduanmao/DayCell/design-prototype/_shots/目标文件夹功能原型_desktop.jpg",
+        "size": 28239,
         "visualCoverage": {
           "complete": true,
           "reason": null
@@ -106,8 +110,8 @@
       },
       {
         "viewport": "mobile",
-        "path": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots/Excel导入待办原型_mobile.jpg",
-        "size": 74839,
+        "path": "/Users/wangduanmao/DayCell/design-prototype/_shots/目标文件夹功能原型_mobile.jpg",
+        "size": 43014,
         "visualCoverage": {
           "complete": true,
           "reason": null
@@ -123,5 +127,5 @@
   },
   "findings": [],
   "prioritizedActions": [],
-  "reportPath": "/home/user/Doubao/chats/38444556790203906/DayCell/design-prototype/_shots/report.json"
+  "reportPath": "/Users/wangduanmao/DayCell/design-prototype/_shots/report.json"
 }

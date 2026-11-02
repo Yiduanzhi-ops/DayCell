@@ -53,8 +53,9 @@ export interface IdbDeps {
  * schema 版本管记录结构（备份兼容）。v7.9 新增 goals/stages 两个 store、
  * v8.0 新增 habits/checkins 两个 store、v8.5 新增 subtasks，库版本逐级升到 4 让**已安装用户**
  * 也能触发 upgrade 补建空表；SCHEMA_VERSION 保持 1，旧备份仍可导入。
+ * v9.14 新增 folders store，库版本升到 7。
  */
-export const DB_VERSION = 6
+export const DB_VERSION = 7
 
 type Row = Record<string, unknown> & CoreRecord & { date?: DateKey; catId?: string }
 
@@ -281,6 +282,11 @@ export async function createIdbStore(deps: IdbDeps): Promise<RecordStore> {
           const reviews = database.createObjectStore('reviews', { keyPath: 'id' })
           reviews.createIndex('byDate', 'date')
           reviews.createIndex('byUpdated', 'updatedAt')
+        }
+        // v9.14：新增 folders（目标文件夹，非日期内容，无 byDate）
+        if (oldVersion < 7) {
+          const folders = database.createObjectStore('folders', { keyPath: 'id' })
+          folders.createIndex('byUpdated', 'updatedAt')
         }
         void transaction
       },

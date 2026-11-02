@@ -81,6 +81,7 @@ export function emptyTables(): RecordTable {
     checkins: [],
     annivchecks: [],
     reviews: [],
+    folders: [],
     settings: [],
   }
 }
@@ -107,6 +108,7 @@ function cloneTables(t: RecordTable | undefined): RecordTable {
     checkins: cloneArr(t.checkins),
     annivchecks: cloneArr(t.annivchecks),
     reviews: cloneArr(t.reviews),
+    folders: cloneArr(t.folders),
     settings: cloneArr(t.settings),
   }
 }
