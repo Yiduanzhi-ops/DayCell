@@ -229,7 +229,10 @@ export function AccountSettingsView(): JSX.Element {
           ? {
               phase: 'fail',
               action: 'upload',
-              error: `免费档仅支持 1 台设备云同步，第二台设备需升级会员（即将上线）`,
+              error:
+                r.deviceLimit && r.deviceLimit > 1
+                  ? `已达会员设备上限（${r.deviceLimit} 台），请清理不再使用的设备登记后重试`
+                  : `免费档仅支持 1 台设备云同步，第二台设备需升级会员（即将上线）`,
             }
           : { phase: 'fail', action: 'upload', error: r.error ?? '上传失败' },
     )
@@ -415,13 +418,12 @@ export function AccountSettingsView(): JSX.Element {
                     {cloudStatus.devices.length > 0
                       ? ` · 已登记设备 ${cloudStatus.devices.length}/${cloudStatus.deviceLimit}`
                       : ''}
-                    {cloudStatus.devices.length >= cloudStatus.deviceLimit && cloudStatus.deviceLimit > 1
-                      ? ''
-                      : ''}
                   </div>
                   {cloudStatus.devices.length >= cloudStatus.deviceLimit && (
                     <div className={styles.cloudStatusHint}>
-                      免费档支持 {cloudStatus.deviceLimit} 台设备同步，更多设备需升级会员
+                      {cloudStatus.deviceLimit > 1
+                        ? `已达会员设备上限（${cloudStatus.deviceLimit} 台），请清理不再使用的设备登记`
+                        : `免费档支持 ${cloudStatus.deviceLimit} 台设备同步，更多设备需升级会员`}
                     </div>
                   )}
                 </div>
