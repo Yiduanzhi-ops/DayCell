@@ -8,15 +8,16 @@
  * 存储：repos.settings（localStorage 持久化），切换即时生效（无需重启）。
  * 样式与偏好设置页共用 SettingsView.module.css，保持一致视觉。
  */
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import { useApp } from '@/app/context'
-import { isCloudLoggedIn, type PushPrefs } from './cloudbase'
+import { fetchMember, getAccessToken, isCloudLoggedIn, type PushPrefs } from './cloudbase'
 import {
   EVENING_SLOTS,
   getPushSupport,
   MORNING_SLOTS,
   syncPushPrefs,
+  WEEKLY_SLOTS,
 } from './pushService'
 import styles from './SettingsView.module.css'
 
@@ -41,28 +42,51 @@ export function NotificationSettingsView(): JSX.Element {
   const pushMorningTime = useApp((s) => s.pushMorningTime)
   const pushEveningEnabled = useApp((s) => s.pushEveningEnabled)
   const pushEveningTime = useApp((s) => s.pushEveningTime)
+  const pushWeeklyEnabled = useApp((s) => s.pushWeeklyEnabled)
+  const pushWeeklyTime = useApp((s) => s.pushWeeklyTime)
   const setPushPrefs = useApp((s) => s.setPushPrefs)
 
   const [pushError, setPushError] = useState<string | null>(null)
   const pushSupport = getPushSupport()
   const cloudLoggedIn = isCloudLoggedIn()
 
+  // v9.12 周报=会员项：已登录时查会员状态，非会员开关置灰（worker 侧仍会二次校验）
+  const [isMember, setIsMember] = useState<boolean | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    if (!cloudLoggedIn) {
+      setIsMember(null)
+      return
+    }
+    void (async () => {
+      const token = await getAccessToken()
+      if (!token) return
+      const m = await fetchMember(token)
+      if (!cancelled) setIsMember(!!(m.ok && m.member))
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [cloudLoggedIn])
+
   /** 待同步的最新意图（快速连点时只保留最后一次，避免请求乱序） */
   const pendingRef = useRef<PushPrefs | null>(null)
   const syncingRef = useRef(false)
 
   /**
-   * 应用早/晚偏好变更：先乐观更新本地（点击立即生效），再同步云端。
+   * 应用早/晚/周报偏好变更：先乐观更新本地（点击立即生效），再同步云端。
    * 云端失败回滚到点击前状态并按原因给引导文案。
    * patch 为部分更新：缺省字段沿用当前 store 值。
    */
   const applyPushPrefs = async (patch: {
     morning?: { enabled?: boolean; time?: string | null }
     evening?: { enabled?: boolean; time?: string | null }
+    weekly?: { enabled?: boolean; time?: string | null }
   }) => {
     const prev: PushPrefs = {
       morning: { enabled: pushMorningEnabled, time: pushMorningTime },
       evening: { enabled: pushEveningEnabled, time: pushEveningTime },
+      weekly: { enabled: pushWeeklyEnabled, time: pushWeeklyTime },
     }
     const next: PushPrefs = {
       morning: {
@@ -72,6 +96,10 @@ export function NotificationSettingsView(): JSX.Element {
       evening: {
         enabled: patch.evening?.enabled ?? prev.evening.enabled,
         time: patch.evening?.time !== undefined ? patch.evening.time : prev.evening.time,
+      },
+      weekly: {
+        enabled: patch.weekly?.enabled ?? prev.weekly.enabled,
+        time: patch.weekly?.time !== undefined ? patch.weekly.time : prev.weekly.time,
       },
     }
     // 1) 乐观更新：本地立即反映选中/开关（不等云端，点击即有反馈）
@@ -121,6 +149,21 @@ export function NotificationSettingsView(): JSX.Element {
     })
   const pickMorningTime = (t: string) => void applyPushPrefs({ morning: { time: t } })
   const pickEveningTime = (t: string) => void applyPushPrefs({ evening: { time: t } })
+  // v9.12 周报=会员项：非会员开关置灰（不触发）；开启时默认沿用晚间日报时间
+  const weeklyLocked = cloudLoggedIn && isMember === false
+  const toggleWeekly = () => {
+    if (weeklyLocked) {
+      setPushError('周日周报是 DayCell 会员专属功能，升级会员后即可开启')
+      return
+    }
+    void applyPushPrefs({
+      weekly: {
+        enabled: !pushWeeklyEnabled,
+        time: !pushWeeklyEnabled ? (pushWeeklyTime ?? pushEveningTime ?? '21:00') : pushWeeklyTime,
+      },
+    })
+  }
+  const pickWeeklyTime = (t: string) => void applyPushPrefs({ weekly: { time: t } })
 
   return (
     <div className={styles.overlay}>
@@ -213,6 +256,58 @@ export function NotificationSettingsView(): JSX.Element {
                       aria-checked={pushEveningTime === t}
                       className={pushEveningTime === t ? `${styles.chip} ${styles.chipOn}` : styles.chip}
                       onClick={() => pickEveningTime(t)}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* v9.12 周日周报（会员项） */}
+            <div className={styles.row}>
+              <div className={styles.rowText}>
+                <div className={styles.rowTitle}>周日周报</div>
+                <div className={styles.rowDesc}>
+                  每周日晚上推送本周汇总：待办完成、习惯打卡与目标进展
+                  {weeklyLocked ? ' · DayCell 会员专属' : ' · 时间默认跟随晚间日报'}
+                </div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={pushWeeklyEnabled}
+                aria-label="周日周报"
+                disabled={weeklyLocked}
+                className={
+                  pushWeeklyEnabled
+                    ? `${styles.switch} ${styles.switchOn}`
+                    : weeklyLocked
+                      ? `${styles.switch} ${styles.switchDisabled}`
+                      : styles.switch
+                }
+                onClick={toggleWeekly}
+              >
+                <span className={styles.knob} />
+              </button>
+            </div>
+            {pushWeeklyEnabled && !weeklyLocked && (
+              <div className={styles.row}>
+                <div className={styles.rowText}>
+                  <div className={styles.rowTitle}>推送时间</div>
+                  <div className={styles.rowDesc}>默认与晚间日报一致，可单独调整</div>
+                </div>
+                <div className={styles.chips} role="radiogroup" aria-label="周报推送时间">
+                  {WEEKLY_SLOTS.map((t) => (
+                    <button
+                      key={t}
+                      role="radio"
+                      aria-checked={(pushWeeklyTime ?? pushEveningTime) === t}
+                      className={
+                        (pushWeeklyTime ?? pushEveningTime) === t
+                          ? `${styles.chip} ${styles.chipOn}`
+                          : styles.chip
+                      }
+                      onClick={() => pickWeeklyTime(t)}
                     >
                       {t}
                     </button>

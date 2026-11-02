@@ -371,6 +371,8 @@ export async function aiImport(
 export interface PushPrefs {
   morning: { enabled: boolean; time: string | null }
   evening: { enabled: boolean; time: string | null }
+  /** v9.12 周日周报（会员项）：时间 null → 后端默认跟随晚间日报时间 */
+  weekly: { enabled: boolean; time: string | null }
 }
 
 /** 订阅体：endpoint + 公钥 + 私钥（PushSubscription.toJSON 结构） */
@@ -451,6 +453,10 @@ export async function savePushSubscription(
         evening: {
           enabled: prefs.evening.enabled,
           time: prefs.evening.time,
+        },
+        weekly: {
+          enabled: prefs.weekly.enabled,
+          time: prefs.weekly.time,
         },
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai',
       }),

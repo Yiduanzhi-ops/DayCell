@@ -30,6 +30,8 @@ export type PushSupportState = 'supported' | 'unsupported' | 'no-sw'
 /** 早/晚可选档位（与云端 cron 07-9 点/18-22 点 半小时粒度对齐） */
 export const MORNING_SLOTS = ['07:30', '08:00', '08:30', '09:00', '09:30'] as const
 export const EVENING_SLOTS = ['19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00'] as const
+/** v9.12 周日周报档位：与晚间日报一致（用户拍板口径：默认跟随每日晚间时间，可选） */
+export const WEEKLY_SLOTS = EVENING_SLOTS
 
 /** VAPID 公钥 → Uint8Array（pushManager.subscribe 的 applicationServerKey 要求格式） */
 export function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
@@ -140,7 +142,7 @@ export async function syncPushPrefs(prefs: PushPrefs): Promise<SyncResult> {
     return { ok: false, loginRequired: true, error: '请先登录（主菜单 → 账号与同步）' }
   }
 
-  const anyEnabled = prefs.morning.enabled || prefs.evening.enabled
+  const anyEnabled = prefs.morning.enabled || prefs.evening.enabled || prefs.weekly.enabled
 
   if (!anyEnabled) {
     // 全关：删云端记录即可（浏览器端订阅保留，重开时 getSubscription 复用）

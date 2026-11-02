@@ -252,6 +252,9 @@ export const SETTING_KEYS = [
   'pushMorningTime',
   'pushEveningEnabled',
   'pushEveningTime',
+  // v9.12：周日周报（会员项，开关 + 档位；时间默认跟随晚间日报）
+  'pushWeeklyEnabled',
+  'pushWeeklyTime',
 ] as const
 
 export type SettingKey = (typeof SETTING_KEYS)[number]

@@ -139,6 +139,10 @@ button.row:hover { background: var(--bg-hover); }
   transition: background 0.2s ease;
 }
 .switchOn { background: var(--accent, #2e4ba6); }
+.switchDisabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
 .knob {
   position: absolute;
   top: 3px;

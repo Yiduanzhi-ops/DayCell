@@ -212,6 +212,9 @@ export interface AppState {
   /** v9.3：晚间日报通知开关与档位（'HH:mm'，null=未设置） */
   pushEveningEnabled: boolean
   pushEveningTime: string | null
+  /** v9.12：周日周报（会员项）开关与档位（'HH:mm'，null=未设置 → 跟随晚间日报时间） */
+  pushWeeklyEnabled: boolean
+  pushWeeklyTime: string | null
   /** v8.63：今天已「加入今日待办」的子任务 id（子任务行按钮两态 + 防重复判定） */
   subtaskTodayIds: string[]
   /** v8.22：首次使用引导是否打开（仅首次启动自动弹出；可从使用手册重看） */
@@ -538,6 +541,9 @@ export function createAppStore(
     pushMorningTime: null,
     pushEveningEnabled: false,
     pushEveningTime: null,
+    // v9.12 周日周报默认关（会员项）；时间 null → 跟随晚间日报时间
+    pushWeeklyEnabled: false,
+    pushWeeklyTime: null,
     subtaskTodayIds: [],
     onboardingOpen: false,
     syncStatus: syncEngine?.status() ?? null,
@@ -564,7 +570,9 @@ export function createAppStore(
       const pushMorningTime = (await repos.settings.get('pushMorningTime', null)) as string | null
       const pushEveningEnabled = (await repos.settings.get('pushEveningEnabled', false)) as boolean
       const pushEveningTime = (await repos.settings.get('pushEveningTime', null)) as string | null
-      set({ pushMorningEnabled, pushMorningTime, pushEveningEnabled, pushEveningTime })
+      const pushWeeklyEnabled = (await repos.settings.get('pushWeeklyEnabled', false)) as boolean
+      const pushWeeklyTime = (await repos.settings.get('pushWeeklyTime', null)) as string | null
+      set({ pushMorningEnabled, pushMorningTime, pushEveningEnabled, pushEveningTime, pushWeeklyEnabled, pushWeeklyTime })
       await get().refresh()
     },
 
@@ -1914,6 +1922,7 @@ export function createAppStore(
     async setPushPrefs(prefs: {
       morning?: { enabled?: boolean; time?: string | null }
       evening?: { enabled?: boolean; time?: string | null }
+      weekly?: { enabled?: boolean; time?: string | null }
     }) {
       const next = {
         pushMorningEnabled: prefs.morning?.enabled ?? get().pushMorningEnabled,
@@ -1922,12 +1931,17 @@ export function createAppStore(
         pushEveningEnabled: prefs.evening?.enabled ?? get().pushEveningEnabled,
         pushEveningTime:
           prefs.evening?.time !== undefined ? prefs.evening.time : get().pushEveningTime,
+        pushWeeklyEnabled: prefs.weekly?.enabled ?? get().pushWeeklyEnabled,
+        pushWeeklyTime:
+          prefs.weekly?.time !== undefined ? prefs.weekly.time : get().pushWeeklyTime,
       }
       await Promise.all([
         repos.settings.set('pushMorningEnabled', next.pushMorningEnabled),
         repos.settings.set('pushMorningTime', next.pushMorningTime),
         repos.settings.set('pushEveningEnabled', next.pushEveningEnabled),
         repos.settings.set('pushEveningTime', next.pushEveningTime),
+        repos.settings.set('pushWeeklyEnabled', next.pushWeeklyEnabled),
+        repos.settings.set('pushWeeklyTime', next.pushWeeklyTime),
       ])
       set(next)
     },

@@ -1,7 +1,9 @@
-// daycell-push-worker v0.1：DayCell 早间/晚间 Web Push 日报（timer 触发）
+// daycell-push-worker v0.2：DayCell 早间/晚间 Web Push 日报 + 周日晚周报（timer 触发）
 // 触发方式：TCB 定时触发器 cron "0 */30 7-9,18-22 * * * *"（北京时间窗口，半小时一档）
-// 职责：扫描 push_subscriptions → 命中当前档位的用户 → 读最新快照 → 聚合日报文案
+// 职责：扫描 push_subscriptions → 命中当前档位的用户 → 读最新快照 → 聚合文案
 //       → web-push 发送 → 当天去重 + 失效订阅清理（404/410 NotRegistered）
+// v9.12 周日晚周报（会员项）：仅周日推送；weekly_time 可配置，默认与晚间日报一致；
+//       非会员即使开启也跳过（不写 last_weekly_sent）；周报聚合本周（周一起）数据。
 // v1 约束：时间口径按北京时间（目标用户在中国，时区固定 Asia/Shanghai）；
 //          农历特殊日暂不推送（云函数无农历库，公历特殊日同前端 annivHitsOn 口径）
 const cloudbase = require('@cloudbase/node-sdk');
@@ -186,6 +188,81 @@ function buildEveningReport(snapshot, today) {
   return lines;
 }
 
+// ---- 周日周报（会员项，v9.12）：本周（周一起）聚合 ----
+// 口径与日报一致且轻量：待办完成率（date 落周内 + done，或 doneAt 落周内）、
+// 习惯打卡次数、进行中目标数、本周特殊日。农历特殊日暂不推送（v1 约束）。
+function weekMonday(today) {
+  const d = dowOf(today); // 0=周日
+  return addDays(today, d === 0 ? -6 : -(d - 1));
+}
+function buildWeeklyReport(snapshot, today) {
+  const data = (snapshot && snapshot.data) || {};
+  const lines = [];
+  const monday = weekMonday(today);
+  const inWeek = (d) => d >= monday && d <= today;
+
+  // 待办完成率：date 在周内的（排除删除/顺延）；done 判定 = 自身 done（date 周内）或 doneAt 落周内（跨周完成）
+  const weekAll = (data.todos || []).filter((t) => !t.deleted && !t.rolledTo && inWeek(t.date));
+  const doneInWeek = weekAll.filter((t) => t.done).length +
+    (data.todos || []).filter((t) => t.done && t.date && !inWeek(t.date) && t.doneAt && inWeek(t.doneAt)).length;
+  lines.push(`本周待办完成 ${doneInWeek}/${weekAll.length}`);
+
+  // 习惯打卡：应打 = 周内每天 due 的习惯数累加；实打 = 周内 checkins（非删除）
+  let dueCount = 0;
+  const dueHabitIdSet = new Set();
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(monday, i);
+    if (d > today) break;
+    const names = habitNamesOn(data.habits, d);
+    if (names.length > 0) {
+      dueCount += names.length;
+      (data.habits || [])
+        .filter((h) => !h.deleted && !h.paused && habitNamesOn(data.habits, d).includes(h.name))
+        .forEach((h) => dueHabitIdSet.add(h.id));
+    }
+  }
+  const checkedInWeek = (data.checkins || []).filter((c) => !c.deleted && inWeek(c.date) && dueHabitIdSet.has(c.habitId)).length;
+  if (dueCount > 0) {
+    lines.push(`习惯打卡 ${checkedInWeek}/${dueCount} 次`);
+  }
+
+  const liveGoals = (data.goals || []).filter((g) => !g.deleted && !g.done);
+  if (liveGoals.length > 0) {
+    lines.push(`进行中目标 ${liveGoals.length} 个`);
+  }
+
+  const annivs = (data.anniversaries || []).filter((r) => {
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(monday, i);
+      if (d > today) break;
+      if (annivHitsOn(r, d)) return true;
+    }
+    return false;
+  });
+  if (annivs.length > 0) {
+    lines.push(`本周特殊日：${annivs.map((r) => r.title).join('、')}`);
+  }
+
+  return lines;
+}
+
+// 会员校验（周报会员项）：daycell_members.member_expires_at >= today（与 daycell-api getMembership 同口径，字符串日期比较）
+async function isMember(db, uid) {
+  try {
+    const res = await db
+      .from('daycell_members')
+      .select('member_expires_at')
+      .eq('user_id', uid)
+      .limit(1);
+    const row = res.data && res.data[0];
+    if (!row || !row.member_expires_at) return false;
+    return row.member_expires_at >= chinaDateKey();
+  } catch (e) {
+    console.error('[push] member check failed', uid, e && e.message);
+    return false;
+  }
+}
+
 // ============ 主入口（timer 事件；测试模式由 event.test 触发）============
 exports.main = async (event) => {
   const isTimer = event && (event.Type === 'Timer' || event.TriggerName || event.triggerName || event.type === 'Timer');
@@ -215,6 +292,8 @@ exports.main = async (event) => {
   let sent = 0;
   let failed = 0;
   let cleaned = 0;
+  let weeklySent = 0;
+  let weeklySkippedNonMember = 0;
 
   for (const s of subs) {
     const morningDue = isTest
@@ -227,7 +306,14 @@ exports.main = async (event) => {
       : s.evening_enabled === true &&
         s.evening_time === hm &&
         (s.last_evening_sent === null || s.last_evening_sent < today);
-    if (!morningDue && !eveningDue) continue;
+    // v9.12 周报：仅周日（dow=0）；weekly_time 默认跟随晚间日报；last_weekly_sent 去重
+    const weeklyDue = isTest
+      ? event.test.weekly !== false
+      : dowOf(today) === 0 &&
+        s.weekly_enabled === true &&
+        s.weekly_time === hm &&
+        (s.last_weekly_sent === null || s.last_weekly_sent < today);
+    if (!morningDue && !eveningDue && !weeklyDue) continue;
 
     let snapshot = null;
     try {
@@ -242,19 +328,24 @@ exports.main = async (event) => {
       console.error('[push] snapshot read failed', s.user_id, e && e.message);
     }
 
-    // 发送单条（kind ∈ morning|evening）；测试模式可连发两条
+    // 发送单条（kind ∈ morning|evening|weekly）；测试模式可连发多条
     const sendOne = async (kind) => {
       const lines = snapshot
         ? kind === 'morning'
           ? buildMorningReport(snapshot, today)
-          : buildEveningReport(snapshot, today)
+          : kind === 'evening'
+            ? buildEveningReport(snapshot, today)
+            : buildWeeklyReport(snapshot, today)
         : [];
-      const title = kind === 'morning' ? 'DayCell 早间日报' : 'DayCell 晚间日报';
+      const title =
+        kind === 'morning' ? 'DayCell 早间日报' : kind === 'evening' ? 'DayCell 晚间日报' : 'DayCell 周报';
       const body = lines.length > 0
         ? lines.join('\n')
         : kind === 'morning'
           ? '今天暂无安排，记得好好休息'
-          : '今天全部完成，辛苦了';
+          : kind === 'evening'
+            ? '今天全部完成，辛苦了'
+            : '本周暂无数据，辛苦了';
       const payload = {
         title,
         body,
@@ -267,7 +358,13 @@ exports.main = async (event) => {
       if (!isTest) {
         await db
           .from('daycell_push_subscriptions')
-          .update(kind === 'morning' ? { last_morning_sent: today } : { last_evening_sent: today })
+          .update(
+            kind === 'morning'
+              ? { last_morning_sent: today }
+              : kind === 'evening'
+                ? { last_evening_sent: today }
+                : { last_weekly_sent: today },
+          )
           .eq('user_id', s.user_id)
           .eq('endpoint', s.endpoint);
       }
@@ -318,7 +415,42 @@ exports.main = async (event) => {
         }
       }
     }
+    // v9.12 周日晚周报：会员项——非会员即使开启也跳过（不写 last_weekly_sent，下周再试）
+    if (weeklyDue) {
+      if (!(await isMember(db, s.user_id))) {
+        weeklySkippedNonMember += 1;
+        continue;
+      }
+      try {
+        await sendOne('weekly');
+        weeklySent += 1;
+      } catch (e) {
+        const code = e && e.statusCode;
+        if (code === 404 || code === 410) {
+          try {
+            await db
+              .from('daycell_push_subscriptions')
+              .delete()
+              .eq('user_id', s.user_id)
+              .eq('endpoint', s.endpoint);
+            cleaned += 1;
+          } catch (e2) {
+            console.error('[push] cleanup failed', s.user_id, e2 && e2.message);
+          }
+        } else {
+          failed += 1;
+          console.error('[push] send failed', s.user_id, code || (e && e.message));
+        }
+      }
+    }
   }
 
-  return { ok: true, hm, today, checked: subs.length, sent, failed, cleaned };
+  return { ok: true, hm, today, checked: subs.length, sent, failed, cleaned, weeklySent, weeklySkippedNonMember };
 };
+
+// #122 导出聚合纯函数供自动化测试（不改变 exports.main 行为）
+exports.buildMorningReport = buildMorningReport;
+exports.buildEveningReport = buildEveningReport;
+exports.buildWeeklyReport = buildWeeklyReport;
+exports.weekMonday = weekMonday;
+exports.dowOf = dowOf;

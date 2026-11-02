@@ -168,16 +168,18 @@ describe('syncPushPrefs', () => {
     const res = await syncPushPrefs({
       morning: { enabled: false, time: null },
       evening: { enabled: false, time: null },
+      weekly: { enabled: false, time: null },
     })
     expect(res.ok).toBe(true)
     expect(vi.mocked(fetch)).not.toHaveBeenCalled()
   })
 
-  it('开启 → 上报 /push/subscribe，body 含 endpoint/keys/早晚偏好/timezone', async () => {
+  it('开启 → 上报 /push/subscribe，body 含 endpoint/keys/早晚偏好/timezone；周报 time 传 null 跟随晚间', async () => {
     const env = setupPushEnv()
     const res = await syncPushPrefs({
       morning: { enabled: true, time: '08:00' },
       evening: { enabled: false, time: null },
+      weekly: { enabled: true, time: null },
     })
     expect(res.ok).toBe(true)
     expect(env.fetchMock).toHaveBeenCalledTimes(1)
@@ -190,12 +192,15 @@ describe('syncPushPrefs', () => {
       keys: { p256dh: string; auth: string }
       morning: { enabled: boolean; time: string }
       evening: { enabled: boolean; time: string }
+      weekly: { enabled: boolean; time: string | null }
       timezone: string
     }
     expect(body.endpoint).toBe('https://push.example.com/ep1')
     expect(body.keys).toEqual({ p256dh: 'AAAABBBB', auth: 'CCCCDDDD' })
     expect(body.morning).toEqual({ enabled: true, time: '08:00' })
     expect(body.evening).toEqual({ enabled: false, time: null })
+    // 周报未选时间 → time:null 上报，后端跟随晚间日报时间（用户拍板口径）
+    expect(body.weekly).toEqual({ enabled: true, time: null })
     expect(body.timezone).toBeTruthy()
   })
 
@@ -204,6 +209,7 @@ describe('syncPushPrefs', () => {
     const res = await syncPushPrefs({
       morning: { enabled: false, time: null },
       evening: { enabled: false, time: null },
+      weekly: { enabled: false, time: null },
     })
     expect(res.ok).toBe(true)
     expect(env.fetchMock).toHaveBeenCalledTimes(1)
@@ -219,6 +225,7 @@ describe('syncPushPrefs', () => {
     const res = await syncPushPrefs({
       morning: { enabled: true, time: '08:00' },
       evening: { enabled: false, time: null },
+      weekly: { enabled: false, time: null },
     })
     expect(res.ok).toBe(false)
     expect(res.loginRequired).toBe(true)
@@ -230,6 +237,7 @@ describe('syncPushPrefs', () => {
     const res = await syncPushPrefs({
       morning: { enabled: true, time: '08:00' },
       evening: { enabled: false, time: null },
+      weekly: { enabled: false, time: null },
     })
     expect(res.ok).toBe(false)
     if (!res.ok) expect(res.error).toBeTruthy()

@@ -8,11 +8,20 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.11'
+const CURRENT_VERSION = 'v9.12'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.12',
+    date: '2026-11-02',
+    items: [
+      '新增「周日周报」（DayCell 会员专属）：每周日晚推送本周汇总——待办完成、习惯打卡与目标进展',
+      '周报时间默认跟随晚间日报时间，可在通知设置中单独选择档位',
+      '后端补全自动化测试：daycell-api 路由与 daycell-push-worker 推送逻辑 19 条用例覆盖（含周报聚合口径）',
+    ],
+  },
   {
     version: 'v9.11',
     date: '2026-11-02',

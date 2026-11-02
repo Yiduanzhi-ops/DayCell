@@ -734,8 +734,11 @@ async function pushSubscribe(event, uid) {
   }
   const morning = body.morning || {};
   const evening = body.evening || {};
+  const weekly = body.weekly || {};
   const morningTime = isHHmm(morning.time) ? morning.time : '08:00';
   const eveningTime = isHHmm(evening.time) ? evening.time : '21:00';
+  // v9.12 周日晚周报（会员项）：weekly_time 默认跟随晚间日报时间（用户拍板口径：与每日晚间一致，可选）
+  const weeklyTime = isHHmm(weekly.time) ? weekly.time : eveningTime;
   const timezone =
     typeof body.timezone === 'string' && body.timezone ? body.timezone : 'Asia/Shanghai';
   const db = getApp().rdb();
@@ -752,6 +755,8 @@ async function pushSubscribe(event, uid) {
       morning_time: morningTime,
       evening_enabled: !!evening.enabled,
       evening_time: eveningTime,
+      weekly_enabled: !!weekly.enabled,
+      weekly_time: weeklyTime,
       timezone,
       updated_at: now,
     };
