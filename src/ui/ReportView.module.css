@@ -1,13 +1,49 @@
-/* 回顾页第三 tab「报告」（v9.10）：周/月报告。
- * 视觉对齐回顾页现有苹果风：浅灰列表底（bg-subtle）+ 圆角白卡 + 强调色节制。 */
+/* 周/月报告（v9.10 主体 + v9.11 全屏覆盖层）。
+ * 视觉对齐回顾页现有苹果风：浅灰列表底（bg-subtle）+ 圆角白卡 + 强调色节制。
+ * v9.11（方案 B）：报告改为全屏覆盖层（仿 ChangelogView），左上角「‹ 返回」。 */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  /* v8.61 键盘顶起：弹窗底边对齐键盘顶（--kb-inset 由 visualViewport 全局写入） */
+  padding-bottom: var(--kb-inset, 0px);
+  z-index: 60;
+  background: var(--bg);
+  display: flex;
+  justify-content: center;
+}
 
 .page {
-  flex: 1 1 auto;
-  min-height: 0;
+  width: 100%;
+  max-width: 560px;
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
+
+/* ---- 全屏覆盖层头部：‹ 返回 + 报告（v9.11） ---- */
+.head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.back {
+  font-size: 13.5px;
+  color: var(--ink-2);
+  padding: 6px 10px;
+  border-radius: 8px;
+  min-height: 34px;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.back:hover { background: var(--bg-hover); color: var(--ink); }
+.title { flex: 1; font-size: 16px; font-weight: 650; text-align: center; }
+.headSpacer { width: 48px; }
 
 /* ---- 顶部：周/月 seg + 期号导航 ---- */
 .header {

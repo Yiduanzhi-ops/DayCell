@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.10'
+const CURRENT_VERSION = 'v9.11'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.11',
+    date: '2026-11-02',
+    items: [
+      '报告入口调整：回顾页第一行保持「想法 | 复盘」，第二行新增「报告」入口卡片',
+      '报告改为全屏独立页面（左上角返回），与想法/复盘区分层级，后续分享长图以此为容器',
+    ],
+  },
   {
     version: 'v9.10',
     date: '2026-11-02',

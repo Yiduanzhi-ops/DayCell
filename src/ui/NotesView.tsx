@@ -41,6 +41,8 @@ export function NotesView(): JSX.Element {
   const [lunarMap, setLunarMap] = useState<ReadonlyMap<string, string>>(new Map())
   /** v8.31：正在原地编辑的想法 id（同一时刻最多一条） */
   const [editingId, setEditingId] = useState<string | null>(null)
+  /** v9.11（方案 B）：报告全屏页的返回来源（进入前是想法还是复盘） */
+  const fromTabRef = useRef<'notes' | 'reviews'>('notes')
 
   // 农历：loadLunar 有模块级缓存（bootstrap 已加载过则直接命中）；
   // 只对当前列表涉及的日期算一次，失败静默降级（组标题省略农历，PRD E4 精神）
@@ -111,9 +113,15 @@ export function NotesView(): JSX.Element {
     openDayFromNotes(k, 0)
   }
 
+  // v9.11（方案 B）：报告不再是 seg 同级 tab，改为第二行入口卡片 → 全屏报告页
+  const openReport = (): void => {
+    fromTabRef.current = reviewTab === 'reviews' ? 'reviews' : 'notes'
+    setReviewTab('report')
+  }
+
   return (
     <section className={styles.page} data-testid="notes-view" aria-label="回顾列表">
-      {/* v8.42：顶部 [想法 | 复盘] 分段切换 */}
+      {/* v8.42：顶部 [想法 | 复盘] 分段切换（v9.11 报告移出，不再同级） */}
       <div className={styles.seg} role="tablist" aria-label="回顾内容">
         <button
           type="button"
@@ -133,20 +141,37 @@ export function NotesView(): JSX.Element {
         >
           复盘
         </button>
-        {/* v9.10：第三 tab 报告（周/月报告） */}
-        <button
-          type="button"
-          role="tab"
-          aria-selected={reviewTab === 'report'}
-          className={reviewTab === 'report' ? `${styles.segBtn} ${styles.segOn}` : styles.segBtn}
-          onClick={() => setReviewTab('report')}
-        >
-          报告
-        </button>
       </div>
-      {/* v9.10：报告 tab 用 ReportView 自带滚动布局；想法/复盘共用原 .list 容器 */}
+      {/* v9.11（方案 B）：第二行报告入口卡片，点击进全屏报告页 */}
+      <div className={styles.reportRow}>
+        <div
+          className={styles.reportCard}
+          role="button"
+          tabIndex={0}
+          aria-label="查看每周/每月报告"
+          onClick={openReport}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              openReport()
+            }
+          }}
+        >
+          <span className={styles.reportIc} aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 20h16M6 16v-6M10 16V7M14 16v-9M18 16v-4" />
+            </svg>
+          </span>
+          <span className={styles.reportTx}>
+            <b>报告</b>
+            <span>每周 / 每月总结 · AI 深度复盘</span>
+          </span>
+          <span className={styles.reportArrow} aria-hidden="true">›</span>
+        </div>
+      </div>
+      {/* v9.10：报告用全屏覆盖层（ReportView 自带滚动布局）；想法/复盘共用原 .list 容器 */}
       {reviewTab === 'report' ? (
-        <ReportView />
+        <ReportView onBack={() => setReviewTab(fromTabRef.current)} />
       ) : (
       <div className={styles.list} ref={scrollRef}>
         {reviewTab === 'reviews' ? (

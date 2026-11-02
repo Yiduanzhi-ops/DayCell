@@ -1,5 +1,5 @@
 /**
- * 回顾页第三 tab「报告」（v9.10）：每周/每月报告。
+ * 周/月报告（v9.10 主体统计 + v9.11 全屏覆盖层）。
  *
  * 分层（方案拍板口径，勿另起）：
  *  - 报告主体（概览/习惯/待办/特殊日/目标）= **纯本地免费**，
@@ -8,6 +8,8 @@
  *    后端 DeepSeek 分析，会员 daily 配额）；非会员尾部显示「升级解锁」。
  *  - 周/月切换、前后翻页都走 store（reportKind/reportCursor/loadReport），
  *    换档自动清掉旧 AI 结果（store 侧），避免张冠李戴。
+ *  - v9.11（方案 B）：全屏覆盖层（仿 ChangelogView），左上角「‹ 返回」回进入前的
+ *    tab（想法/复盘，由 NotesView 记 fromTab 传入 onBack）。
  */
 import { useCallback, useEffect, useState, type JSX } from 'react'
 import { useApp } from '@/app/context'
@@ -27,7 +29,7 @@ const AI_SECTIONS: Array<{ key: keyof ReportAiResult; title: string }> = [
   { key: 'advice', title: '下周建议' },
 ]
 
-export function ReportView(): JSX.Element {
+export function ReportView({ onBack }: { onBack?: () => void }): JSX.Element {
   const report = useApp((s) => s.report)
   const reportLoading = useApp((s) => s.reportLoading)
   const reportKind = useApp((s) => s.reportKind)
@@ -38,6 +40,13 @@ export function ReportView(): JSX.Element {
   const shiftReport = useApp((s) => s.shiftReport)
   const loadReport = useApp((s) => s.loadReport)
   const setReportAi = useApp((s) => s.setReportAi)
+  const setReviewTab = useApp((s) => s.setReviewTab)
+
+  // v9.11：全屏覆盖层左上角返回（onBack 由 NotesView 传入；兜底回「想法」）
+  const back = (): void => {
+    if (onBack) onBack()
+    else setReviewTab('notes')
+  }
 
   const [member, setMember] = useState<boolean | null>(null)
 
@@ -84,16 +93,34 @@ export function ReportView(): JSX.Element {
 
   if (reportLoading && !report) {
     return (
-      <div className={styles.page} data-testid="report-view">
-        <div className={styles.loading}>统计中…</div>
+      <div className={styles.overlay} data-testid="report-view" aria-label="周/月报告">
+        <div className={styles.page}>
+          <div className={styles.head}>
+            <button type="button" className={styles.back} onClick={back}>
+              ‹ 返回
+            </button>
+            <span className={styles.title}>报告</span>
+            <span className={styles.headSpacer} />
+          </div>
+          <div className={styles.loading}>统计中…</div>
+        </div>
       </div>
     )
   }
 
   return (
-    <section className={styles.page} data-testid="report-view" aria-label="周/月报告">
-      {/* 顶部：周/月切换 + 前后翻页 + 期号 */}
-      <div className={styles.header}>
+    <div className={styles.overlay} data-testid="report-view" aria-label="周/月报告">
+      <div className={styles.page}>
+        {/* v9.11：全屏覆盖层头部：‹ 返回 + 报告 + 占位（仿 ChangelogView） */}
+        <div className={styles.head}>
+          <button type="button" className={styles.back} onClick={back}>
+            ‹ 返回
+          </button>
+          <span className={styles.title}>报告</span>
+          <span className={styles.headSpacer} />
+        </div>
+        {/* 顶部：周/月切换 + 前后翻页 + 期号 */}
+        <div className={styles.header}>
         <div className={styles.seg} role="tablist" aria-label="报告周期">
           <button
             type="button"
@@ -155,7 +182,8 @@ export function ReportView(): JSX.Element {
           />
         </div>
       )}
-    </section>
+      </div>
+    </div>
   )
 }
 
