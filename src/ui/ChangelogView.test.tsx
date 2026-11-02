@@ -37,16 +37,16 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v9.7')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v9.10')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v9.7')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v9.10')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v9.7，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v9.10，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v9.7')
-    expect(screen.getByText(/先本地体验/)).toBeInTheDocument()
+    expect(vers[0].textContent).toBe('v9.10')
+    expect(screen.getByText(/每周\/每月报告/)).toBeInTheDocument()
     expect(screen.getByText(/子任务支持「＋ 加入今日待办」/)).toBeInTheDocument()
   })
 

@@ -36,6 +36,7 @@ import {
 import { cellLabel, type CellLabel } from '../label'
 import type { LunarApi, LunarInfo } from '../lunar'
 import { isRollable, todoProgress, type Repos } from '../repo'
+import { buildReport, type ReportData, type ReportKind } from '../report'
 import type { RecordStore } from '../store/types'
 import type {
   AnniversaryRecord,
@@ -208,6 +209,8 @@ export interface Aggregates {
   notesAll(): Promise<NoteRecord[]>
   /** v8.42 回顾页复盘列表：全量活复盘，**日期倒序**（最新在前） */
   reviewsAll(): Promise<ReviewRecord[]>
+  /** v9.10 每周/每月报告：唯一数据源，口径见 core/report.ts（UI / AI 都不得另起） */
+  buildReport(kind: ReportKind, cursor: DateKey, opts?: ViewOpts): Promise<ReportData>
   /**
    * 清掉分类名缓存。
    *
@@ -751,6 +754,18 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
         .filter((r) => !r.deleted)
         .map((r) => ({ ...r }))
         .sort((a, b) => b.date.localeCompare(a.date))
+    },
+
+    /** v9.10 每周/每月报告：数据口径全部收敛在 core/report.ts */
+    buildReport(kind, cursor, opts) {
+      return buildReport({
+        kind,
+        cursor,
+        weekStartsOn: opts?.weekStartsOn ?? 1,
+        store,
+        repos,
+        lunar,
+      })
     },
 
     invalidate() {

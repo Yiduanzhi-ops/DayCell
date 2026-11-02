@@ -594,6 +594,128 @@ async function aiImport(event, uid) {
   }
 }
 
+// ========== AI 周/月深度复盘（v9.10）：/ai/review ==========
+// 会员专属（L2 结构化深度复盘）：非会员 403、不扣配额；会员走 daily 配额（同 /ai/import）。
+// 输入 = 前端纯本地算好的报告数字（feed，口径在 core/report.ts），后端只做六段分析——
+// 这样统计规则收敛在 core、模型调用收敛在后端，谁都不重复。
+// 输出 JSON 六段：trend（效率趋势）/ habits（习惯警报）/ procrastination（拖延信号）
+//              / thoughts（想法洞察）/ goals（目标偏差）/ advice（下周/下月建议）。
+function buildReviewPrompt(feed) {
+  return {
+    role: 'system',
+    content:
+      '你是 DayCell 的个人效率复盘分析师。用户会发来一份「周/月报告」的结构化数据（JSON），' +
+      '你的任务：用中文写一份**结构化深度复盘**，只输出一个 JSON 对象，不要任何解释或 Markdown，结构：\n' +
+      '{\n' +
+      '  "trend": "效率趋势",\n' +
+      '  "habits": "习惯警报",\n' +
+      '  "procrastination": "拖延信号",\n' +
+      '  "thoughts": "想法洞察",\n' +
+      '  "goals": "目标偏差",\n' +
+      '  "advice": "下周建议"\n' +
+      '}\n' +
+      '【每段 40~90 字，口语化但有判断，别用废话开头，直给结论】\n' +
+      '【trend】结合 overview（完成数/完成率/活跃天数）、todoStats（最忙一天、周内完成分布）讲效率走势，给一句判断。\n' +
+      '【habits】对比 habits 里每个习惯的应打/实打/最长连续，点名 1~2 个最该警惕的习惯（连续短/漏打多），别报流水账。\n' +
+      '【procrastination】用 todoStats 的逾期数、顺延数、完成率找拖延信号，判断是否加重；没有明显信号也要诚实说"没有明显拖延"。\n' +
+      '【thoughts】从 texts（想法/复盘原文，越新的越靠前）归纳 2~3 个反复出现的主题或情绪，说它反映了什么。\n' +
+      '【goals】逐个目标看 pct/子任务完成比/打卡天数，指出哪个目标进度落后（含与时间流逝的偏差），说明可能原因。\n' +
+      '【advice】给 3 条**下周/下月立刻能做的具体动作**（对齐上面的问题，别给正确的废话）。\n' +
+      '【纪律】数字只用报告里的，不编造；texts 为空/习惯为空/目标为空时对应段写"本周暂无相关记录"之类的实话，不许凑字数。',
+  };
+}
+
+async function aiReview(event, uid) {
+  const body = parseBody(event);
+  const feed = body && body.feed;
+  const db = getApp().rdb();
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  const todayKey = chinaDateKey();
+
+  if (!feed || typeof feed !== 'object') return json(400, { ok: false, error: 'feed_required' });
+  if (!apiKey) return json(503, { ok: false, error: 'ai_not_configured', detail: 'DEEPSEEK_API_KEY 未配置' });
+
+  // 会员专属：非会员 403（不扣配额）——AI 深度复盘是会员转化钩子，见方案「会员 vs 非会员」。
+  const member = await getMembership(db, uid);
+  if (!member) {
+    return json(403, { ok: false, error: 'ai_review_requires_member', detail: 'AI 深度复盘为会员功能' });
+  }
+
+  // 会员走 daily 配额（与 /ai/import 同表），超限 429；失败不消耗。
+  const used = await readAiUsage(db, uid, todayKey);
+  if (used >= MEMBER_AI_DAILY_LIMIT) {
+    return json(429, {
+      ok: false,
+      error: 'ai_quota_exceeded',
+      limit: MEMBER_AI_DAILY_LIMIT,
+      remaining: 0,
+      mode: 'daily',
+      date: todayKey,
+    });
+  }
+
+  try {
+    const resp = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        messages: [
+          buildReviewPrompt(feed),
+          { role: 'user', content: JSON.stringify(feed) },
+        ],
+        response_format: { type: 'json_object' },
+        thinking: { type: 'disabled' },
+        max_tokens: 1500,
+      }),
+      timeout: 25000,
+    });
+
+    const data = await resp.json();
+    if (!resp.ok) {
+      return json(502, { ok: false, error: 'ai_upstream_error', detail: String(data.error && data.error.message || data) });
+    }
+    const content = data.choices && data.choices[0] && data.choices[0].message
+      ? data.choices[0].message.content
+      : null;
+    if (!content) return json(502, { ok: false, error: 'ai_empty_response' });
+
+    const cleaned = content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+    let review;
+    try {
+      review = JSON.parse(cleaned);
+    } catch (e) {
+      return json(502, { ok: false, error: 'ai_bad_json', detail: String(e && e.message || e) });
+    }
+
+    await bumpAiUsage(db, uid, todayKey);
+
+    return json(200, {
+      ok: true,
+      review: {
+        trend: String(review.trend || '').trim(),
+        habits: String(review.habits || '').trim(),
+        procrastination: String(review.procrastination || '').trim(),
+        thoughts: String(review.thoughts || '').trim(),
+        goals: String(review.goals || '').trim(),
+        advice: String(review.advice || '').trim(),
+      },
+      usage: data.usage || null,
+      quota: {
+        mode: 'daily',
+        limit: MEMBER_AI_DAILY_LIMIT,
+        remaining: Math.max(0, MEMBER_AI_DAILY_LIMIT - used - 1),
+        date: todayKey,
+      },
+    });
+  } catch (e) {
+    return json(500, { ok: false, error: 'ai_call_failed', detail: String(e && e.message || e) });
+  }
+}
+
 // ========== Web Push 订阅（v9.3）：/push/subscribe + /push/unsubscribe ==========
 // 订阅与早晚通知开关一体 upsert：前端每次保存设置都带完整 PushSubscription 重传；
 // 实际推送由独立函数 daycell-push-worker（timer 触发）执行，本函数只负责存储。
@@ -822,6 +944,13 @@ exports.main = async (event, context) => {
     const uid = extractUid(event);
     if (!uid) return json(401, { ok: false, error: 'unauthorized' });
     return aiImport(event, uid);
+  }
+
+  // v9.10 AI 周/月深度复盘：会员专属，六段 L2 分析（非会员 403 不扣配额）
+  if (path === '/ai/review' && method === 'POST') {
+    const uid = extractUid(event);
+    if (!uid) return json(401, { ok: false, error: 'unauthorized' });
+    return aiReview(event, uid);
   }
 
   // Web Push：保存/更新订阅（含早晚通知开关与时间档位）

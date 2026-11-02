@@ -41,6 +41,9 @@ export type { IdbDeps } from './store/idb'
 export * from './repo/index'
 export * from './aggregate/index'
 
+// ---- 每周/每月报告（v9.10） ----
+export * from './report'
+
 // ---- 备份（导出 / 合并导入 / Markdown，PRD M14/M15） ----
 export * from './backup/index'
 

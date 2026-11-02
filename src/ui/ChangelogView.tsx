@@ -8,11 +8,20 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.7'
+const CURRENT_VERSION = 'v9.10'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.10',
+    date: '2026-11-02',
+    items: [
+      '每周/每月报告：回顾页新增「报告」，自动汇总效率趋势、习惯打卡、待办统计与目标进展',
+      '特殊日与目标完成情况纳入报告；跨周期完成的待办按完成时间计入对应周期',
+      'AI 深度复盘（会员专属）：基于周期数据生成结构化总结，非会员可见解锁引导',
+    ],
+  },
   {
     version: 'v9.7',
     date: '2026-10-29',

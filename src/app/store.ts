@@ -29,6 +29,7 @@ import {
   startOfWeek,
   today as todayKey,
   weekKeys,
+  shiftCursor,
   type AnniversaryInput,
   type AnniversaryRecord,
   type BackupFile,
@@ -44,6 +45,9 @@ import {
   type MonthSummary,
   type NoteRecord,
   type ProgressField,
+  type ReportAiResult,
+  type ReportData,
+  type ReportKind,
   type ReviewRecord,
   type StageInput,
   type StageRecord,
@@ -153,12 +157,23 @@ export interface AppState {
   notesList: NoteRecord[]
   /** v8.13：想法列表页码（1 起；切走 tab 重置为 1，从日视图返回还原） */
   notesPage: number
-  /** v8.42：回顾页当前列表（想法 / 复盘）；切走 tab 重置为 'notes' */
-  reviewTab: 'notes' | 'reviews'
+  /** v8.42：回顾页当前列表（想法 / 复盘 / 报告）；切走 tab 重置为 'notes' */
+  reviewTab: 'notes' | 'reviews' | 'report'
   /** v8.42：复盘列表数据源（全量活复盘，日期倒序） */
   reviewsList: ReviewRecord[]
   /** v8.42：复盘列表页码（1 起，切走 tab 重置） */
   reviewPage: number
+  /** v9.10 报告：周/月切换（默认周） */
+  reportKind: ReportKind
+  /** v9.10 报告：当前光标（周 = 周一锚点；月 = 自然月） */
+  reportCursor: DateKey
+  /** v9.10 报告数据（数字主体，纯本地免费） */
+  report: ReportData | null
+  reportLoading: boolean
+  /** v9.10 AI 深度复盘（会员专属） */
+  reportAi: ReportAiResult | null
+  reportAiLoading: boolean
+  reportAiError: string | null
 
   /** IndexedDB 不可用（PRD E1）：数据不持久，UI 顶部红色横幅 */
   degraded: boolean
@@ -238,9 +253,17 @@ export interface AppState {
   /** v8.24 想法收藏：切换星标（pinned），刷新列表并保持收藏置顶 */
   toggleNotePinned(id: string): Promise<void>
   /** v8.42 回顾页 [想法|复盘] 切换 */
-  setReviewTab(tab: 'notes' | 'reviews'): void
+  setReviewTab(tab: 'notes' | 'reviews' | 'report'): void
   /** v9.2 AI 智能导入：弹层开关 */
   setAiOpen(open: boolean): void
+  /** v9.10 报告：切换周/月（自动重算报告） */
+  setReportKind(kind: ReportKind): void
+  /** v9.10 报告：前后翻（周 ±7 天、月 ±1 月） */
+  shiftReport(delta: number): Promise<void>
+  /** v9.10 报告：重算（数据源 aggregates.buildReport；纯本地免费） */
+  loadReport(): Promise<void>
+  /** v9.10 报告：写入 AI 复盘结果（由 ReportView 调 cloudbase.aiReview 后落 store） */
+  setReportAi(ai: ReportAiResult | null, error?: string | null): void
   /** v9.2 AI 智能导入：记录今日剩余次数（-1=未知） */
   setAiRemaining(n: number): void
   /** v9.2 AI 导入确认写入：按结构化结果落库（支持任意日期），返回成功条数 */
@@ -485,6 +508,13 @@ export function createAppStore(
     reviewTab: 'notes',
     reviewsList: [],
     reviewPage: 1,
+    reportKind: 'week',
+    reportCursor: todayKey(),
+    report: null,
+    reportLoading: false,
+    reportAi: null,
+    reportAiLoading: false,
+    reportAiError: null,
 
     degraded: bundle.degraded,
     lunarFailed: bundle.lunarFailed,
@@ -1010,6 +1040,42 @@ export function createAppStore(
     setReviewTab(tab) {
       if (get().reviewTab === tab) return
       set({ reviewTab: tab, reviewPage: 1 })
+      // v9.10 进「报告」tab 时数据可能还没有（首进或换周月后），拉一次
+      if (tab === 'report' && get().report === null) {
+        void get().loadReport()
+      }
+    },
+
+    setReportKind(kind) {
+      if (get().reportKind === kind) return
+      set({ reportKind: kind, report: null, reportAi: null, reportAiError: null })
+      void get().loadReport()
+    },
+
+    async shiftReport(delta) {
+      const { reportKind, reportCursor } = get()
+      const cursor = shiftCursor(reportKind, reportCursor, delta)
+      set({ reportCursor: cursor, report: null, reportAi: null, reportAiError: null })
+      await get().loadReport()
+    },
+
+    async loadReport() {
+      const { reportKind, reportCursor } = get()
+      set({ reportLoading: true })
+      try {
+        const report = await aggregates.buildReport(reportKind, reportCursor)
+        // 期间用户又翻了页/换了档 → 丢弃过期结果
+        if (get().reportKind !== reportKind || get().reportCursor !== reportCursor) return
+        set({ report, reportLoading: false })
+      } catch (e) {
+        if (get().reportKind !== reportKind || get().reportCursor !== reportCursor) return
+        set({ reportLoading: false })
+        get().showToast(errMsg(e))
+      }
+    },
+
+    setReportAi(ai, error) {
+      set({ reportAi: ai, reportAiLoading: false, reportAiError: error ?? null })
     },
 
     setAiOpen(open) {

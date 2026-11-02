@@ -379,6 +379,47 @@ export interface PushSubscriptionBody {
   keys: { p256dh: string; auth: string }
 }
 
+/** v9.10 AI 周/月深度复盘（云函数 /ai/review，会员专属，L2 六段）。
+ *  输入 = 前端纯本地算好的报告素材（feed，口径在 core/report.ts），后端只做分析。
+ *  403 = ai_review_requires_member（非会员）；429 = ai_quota_exceeded（会员每日配额）。
+ */
+export async function aiReview(
+  token: string,
+  feed: import('@core').ReportAiFeed,
+): Promise<{
+  ok: boolean
+  review?: import('@core').ReportAiResult
+  remaining?: number
+  error?: string
+}> {
+  try {
+    const res = await fetch(`${API_BASE}/ai/review`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ feed }),
+    })
+    const body = (await res.json()) as {
+      ok?: boolean
+      review?: import('@core').ReportAiResult
+      quota?: { remaining?: number }
+      error?: string
+    }
+    if (!res.ok || !body.ok) {
+      return { ok: false, error: body.error ?? `HTTP ${res.status}` }
+    }
+    return {
+      ok: true,
+      review: body.review,
+      remaining: body.quota?.remaining,
+    }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
 /** 推送地址（VAPID 公钥，前端公开常量；private key 只存在云函数环境变量） */
 export const VAPID_PUBLIC_KEY =
   'BJf_hZkINBNPruCuUaMF-2HIB8mAefqjbFpIkAe_vfYc0l8TE4gixt-Rix06-DEPFnYdOxHTxYeAy8a14E9BP6I'

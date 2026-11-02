@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState, type JSX } from 'react'
 import { useApp } from '@/app/context'
 import { dowOf, fromKey, loadLunar, lunarFullText, type DateKey, type NoteRecord } from '@core'
 import styles from './NotesView.module.css'
+import { ReportView } from './ReportView'
 
 /** v8.13：10 条一页（用户拍板）；复盘列表同规格（v8.42） */
 const PAGE_SIZE = 10
@@ -132,7 +133,21 @@ export function NotesView(): JSX.Element {
         >
           复盘
         </button>
+        {/* v9.10：第三 tab 报告（周/月报告） */}
+        <button
+          type="button"
+          role="tab"
+          aria-selected={reviewTab === 'report'}
+          className={reviewTab === 'report' ? `${styles.segBtn} ${styles.segOn}` : styles.segBtn}
+          onClick={() => setReviewTab('report')}
+        >
+          报告
+        </button>
       </div>
+      {/* v9.10：报告 tab 用 ReportView 自带滚动布局；想法/复盘共用原 .list 容器 */}
+      {reviewTab === 'report' ? (
+        <ReportView />
+      ) : (
       <div className={styles.list} ref={scrollRef}>
         {reviewTab === 'reviews' ? (
           rvTotal === 0 ? (
@@ -310,6 +325,7 @@ export function NotesView(): JSX.Element {
           </>
         )}
       </div>
+      )}
     </section>
   )
 }
