@@ -149,6 +149,43 @@ export function getDeviceId(): string {
   }
 }
 
+/** v9.13 设备名：从 UA 解析可辨识名称（系统 + 浏览器），随上传上报，供设备列表展示。
+ *  解析失败返回空串（后端存 ''，UI 显示为未知设备）。 */
+export function detectDeviceName(): string {
+  try {
+    const ua = navigator.userAgent
+    const lower = ua.toLowerCase()
+    const os =
+      lower.includes('iphone') || lower.includes('ipad') || lower.includes('ipod')
+        ? 'iOS'
+        : lower.includes('mac os')
+          ? 'macOS'
+          : lower.includes('android')
+            ? 'Android'
+            : lower.includes('windows')
+              ? 'Windows'
+              : lower.includes('linux')
+                ? 'Linux'
+                : ''
+    const browser =
+      lower.includes('edg/')
+        ? 'Edge'
+        : lower.includes('chrome/')
+          ? 'Chrome'
+          : lower.includes('firefox/')
+            ? 'Firefox'
+            : lower.includes('safari/')
+              ? 'Safari'
+              : lower.includes('micromessenger')
+                ? '微信'
+                : ''
+    const parts = [os, browser].filter(Boolean)
+    return parts.join(' · ') || ''
+  } catch {
+    return ''
+  }
+}
+
 /** v9 云同步：上传整包快照到云端（云函数 /sync/upload，网关鉴权后强制写入 user_id=x-userid） */
 export async function uploadSnapshot(
   token: string,
@@ -162,7 +199,7 @@ export async function uploadSnapshot(
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ snapshot, version, deviceId: getDeviceId() }),
+      body: JSON.stringify({ snapshot, version, deviceId: getDeviceId(), deviceName: detectDeviceName() }),
     })
     const body = (await res.json()) as {
       ok?: boolean
@@ -209,7 +246,7 @@ export async function downloadSnapshot(
 export interface CloudSyncStatus {
   lastSyncAt: string | null
   recordCount: number
-  devices: Array<{ deviceId: string; lastSeenAt: string | null }>
+  devices: Array<{ deviceId: string; deviceName: string | null; lastSeenAt: string | null }>
   deviceLimit: number
 }
 
@@ -225,7 +262,7 @@ export async function fetchSyncStatus(
       ok?: boolean
       lastSyncAt?: string | null
       recordCount?: number
-      devices?: Array<{ device_id?: string; last_seen_at?: string | null }>
+      devices?: Array<{ deviceId?: string; deviceName?: string | null; lastSeenAt?: string | null }>
       deviceLimit?: number
       error?: string
     }
@@ -238,12 +275,43 @@ export async function fetchSyncStatus(
         lastSyncAt: body.lastSyncAt ?? null,
         recordCount: body.recordCount ?? 0,
         devices: (body.devices ?? []).map((d) => ({
-          deviceId: d.device_id ?? '',
-          lastSeenAt: d.last_seen_at ?? null,
+          deviceId: d.deviceId ?? '',
+          deviceName: d.deviceName ?? null,
+          lastSeenAt: d.lastSeenAt ?? null,
         })),
         deviceLimit: body.deviceLimit ?? 1,
       },
     }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
+/** v9.13 解绑设备：删除本账号指定设备登记（后端幂等），返回剩余设备数与上限。
+ *  解绑当前设备后本机下次上传会自动重新登记，UI 侧对此有提示。 */
+export async function unbindDevice(
+  token: string,
+  deviceId: string,
+): Promise<{ ok: boolean; devices?: number; limit?: number; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE}/sync/device/unbind`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ deviceId }),
+    })
+    const body = (await res.json()) as {
+      ok?: boolean
+      devices?: number
+      limit?: number
+      error?: string
+    }
+    if (!res.ok || !body.ok) {
+      return { ok: false, error: body.error ?? `HTTP ${res.status}` }
+    }
+    return { ok: true, devices: body.devices ?? 0, limit: body.limit ?? 1 }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) }
   }

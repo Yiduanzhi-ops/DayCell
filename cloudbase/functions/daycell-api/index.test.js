@@ -76,6 +76,7 @@ describe('daycell-api 路由（网关事件 → exports.main）', () => {
       ev('GET', '/member'),
       ev('GET', '/ai/quota'),
       ev('POST', '/sync/upload'),
+      ev('POST', '/sync/device/unbind'),
       ev('POST', '/ai/import'),
       ev('POST', '/ai/review'),
       ev('POST', '/push/subscribe'),
@@ -176,10 +177,104 @@ describe('daycell-api 路由（网关事件 → exports.main）', () => {
     expect(upsertRows[0].weekly_time).toBe('22:00')
   })
 
+  it('/sync/upload 新设备登记：insert 落库 device_id + device_name（设备名随上传上报）', async () => {
+    globalThis.__daycell_test_db = makeDb({
+      tables: { daycell_members: [], daycell_devices: [], daycell_snapshots: [] },
+    })
+    const r = await main(
+      ev(
+        'POST',
+        '/sync/upload',
+        { 'x-userid': 'u-1' },
+        JSON.stringify({ snapshot: { todos: [] }, version: '1', deviceId: 'dev-new', deviceName: 'macOS · Chrome' }),
+      ),
+    )
+    expect(r.statusCode).toBe(200)
+    const calls = globalThis.__daycell_test_db._calls()
+    const ins = calls.filter((c) => c.op === 'insert' && c.table === 'daycell_devices')
+    expect(ins.length).toBe(1)
+    expect(ins[0].args[0]).toMatchObject({ user_id: 'u-1', device_id: 'dev-new', device_name: 'macOS · Chrome' })
+  })
+
+  it('/sync/upload 已登记设备：update 刷新 last_seen 并补写 device_name', async () => {
+    globalThis.__daycell_test_db = makeDb({
+      tables: {
+        daycell_members: [],
+        daycell_devices: [{ device_id: 'dev-old', device_name: '旧名' }],
+        daycell_snapshots: [],
+      },
+    })
+    const r = await main(
+      ev(
+        'POST',
+        '/sync/upload',
+        { 'x-userid': 'u-1' },
+        JSON.stringify({ snapshot: { todos: [] }, version: '1', deviceId: 'dev-old', deviceName: 'iPhone · Safari' }),
+      ),
+    )
+    expect(r.statusCode).toBe(200)
+    const calls = globalThis.__daycell_test_db._calls()
+    const upd = calls.filter((c) => c.op === 'update' && c.table === 'daycell_devices')
+    expect(upd.length).toBe(1)
+    expect(upd[0].args[0]).toMatchObject({ device_name: 'iPhone · Safari' })
+    expect(upd[0].args[0].last_seen_at).toBeTruthy()
+  })
+
   it('未知路径 → 404 not_found', async () => {
     const r = await main(ev('GET', '/nope'))
     expect(r.statusCode).toBe(404)
     expect(JSON.parse(r.body).error).toBe('not_found')
+  })
+
+  it('/sync/device/unbind 缺 deviceId → 400 device_id_required', async () => {
+    const r = await main(ev('POST', '/sync/device/unbind', { 'x-userid': 'u-1' }, JSON.stringify({})))
+    expect(r.statusCode).toBe(400)
+    expect(JSON.parse(r.body).error).toBe('device_id_required')
+  })
+
+  it('/sync/device/unbind 合法解绑 → 200 ok，删除仅限本账号该设备', async () => {
+    globalThis.__daycell_test_db = makeDb({
+      tables: { daycell_members: [] },
+    })
+    const r = await main(
+      ev(
+        'POST',
+        '/sync/device/unbind',
+        { 'x-userid': 'u-1' },
+        JSON.stringify({ deviceId: 'dev-b' }),
+      ),
+    )
+    expect(r.statusCode).toBe(200)
+    const b = JSON.parse(r.body)
+    expect(b.ok).toBe(true)
+    expect(b.deviceId).toBe('dev-b')
+    expect(b.devices).toBe(0) // mock 静态数据，删除后重查仍返回 0 行
+    expect(b.limit).toBe(1) // 非会员 FREE_DEVICE_LIMIT=1
+    const dbCalls = globalThis.__daycell_test_db._calls?.() ?? []
+    const del = dbCalls.filter((c) => c.op === 'delete' && c.table === 'daycell_devices')
+    expect(del.length).toBe(1)
+    // delete().eq('user_id', uid).eq('device_id', deviceId) 两次 eq 参数
+    const eqs = dbCalls.filter((c) => c.op === 'eq' && c.table === 'daycell_devices')
+    expect(eqs.some((c) => c.args[0] === 'user_id' && c.args[1] === 'u-1')).toBe(true)
+    expect(eqs.some((c) => c.args[0] === 'device_id' && c.args[1] === 'dev-b')).toBe(true)
+  })
+
+  it('/sync/device/unbind 会员账号 → limit=5（MEMBER_DEVICE_LIMIT）', async () => {
+    globalThis.__daycell_test_db = makeDb({
+      tables: {
+        daycell_members: [{ member_expires_at: '2099-01-01T00:00:00.000Z' }],
+      },
+    })
+    const r = await main(
+      ev(
+        'POST',
+        '/sync/device/unbind',
+        { 'x-userid': 'u-1' },
+        JSON.stringify({ deviceId: 'dev-a' }),
+      ),
+    )
+    expect(r.statusCode).toBe(200)
+    expect(JSON.parse(r.body).limit).toBe(5)
   })
 })
 

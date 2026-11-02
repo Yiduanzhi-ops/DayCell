@@ -8,11 +8,20 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.12'
+const CURRENT_VERSION = 'v9.13'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.13',
+    date: '2026-11-02',
+    items: [
+      '账号与同步新增「设备列表（可解绑）」：展示本账号已登记的同步设备（本机标识 + 最近同步时间），可解绑不再使用的设备释放额度',
+      '设备额度管理自助化：会员满额（5 台）/免费档满额（1 台）不再只能后台清理，设备上限与剩余额度实时可查',
+      '修复设备满额报错文案：会员满额误报「免费档仅支持 1 台」的误导提示，现按档位区分提示',
+    ],
+  },
   {
     version: 'v9.12',
     date: '2026-11-02',

@@ -79,17 +79,20 @@ function extractUid(event) {
 const FREE_DEVICE_LIMIT = 1;
 const MEMBER_DEVICE_LIMIT = 5;
 
-async function ensureDeviceRegistered(db, uid, deviceId) {
+async function ensureDeviceRegistered(db, uid, deviceId, deviceName) {
   const member = await getMembership(db, uid);
   const limit = member ? MEMBER_DEVICE_LIMIT : FREE_DEVICE_LIMIT;
   if (!deviceId) return { ok: true, limitReached: false, devices: 0, limit };
   try {
-    const res = await db.from('daycell_devices').select('device_id').eq('user_id', uid);
+    const res = await db.from('daycell_devices').select('device_id, device_name').eq('user_id', uid);
     const rows = res.data || [];
     if (rows.some((r) => r.device_id === deviceId)) {
+      // 已登记：刷新 last_seen，顺带补写/更新设备名（前端升级后首次上传会带上名字）
+      const patch = { last_seen_at: new Date() };
+      if (deviceName) patch.device_name = deviceName;
       await db
         .from('daycell_devices')
-        .update({ last_seen_at: new Date() })
+        .update(patch)
         .eq('user_id', uid)
         .eq('device_id', deviceId);
       return { ok: true, limitReached: false, devices: rows.length, limit };
@@ -97,7 +100,7 @@ async function ensureDeviceRegistered(db, uid, deviceId) {
     if (rows.length >= limit) {
       return { ok: false, limitReached: true, devices: rows.length, limit };
     }
-    await db.from('daycell_devices').insert({ user_id: uid, device_id: deviceId });
+    await db.from('daycell_devices').insert({ user_id: uid, device_id: deviceId, device_name: deviceName || '' });
     return { ok: true, limitReached: false, devices: rows.length + 1, limit };
   } catch (e) {
     // 登记失败不阻断上传（宽松），仅留痕
@@ -112,11 +115,12 @@ async function uploadSnapshot(event, uid) {
   const snapshot = body.snapshot;
   const version = body.version || '1';
   const deviceId = String(body.deviceId || '').slice(0, 64);
+  const deviceName = String(body.deviceName || '').slice(0, 64);
   if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
     return json(400, { ok: false, error: 'snapshot_required' });
   }
   const db = getApp().rdb();
-  const dev = await ensureDeviceRegistered(db, uid, deviceId);
+  const dev = await ensureDeviceRegistered(db, uid, deviceId, deviceName);
   if (!dev.ok || dev.limitReached) {
     return json(403, {
       ok: false,
@@ -812,9 +816,10 @@ async function syncStatus(uid) {
       .order('created_at', { ascending: false })
       .limit(1);
     const row = snap.data && snap.data[0];
-    const devs = await db.from('daycell_devices').select('device_id, last_seen_at').eq('user_id', uid);
+    const devs = await db.from('daycell_devices').select('device_id, device_name, last_seen_at').eq('user_id', uid);
     const devices = (devs.data || []).map((d) => ({
       deviceId: d.device_id,
+      deviceName: d.device_name || null,
       lastSeenAt: d.last_seen_at,
     }));
     let recordCount = 0;
@@ -824,15 +829,36 @@ async function syncStatus(uid) {
         if (Array.isArray(arr)) recordCount += arr.length;
       }
     }
+    // v9.13：deviceLimit 按会员分档返回（此前写死免费档 1，会员账号状态卡会误显）
+    const member = await getMembership(db, uid);
+    const limit = member ? MEMBER_DEVICE_LIMIT : FREE_DEVICE_LIMIT;
     return json(200, {
       ok: true,
       lastSyncAt: row ? row.created_at : null,
       recordCount,
       devices,
-      deviceLimit: FREE_DEVICE_LIMIT,
+      deviceLimit: limit,
     });
   } catch (e) {
     return json(500, { ok: false, error: 'db_read_failed', detail: String((e && e.message) || e) });
+  }
+}
+
+// v9.13 解绑设备：删除本账号指定设备登记（幂等：不存在也返回 ok），返回剩余设备数与上限。
+// 当前设备也可解绑——本机下次上传会自动重新登记，前端对此有提示。
+async function unbindDevice(event, uid) {
+  const body = parseBody(event);
+  const deviceId = String(body.deviceId || '').slice(0, 64);
+  if (!deviceId) return json(400, { ok: false, error: 'device_id_required' });
+  const db = getApp().rdb();
+  const member = await getMembership(db, uid);
+  const limit = member ? MEMBER_DEVICE_LIMIT : FREE_DEVICE_LIMIT;
+  try {
+    await db.from('daycell_devices').delete().eq('user_id', uid).eq('device_id', deviceId);
+    const rest = await db.from('daycell_devices').select('device_id').eq('user_id', uid);
+    return json(200, { ok: true, deviceId, devices: (rest.data || []).length, limit });
+  } catch (e) {
+    return json(500, { ok: false, error: 'db_write_failed', detail: String((e && e.message) || e) });
   }
 }
 
@@ -921,6 +947,13 @@ exports.main = async (event, context) => {
     const uid = extractUid(event);
     if (!uid) return json(401, { ok: false, error: 'unauthorized' });
     return downloadSnapshot(uid);
+  }
+
+  // v9.13 云同步：解绑设备（删除本账号指定设备登记，释放设备额度）
+  if (path === '/sync/device/unbind' && method === 'POST') {
+    const uid = extractUid(event);
+    if (!uid) return json(401, { ok: false, error: 'unauthorized' });
+    return unbindDevice(event, uid);
   }
 
   // 会员状态查询（v9.7 第 3 步）：是否会员 + 到期时间 + 设备上限

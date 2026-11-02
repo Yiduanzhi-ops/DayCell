@@ -20,8 +20,10 @@ import {
   fetchSyncStatus,
   getAccessToken,
   getCloudApp,
+  getDeviceId,
   redeemCode,
   type CloudSyncStatus,
+  unbindDevice,
   uploadSnapshot,
 } from './cloudbase'
 import styles from './SettingsView.module.css'
@@ -86,7 +88,33 @@ export function AccountSettingsView(): JSX.Element {
   const [redeemState, setRedeemState] = useState<{ phase: 'idle' | 'busy' | 'ok' | 'fail'; msg?: string }>({
     phase: 'idle',
   })
+  // v9.13 设备列表（可解绑）：本机标识 + 解绑操作状态
+  const [currentDeviceId] = useState(() => getDeviceId())
+  const [unbindState, setUnbindState] = useState<{
+    phase: 'idle' | 'busy' | 'ok' | 'fail'
+    deviceId?: string
+    msg?: string
+  }>({ phase: 'idle' })
   const otpRefs = useRef<Array<HTMLInputElement | null>>([])
+
+  // v9.13 解绑设备：调后端删除本账号指定设备登记 → 刷新云端状态（设备数/上限）
+  const onUnbind = async (deviceId: string): Promise<void> => {
+    if (unbindState.phase === 'busy') return
+    setUnbindState({ phase: 'busy', deviceId })
+    const token = await getAccessToken()
+    if (!token) {
+      setUnbindState({ phase: 'fail', deviceId, msg: '登录状态失效，请重新登录' })
+      return
+    }
+    const r = await unbindDevice(token, deviceId)
+    if (!r.ok) {
+      setUnbindState({ phase: 'fail', deviceId, msg: r.error ?? '解绑失败' })
+      return
+    }
+    setUnbindState({ phase: 'ok', deviceId })
+    const s = await fetchSyncStatus(token)
+    if (s.ok && s.status) setCloudStatus(s.status)
+  }
 
   // v9.7 第 3 步：拉云端备份状态 + 会员状态（两处复用：恢复会话 / 登录成功）
   const refreshCloudState = async (token: string): Promise<void> => {
@@ -422,9 +450,55 @@ export function AccountSettingsView(): JSX.Element {
                   {cloudStatus.devices.length >= cloudStatus.deviceLimit && (
                     <div className={styles.cloudStatusHint}>
                       {cloudStatus.deviceLimit > 1
-                        ? `已达会员设备上限（${cloudStatus.deviceLimit} 台），请清理不再使用的设备登记`
+                        ? `已达会员设备上限（${cloudStatus.deviceLimit} 台），可解绑不再使用的设备释放额度`
                         : `免费档支持 ${cloudStatus.deviceLimit} 台设备同步，更多设备需升级会员`}
                     </div>
+                  )}
+                  {cloudStatus.devices.length > 0 && (
+                    <div className={styles.deviceList}>
+                      {cloudStatus.devices.map((d) => {
+                        const isCurrent = d.deviceId === currentDeviceId
+                        return (
+                          <div key={d.deviceId} className={styles.deviceRow}>
+                            <div className={styles.deviceInfo}>
+                              <span className={styles.deviceName}>
+                                {d.deviceName && d.deviceName.trim() ? d.deviceName : '未知设备'}
+                              </span>
+                              {isCurrent && <span className={styles.deviceTag}>当前设备</span>}
+                              <span className={styles.deviceId}>
+                                {isCurrent ? '' : `ID ${d.deviceId.slice(0, 8)}`}
+                              </span>
+                              <span className={styles.deviceTime}>
+                                {d.lastSeenAt
+                                  ? `最近同步 ${new Date(d.lastSeenAt).toLocaleString('zh-CN', { hour12: false })}`
+                                  : '尚未同步过'}
+                              </span>
+                            </div>
+                            <button
+                              className={styles.unbindBtn}
+                              disabled={unbindState.phase === 'busy'}
+                              onClick={() => void onUnbind(d.deviceId)}
+                              data-testid={`unbind-${d.deviceId.slice(0, 4)}`}
+                            >
+                              {unbindState.phase === 'busy' && unbindState.deviceId === d.deviceId
+                                ? '解绑中…'
+                                : '解绑'}
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                  {unbindState.phase === 'ok' && (
+                    <div className={styles.okLine}>
+                      ✓ 已解绑 {unbindState.deviceId?.slice(0, 8)}，设备额度已释放
+                    </div>
+                  )}
+                  {unbindState.phase === 'fail' && (
+                    <div className={styles.errLine}>✗ 解绑失败：{unbindState.msg ?? '未知错误'}</div>
+                  )}
+                  {unbindState.phase === 'ok' && currentDeviceId && unbindState.deviceId === currentDeviceId && (
+                    <div className={styles.cloudStatusHint}>解绑的是本机：下次同步会自动重新登记</div>
                   )}
                 </div>
               )}
