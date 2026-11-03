@@ -104,6 +104,14 @@
   font-weight: 600;
   letter-spacing: 0.02em;
 }
+/* v9.14.3 全部视图分组组头右侧「＋ 新建目标」：克制浅底（区别于列表区实心主按钮） */
+.folderGroupHead .newGoalBtn {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  font-size: 12px;
+  background: var(--bg-hover);
+  color: var(--ink-2);
+}
 .folderGroupMenu {
   flex: 0 0 auto;
   width: 30px;

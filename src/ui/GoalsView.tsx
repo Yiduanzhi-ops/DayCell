@@ -17,6 +17,9 @@ import type { FolderSummary, GoalRecord, ProgressField, StageInput, StageRecord,
 import { useApp } from '@/app/context'
 import styles from './GoalsView.module.css'
 
+/** v9.14.3 全部视图「未分类」组折叠持久化 key（'1' = 折叠） */
+const UNCAT_COLLAPSED_KEY = 'daycell.goalUncategorizedCollapsed'
+
 // ---------------------------------------------------------------------------
 // 弹层通用骨架（与 AnnivSettings 一致的 overlay/sheet 模式）
 // ---------------------------------------------------------------------------
@@ -226,6 +229,43 @@ function DeleteFolderConfirm({
           }}
         >
           删除文件夹
+        </button>
+      </div>
+    </Sheet>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// v9.14.3 删除目标确认弹层（明示：连带删除阶段/子任务，不可恢复）
+// ---------------------------------------------------------------------------
+
+function DeleteGoalConfirm({
+  goal,
+  onClose,
+  onDeleted,
+}: {
+  goal: GoalRecord
+  onClose: () => void
+  onDeleted?: () => void
+}): JSX.Element {
+  const deleteGoal = useApp((s) => s.deleteGoal)
+  return (
+    <Sheet title="删除目标" onCancel={onClose}>
+      <p className={styles.confirmText}>
+        删除「{goal.title}」将同时删除它的全部阶段与子任务，此操作不可恢复。
+      </p>
+      <div className={styles.act}>
+        <button className={styles.btnSoft} onClick={onClose}>取消</button>
+        <button
+          className={styles.btnDanger}
+          onClick={() => {
+            void deleteGoal(goal.id).then((ok) => {
+              if (ok) onDeleted?.()
+              onClose()
+            })
+          }}
+        >
+          删除目标
         </button>
       </div>
     </Sheet>
@@ -826,7 +866,6 @@ function GoalDetail({
 }): JSX.Element {
   const closeGoal = useApp((s) => s.closeGoal)
   const updateGoal = useApp((s) => s.updateGoal)
-  const deleteGoal = useApp((s) => s.deleteGoal)
   const setGoalDone = useApp((s) => s.setGoalDone)
   const deleteStage = useApp((s) => s.deleteStage)
   const deleteSubtask = useApp((s) => s.deleteSubtask)
@@ -836,6 +875,8 @@ function GoalDetail({
   const [noteDraft, setNoteDraft] = useState(goal.note)
   // v8.10 目标层级当前进度（与阐述同级，阐述上、进度下，独立手填）
   const [progEdit, setProgEdit] = useState(false)
+  // v9.14.3 删除目标二次确认
+  const [delOpen, setDelOpen] = useState(false)
   const [progPctDraft, setProgPctDraft] = useState(goal.progress?.pct !== undefined ? String(goal.progress.pct) : '')
   const [progNoteDraft, setProgNoteDraft] = useState(goal.progress?.note ?? '')
   const [stageSheet, setStageSheet] = useState<null | 'new' | StageRecord>(null)
@@ -866,8 +907,8 @@ function GoalDetail({
   }
 
   const removeGoal = (): void => {
-    // 连带删除全部阶段/子任务由 repo 单事务保证（用户口径：删除目标 = 删除它的一切）
-    void deleteGoal(goal.id)
+    // v9.14.3 删除目标二次确认（连带删除全部阶段/子任务由 repo 单事务保证）
+    setDelOpen(true)
   }
 
   const removeStage = (s: StageRecord): void => {
@@ -909,6 +950,9 @@ function GoalDetail({
         </button>
       </div>
       {moveSheet && <MoveGoalSheet goal={goal} onClose={() => setMoveSheet(false)} />}
+      {delOpen && (
+        <DeleteGoalConfirm goal={goal} onClose={() => setDelOpen(false)} onDeleted={closeGoal} />
+      )}
 
       {/* 目标阐述：详情页顶部主展示 */}
       <div className={styles.noteBox}>
@@ -1099,6 +1143,18 @@ function GoalList(): JSX.Element {
   const toggleGoalFavorite = useApp((s) => s.toggleGoalFavorite)
   const setFolderCollapsed = useApp((s) => s.setFolderCollapsed)
   const [newOpen, setNewOpen] = useState(false)
+  // v9.14.3 新建目标预设文件夹：分组视图每组按钮携带自身文件夹；空态/其他 = null
+  const [newGoalFolder, setNewGoalFolder] = useState<string | null>(null)
+  // v9.14.3 全部视图「未分类」组折叠（localStorage 持久化，与文件夹 collapsed 同语义）
+  const [uncatCollapsed, setUncatCollapsedState] = useState(
+    () => typeof localStorage !== 'undefined' && localStorage.getItem(UNCAT_COLLAPSED_KEY) === '1',
+  )
+  const setUncatCollapsed = (v: boolean): void => {
+    setUncatCollapsedState(v)
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(UNCAT_COLLAPSED_KEY, v ? '1' : '0')
+    }
+  }
   // v9.14 文件夹区：'all' = 平铺（保持原样两组）；folderId = 只看该文件夹（组头可折叠，持久化）
   const [filter, setFilter] = useState<string | 'all'>('all')
   const [folderSheet, setFolderSheet] = useState(false)
@@ -1115,23 +1171,9 @@ function GoalList(): JSX.Element {
     return f ? f.folder.name : null
   }
 
-  const renderGroup = (
-    title: string,
-    items: typeof goalList,
-    doneGroup: boolean,
-  ): JSX.Element => (
-    <section key={title}>
-      <div className={styles.listHead}>
-        <span className={styles.listTitle}>
-          {title}（{items.length}）
-        </span>
-        {!doneGroup && (
-          <button className={styles.newGoalBtn} onClick={() => setNewOpen(true)}>
-            ＋ 新建目标
-          </button>
-        )}
-      </div>
-
+  // v9.14.3 卡片列表（空态 + 卡片行）：renderGroup 与分组视图组内共用
+  const renderCards = (items: typeof goalList, doneGroup: boolean, hideFolderTag = false): JSX.Element => (
+    <>
       {items.length === 0 && (
         doneGroup ? (
           <div className={styles.groupEmpty}>还没有已完成的目标</div>
@@ -1171,8 +1213,8 @@ function GoalList(): JSX.Element {
             </span>
           </h2>
           <div className={styles.meta}>
-            {/* v9.14 所属文件夹小标签（未分类不显示） */}
-            {folderNameOf(goal.folderId) && (
+            {/* v9.14 所属文件夹小标签（未分类不显示；分组视图/文件夹视图由组头标明归属 → 隐藏） */}
+            {!hideFolderTag && folderNameOf(goal.folderId) && (
               <span className={styles.folderTag}>{folderNameOf(goal.folderId)}</span>
             )}
             <span>进度</span>
@@ -1204,6 +1246,34 @@ function GoalList(): JSX.Element {
           {goal.note && <p className={styles.summary}>{goal.note}</p>}
         </div>
       ))}
+    </>
+  )
+
+  const renderGroup = (
+    title: string,
+    items: typeof goalList,
+    doneGroup: boolean,
+    defaultFolder?: string | null,
+    hideFolderTag?: boolean,
+  ): JSX.Element => (
+    <section key={title}>
+      <div className={styles.listHead}>
+        <span className={styles.listTitle}>
+          {title}（{items.length}）
+        </span>
+        {!doneGroup && (
+          <button
+            className={styles.newGoalBtn}
+            onClick={() => {
+              setNewGoalFolder(defaultFolder ?? null)
+              setNewOpen(true)
+            }}
+          >
+            ＋ 新建目标
+          </button>
+        )}
+      </div>
+      {renderCards(items, doneGroup, hideFolderTag)}
     </section>
   )
 
@@ -1243,9 +1313,88 @@ function GoalList(): JSX.Element {
             <span className={styles.emptyHint}>自动归入此文件夹，或在详情页移动进来</span>
           </div>
         ) : (
-          renderGroup('文件夹中的目标', items, false)
+          renderGroup('文件夹中的目标', items, false, null, true)
         )}
       </section>
+    )
+  }
+
+  // v9.14.3 全部视图按文件夹分组：文件夹组（收藏置顶 → 创建时间）+ 未分类组沉底；每组可折叠
+  // 组内沿用「进行中在上、已完成沉底」（aggregate 排序）；分组视图隐藏卡片文件夹小标签（组头已标明）
+  const renderGroupedAll = (): JSX.Element => {
+    const uncategorized = goalList.filter((x) => !x.goal.folderId)
+    const groupedFolders = folderList.filter((f) =>
+      goalList.some((x) => x.goal.folderId === f.folder.id),
+    )
+    if (groupedFolders.length === 0 && uncategorized.length === 0) {
+      // 全部为空：沿用原「进行中（0）」空态提示
+      return renderGroup('进行中的目标', [], false)
+    }
+    return (
+      <>
+        {groupedFolders.map(({ folder }) => {
+          const items = goalList.filter((x) => x.goal.folderId === folder.id)
+          const collapsed = folder.collapsed ?? false
+          return (
+            <section key={folder.id}>
+              <div className={styles.folderGroupHead}>
+                <button
+                  className={styles.folderCollapse}
+                  aria-label={collapsed ? '展开文件夹' : '折叠文件夹'}
+                  onClick={() => void setFolderCollapsed(folder.id, !collapsed)}
+                >
+                  {collapsed ? '▸' : '▾'}
+                </button>
+                <span className={styles.folderGroupTitle}>
+                  {folder.favorite ? '★ ' : ''}{folder.name}（{items.length}）
+                </span>
+                <button
+                  className={styles.newGoalBtn}
+                  onClick={() => {
+                    setNewGoalFolder(folder.id)
+                    setNewOpen(true)
+                  }}
+                >
+                  ＋ 新建目标
+                </button>
+              </div>
+              {collapsed ? (
+                <div className={styles.groupEmpty}>已折叠 · {items.length} 个目标</div>
+              ) : (
+                renderCards(items, false, true)
+              )}
+            </section>
+          )
+        })}
+        {uncategorized.length > 0 && (
+          <section>
+            <div className={styles.folderGroupHead}>
+              <button
+                className={styles.folderCollapse}
+                aria-label={uncatCollapsed ? '展开未分类' : '折叠未分类'}
+                onClick={() => setUncatCollapsed(!uncatCollapsed)}
+              >
+                {uncatCollapsed ? '▸' : '▾'}
+              </button>
+              <span className={styles.folderGroupTitle}>未分类（{uncategorized.length}）</span>
+              <button
+                className={styles.newGoalBtn}
+                onClick={() => {
+                  setNewGoalFolder(null)
+                  setNewOpen(true)
+                }}
+              >
+                ＋ 新建目标
+              </button>
+            </div>
+            {uncatCollapsed ? (
+              <div className={styles.groupEmpty}>已折叠 · {uncategorized.length} 个目标</div>
+            ) : (
+              renderCards(uncategorized, false, true)
+            )}
+          </section>
+        )}
+      </>
     )
   }
 
@@ -1283,17 +1432,24 @@ function GoalList(): JSX.Element {
     <div className={styles.list}>
       {folderBar}
       {filter === 'all' ? (
-        <>
-          {renderGroup('进行中的目标', active, false)}
-          {done.length > 0 && renderGroup('已完成的目标', done, true)}
-        </>
+        folderList.length === 0 ? (
+          <>
+            {renderGroup('进行中的目标', active, false)}
+            {done.length > 0 && renderGroup('已完成的目标', done, true)}
+          </>
+        ) : (
+          renderGroupedAll()
+        )
       ) : (
         renderFolderView()
       )}
       {newOpen && (
         <NewGoalSheet
-          defaultFolderId={filter !== 'all' ? filter : null}
-          onClose={() => setNewOpen(false)}
+          defaultFolderId={newGoalFolder ?? (filter !== 'all' ? filter : null)}
+          onClose={() => {
+            setNewGoalFolder(null)
+            setNewOpen(false)
+          }}
         />
       )}
       {folderSheet && <NewFolderSheet onClose={() => setFolderSheet(false)} />}

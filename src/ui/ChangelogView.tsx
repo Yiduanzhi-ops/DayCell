@@ -8,11 +8,20 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.14.2'
+const CURRENT_VERSION = 'v9.14.3'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.14.3',
+    date: '2026-11-03',
+    items: [
+      '全部目标视图按文件夹分组排布（收藏置顶 → 创建时间）：每个文件夹一组、底部「未分类（N）」组沉底，组头 ▸/▾ 均可折叠（与文件夹视图折叠状态互通）',
+      '分组组内仍按「进行中在上、已完成沉底」排序；分组后卡片不再显示文件夹小标签（组头已标明归属）',
+      '删除目标增加二次确认：详情页点「删除」先弹确认，明示将连带删除全部阶段与子任务、不可恢复',
+    ],
+  },
   {
     version: 'v9.14.2',
     date: '2026-11-03',
