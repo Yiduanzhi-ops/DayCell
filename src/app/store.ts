@@ -658,6 +658,7 @@ export function createAppStore(
         set(patch)
       } catch (e) {
         if (seq !== loadSeq) return
+        console.error('[refresh]', e)
         set({ loading: false })
         get().showToast(errMsg(e))
       }
@@ -1455,6 +1456,7 @@ export function createAppStore(
         set({ folderList })
         return true
       } catch (e) {
+        console.error('[createFolder]', e)
         get().showToast(errMsg(e))
         return false
       }

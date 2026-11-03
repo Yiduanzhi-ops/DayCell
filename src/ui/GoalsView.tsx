@@ -13,7 +13,7 @@
 import { useMemo, useState } from 'react'
 import type { JSX, ReactNode } from 'react'
 import { parsePct } from '@core'
-import type { GoalRecord, ProgressField, StageInput, StageRecord, SubtaskRecord } from '@core'
+import type { FolderSummary, GoalRecord, ProgressField, StageInput, StageRecord, SubtaskRecord } from '@core'
 import { useApp } from '@/app/context'
 import styles from './GoalsView.module.css'
 

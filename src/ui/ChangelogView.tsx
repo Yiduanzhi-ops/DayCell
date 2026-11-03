@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.14'
+const CURRENT_VERSION = 'v9.14.1'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.14.1',
+    date: '2026-11-03',
+    items: [
+      '修复「文件夹查询失败 / 创建文件夹失败」：升级过受污染版本的本地数据库缺少 folders 表，现已自动补建，打开应用即自愈，无需任何操作',
+      '修复本版自带的 6 个类型错误（目标视图 import 补全、同步合并去重、测试数据补 folders），开发链路恢复 tsc 0 错误基线',
+    ],
+  },
   {
     version: 'v9.14',
     date: '2026-11-02',

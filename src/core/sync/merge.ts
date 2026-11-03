@@ -60,6 +60,5 @@ export function mergeTables(local: RecordTable, remote: RecordTable): RecordTabl
     reviews: mergeByUpdated(local.reviews, remote.reviews),
     folders: mergeByUpdated(local.folders, remote.folders),
     settings: mergeSettings(local.settings, remote.settings),
-    settings: mergeSettings(local.settings, remote.settings),
   }
 }

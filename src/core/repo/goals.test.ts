@@ -10,7 +10,7 @@
  *  - 备份合并含 goals/stages；旧备份（无这两段）仍可导入
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import type { GoalRecord, StageRecord, StoreName, DateKey } from '../types'
+import type { FolderRecord, GoalRecord, StageRecord, StoreName, DateKey } from '../types'
 import { createMemoryStore } from '../store/memory'
 import type { RecordStore } from '../store/types'
 import { createFakeClock, type FakeClock } from '../clock'
@@ -681,7 +681,7 @@ describe('folders', () => {
     await store2.init()
     const stats = await mergeBackup(store2, file)
     expect(stats.added.folders).toBe(1)
-    const f2 = await store2.all('folders')
+    const f2 = await store2.all<FolderRecord>('folders')
     expect(f2.map((x) => x.name)).toEqual(['A'])
 
     // 旧备份（无 folders 键）→ parse 自动补空数组，不炸
