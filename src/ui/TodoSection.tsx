@@ -535,15 +535,19 @@ function TodoEdit({ todo, onDone }: { todo: TodoRecord; onDone: () => void }): J
     if (done.current) return
     done.current = true
     if (save) {
-      if (v !== todo.text) void updateTodoText(todo.id, v)
-      // v8.53：截止日变化（设/改/清）一并保存
-      const next = ddl || null
-      if (next !== (todo.deadline ?? null)) void updateTodoDeadline(todo.id, next)
-      // v9.2.2：具体时间变化（设/改/清）一并保存；v9.2.3 type 变化也一并提交
-      const ntm = tm || null
-      // 推导基准：老数据无 timeType 时按 deadline 有无推导；编辑后以当前 tp 为准
-      const baseTp = todo.timeType ?? (todo.deadline ? 'due' : 'at')
-      if (ntm !== (todo.time ?? null) || tp !== baseTp) void updateTodoTime(todo.id, ntm, tp)
+      // v9.15：串行提交——updateTodoDeadline 与 updateTodoTime 并行会各自用旧快照
+      // 写回 IndexedDB，后完成的 put 覆盖先完成的写入（改类型+日期时日期被还原）
+      void (async () => {
+        if (v !== todo.text) await updateTodoText(todo.id, v)
+        // v8.53：截止日变化（设/改/清）一并保存
+        const next = ddl || null
+        if (next !== (todo.deadline ?? null)) await updateTodoDeadline(todo.id, next)
+        // v9.2.2：具体时间变化（设/改/清）一并保存；v9.2.3 type 变化也一并提交
+        const ntm = tm || null
+        // 推导基准：老数据无 timeType 时按 deadline 有无推导；编辑后以当前 tp 为准
+        const baseTp = todo.timeType ?? (todo.deadline ? 'due' : 'at')
+        if (ntm !== (todo.time ?? null) || tp !== baseTp) await updateTodoTime(todo.id, ntm, tp)
+      })()
     }
     onDone()
   }

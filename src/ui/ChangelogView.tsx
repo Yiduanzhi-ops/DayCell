@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.14.3'
+const CURRENT_VERSION = 'v9.15'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.15',
+    date: '2026-11-03',
+    items: [
+      '修复待办原地编辑「类型 + 日期」改不动：修改截止型/提醒型或截止日期后保存，不再被另一项修改覆盖还原',
+      '修复切换「提醒型」后类型丢失：只切类型不设时间的待办，保存后不再被还原成截止型',
+    ],
+  },
   {
     version: 'v9.14.3',
     date: '2026-11-03',

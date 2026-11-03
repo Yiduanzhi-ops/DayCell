@@ -466,8 +466,15 @@ export function createRepos(deps: RepoDeps): Repos {
     async setTime(id, time, timeType) {
       const rec = await mustGet<TodoRecord>('todos', id)
       if (time === null || time === undefined) {
-        const { time: _drop, timeType: _drop2, ...rest } = rec
-        return store.put<TodoRecord>('todos', rest)
+        // v9.15：time=null 但显式传了 timeType 时，只删 time、保留类型语义——
+        // 旧实现无条件删 timeType，导致「只切类型不设时间」保存后类型被还原
+        if (timeType === null || timeType === undefined) {
+          const { time: _drop, timeType: _drop2, ...rest } = rec
+          return store.put<TodoRecord>('todos', rest)
+        }
+        const ttp = unwrap(parseTodoTimeType(timeType))
+        const { time: _drop, ...rest } = rec
+        return store.put<TodoRecord>('todos', { ...rest, timeType: ttp })
       }
       const tm = unwrap(parseTodoTime(time))
       // timeType：null/undefined = 清除该语义（沿用展示推导）；显式传 'due'/'at' 则写入；非法抛 BAD_VALUE

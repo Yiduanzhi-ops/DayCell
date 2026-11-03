@@ -137,6 +137,11 @@ describe('todos.subtaskId（v8.63 子任务加入今日待办）', () => {
     const rec = (await repos.todos.byDate(k('2026-10-20')))[0]!
     expect(rec.time).toBeUndefined()
     expect('timeType' in rec).toBe(false)
+    // v9.15：清 time 但显式传 timeType → 仅删 time、保留类型（修复「只切类型不设时间」保存后被还原）
+    await repos.todos.setTime(t.id, null, 'at')
+    const rec2 = (await repos.todos.byDate(k('2026-10-20')))[0]!
+    expect('time' in rec2).toBe(false)
+    expect(rec2.timeType).toBe('at')
     // 非法 type 抛 BAD_VALUE
     // @ts-expect-error 故意传非法 timeType，验证运行时校验抛 BAD_VALUE
     await expect(repos.todos.setTime(t.id, '14:00', 'start')).rejects.toMatchObject({
