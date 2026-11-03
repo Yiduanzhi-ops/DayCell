@@ -50,12 +50,18 @@ function Sheet({
 // 新建目标弹层
 // ---------------------------------------------------------------------------
 
-function NewGoalSheet({ onClose }: { onClose: () => void }): JSX.Element {
+function NewGoalSheet({
+  defaultFolderId,
+  onClose,
+}: {
+  defaultFolderId?: string | null
+  onClose: () => void
+}): JSX.Element {
   const createGoal = useApp((s) => s.createGoal)
   const [title, setTitle] = useState('')
   const [note, setNote] = useState('')
-  // v9.14 放入文件夹：null = 未分类（可跳过）
-  const [folderId, setFolderId] = useState<string | null>(null)
+  // v9.14 放入文件夹：null = 未分类（可跳过）。defaultFolderId = 从文件夹视图进入时自动归属
+  const [folderId, setFolderId] = useState<string | null>(defaultFolderId ?? null)
 
   const submit = async (): Promise<void> => {
     if (!title.trim()) return
@@ -1231,7 +1237,10 @@ function GoalList(): JSX.Element {
             <span className={styles.emptyBig}>◎</span>
             这个文件夹还没有目标
             <br />
-            点「＋ 新建目标」时选择放入，或在详情页移动进来
+            <button className={styles.newGoalBtn} onClick={() => setNewOpen(true)}>
+              ＋ 新建目标
+            </button>
+            <span className={styles.emptyHint}>自动归入此文件夹，或在详情页移动进来</span>
           </div>
         ) : (
           renderGroup('文件夹中的目标', items, false)
@@ -1281,7 +1290,12 @@ function GoalList(): JSX.Element {
       ) : (
         renderFolderView()
       )}
-      {newOpen && <NewGoalSheet onClose={() => setNewOpen(false)} />}
+      {newOpen && (
+        <NewGoalSheet
+          defaultFolderId={filter !== 'all' ? filter : null}
+          onClose={() => setNewOpen(false)}
+        />
+      )}
       {folderSheet && <NewFolderSheet onClose={() => setFolderSheet(false)} />}
       {menuFor && (
         <FolderMenuSheet folder={menuFor} onClose={() => setMenuFor(null)} onDeleted={() => setFilter('all')} />

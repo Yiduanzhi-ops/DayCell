@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.14.1'
+const CURRENT_VERSION = 'v9.14.2'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.14.2',
+    date: '2026-11-03',
+    items: [
+      '在某个文件夹内点「＋ 新建目标」，新目标自动归入该文件夹（无需手动选择；仍可在表单里改放其他夹或未分类）',
+      '空文件夹视图补上「＋ 新建目标」入口，空夹也能直接开建',
+    ],
+  },
   {
     version: 'v9.14.1',
     date: '2026-11-03',

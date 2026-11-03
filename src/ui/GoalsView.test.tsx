@@ -573,9 +573,48 @@ describe('目标文件夹（v9.14）', () => {
     await waitFor(() => expect(screen.getByText('交付上线')).toBeInTheDocument())
     expect(screen.queryByRole('button', { name: /工作 \d/ })).not.toBeInTheDocument()
   })
-})
 
-/** 与 renderApp 同款，但返回 store 供直接调 action 造数据 */
+  it('文件夹视图内新建目标 → 自动归属该文件夹（无需手动选夹）', async () => {
+    const { store } = await renderAppWrap()
+    const s = store.getState()
+    await s.createFolder('工作')
+    const fid = store.getState().folderList[0]?.folder.id
+    expect(fid).toBeTruthy()
+    await s.createGoal('既有目标', '', fid)
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: /工作 \d/ })).toBeInTheDocument())
+
+    // 进入文件夹视图 → 「＋ 新建目标」直接创建（不手动选夹）
+    fireEvent.click(screen.getByRole('button', { name: /工作 \d/ }))
+    await waitFor(() => expect(screen.getByText('文件夹中的目标（1）')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: '＋ 新建目标' }))
+    fireEvent.change(screen.getByPlaceholderText(/复习考公/), { target: { value: '文件夹内新建' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
+    // 自动归属：文件夹视图计数 +1、新目标可见、chips 计数同步
+    await waitFor(() => expect(screen.getByText('文件夹中的目标（2）')).toBeInTheDocument())
+    expect(screen.getByText('文件夹内新建')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /工作 2/ })).toBeInTheDocument()
+  })
+
+  it('空文件夹视图：仍提供「＋ 新建目标」入口，新建后自动归属', async () => {
+    const { store } = await renderAppWrap()
+    const s = store.getState()
+    await s.createFolder('空夹')
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: /空夹 \d/ })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /空夹 \d/ }))
+    await waitFor(() => expect(screen.getByText('这个文件夹还没有目标')).toBeInTheDocument())
+    // 空态内也有新建入口
+    const btn = screen.getByRole('button', { name: '＋ 新建目标' })
+    expect(btn).toBeInTheDocument()
+    fireEvent.click(btn)
+    fireEvent.change(screen.getByPlaceholderText(/复习考公/), { target: { value: '空夹首个目标' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
+    // 自动归属：空态消失 → 文件夹视图出现该目标
+    await waitFor(() => expect(screen.getByText('文件夹中的目标（1）')).toBeInTheDocument())
+    expect(screen.getByText('空夹首个目标')).toBeInTheDocument()
+  })
+})
 async function renderAppWrap() {
   localStorage.clear()
   const bundle = await initCore({ store: createMemoryStore(), skipLunar: true })
