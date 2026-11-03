@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.16'
+const CURRENT_VERSION = 'v9.17'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.17',
+    date: '2026-11-03',
+    items: [
+      '修复「2 小时不打开就掉登录」：登录态改为到期前自动续期（30 天窗口内免重登），网络抖动也不再直接登出',
+      '运行中每 20 分钟自动检查并续期 token，长时间挂后台再回来也保持登录',
+    ],
+  },
   {
     version: 'v9.16',
     date: '2026-11-03',

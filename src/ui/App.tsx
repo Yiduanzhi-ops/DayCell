@@ -14,7 +14,7 @@ import { AppStoreContext, useApp } from '@/app/context'
 import { applyTheme } from '@/app/store'
 import { ensureFirstVisitMarks } from './telemetry'
 import { watchKeyboardInset } from './keyboardInset'
-import { ensureSession, isCloudLoggedIn } from './cloudbase'
+import { ensureSession, isCloudLoggedIn, refreshIfDue } from './cloudbase'
 import { TopBar } from './TopBar'
 import { TabBar } from './TabBar'
 import { DayView } from './DayView'
@@ -105,6 +105,16 @@ function Shell(): JSX.Element {
     return () => {
       cancelled = true
     }
+  }, [])
+
+  // v9.17 登录态保持：access_token 2h 到期前定时主动续期（refresh_token 31 天窗口）。
+  // 每 20 分钟检查一次，剩余不足 1h 自动刷新——用户打开 App 不再需要频繁重新登录。
+  useEffect(() => {
+    if (!isCloudLoggedIn()) return
+    const t = window.setInterval(() => {
+      void refreshIfDue()
+    }, 20 * 60 * 1000)
+    return () => window.clearInterval(t)
   }, [])
 
   // v9.7 本地模式常驻轻提示：未登录时显示「未登录 · 数据仅在本机」，点击进登录页；

@@ -77,18 +77,75 @@ export async function getCloudLoginType(): Promise<CloudLoginType> {
   }
 }
 
-/** 会话恢复（v9.7 默认登录改造）：启动时恢复已有登录态。
- *  规则：
- *   1. 无登录态 → 返回 'none'（本地模式；不再自动匿名登录，由 App 弹登录引导）
- *   2. 有登录态但 accessToken 已失效（残留 user_info，如 refresh 过期）→ 清理残留会话，返回 'none'
- *   3. 有效登录态（email / 历史匿名）→ 原样保留，返回对应类型
+/** v9.17 续期提前量：access_token 剩余有效期小于该值即主动刷新（2h 到期前 1h 续上）。 */
+const REFRESH_AHEAD_MS = 60 * 60 * 1000
+
+/** 读本地凭据里的 access_token 到期时间（ms）。读不到/解析失败返回 null（不阻塞判断）。 */
+async function readTokenExpiry(): Promise<number | null> {
+  try {
+    const creds = (await getCloudApp().auth().getCredentials?.()) as {
+      access_token?: unknown
+      refresh_token?: unknown
+      expires_at?: Date | string | number
+      scope?: string
+    } | null
+    if (!creds?.access_token) return null
+    if (creds.expires_at instanceof Date) return creds.expires_at.getTime()
+    if (typeof creds.expires_at === 'number') return creds.expires_at
+    if (creds.expires_at) {
+      const t = new Date(String(creds.expires_at)).getTime()
+      return Number.isFinite(t) ? t : null
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * v9.17 登录态主动续期：access_token 默认 2h 过期，refresh_token 默认 31 天。
+ *  CloudBase SDK 在 getAccessToken() 时才被动刷新，一旦刷新请求失败（网络抖动/CORS）
+ *  ensureSession 旧逻辑会直接登出 → 用户「两小时不打开就掉登录」。
+ *  本函数改为「到期前主动续期 + 失败容错」：
+ *    - 剩余 > 1h        → 无需刷新，返回 true
+ *    - 临近/已过期      → refreshTokenForce() 换新（31 天窗口内可反复续期）
+ *    - 刷新失败         → 若 SDK 已清凭据（refresh_token 真失效）返回 false；
+ *                         否则（网络类失败）保留会话返回 true，下次再试
+ *  返回 false 时调用方应清理会话并引导重新登录。
+ */
+export async function refreshIfDue(): Promise<boolean> {
+  try {
+    const auth = getCloudApp().auth()
+    const exp = await readTokenExpiry()
+    if (exp === null) {
+      // 读不到 expires_at（异常数据）：有 access_token 就不主动登出，交给后续请求验证
+      return isCloudLoggedIn()
+    }
+    if (exp - Date.now() > REFRESH_AHEAD_MS) return true
+    try {
+      await auth.refreshTokenForce?.()
+      return true
+    } catch {
+      // 刷新失败：invalid_grant 时 SDK 已清凭据；网络类失败凭据还在 → 保持登录态
+      const after = (await auth.getCredentials?.()) as { access_token?: unknown } | null
+      return !!(after?.access_token)
+    }
+  } catch {
+    return false
+  }
+}
+
+/** 会话恢复（v9.7 默认登录改造 + v9.17 续期）：
+ *   1. 无登录态 → 'none'（本地模式；不再自动匿名登录，由 App 弹登录引导）
+ *   2. 有登录态 → 先主动续期：refresh_token 有效则静默换新（30 天窗口免重登）；
+ *      refresh_token 真失效（31 天过期/后台吊销）→ 清理残留会话，返回 'none'
+ *   3. 网络类刷新失败 → 保留会话（不再像旧版一样一次失败就登出）
  *  'none' = 本地体验模式：数据只存本机，云同步/AI/通知点击时引导登录。 */
 export async function ensureSession(): Promise<CloudLoginType> {
   const cur = await getCloudLoginType()
   if (cur === 'none') return 'none'
-  const token = await getAccessToken()
-  if (token) return cur
-  // 残留会话 token 已失效：清理残留，回到本地模式
+  if (await refreshIfDue()) return cur
+  // 凭据彻底失效（refresh_token 过期/吊销）：清理残留，回到本地模式
   try {
     await getCloudApp().auth().signOut?.()
   } catch {
