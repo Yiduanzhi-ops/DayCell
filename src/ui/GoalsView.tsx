@@ -1285,7 +1285,7 @@ function GoalList(): JSX.Element {
     const collapsed = fs.folder.collapsed ?? false
     return (
       <section>
-        <div className={styles.folderGroupHead}>
+        <div className={`${styles.folderGroupHead} ${collapsed ? styles.folderGroupHeadCollapsed : ''}`}>
           <button
             className={styles.folderCollapse}
             aria-label={collapsed ? '展开文件夹' : '折叠文件夹'}
@@ -1300,9 +1300,7 @@ function GoalList(): JSX.Element {
             ···
           </button>
         </div>
-        {collapsed ? (
-          <div className={styles.groupEmpty}>已折叠 · {items.length} 个目标</div>
-        ) : items.length === 0 ? (
+        {collapsed ? null : items.length === 0 ? (
           <div className={styles.empty}>
             <span className={styles.emptyBig}>◎</span>
             这个文件夹还没有目标
@@ -1337,7 +1335,7 @@ function GoalList(): JSX.Element {
           const collapsed = folder.collapsed ?? false
           return (
             <section key={folder.id}>
-              <div className={styles.folderGroupHead}>
+              <div className={`${styles.folderGroupHead} ${collapsed ? styles.folderGroupHeadCollapsed : ''}`}>
                 <button
                   className={styles.folderCollapse}
                   aria-label={collapsed ? '展开文件夹' : '折叠文件夹'}
@@ -1358,17 +1356,13 @@ function GoalList(): JSX.Element {
                   ＋ 新建目标
                 </button>
               </div>
-              {collapsed ? (
-                <div className={styles.groupEmpty}>已折叠 · {items.length} 个目标</div>
-              ) : (
-                renderCards(items, false, true)
-              )}
+              {collapsed ? null : renderCards(items, false, true)}
             </section>
           )
         })}
         {uncategorized.length > 0 && (
           <section>
-            <div className={styles.folderGroupHead}>
+            <div className={`${styles.folderGroupHead} ${uncatCollapsed ? styles.folderGroupHeadCollapsed : ''}`}>
               <button
                 className={styles.folderCollapse}
                 aria-label={uncatCollapsed ? '展开未分类' : '折叠未分类'}
@@ -1387,11 +1381,7 @@ function GoalList(): JSX.Element {
                 ＋ 新建目标
               </button>
             </div>
-            {uncatCollapsed ? (
-              <div className={styles.groupEmpty}>已折叠 · {uncategorized.length} 个目标</div>
-            ) : (
-              renderCards(uncategorized, false, true)
-            )}
+            {uncatCollapsed ? null : renderCards(uncategorized, false, true)}
           </section>
         )}
       </>

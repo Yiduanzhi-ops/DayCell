@@ -559,11 +559,12 @@ describe('目标文件夹（v9.14）', () => {
     fireEvent.click(screen.getByRole('tab', { name: '目标' }))
     await waitFor(() => expect(screen.getByRole('button', { name: /工作 \d/ })).toBeInTheDocument())
 
-    // 进过滤视图 → 组头出现 → 折叠
+    // 进过滤视图 → 组头出现 → 折叠（无占位行，目标隐藏、组头仍在）
     fireEvent.click(screen.getByRole('button', { name: /工作 \d/ }))
     await waitFor(() => expect(screen.getByText('工作（1）')).toBeInTheDocument())
     fireEvent.click(screen.getByRole('button', { name: '折叠文件夹' }))
-    await waitFor(() => expect(screen.getByText(/已折叠 · 1 个目标/)).toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByText('交付上线')).not.toBeInTheDocument())
+    expect(screen.getByText('工作（1）')).toBeInTheDocument()
 
     // 菜单 → 删除文件夹 → 确认
     fireEvent.click(screen.getByRole('button', { name: '文件夹菜单' }))
@@ -633,10 +634,11 @@ describe('目标文件夹（v9.14）', () => {
     const body = (): string => document.body.textContent ?? ''
     expect(body().indexOf('乙夹（1）')).toBeGreaterThan(body().indexOf('甲夹（1）'))
     expect(body().indexOf('未分类（1）')).toBeGreaterThan(body().indexOf('乙夹（1）'))
-    // 折叠乙夹 → 乙目标隐藏 + 折叠占位
+    // 折叠乙夹 → 乙目标隐藏；组头仍在（▸ + 名称（N）），无占位行
     fireEvent.click(screen.getAllByRole('button', { name: '折叠文件夹' })[1])
-    await waitFor(() => expect(screen.getByText('已折叠 · 1 个目标')).toBeInTheDocument())
-    expect(screen.queryByText('乙目标')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText('乙目标')).not.toBeInTheDocument())
+    expect(screen.getByText('乙夹（1）')).toBeInTheDocument()
+    expect(screen.queryByText(/已折叠/)).not.toBeInTheDocument()
     // 展开乙夹 → 目标回来（折叠后仅乙夹为「展开文件夹」）
     fireEvent.click(screen.getAllByRole('button', { name: '展开文件夹' })[0])
     await waitFor(() => expect(screen.getByText('乙目标')).toBeInTheDocument())

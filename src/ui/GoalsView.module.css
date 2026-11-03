@@ -112,6 +112,10 @@
   background: var(--bg-hover);
   color: var(--ink-2);
 }
+/* v9.14.3 折叠态组头下边距放宽（展开态 2px → 折叠态 10px），收起后留出呼吸感 */
+.folderGroupHeadCollapsed {
+  padding-bottom: 10px;
+}
 .folderGroupMenu {
   flex: 0 0 auto;
   width: 30px;
