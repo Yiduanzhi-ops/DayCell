@@ -581,6 +581,20 @@ describe('v8.53 活跃 DDL 待办注入（每天出现）', () => {
     expect((await agg.aggregateDayDetail(k('2026-10-24'))).todos.map((t) => t.text)).toContain('交作业')
   })
 
+  it('v9.16 提醒型编辑改日期后（date≠deadline）在 deadline 当天注入显示', async () => {
+    // 模拟：10-25 创建的截止型待办，编辑切成提醒型并把提醒日期改到 10-28
+    const t = await repos.todos.create(k('2026-10-25'), '改期提醒', '2026-10-25', '18:00', undefined, undefined, 'due')
+    await repos.todos.setDeadline(t.id, '2026-10-28')
+    await repos.todos.setTime(t.id, '18:00', 'at')
+    // 中间两天（10-26/10-27）：提醒型不逐日注入，不出现
+    expect((await agg.aggregateDayDetail(k('2026-10-26'))).todos.map((x) => x.text)).not.toContain('改期提醒')
+    expect((await agg.aggregateDayDetail(k('2026-10-27'))).todos.map((x) => x.text)).not.toContain('改期提醒')
+    // 原创建日（本地 date 桶）：仍在
+    expect((await agg.aggregateDayDetail(k('2026-10-25'))).todos.map((x) => x.text)).toContain('改期提醒')
+    // 新提醒日期 10-28：v9.16 起注入显示（旧实现 date≠deadline 会从当天消失）
+    expect((await agg.aggregateDayDetail(k('2026-10-28'))).todos.map((x) => x.text)).toContain('改期提醒')
+  })
+
   it('v8.63 子任务「加入今日待办」的待办不参与顺延（当天有效）', async () => {
     // 建子任务待办（v9.2.2 起 create 第 5 参 subtaskId，第 4 参为 time）
     const st = await repos.todos.create(k('2026-10-20'), '背单词', undefined, undefined, 'st-1')

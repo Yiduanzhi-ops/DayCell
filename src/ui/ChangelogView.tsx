@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.15'
+const CURRENT_VERSION = 'v9.16'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.16',
+    date: '2026-11-03',
+    items: [
+      '修复提醒型待办「改日期后从提醒日消失」：提醒型待办现在按你设的提醒日期当天显示（改日期即生效），不再只挂在创建那天而找不到',
+      '修复提醒型待办误显示「截止 M/D」标签：无具体时间的提醒型统一为「M/D 提醒」绿色标签，类型一目了然',
+    ],
+  },
   {
     version: 'v9.15',
     date: '2026-11-03',

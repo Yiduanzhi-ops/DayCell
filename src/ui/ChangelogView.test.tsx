@@ -37,15 +37,17 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v9.15')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v9.16')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v9.15')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v9.16')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v9.15，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v9.16，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+(\.\d+)+$/)
-    expect(vers[0].textContent).toBe('v9.15')
+    expect(vers[0].textContent).toBe('v9.16')
+    expect(screen.getByText(/提醒型待办「改日期后从提醒日消失」/)).toBeInTheDocument()
+    expect(screen.getByText(/提醒型待办误显示「截止 M\/D」标签/)).toBeInTheDocument()
     expect(screen.getByText(/修复待办原地编辑「类型 \+ 日期」改不动/)).toBeInTheDocument()
     expect(screen.getByText(/修复切换「提醒型」后类型丢失/)).toBeInTheDocument()
     expect(screen.getByText(/自动归入该文件夹/)).toBeInTheDocument()

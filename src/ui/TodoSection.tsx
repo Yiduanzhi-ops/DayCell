@@ -173,20 +173,29 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
               {t.time ? (
                 <TimePill t={t} k={k} />
               ) : t.deadline ? (
-                <span
-                  className={`${styles.ddlBadge} ${
-                    !t.done && compareKey(t.deadline, k) < 0 ? styles.ddlLate : ''
-                  } ${isOverdueDone(t) ? styles.ddlLateDone : ''}`}
-                >
-                  {isOverdueDone(t)
-                    ? '逾期完成 · '
-                    : !t.done && compareKey(t.deadline, k) < 0
-                      ? '已逾期 · '
-                      : ''}
-                  {/* v9.2.2：截止日恰为今天时标注（今天） */}
-                  截止 {md(t.deadline)}
-                  {t.deadline === k ? '（今天）' : ''}
-                </span>
+                // v9.16：无具体时间的提醒型（timeType='at'）也按语义显示「… 提醒」绿标，
+                // 不再一律显示「截止 …」（旧实现让提醒型看起来像没改成功）
+                (t.timeType ?? 'due') === 'at' ? (
+                  <span className={styles.tat}>
+                    {md(t.deadline)}
+                    {t.deadline === k ? '（今天）' : ''} 提醒
+                  </span>
+                ) : (
+                  <span
+                    className={`${styles.ddlBadge} ${
+                      !t.done && compareKey(t.deadline, k) < 0 ? styles.ddlLate : ''
+                    } ${isOverdueDone(t) ? styles.ddlLateDone : ''}`}
+                  >
+                    {isOverdueDone(t)
+                      ? '逾期完成 · '
+                      : !t.done && compareKey(t.deadline, k) < 0
+                        ? '已逾期 · '
+                        : ''}
+                    {/* v9.2.2：截止日恰为今天时标注（今天） */}
+                    截止 {md(t.deadline)}
+                    {t.deadline === k ? '（今天）' : ''}
+                  </span>
+                )
               ) : null}
               {!t.rolledTo && (
                 <button className={styles.tdel} aria-label={`删除待办：${t.text}`} onClick={() => void deleteTodo(t.id)}>

@@ -262,8 +262,11 @@ function mergeDdlTodos(local: TodoRecord[], active: TodoRecord[], date: DateKey)
     (t) =>
       !localIds.has(t.id) &&
       keyOf(t.createdAt) <= date &&
-      // v9.2.3 提醒型（timeType='at'）只在提醒日期当天显示（本地 date 兜底），不逐日注入
-      (t.timeType ?? 'due') !== 'at' &&
+      // v9.2.3 提醒型（timeType='at'）只在提醒日期当天显示，不逐日注入。
+      // v9.16 修复：date（归桶日 = 创建日）不跟随 deadline——编辑改提醒日期后
+      // date≠deadline，旧逻辑只在本地 date 桶显示，导致待办从 deadline 当天「消失」。
+      // 现让 deadline===date 当天也注入（本地 date 桶兜底创建当天、无 deadline 的提醒型）。
+      ((t.timeType ?? 'due') !== 'at' || t.deadline === date) &&
       // 未完成每天注入；已完成仅完成当天保留（doneAt 与查看日同天），次日消失
       (!t.done || keyOf(t.doneAt ?? 0) === date),
   )
