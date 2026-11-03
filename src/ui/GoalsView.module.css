@@ -90,7 +90,7 @@
   border-radius: 8px;
   background: transparent;
   color: var(--ink-2);
-  font-size: 15px;
+  font-size: 18px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -101,7 +101,7 @@
   flex: 1;
   font-size: 13px;
   color: var(--ink-3);
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.02em;
 }
 /* v9.14.3 全部视图分组组头右侧「＋ 新建目标」：克制浅底（区别于列表区实心主按钮） */

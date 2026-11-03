@@ -1294,7 +1294,7 @@ function GoalList(): JSX.Element {
             {collapsed ? '▸' : '▾'}
           </button>
           <span className={styles.folderGroupTitle}>
-            {fs.folder.favorite ? '★ ' : ''}{fs.folder.name}（{items.length}）
+            {fs.folder.name}（{items.length}）{fs.folder.favorite ? ' ★' : ''}
           </span>
           <button className={styles.folderGroupMenu} aria-label="文件夹菜单" onClick={() => setMenuFor(fs)}>
             ···
@@ -1344,7 +1344,7 @@ function GoalList(): JSX.Element {
                   {collapsed ? '▸' : '▾'}
                 </button>
                 <span className={styles.folderGroupTitle}>
-                  {folder.favorite ? '★ ' : ''}{folder.name}（{items.length}）
+                  {folder.name}（{items.length}）{folder.favorite ? ' ★' : ''}
                 </span>
                 <button
                   className={styles.newGoalBtn}
