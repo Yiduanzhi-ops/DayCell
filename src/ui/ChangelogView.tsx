@@ -8,11 +8,18 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.67'
+const CURRENT_VERSION = 'v8.68'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.68',
+    date: '2026-11-04',
+    items: [
+      '拖拽排序体验优化：拖动时不再误选文字——桌面拖动不再大片选词，iOS 长按不再弹出放大镜/选中菜单，松手自动清掉残留选区',
+    ],
+  },
   {
     version: 'v8.67',
     date: '2026-11-04',

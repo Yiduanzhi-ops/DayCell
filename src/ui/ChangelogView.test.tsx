@@ -37,16 +37,17 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v8.67')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v8.68')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v8.67')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v8.68')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v8.67，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v8.68，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v8.67')
-    expect(screen.getByText(/拖拽排序/)).toBeInTheDocument()
+    expect(vers[0].textContent).toBe('v8.68')
+    expect(screen.getByText(/不再误选文字/)).toBeInTheDocument()
+    expect(screen.getByText(/按住列表项拖动调整顺序/)).toBeInTheDocument()
     expect(screen.getByText(/不用再删除重建/)).toBeInTheDocument()
     expect(screen.getByText(/settings 含未知设置项/)).toBeInTheDocument()
     expect(screen.getByText(/子任务支持「＋ 加入今日待办」/)).toBeInTheDocument()

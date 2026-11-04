@@ -92,6 +92,12 @@
   border-radius: 10px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
 }
+/* v9.24 拖拽期间禁用文本选择（桌面拖动默认会选词，iOS 长按会呼出放大镜） */
+.draggingList {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
 .dragHint {
   font-size: 11.5px;
   color: var(--ink-3);
