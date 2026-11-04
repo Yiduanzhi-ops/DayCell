@@ -42,6 +42,8 @@ export function HabitsView(): JSX.Element {
     downPoint.current = null
     setDragId(null)
     setPreview(null)
+    // 拖拽期间禁了文本选择，松手时清掉任何残留选区
+    window.getSelection()?.removeAllRanges()
   }
 
   /** 指针落在哪一行之间：返回应插入的 index（0..length） */
@@ -118,7 +120,7 @@ export function HabitsView(): JSX.Element {
           <p className={styles.dragHint}>长按 / 按住列表项拖动可调整顺序，松手保存</p>
         )}
 
-        <ul className={styles.list} ref={listRef}>
+        <ul className={`${styles.list}${dragId ? ` ${styles.draggingList}` : ''}`} ref={listRef}>
           {list.length === 0 && (
             <li className={styles.empty}>
               还没有习惯。点右上角「＋ 新建习惯」添加，比如「多喝水」「运动 30 分钟」。
