@@ -109,6 +109,19 @@
 .switchOn { background: var(--green, #2E7D4F); }
 .switchOn .knob { left: 20px; }
 
+/* v9.22 编辑按钮：与删除按钮同构，accent 色 */
+.editBtn {
+  font-size: 12px;
+  color: var(--accent);
+  background: none;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
+  border-radius: 8px;
+  padding: 5px 10px;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.editBtn:hover { background: var(--accent-soft); }
+
 .delBtn {
   font-size: 12px;
   color: #c0392b;

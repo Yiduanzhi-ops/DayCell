@@ -8,7 +8,7 @@
  */
 import { useState } from 'react'
 import type { JSX } from 'react'
-import type { HabitFreq } from '@core'
+import type { HabitFreq, HabitRecord } from '@core'
 import { useApp } from '@/app/context'
 import { freqLabel } from './HabitSection'
 import styles from './HabitsView.module.css'
@@ -21,6 +21,7 @@ export function HabitsView(): JSX.Element {
   const deleteHabit = useApp((s) => s.deleteHabit)
   const updateHabit = useApp((s) => s.updateHabit)
   const [adding, setAdding] = useState(false)
+  const [editing, setEditing] = useState<HabitRecord | null>(null)
 
   return (
     <div className={styles.overlay} role="dialog" aria-label="习惯设置">
@@ -48,6 +49,13 @@ export function HabitsView(): JSX.Element {
                 <span className={styles.itemDesc}>{freqLabel(h.freq)}</span>
               </div>
               <button
+                className={styles.editBtn}
+                aria-label={`编辑习惯：${h.name}`}
+                onClick={() => setEditing(h)}
+              >
+                编辑
+              </button>
+              <button
                 role="switch"
                 aria-checked={!h.paused}
                 aria-label={`${h.paused ? '恢复' : '暂停'}习惯：${h.name}`}
@@ -71,19 +79,23 @@ export function HabitsView(): JSX.Element {
       </div>
 
       {adding && <HabitForm onClose={() => setAdding(false)} />}
+      {!adding && editing && <HabitForm initial={editing} onClose={() => setEditing(null)} />}
     </div>
   )
 }
 
 // ---------------------------------------------------------------------------
-// 新建习惯弹层（prototype 的底部 sheet）
+// 新建/编辑习惯弹层（prototype 的底部 sheet；v9.22 支持编辑预填复用）
 // ---------------------------------------------------------------------------
 
-function HabitForm({ onClose }: { onClose: () => void }): JSX.Element {
+function HabitForm({ initial, onClose }: { initial?: HabitRecord; onClose: () => void }): JSX.Element {
   const createHabit = useApp((s) => s.createHabit)
-  const [name, setName] = useState('')
-  const [freq, setFreq] = useState<HabitFreq>({ kind: 'daily' })
-  const [days, setDays] = useState<number[]>([])
+  const updateHabit = useApp((s) => s.updateHabit)
+  const [name, setName] = useState(initial?.name ?? '')
+  const [freq, setFreq] = useState<HabitFreq>(initial?.freq ?? { kind: 'daily' })
+  const [days, setDays] = useState<number[]>(
+    initial?.freq.kind === 'weekly' ? [...(initial.freq.weekdays ?? [])] : [],
+  )
 
   const toggleDay = (d: number): void => {
     setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort()))
@@ -94,15 +106,17 @@ function HabitForm({ onClose }: { onClose: () => void }): JSX.Element {
   const submit = async (): Promise<void> => {
     if (!canSave) return
     const finalFreq: HabitFreq = freq.kind === 'weekly' ? { kind: 'weekly', weekdays: days } : { kind: 'daily' }
-    const ok = await createHabit({ name: name.trim(), freq: finalFreq })
+    const ok = initial
+      ? await updateHabit(initial.id, { name: name.trim(), freq: finalFreq })
+      : await createHabit({ name: name.trim(), freq: finalFreq })
     if (ok) onClose()
   }
 
   return (
     <div className={styles.overlay} onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
-      <div className={styles.sheet} role="dialog" aria-label="新建习惯">
+      <div className={styles.sheet} role="dialog" aria-label={initial ? '编辑习惯' : '新建习惯'}>
         <div className={styles.grab} />
-        <h3>新建习惯</h3>
+        <h3>{initial ? '编辑习惯' : '新建习惯'}</h3>
         <div className={styles.field}>
           <label>习惯名称</label>
           <input
