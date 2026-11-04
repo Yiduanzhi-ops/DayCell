@@ -89,6 +89,7 @@ describe('parseBackup', () => {
       checkins: [],
       annivchecks: [],
       reviews: [],
+      folders: [],
       settings: [],
     },
   })
@@ -168,6 +169,7 @@ describe('mergeBackup（合并导入）', () => {
       checkins: [],
       annivchecks: [],
       reviews: [],
+      folders: [],
         settings: [],
       },
     }
@@ -215,7 +217,7 @@ describe('mergeBackup（合并导入）', () => {
       schemaVersion: 1,
       data: {
         todos: [{ ...local }],
-        notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], subtasks: [], habits: [], checkins: [], annivchecks: [], reviews: [], settings: [],
+        notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], subtasks: [], habits: [], checkins: [], annivchecks: [], reviews: [], folders: [], settings: [],
       },
     }
     const stats = await mergeBackup(store, file)

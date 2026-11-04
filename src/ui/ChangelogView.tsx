@@ -8,11 +8,20 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.17'
+const CURRENT_VERSION = 'v9.18'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.18',
+    date: '2026-11-04',
+    items: [
+      '修复待办原地编辑「点类型/时刻就退出且不保存」：编辑面板关闭判定从「焦点归属」改为「手指/鼠标落点」——手机端点截止型/提醒型、桌面端点「自定义时间」滚轮都不再秒退，点面板外空白才保存并关闭',
+      '修复手机端切类型不保存：移动端点类型按钮不转移焦点导致面板被误关，现在按落点判定，改完自动保存生效',
+      '补齐 5 处长期潜伏的类型错误（v9.14 目标文件夹遗留），开发链路 tsc 严格检查恢复 0 错误',
+    ],
+  },
   {
     version: 'v9.17',
     date: '2026-11-03',

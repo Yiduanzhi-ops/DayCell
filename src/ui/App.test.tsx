@@ -768,6 +768,41 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     expect(screen.queryByText(/已逾期/)).not.toBeInTheDocument()
   })
 
+  it('v9.18 编辑面板关闭改指针判定：面板内点击（类型/时间）不秒退，点外部才保存关闭', async () => {
+    const store = await renderApp()
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
+    await store.getState().createTodo('交作业', TODAY)
+    await waitFor(() => expect(screen.getByText(/截止 9\/29（今天）/)).toBeInTheDocument())
+
+    // 进编辑态
+    fireEvent.click(screen.getByLabelText('编辑待办：交作业'))
+    await screen.findByLabelText('编辑待办')
+
+    // ① 移动端类型切换：pointerdown 落在面板内「截止型」按钮 + 焦点落回 body（移动端点击 button 不聚焦）
+    //    → 编辑面板必须保持（旧实现：blur 后 activeElement 不在面板内 → 秒退且不保存）
+    fireEvent.pointerDown(screen.getByRole('button', { name: '截止型' }))
+    document.body.focus() // activeElement → body
+    await new Promise((r) => setTimeout(r, 20))
+    expect(screen.getByLabelText('编辑待办')).toBeInTheDocument()
+
+    // ② 时间滚轮：pointerdown 面板内「自定义时间」→ sheet 打开且编辑面板保持（旧实现：openWheel 主动 blur → 秒退）
+    fireEvent.pointerDown(screen.getByLabelText('自定义时间'))
+    fireEvent.click(screen.getByLabelText('自定义时间'))
+    await waitFor(() => expect(screen.getByRole('dialog', { name: '选择时间' })).toBeInTheDocument())
+    expect(screen.getByLabelText('编辑待办')).toBeInTheDocument()
+
+    // ③ sheet 内点「保存」→ 时间写入表单、sheet 关闭、编辑面板保持
+    fireEvent.pointerDown(screen.getByRole('button', { name: '保存' }))
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '选择时间' })).not.toBeInTheDocument())
+    expect(screen.getByLabelText('编辑待办')).toBeInTheDocument()
+
+    // ④ 点编辑面板外部（body 空白）→ 保存并关闭；类型+时刻均已落库
+    fireEvent.pointerDown(document.body)
+    await waitFor(() => expect(screen.queryByLabelText('编辑待办')).not.toBeInTheDocument())
+    expect(screen.getByText(/截止 今天 09:00/)).toBeInTheDocument()
+  })
+
   it('v9.7 本地模式常驻轻提示：显示「未登录」→ 点击打开登录页 → 关闭后本会话不再显示', async () => {
     await renderApp()
     await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))

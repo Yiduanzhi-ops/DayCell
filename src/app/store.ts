@@ -39,6 +39,7 @@ import {
   type DayDetail,
   type GoalRecord,
   type GoalSummary,
+  type FolderSummary,
   type HabitDay,
   type HabitFreq,
   type HabitRecord,
@@ -1483,8 +1484,10 @@ export function createAppStore(
         const f = get().folderList.find((x) => x.folder.id === id)
         await repos.folders.setFavorite(id, !(f?.folder.favorite ?? false))
         await get().refreshFolders()
+        return true
       } catch (e) {
         get().showToast(errMsg(e))
+        return false
       }
     },
 
@@ -1492,8 +1495,10 @@ export function createAppStore(
       try {
         await repos.folders.setCollapsed(id, collapsed)
         await get().refreshFolders()
+        return true
       } catch (e) {
         get().showToast(errMsg(e))
+        return false
       }
     },
 

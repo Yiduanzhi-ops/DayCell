@@ -380,9 +380,12 @@ function TimePicker({
       </button>
       {open &&
         createPortal(
-          <div className={styles.timeMask} onMouseDown={() => setOpen(false)}>
+          // v9.18：data-tp-sheet 标记——sheet 是 portal 到 body（不在编辑面板 wrap 内），
+          // TodoEdit 的 pointerdown 外部判定需据此把 sheet 内点击视为面板内操作
+          <div className={styles.timeMask} data-tp-sheet="1" onMouseDown={() => setOpen(false)}>
           <div
             className={styles.timeSheet}
+            data-tp-sheet="1"
             role="dialog"
             aria-label="选择时间"
             onMouseDown={(e) => e.stopPropagation()}
@@ -533,10 +536,16 @@ function TodoEdit({ todo, onDone }: { todo: TodoRecord; onDone: () => void }): J
   // v9.2.3：时间语义。老数据无 timeType → 有截止日按「截止」、无截止日按「提醒」推导
   const [tp, setTp] = useState<'due' | 'at'>(todo.timeType ?? (todo.deadline ? 'due' : 'at'))
   const done = useRef(false)
-  // v8.55：blur 保存改为延迟一帧判断——焦点若转移到表单内（截止行的「今天/自定义」），
-  // 说明用户正在改截止日，**不保存不关闭**，否则 date input 会被卸载、系统选择器弹不出来。
   const wrapRef = useRef<HTMLDivElement>(null)
   const blurTimer = useRef<number | undefined>(undefined)
+  // v9.18：insideDown = 最近一次 pointerdown 落在编辑面板或时间 sheet 内。
+  // 旧关闭判定只看焦点（wrap 失焦且 activeElement 不在 wrap 内 → 保存关闭），但
+  // 时间滚轮 openWheel() 主动 blur 收键盘、移动端点击 button 不聚焦，都会把焦点短暂
+  // 落到 body → 误判「点外部」→ 编辑面板秒退（时刻两端、类型手机端）。改为
+  // pointerdown 指针落点判定「点外部」；焦点仅作键盘 Tab 移出的兜底。
+  const insideDown = useRef(false)
+  // 最新渲染的「保存并关闭」（pointerdown / blur 兜底需读最新 v/ddl/tm/tp）
+  const saveClose = useRef<() => void>(() => {})
 
   useEffect(() => () => window.clearTimeout(blurTimer.current), [])
 
@@ -560,13 +569,37 @@ function TodoEdit({ todo, onDone }: { todo: TodoRecord; onDone: () => void }): J
     }
     onDone()
   }
+  // 每次渲染更新到最新闭包（含最新 v/ddl/tm/tp）
+  saveClose.current = () => finish(true)
+
+  // v9.18：「点击编辑面板外部」= 保存并关闭。capture 阶段先于 blur/click 到达，
+  // 依据指针落点判断，不依赖焦点归属——时间滚轮主动 blur / 移动端 button 不聚焦都不再误伤。
+  useEffect(() => {
+    const onDown = (e: PointerEvent): void => {
+      const t = e.target as Element | null
+      if (!t) return
+      const inWrap = !!wrapRef.current && wrapRef.current.contains(t)
+      const inSheet = !!t.closest?.('[data-tp-sheet]') // 时间滚轮 sheet 是 portal 到 body，不在 wrap 内
+      if (inWrap || inSheet) {
+        insideDown.current = true
+        return
+      }
+      insideDown.current = false
+      saveClose.current()
+    }
+    document.addEventListener('pointerdown', onDown, true)
+    return () => document.removeEventListener('pointerdown', onDown, true)
+  }, [])
 
   const handleBlur = (): void => {
-    // 焦点若转移到表单内（截止行的「今天/自定义」），说明用户在改截止日，不保存不关闭
+    // v9.18：面板内点击（时间滚轮主动 blur、移动端 button 不聚焦等）导致的失焦不关闭；
+    // 仅键盘 Tab 把焦点移出面板时保存关闭
     window.clearTimeout(blurTimer.current)
     blurTimer.current = window.setTimeout(() => {
+      if (insideDown.current) return
+      // 焦点若转移到表单内（截止行的「今天/自定义」），说明用户在改截止日，不保存不关闭
       if (wrapRef.current && wrapRef.current.contains(document.activeElement)) return
-      finish(true)
+      saveClose.current()
     }, 0)
   }
 
@@ -574,7 +607,7 @@ function TodoEdit({ todo, onDone }: { todo: TodoRecord; onDone: () => void }): J
     <div
       ref={wrapRef}
       className={styles.teditWrap}
-      onBlur={handleBlur} // 兜底：焦点停在 date input / 今天 chip 上时点外部离开，同样要保存关闭
+      onBlur={handleBlur} // 兜底：键盘 Tab 移出面板时保存关闭
     >
       <input
         className={styles.tedit}

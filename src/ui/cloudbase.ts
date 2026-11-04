@@ -123,7 +123,7 @@ export async function refreshIfDue(): Promise<boolean> {
     }
     if (exp - Date.now() > REFRESH_AHEAD_MS) return true
     try {
-      await auth.refreshTokenForce?.()
+      await auth.refreshTokenForce?.({})
       return true
     } catch {
       // 刷新失败：invalid_grant 时 SDK 已清凭据；网络类失败凭据还在 → 保持登录态
