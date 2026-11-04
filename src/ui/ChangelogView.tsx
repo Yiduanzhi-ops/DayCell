@@ -8,11 +8,18 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.22'
+const CURRENT_VERSION = 'v9.23'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.23',
+    date: '2026-11-04',
+    items: [
+      '习惯设置页支持拖拽排序：长按 / 按住列表项拖动调整顺序，松手自动保存，「今日习惯」区块同步跟随',
+    ],
+  },
   {
     version: 'v9.22',
     date: '2026-11-04',

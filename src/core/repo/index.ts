@@ -345,8 +345,8 @@ export interface HabitRepo {
   /** 全部**活**习惯（含暂停的——设置页要显示；今日过滤在 aggregate） */
   all(): Promise<HabitRecord[]>
   create(input: HabitInput): Promise<HabitRecord>
-  /** 可改 name / freq / paused */
-  update(id: string, patch: Partial<HabitInput> & { paused?: boolean }): Promise<HabitRecord>
+  /** 可改 name / freq / paused / order */
+  update(id: string, patch: Partial<HabitInput> & { paused?: boolean; order?: number }): Promise<HabitRecord>
   softDelete(id: string): Promise<void>
 }
 
@@ -1075,6 +1075,7 @@ export function createRepos(deps: RepoDeps): Repos {
       if (patch.name !== undefined) next.name = unwrap(parseHabitName(patch.name))
       if (patch.freq !== undefined) next.freq = unwrap(parseHabitFreq(patch.freq))
       if (patch.paused !== undefined) next.paused = patch.paused
+      if (patch.order !== undefined) next.order = patch.order
       return store.put<HabitRecord>('habits', next)
     },
 

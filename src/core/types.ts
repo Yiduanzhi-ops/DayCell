@@ -219,6 +219,8 @@ export interface HabitRecord extends CoreRecord {
   freq: HabitFreq
   /** 暂停：不出现在「今日习惯」（列表仍可见，可恢复） */
   paused: boolean
+  /** v9.23 手动排序序号：设置页拖拽换序；缺省（老数据）按 createdAt 兜底排末尾 */
+  order?: number
 }
 
 /** 打卡记录：date 上某个习惯已勾选。取消打卡 = 置墓碑（永不物理删除） */

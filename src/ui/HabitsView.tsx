@@ -6,7 +6,7 @@
  *  - 新建 = 名称 + 频率（每天 / 每周选星期几 chips）
  *  - 暂停后不出现在「今日习惯」（列表仍可见，可恢复）
  */
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { JSX } from 'react'
 import type { HabitFreq, HabitRecord } from '@core'
 import { useApp } from '@/app/context'
@@ -14,14 +14,93 @@ import { freqLabel } from './HabitSection'
 import styles from './HabitsView.module.css'
 
 const DOW_FULL = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'] as const
+/** v9.23 拖拽换序：长按（移动端）/ 按住（桌面）220ms 激活，指针落点决定插入位 */
+const LONG_PRESS_MS = 220
 
 export function HabitsView(): JSX.Element {
   const habitList = useApp((s) => s.habitList)
   const closeHabits = useApp((s) => s.closeHabits)
   const deleteHabit = useApp((s) => s.deleteHabit)
   const updateHabit = useApp((s) => s.updateHabit)
+  const reorderHabits = useApp((s) => s.reorderHabits)
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<HabitRecord | null>(null)
+  const [dragId, setDragId] = useState<string | null>(null)
+  /** 拖拽中的实时预览顺序；null = 未拖拽 */
+  const [preview, setPreview] = useState<HabitRecord[] | null>(null)
+  const listRef = useRef<HTMLUListElement | null>(null)
+  const longPress = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const downPoint = useRef<{ x: number; y: number; pointerId: number } | null>(null)
+  const dragging = useRef(false)
+
+  const list = preview ?? habitList
+
+  function resetDrag(): void {
+    dragging.current = false
+    if (longPress.current) clearTimeout(longPress.current)
+    longPress.current = null
+    downPoint.current = null
+    setDragId(null)
+    setPreview(null)
+  }
+
+  /** 指针落在哪一行之间：返回应插入的 index（0..length） */
+  function targetIndex(clientY: number): number {
+    const lis = listRef.current?.querySelectorAll('li[data-hid]') ?? []
+    let idx = 0
+    for (const li of lis) {
+      if (li.getAttribute('data-hid') === dragId) continue
+      const r = li.getBoundingClientRect()
+      if (clientY < r.top + r.height / 2) return idx
+      idx++
+    }
+    return idx
+  }
+
+  function onRowPointerDown(h: HabitRecord, e: React.PointerEvent<HTMLLIElement>): void {
+    if ((e.target as HTMLElement).closest('button')) return // 行内按钮不触发拖拽
+    // React 合成事件在异步回调中 currentTarget 会被置 null → 同步缓存 li 与 pointerId
+    const li = e.currentTarget
+    downPoint.current = { x: e.clientX, y: e.clientY, pointerId: e.pointerId }
+    longPress.current = setTimeout(() => {
+      longPress.current = null
+      dragging.current = true
+      setDragId(h.id)
+      setPreview(habitList)
+      li.setPointerCapture(downPoint.current!.pointerId)
+    }, LONG_PRESS_MS)
+  }
+
+  function onRowPointerMove(e: React.PointerEvent<HTMLLIElement>): void {
+    if (!dragging.current) {
+      // 未激活：移动超阈值则取消长按（让位给滚动）
+      if (longPress.current && downPoint.current) {
+        const dx = e.clientX - downPoint.current.x
+        const dy = e.clientY - downPoint.current.y
+        if (Math.abs(dx) + Math.abs(dy) > 10) {
+          clearTimeout(longPress.current)
+          longPress.current = null
+        }
+      }
+      return
+    }
+    if (dragId === null) return
+    const idx = targetIndex(e.clientY)
+    setPreview((prev) => {
+      if (!prev) return prev
+      const cur = prev.find((x) => x.id === dragId)
+      const rest = prev.filter((x) => x.id !== dragId)
+      rest.splice(Math.max(0, Math.min(idx, rest.length)), 0, cur!)
+      return rest
+    })
+  }
+
+  function onRowPointerUp(): void {
+    if (dragging.current && dragId && preview) {
+      void reorderHabits(preview.map((x) => x.id))
+    }
+    resetDrag()
+  }
 
   return (
     <div className={styles.overlay} role="dialog" aria-label="习惯设置">
@@ -35,15 +114,29 @@ export function HabitsView(): JSX.Element {
             ＋ 新建习惯
           </button>
         </header>
+        {habitList.length > 1 && (
+          <p className={styles.dragHint}>长按 / 按住列表项拖动可调整顺序，松手保存</p>
+        )}
 
-        <ul className={styles.list}>
-          {habitList.length === 0 && (
+        <ul className={styles.list} ref={listRef}>
+          {list.length === 0 && (
             <li className={styles.empty}>
               还没有习惯。点右上角「＋ 新建习惯」添加，比如「多喝水」「运动 30 分钟」。
             </li>
           )}
-          {habitList.map((h) => (
-            <li key={h.id} className={h.paused ? `${styles.item} ${styles.paused}` : styles.item}>
+          {list.map((h) => (
+            <li
+              key={h.id}
+              data-hid={h.id}
+              className={
+                (h.paused ? `${styles.item} ${styles.paused}` : styles.item) +
+                (h.id === dragId ? ` ${styles.dragging}` : '')
+              }
+              onPointerDown={(e) => onRowPointerDown(h, e)}
+              onPointerMove={onRowPointerMove}
+              onPointerUp={onRowPointerUp}
+              onPointerCancel={resetDrag}
+            >
               <div className={styles.itemMain}>
                 <span className={styles.itemTitle}>{h.name}</span>
                 <span className={styles.itemDesc}>{freqLabel(h.freq)}</span>
