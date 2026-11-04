@@ -167,7 +167,7 @@ describe('习惯模块（v8.0）', () => {
     expect(screen.getByText('喝水')).toBeInTheDocument()
   })
 
-  it('按住拖拽柄立即换序：无需长按停顿（v9.26）', async () => {
+  it('按住拖拽柄立即换序：无需长按停顿（v8.71）', async () => {
     const store = await renderApp()
     await openHabitSettings()
     await createHabit('喝水', null)
