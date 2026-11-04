@@ -10,6 +10,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  /* v9.26 整个弹窗禁选：拖拽指针滑出列表也不会误选标题/按钮文字；输入框单独恢复可选 */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.overlay input,
+.overlay textarea {
+  user-select: text;
+  -webkit-user-select: text;
+  -webkit-touch-callout: default;
 }
 .page {
   background: var(--bg);
@@ -107,6 +117,27 @@
   margin: 0;
   padding: 6px 16px 0;
 }
+.dragHandle {
+  /* v9.26 拖拽柄：按住立即拖动，无需长按停顿 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  align-self: stretch;
+  width: 34px;
+  margin: -4px 0 -4px -6px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  color: var(--ink-3);
+  cursor: grab;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.dragHandle:active { color: var(--ink-1); }
+.dragHandle svg { display: block; }
 .itemMain { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .itemTitle { font-size: 14.5px; font-weight: 600; }
 .itemDesc { font-size: 11.5px; color: var(--ink-3); }

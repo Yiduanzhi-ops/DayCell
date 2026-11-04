@@ -78,6 +78,23 @@ export function HabitsView(): JSX.Element {
     }, LONG_PRESS_MS)
   }
 
+  /** 拖拽柄：按下立即激活拖拽，无需长按停顿（v9.26 解决「按住即拖」被长按窗口取消的问题） */
+  function onHandlePointerDown(h: HabitRecord, e: React.PointerEvent<HTMLButtonElement>): void {
+    e.preventDefault() // 防文本选择 / iOS 手势抢占
+    const li = e.currentTarget.closest('li')
+    if (!li) return
+    if (longPress.current) {
+      clearTimeout(longPress.current)
+      longPress.current = null
+    }
+    setPressingId(h.id)
+    downPoint.current = { x: e.clientX, y: e.clientY, pointerId: e.pointerId }
+    dragging.current = true
+    setDragId(h.id)
+    setPreview(habitList)
+    li.setPointerCapture(e.pointerId)
+  }
+
   function onRowPointerMove(e: React.PointerEvent<HTMLLIElement>): void {
     if (!dragging.current) {
       // 未激活：移动超阈值则取消长按（让位给滚动）
@@ -122,7 +139,9 @@ export function HabitsView(): JSX.Element {
           </button>
         </header>
         {habitList.length > 1 && (
-          <p className={styles.dragHint}>长按 / 按住列表项拖动可调整顺序，松手保存</p>
+          <p className={styles.dragHint}>
+            按住行左侧 ⠿ 立即拖动；按住行本身片刻也可拖，松手保存
+          </p>
         )}
 
         <ul className={`${styles.list}${dragId ? ` ${styles.draggingList}` : ''}`} ref={listRef}>
@@ -145,6 +164,22 @@ export function HabitsView(): JSX.Element {
               onPointerUp={onRowPointerUp}
               onPointerCancel={resetDrag}
             >
+              <button
+                className={styles.dragHandle}
+                aria-label={`拖动排序：${h.name}`}
+                onPointerDown={(e) => onHandlePointerDown(h, e)}
+                onPointerUp={onRowPointerUp}
+                onPointerCancel={resetDrag}
+              >
+                <svg width="13" height="15" viewBox="0 0 13 15" aria-hidden="true">
+                  <path
+                    d="M3 2.5h7M3 7.5h7M3 12.5h7"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
               <div className={styles.itemMain}>
                 <span className={styles.itemTitle}>{h.name}</span>
                 <span className={styles.itemDesc}>{freqLabel(h.freq)}</span>
