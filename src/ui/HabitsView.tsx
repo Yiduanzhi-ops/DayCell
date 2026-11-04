@@ -15,7 +15,7 @@ import styles from './HabitsView.module.css'
 
 const DOW_FULL = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'] as const
 /** v9.23 拖拽换序：长按（移动端）/ 按住（桌面）220ms 激活，指针落点决定插入位 */
-const LONG_PRESS_MS = 220
+const LONG_PRESS_MS = 180
 
 export function HabitsView(): JSX.Element {
   const habitList = useApp((s) => s.habitList)
@@ -26,6 +26,7 @@ export function HabitsView(): JSX.Element {
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<HabitRecord | null>(null)
   const [dragId, setDragId] = useState<string | null>(null)
+  const [pressingId, setPressingId] = useState<string | null>(null)
   /** 拖拽中的实时预览顺序；null = 未拖拽 */
   const [preview, setPreview] = useState<HabitRecord[] | null>(null)
   const listRef = useRef<HTMLUListElement | null>(null)
@@ -41,6 +42,7 @@ export function HabitsView(): JSX.Element {
     longPress.current = null
     downPoint.current = null
     setDragId(null)
+    setPressingId(null)
     setPreview(null)
     // 拖拽期间禁了文本选择，松手时清掉任何残留选区
     window.getSelection()?.removeAllRanges()
@@ -61,6 +63,9 @@ export function HabitsView(): JSX.Element {
 
   function onRowPointerDown(h: HabitRecord, e: React.PointerEvent<HTMLLIElement>): void {
     if ((e.target as HTMLElement).closest('button')) return // 行内按钮不触发拖拽
+    // 阻止浏览器默认行为（文本选择 / iOS 长按手势 / 触摸抢占），让指针序列完全归拖拽逻辑管
+    e.preventDefault()
+    setPressingId(h.id) // 立即反馈：按住即行变淡，提示「按住可拖动」
     // React 合成事件在异步回调中 currentTarget 会被置 null → 同步缓存 li 与 pointerId
     const li = e.currentTarget
     downPoint.current = { x: e.clientX, y: e.clientY, pointerId: e.pointerId }
@@ -79,7 +84,7 @@ export function HabitsView(): JSX.Element {
       if (longPress.current && downPoint.current) {
         const dx = e.clientX - downPoint.current.x
         const dy = e.clientY - downPoint.current.y
-        if (Math.abs(dx) + Math.abs(dy) > 10) {
+        if (Math.abs(dx) + Math.abs(dy) > 12) {
           clearTimeout(longPress.current)
           longPress.current = null
         }
@@ -132,6 +137,7 @@ export function HabitsView(): JSX.Element {
               data-hid={h.id}
               className={
                 (h.paused ? `${styles.item} ${styles.paused}` : styles.item) +
+                (h.id === pressingId && h.id !== dragId ? ` ${styles.pressing}` : '') +
                 (h.id === dragId ? ` ${styles.dragging}` : '')
               }
               onPointerDown={(e) => onRowPointerDown(h, e)}

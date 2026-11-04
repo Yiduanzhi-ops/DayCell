@@ -82,6 +82,8 @@
 .item.paused { opacity: 0.55; }
 /* v9.23 拖拽换序：拖拽中的行抬升高亮；touch-action 控制滚动让位 */
 .item { touch-action: pan-y; }
+/* v9.25 按住即反馈：按下瞬间行变淡，提示「按住可拖动」；激活后由 .dragging 覆盖 */
+.item.pressing { opacity: 0.72; }
 .item.dragging {
   touch-action: none;
   position: relative;
