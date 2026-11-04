@@ -317,9 +317,33 @@ function DayFull({ date }: { date?: DateKey } = {}): JSX.Element {
   const edit = useApp((s) => (date ? undefined : s.edit)) // 侧页不受全局表单态影响
 
   const effective = cached ?? detail
+  /* v9.2.1 AI 导入横幅：待办区块上方独立整行入口（仅中间页）。
+     v9.3 移除 ?dev=1 灰度门控：预览站正式访问即显示（未登录点开会引导去登录）。
+     v9.21 横幅独立于数据渲染：翻页落地瞬间目标日数据未就绪时整页走骨架，
+     横幅不再随页面闪没/闪出（用户反馈「翻页时 AI 整理导入按钮每次都重新加载」）。 */
+  const aiBanner = !date ? (
+    <button
+      className={styles.aiBanner}
+      onClick={() => setAiOpen(true)}
+      aria-label="AI 智能导入"
+    >
+      <span className={styles.aiBannerIcon}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 2.5l1.9 4.9a.5.5 0 0 0 .3.3l4.9 1.9a.5.5 0 0 1 0 .9l-4.9 1.9a.5.5 0 0 0-.3.3l-1.9 4.9a.5.5 0 0 1-.9 0l-1.9-4.9a.5.5 0 0 0-.3-.3L4 10.5a.5.5 0 0 1 0-.9l4.9-1.9a.5.5 0 0 0 .3-.3L11.1 2.5a.5.5 0 0 1 .9 0zM19 14l.8 2.2a.5.5 0 0 0 .3.3l2.2.8a.5.5 0 0 1 0 .9l-2.2.8a.5.5 0 0 0-.3.3L19 21.5a.5.5 0 0 1-.9 0l-.8-2.2a.5.5 0 0 0-.3-.3l-2.2-.8a.5.5 0 0 1 0-.9l2.2-.8a.5.5 0 0 0 .3-.3l.8-2.2a.5.5 0 0 1 .9 0z" />
+        </svg>
+      </span>
+      <span className={styles.aiBannerTxt}>
+        <span className={styles.aiBannerMain}>AI 整理导入</span>
+        <span className={styles.aiBannerSub}>说一段话，自动归类写入 · 支持语音</span>
+      </span>
+      <span className={styles.aiBannerArrow}>›</span>
+    </button>
+  ) : null
+
   if (!effective) {
     return (
       <div className={styles.pageInner}>
+        {aiBanner}
         <div className={styles.skels} data-testid="day-skel"><div className={styles.skel} /><div className={styles.skel} /><div className={styles.skel} /></div>
       </div>
     )
@@ -365,26 +389,7 @@ function DayFull({ date }: { date?: DateKey } = {}): JSX.Element {
         </div>
       )}
 
-      {/* v9.2.1 AI 导入横幅：待办区块上方独立整行入口（仅中间页）。
-          v9.3 移除 ?dev=1 灰度门控：预览站正式访问即显示（未登录点开会引导去登录）。 */}
-      {!date && (
-        <button
-          className={styles.aiBanner}
-          onClick={() => setAiOpen(true)}
-          aria-label="AI 智能导入"
-        >
-          <span className={styles.aiBannerIcon}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M12 2.5l1.9 4.9a.5.5 0 0 0 .3.3l4.9 1.9a.5.5 0 0 1 0 .9l-4.9 1.9a.5.5 0 0 0-.3.3l-1.9 4.9a.5.5 0 0 1-.9 0l-1.9-4.9a.5.5 0 0 0-.3-.3L4 10.5a.5.5 0 0 1 0-.9l4.9-1.9a.5.5 0 0 0 .3-.3L11.1 2.5a.5.5 0 0 1 .9 0zM19 14l.8 2.2a.5.5 0 0 0 .3.3l2.2.8a.5.5 0 0 1 0 .9l-2.2.8a.5.5 0 0 0-.3.3L19 21.5a.5.5 0 0 1-.9 0l-.8-2.2a.5.5 0 0 0-.3-.3l-2.2-.8a.5.5 0 0 1 0-.9l2.2-.8a.5.5 0 0 0 .3-.3l.8-2.2a.5.5 0 0 1 .9 0z" />
-            </svg>
-          </span>
-          <span className={styles.aiBannerTxt}>
-            <span className={styles.aiBannerMain}>AI 整理导入</span>
-            <span className={styles.aiBannerSub}>说一段话，自动归类写入 · 支持语音</span>
-          </span>
-          <span className={styles.aiBannerArrow}>›</span>
-        </button>
-      )}
+      {aiBanner}
 
       <TodoSection dayWord={dayWord} date={date} />
       <HabitSection date={date} />

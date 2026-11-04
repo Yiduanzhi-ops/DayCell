@@ -8,11 +8,18 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.20'
+const CURRENT_VERSION = 'v9.21'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.21',
+    date: '2026-11-04',
+    items: [
+      '修复今日视图翻页时「✦ AI 整理导入」入口闪没闪出：翻页落地瞬间目标日数据未就绪时，页面不再整体换成骨架再重出，AI 导入横幅恒定显示（数据区短暂走骨架，横幅保持不动）',
+    ],
+  },
   {
     version: 'v9.20',
     date: '2026-11-04',

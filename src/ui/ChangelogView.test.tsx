@@ -37,15 +37,16 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v9.20')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v9.21')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v9.20')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v9.21')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v9.20，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v9.21，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+(\.\d+)+$/)
-    expect(vers[0].textContent).toBe('v9.20')
+    expect(vers[0].textContent).toBe('v9.21')
+    expect(screen.getByText(/入口闪没闪出/)).toBeInTheDocument()
     expect(screen.getByText(/会员购买闭环上线/)).toBeInTheDocument()
     expect(screen.getByText(/我有兑换码，去激活/)).toBeInTheDocument()
     expect(screen.getByText(/批量生成兑换码接口/)).toBeInTheDocument()
