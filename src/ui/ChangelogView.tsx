@@ -8,11 +8,18 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.68'
+const CURRENT_VERSION = 'v8.69'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.69',
+    date: '2026-11-04',
+    items: [
+      '拖拽更稳：按住瞬间行即变淡提示可拖，激活更快（长按 180ms），手指轻微抖动不再误触取消——iPhone 上拖动更跟手',
+    ],
+  },
   {
     version: 'v8.68',
     date: '2026-11-04',
