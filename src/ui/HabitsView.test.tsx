@@ -167,6 +167,28 @@ describe('习惯模块（v8.0）', () => {
     expect(screen.getByText('喝水')).toBeInTheDocument()
   })
 
+  it('按住拖拽柄立即换序：无需长按停顿（v9.26）', async () => {
+    const store = await renderApp()
+    await openHabitSettings()
+    await createHabit('喝水', null)
+    await createHabit('运动', null)
+    expect(store.getState().habitList.map((h) => h.name)).toEqual(['喝水', '运动'])
+
+    if (typeof HTMLElement.prototype.setPointerCapture !== 'function') {
+      Object.defineProperty(HTMLElement.prototype, 'setPointerCapture', { value: () => {}, writable: true })
+    }
+    const overlay = screen.getByRole('dialog', { name: '习惯设置' })
+    const handle = within(overlay).getByRole('button', { name: '拖动排序：喝水' })
+    // 按下手柄即激活（无 180ms 等待），立刻拖动换序
+    fireEvent.pointerDown(handle, { pointerId: 2, clientX: 0, clientY: 0 })
+    fireEvent.pointerMove(handle, { pointerId: 2, clientX: 0, clientY: 0 })
+    fireEvent.pointerUp(handle, { pointerId: 2, clientX: 0, clientY: 0 })
+
+    await waitFor(() => expect(store.getState().habitList.map((h) => h.name)).toEqual(['运动', '喝水']), {
+      timeout: 5000,
+    })
+  })
+
   it('删除习惯 → 今日区块回到空状态', async () => {
     await renderApp()
     await openHabitSettings()

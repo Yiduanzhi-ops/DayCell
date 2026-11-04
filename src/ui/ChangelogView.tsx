@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.25'
+const CURRENT_VERSION = 'v9.26'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.26',
+    date: '2026-11-04',
+    items: [
+      '拖拽排序更顺手：每个习惯左侧新增「≡」拖拽柄，按住即可拖、无需长按等待；拖动中不会再误选文字',
+      '修复快速拖动丢序：快速「按住→移动→松手」也能正确换序，拖到列表靠前位置也不会再静默无效',
+    ],
+  },
   {
     version: 'v9.25',
     date: '2026-11-04',
