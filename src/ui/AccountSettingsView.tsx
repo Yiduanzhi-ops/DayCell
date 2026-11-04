@@ -14,6 +14,7 @@ import type { JSX } from 'react'
 import type { BackupFile } from '@core'
 import { useApp } from '@/app/context'
 import {
+  aiQuota,
   downloadSnapshot,
   ensureSession,
   fetchMember,
@@ -58,6 +59,42 @@ function cleanErr(m: string): string {
   return t
 }
 
+/** v9.19 会员状态卡权益行：on=true 绿勾（已解锁），on=false 灰锁（未解锁） */
+function Perk({ txt, tag, on }: { txt: string; tag: string; on: boolean }): JSX.Element {
+  return (
+    <div className={styles.perkRow}>
+      <svg className={styles.perkIcon} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        {on ? (
+          <>
+            <circle cx="12" cy="12" r="10" fill="#34c759" opacity=".15" />
+            <path d="M7.5 12.3l3 3 6-6.5" stroke="#2d9d50" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </>
+        ) : (
+          <>
+            <circle cx="12" cy="12" r="10" fill="#c7c7cc" />
+            <path d="M8 11a4 4 0 0 1 8 0v1h1.5v6h-11v-6H8zm3 1v4h2v-4z" fill="#8e8e93" />
+          </>
+        )}
+      </svg>
+      <span className={styles.perkTxt}>{txt}</span>
+      <span className={on ? styles.perkTagOn : styles.perkTag}>{tag}</span>
+    </div>
+  )
+}
+
+/** v9.19 会员皇冠 SVG（金色 / 灰色） */
+function CrownIcon({ muted }: { muted?: boolean }): JSX.Element {
+  return (
+    <svg className={styles.mcardCrown} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M12 3.2l2 4.1 4.6.7-3.3 3.2.8 4.6L12 13.7l-4.1 2.1.8-4.6-3.3-3.2 4.6-.7z"
+        fill={muted ? '#B9B9BE' : '#B08A3E'}
+      />
+      {!muted && <rect x="7.5" y="20.5" width="9" height="1.6" rx="0.8" fill="#B08A3E" opacity=".55" />}
+    </svg>
+  )
+}
+
 export function AccountSettingsView(): JSX.Element {
   const closeAccount = useApp((s) => s.closeAccount)
   const openSync = useApp((s) => s.openSync)
@@ -88,6 +125,9 @@ export function AccountSettingsView(): JSX.Element {
   const [redeemState, setRedeemState] = useState<{ phase: 'idle' | 'busy' | 'ok' | 'fail'; msg?: string }>({
     phase: 'idle',
   })
+  // v9.19 非会员态：AI 整理试用剩余次数（会员卡副标题展示；失败降级为「试用中」）
+  const [aiTrial, setAiTrial] = useState<number | null>(null)
+  const redeemInputRef = useRef<HTMLInputElement | null>(null)
   // v9.13 设备列表（可解绑）：本机标识 + 解绑操作状态
   const [currentDeviceId] = useState(() => getDeviceId())
   const [unbindState, setUnbindState] = useState<{
@@ -132,6 +172,9 @@ export function AccountSettingsView(): JSX.Element {
         deviceLimit: m.deviceLimit ?? 1,
       })
     }
+    // v9.19 非会员态会员卡副标题：AI 试用剩余次数（会员态不显示）
+    const q = await aiQuota(token)
+    if (q.ok) setAiTrial(q.mode === 'trial_total' && q.remaining != null ? q.remaining : null)
   }
 
   // v9.1：刷新后恢复登录态（auth 会话持久在 localStorage）；已登录则激活自动同步。
@@ -373,7 +416,17 @@ export function AccountSettingsView(): JSX.Element {
             <div className={styles.groupTitle}>账号</div>
             <div className={styles.group}>
               <div className={styles.accountCard}>
-                <div className={styles.okLine}>✓ 已登录</div>
+                <div className={styles.okLine}>
+                  ✓ 已登录
+                  {memberInfo?.member && (
+                    <span className={styles.memberBadge} data-testid="member-badge">
+                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M12 3.2l2 4.1 4.6.7-3.3 3.2.8 4.6L12 13.7l-4.1 2.1.8-4.6-3.3-3.2 4.6-.7z" fill="currentColor" />
+                      </svg>
+                      会员
+                    </span>
+                  )}
+                </div>
                 <div className={styles.accountMail}>{login.email}</div>
                 {login.uid && <div className={styles.accountUid}>uid {login.uid.slice(0, 10)}…</div>}
                 <div className={styles.btnRow}>
@@ -391,43 +444,75 @@ export function AccountSettingsView(): JSX.Element {
                   <div className={styles.cloudStatusDesc}>会员状态加载中…</div>
                 </div>
               ) : memberInfo.member ? (
-                <div className={styles.memberCard}>
-                  <div className={styles.okLine}>✓ 会员生效中</div>
-                  <div className={styles.cloudStatusDesc}>
-                    到期{' '}
-                    {memberInfo.memberExpiresAt
-                      ? new Date(memberInfo.memberExpiresAt).toLocaleDateString('zh-CN')
-                      : '—'}
+                /* v9.19 会员态：金色卡 + 到期日 + 权益清单 */
+                <div className={`${styles.mcard} ${styles.mcardGold}`} data-testid="member-card-gold">
+                  <div className={styles.mcardHead}>
+                    <CrownIcon />
+                    <div>
+                      <div className={styles.mcardTitle}>DayCell 会员</div>
+                      <div className={styles.mcardSub}>
+                        有效期至{' '}
+                        {memberInfo.memberExpiresAt
+                          ? new Date(memberInfo.memberExpiresAt).toLocaleDateString('zh-CN')
+                          : '—'}
+                      </div>
+                    </div>
                   </div>
-                  <div className={styles.cloudStatusDesc}>云同步 {memberInfo.deviceLimit} 台 · AI 每日 100 次 · 推送</div>
+                  <div className={styles.perkList}>
+                    <Perk txt="AI 智能整理（语音 / 文本导入）" tag="每日可用" on />
+                    <Perk txt="AI 周 / 月深度复盘" tag="已解锁" on />
+                    <Perk txt="周日周报推送" tag="已开启" on />
+                    <Perk txt="云同步设备数" tag={`${memberInfo.deviceLimit} 台`} on />
+                  </div>
                 </div>
               ) : (
-                <div className={styles.memberCard}>
-                  <div className={styles.cloudStatusHint}>当前为免费版</div>
-                  <div className={styles.cloudStatusDesc}>
-                    云同步 {memberInfo.deviceLimit} 台设备 · AI 试用 5 次 · 推送为会员专属
+                /* v9.19 非会员态：灰卡 + 试用剩余 + 未解锁项 + 升级按钮 */
+                <div className={`${styles.mcard} ${styles.mcardFree}`} data-testid="member-card-free">
+                  <div className={styles.mcardHead}>
+                    <CrownIcon muted />
+                    <div>
+                      <div className={styles.mcardTitle}>DayCell 免费版</div>
+                      <div className={styles.mcardSub}>
+                        {aiTrial == null ? 'AI 智能整理 · 试用中' : `AI 整理试用剩余 ${aiTrial} 次`}
+                      </div>
+                    </div>
                   </div>
-                  <div className={styles.redeemRow}>
-                    <input
-                      className={styles.redeemInput}
-                      value={redeemCodeVal}
-                      onChange={(e) => setRedeemCodeVal(e.target.value.toUpperCase())}
-                      placeholder="输入兑换码"
-                      data-testid="redeem-input"
-                    />
-                    <button
-                      className={styles.redeemBtn}
-                      disabled={redeemState.phase === 'busy' || !redeemCodeVal.trim()}
-                      onClick={() => void onRedeem()}
-                      data-testid="redeem-btn"
-                    >
-                      {redeemState.phase === 'busy' ? '兑换中…' : '兑换'}
-                    </button>
+                  <div className={styles.perkList}>
+                    <Perk txt="AI 智能整理" tag={aiTrial == null ? '试用中' : `剩余 ${aiTrial} 次`} on />
+                    <Perk txt="AI 周 / 月深度复盘" tag="未解锁" />
+                    <Perk txt="周日周报推送" tag="未解锁" />
+                    <Perk txt="云同步设备数" tag={`仅 ${memberInfo.deviceLimit} 台`} />
                   </div>
-                  {redeemState.phase === 'ok' && <div className={styles.okLine}>✓ {redeemState.msg}</div>}
-                  {redeemState.phase === 'fail' && <div className={styles.errLine}>✗ {redeemState.msg}</div>}
+                  <button
+                    className={styles.upgradeBtn}
+                    onClick={() => redeemInputRef.current?.focus()}
+                    data-testid="upgrade-btn"
+                  >
+                    升级 DayCell 会员
+                  </button>
                 </div>
               )}
+              {/* v9.19 兑换码：会员态用于续期，免费态用于开通（升级按钮聚焦此处） */}
+              <div className={styles.redeemRow}>
+                <input
+                  ref={redeemInputRef}
+                  className={styles.redeemInput}
+                  value={redeemCodeVal}
+                  onChange={(e) => setRedeemCodeVal(e.target.value.toUpperCase())}
+                  placeholder="输入兑换码"
+                  data-testid="redeem-input"
+                />
+                <button
+                  className={styles.redeemBtn}
+                  disabled={redeemState.phase === 'busy' || !redeemCodeVal.trim()}
+                  onClick={() => void onRedeem()}
+                  data-testid="redeem-btn"
+                >
+                  {redeemState.phase === 'busy' ? '兑换中…' : '兑换'}
+                </button>
+              </div>
+              {redeemState.phase === 'ok' && <div className={styles.okLine}>✓ {redeemState.msg}</div>}
+              {redeemState.phase === 'fail' && <div className={styles.errLine}>✗ {redeemState.msg}</div>}
             </div>
 
             <div className={styles.groupTitle}>同步</div>

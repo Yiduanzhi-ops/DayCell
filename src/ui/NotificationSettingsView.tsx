@@ -264,13 +264,23 @@ export function NotificationSettingsView(): JSX.Element {
               </div>
             )}
 
-            {/* v9.12 周日周报（会员项） */}
+            {/* v9.12 周日周报（会员项）；v9.19 金色「会员专属」徽标统一会员语言 */}
             <div className={styles.row}>
               <div className={styles.rowText}>
-                <div className={styles.rowTitle}>周日周报</div>
+                <div className={styles.rowTitle}>
+                  周日周报
+                  {weeklyLocked && (
+                    <span className={styles.vipTag} data-testid="weekly-vip-tag">
+                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M12 3.2l2 4.1 4.6.7-3.3 3.2.8 4.6L12 13.7l-4.1 2.1.8-4.6-3.3-3.2 4.6-.7z" fill="currentColor" />
+                      </svg>
+                      会员专属
+                    </span>
+                  )}
+                </div>
                 <div className={styles.rowDesc}>
                   每周日晚上推送本周汇总：待办完成、习惯打卡与目标进展
-                  {weeklyLocked ? ' · DayCell 会员专属' : ' · 时间默认跟随晚间日报'}
+                  {weeklyLocked ? '' : ' · 时间默认跟随晚间日报'}
                 </div>
               </div>
               <button

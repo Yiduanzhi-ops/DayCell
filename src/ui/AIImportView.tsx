@@ -47,6 +47,7 @@ function freqLabel(freq: { kind: 'daily' } | { kind: 'weekly'; weekdays: number[
 
 export function AIImportView(): JSX.Element {
   const setAiOpen = useApp((s) => s.setAiOpen)
+  const openAccount = useApp((s) => s.openAccount)
   const aiRemaining = useApp((s) => s.aiRemaining)
   const setAiRemaining = useApp((s) => s.setAiRemaining)
   const aiImportItems = useApp((s) => s.aiImportItems)
@@ -84,7 +85,8 @@ export function AIImportView(): JSX.Element {
   const canSpeech = speechSupported()
 
   // v9.7 配额显示：打开即拉取当前身份剩余次数（不消耗）；未登录/失败时静默，剩余保持未知
-  const [quotaLine, setQuotaLine] = useState<string | null>(null)
+  // v9.19 金色配额条：身份文案 + 非会员「升级会员」入口（跳账号页）
+  const [quota, setQuota] = useState<{ text: string; member: boolean | null } | null>(null)
   useEffect(() => {
     let alive = true
     void (async () => {
@@ -93,11 +95,10 @@ export function AIImportView(): JSX.Element {
       const q = await aiQuota(token)
       if (!alive || !q.ok || q.remaining == null) return
       if (q.remaining === 0) setAiRemaining(0)
-      setQuotaLine(
-        q.mode === 'trial_total'
-          ? `AI 试用剩余 ${q.remaining} 次`
-          : `今日 AI 剩余 ${q.remaining} 次`,
-      )
+      setQuota({
+        text: q.mode === 'trial_total' ? `AI 试用剩余 ${q.remaining} 次` : `今日 AI 剩余 ${q.remaining} 次`,
+        member: q.member ?? null,
+      })
     })()
     return () => {
       alive = false
@@ -381,7 +382,25 @@ export function AIImportView(): JSX.Element {
 
         {phase === 'input' && (
           <div className={styles.inputWrap}>
-            {quotaLine && <div className={styles.quotaLine} data-testid="ai-quota">{quotaLine}</div>}
+            {quota && (
+              <div className={styles.quotaLine} data-testid="ai-quota">
+                <svg className={styles.quotaCrown} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M12 3.2l2 4.1 4.6.7-3.3 3.2.8 4.6L12 13.7l-4.1 2.1.8-4.6-3.3-3.2 4.6-.7z" fill="#B08A3E" />
+                  <rect x="7.5" y="20.5" width="9" height="1.6" rx="0.8" fill="#B08A3E" opacity=".55" />
+                </svg>
+                <span className={styles.quotaText}>{quota.text}</span>
+                {quota.member === false && (
+                  <button
+                    type="button"
+                    className={styles.quotaUpgrade}
+                    onClick={openAccount}
+                    data-testid="quota-upgrade"
+                  >
+                    升级会员
+                  </button>
+                )}
+              </div>
+            )}
             <textarea
               ref={areaRef}
               className={styles.area}

@@ -8,11 +8,20 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.18'
+const CURRENT_VERSION = 'v9.19'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.19',
+    date: '2026-11-04',
+    items: [
+      '会员差异可视化：账号设置页新增会员状态卡——会员显示金色卡（有效期至 + 四项权益清单），免费版显示灰色卡（AI 整理试用剩余 + 未解锁项 + 升级按钮），一眼看清两版差别',
+      '全站统一会员视觉（金色 + 皇冠）：AI 智能导入配额条、回顾页 AI 深度复盘锁定条、周日周报、云同步设备数四处在各自入口直接标明「会员专属 / 升级解锁 / 仅 N 台」，点击直达账号页兑换',
+      '账号卡与各入口新增「会员」徽标，兑换码输入框移至会员卡下方（会员可续期、免费版可开通），免费用户不弹窗不打断',
+    ],
+  },
   {
     version: 'v9.18',
     date: '2026-11-04',

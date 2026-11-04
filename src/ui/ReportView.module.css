@@ -325,19 +325,51 @@
   line-height: 1.55;
   margin-bottom: 10px;
 }
+/* v9.19 AI 复盘锁定条：金色边框 + 皇冠 + 权益说明 + 升级解锁按钮 */
 .aiLock {
-  text-align: center;
-  padding: 14px 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #f9f3e4;
+  border: 1px solid #e6d9b8;
+  border-radius: 12px;
+}
+.aiLockHead {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 1;
+  min-width: 0;
+}
+.aiLockCrown {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
 }
 .aiLockMain {
   font-size: 13.5px;
   font-weight: 600;
   color: var(--ink-1);
-  margin-bottom: 3px;
+  margin-bottom: 2px;
 }
 .aiLockSub {
   font-size: 12px;
-  color: var(--ink-3);
+  color: #8a6d2f;
+}
+.aiUpgrade {
+  flex-shrink: 0;
+  border: none;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #c7a45c, #b08a3e);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 8px 13px;
+  cursor: pointer;
+}
+.aiUpgrade:active {
+  transform: scale(0.97);
 }
 .aiBtn {
   width: 100%;

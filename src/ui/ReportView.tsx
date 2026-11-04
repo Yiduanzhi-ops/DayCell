@@ -353,6 +353,7 @@ function AiCard({
   reportAiError: string | null
   onRun: () => void
 }): JSX.Element {
+  const openAccount = useApp((s) => s.openAccount)
   return (
     <section className={styles.block} aria-label="AI 深度复盘">
       <h2 className={styles.blockTitle}>AI 深度复盘</h2>
@@ -372,9 +373,21 @@ function AiCard({
             基于本周期数据，用 AI 做结构化复盘：效率趋势、习惯警报、拖延信号、想法洞察、目标偏差与下周建议。
           </p>
           {member === false ? (
-            <div className={styles.aiLock}>
-              <p className={styles.aiLockMain}>升级 DayCell 会员解锁</p>
-              <p className={styles.aiLockSub}>AI 深度复盘为会员专属功能</p>
+            /* v9.19 金色锁定条：权益说明 + 「升级解锁」入口 */
+            <div className={styles.aiLock} data-testid="ai-lock">
+              <div className={styles.aiLockHead}>
+                <svg className={styles.aiLockCrown} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M12 3.2l2 4.1 4.6.7-3.3 3.2.8 4.6L12 13.7l-4.1 2.1.8-4.6-3.3-3.2 4.6-.7z" fill="#B08A3E" />
+                  <rect x="7.5" y="20.5" width="9" height="1.6" rx="0.8" fill="#B08A3E" opacity=".55" />
+                </svg>
+                <div>
+                  <p className={styles.aiLockMain}>AI 深度复盘（会员）</p>
+                  <p className={styles.aiLockSub}>让 AI 总结本周得失、给出下周建议</p>
+                </div>
+              </div>
+              <button type="button" className={styles.aiUpgrade} onClick={openAccount} data-testid="ai-upgrade">
+                升级解锁
+              </button>
             </div>
           ) : (
             <button type="button" className={styles.aiBtn} onClick={() => void onRun()}>

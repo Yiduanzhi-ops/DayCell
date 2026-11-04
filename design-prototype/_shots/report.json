@@ -1,6 +1,6 @@
 {
-  "src": "目标文件夹功能原型.html",
-  "url": "file:///Users/wangduanmao/DayCell/design-prototype/%E7%9B%AE%E6%A0%87%E6%96%87%E4%BB%B6%E5%A4%B9%E5%8A%9F%E8%83%BD%E5%8E%9F%E5%9E%8B.html",
+  "src": "/Users/wangduanmao/DayCell/design-prototype/会员差异改造原型.html",
+  "url": "file:///Users/wangduanmao/DayCell/design-prototype/%E4%BC%9A%E5%91%98%E5%B7%AE%E5%BC%82%E6%94%B9%E9%80%A0%E5%8E%9F%E5%9E%8B.html",
   "outdir": "/Users/wangduanmao/DayCell/design-prototype/_shots",
   "include": [
     "lint",
@@ -9,27 +9,27 @@
   ],
   "shots": {
     "desktop": {
-      "screenshot": "/Users/wangduanmao/DayCell/design-prototype/_shots/目标文件夹功能原型_desktop.jpg",
-      "screenshotBytes": 28239,
+      "screenshot": "/Users/wangduanmao/DayCell/design-prototype/_shots/会员差异改造原型_desktop.jpg",
+      "screenshotBytes": 107307,
       "truncated": false,
       "structure": {
-        "title": "DayCell · 目标文件夹功能原型",
-        "firstH1": "目标",
+        "title": "DayCell · 会员差异改造原型",
+        "firstH1": "DayCell · 会员差异 可视化改造 原型",
         "viewport": {
           "w": 1440,
           "h": 757
         },
         "fullpage": {
           "w": 1440,
-          "h": 1033
+          "h": 2223
         },
         "counts": {
           "section": 0,
-          "h1": 1,
+          "h1": 5,
           "h2": 0,
           "img": 0,
           "canvas": 0,
-          "svg": 21,
+          "svg": 34,
           "links": 0,
           "buttons": 14
         }
@@ -41,27 +41,30 @@
       "reportSource": "cdp"
     },
     "mobile": {
-      "screenshot": "/Users/wangduanmao/DayCell/design-prototype/_shots/目标文件夹功能原型_mobile.jpg",
-      "screenshotBytes": 43014,
+      "slices": [
+        "/Users/wangduanmao/DayCell/design-prototype/_shots/会员差异改造原型_mobile_p1of2.jpg",
+        "/Users/wangduanmao/DayCell/design-prototype/_shots/会员差异改造原型_mobile_p2of2.jpg"
+      ],
+      "sliceHint": "按顺序 Read slices 里的各分片。",
       "truncated": false,
       "structure": {
-        "title": "DayCell · 目标文件夹功能原型",
-        "firstH1": "目标",
+        "title": "DayCell · 会员差异改造原型",
+        "firstH1": "DayCell · 会员差异 可视化改造 原型",
         "viewport": {
           "w": 500,
           "h": 701
         },
         "fullpage": {
           "w": 500,
-          "h": 1033
+          "h": 4250
         },
         "counts": {
           "section": 0,
-          "h1": 1,
+          "h1": 5,
           "h2": 0,
           "img": 0,
           "canvas": 0,
-          "svg": 21,
+          "svg": 34,
           "links": 0,
           "buttons": 14
         }
@@ -77,7 +80,7 @@
   "chromiumExec": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   "engineDegraded": true,
   "engineDegradedReason": "playwright 未装",
-  "elapsedSec": 7.94,
+  "elapsedSec": 6.13,
   "schemaVersion": 2,
   "status": "pass",
   "engineInfo": {
@@ -88,9 +91,9 @@
     ]
   },
   "input": {
-    "original": "目标文件夹功能原型.html",
-    "resolvedPath": "/Users/wangduanmao/DayCell/design-prototype/目标文件夹功能原型.html",
-    "baseUrl": "file:///Users/wangduanmao/DayCell/design-prototype/%E7%9B%AE%E6%A0%87%E6%96%87%E4%BB%B6%E5%A4%B9%E5%8A%9F%E8%83%BD%E5%8E%9F%E5%9E%8B.html",
+    "original": "/Users/wangduanmao/DayCell/design-prototype/会员差异改造原型.html",
+    "resolvedPath": "/Users/wangduanmao/DayCell/design-prototype/会员差异改造原型.html",
+    "baseUrl": "file:///Users/wangduanmao/DayCell/design-prototype/%E4%BC%9A%E5%91%98%E5%B7%AE%E5%BC%82%E6%94%B9%E9%80%A0%E5%8E%9F%E5%9E%8B.html",
     "protocol": "file",
     "cwd": "/Users/wangduanmao/DayCell/design-prototype",
     "mediaMode": {
@@ -101,8 +104,8 @@
     "screenshots": [
       {
         "viewport": "desktop",
-        "path": "/Users/wangduanmao/DayCell/design-prototype/_shots/目标文件夹功能原型_desktop.jpg",
-        "size": 28239,
+        "path": "/Users/wangduanmao/DayCell/design-prototype/_shots/会员差异改造原型_desktop.jpg",
+        "size": 107307,
         "visualCoverage": {
           "complete": true,
           "reason": null
@@ -110,8 +113,10 @@
       },
       {
         "viewport": "mobile",
-        "path": "/Users/wangduanmao/DayCell/design-prototype/_shots/目标文件夹功能原型_mobile.jpg",
-        "size": 43014,
+        "tiles": [
+          "/Users/wangduanmao/DayCell/design-prototype/_shots/会员差异改造原型_mobile_p1of2.jpg",
+          "/Users/wangduanmao/DayCell/design-prototype/_shots/会员差异改造原型_mobile_p2of2.jpg"
+        ],
         "visualCoverage": {
           "complete": true,
           "reason": null
