@@ -8,11 +8,20 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.19'
+const CURRENT_VERSION = 'v9.20'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.20',
+    date: '2026-11-04',
+    items: [
+      '会员购买闭环上线（月卡 ¥4.9 / 30 天）：账号页会员卡新增「获取兑换码 · 前往购买」——免费版一键跳转购买说明页（定价卡 + 权益 + 三步开通 + FAQ），会员版改为「续期会员 · 购买月卡」，买完回来粘贴兑换码立即激活',
+      '「我有兑换码，去激活」快捷入口：免费卡主按钮下方直达兑换框，老兑换流程与购买页兑换回填完全一致，一个兑换码只能激活一次',
+      '后端新增批量生成兑换码接口（仅平台侧管理端可调）：支持 30 / 365 天批量生成 DC-XXXX-XXXX-XXXX 格式码，可直接粘贴到爱发电自动发货卡密',
+    ],
+  },
   {
     version: 'v9.19',
     date: '2026-11-04',

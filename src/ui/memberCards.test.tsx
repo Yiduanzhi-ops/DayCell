@@ -17,6 +17,7 @@ import { initCore } from '@/app/bootstrap'
 import { createAppStore } from '@/app/store'
 import { AppStoreContext } from '@/app/context'
 import { AccountSettingsView } from './AccountSettingsView'
+import { PurchaseView } from './PurchaseView'
 import { AIImportView } from './AIImportView'
 import { ReportView } from './ReportView'
 import { NotificationSettingsView } from './NotificationSettingsView'
@@ -77,7 +78,7 @@ async function renderWithStore(node: ReactNode) {
 }
 
 describe('v9.19 会员差异可视化', () => {
-  it('账号页会员卡·会员态：金色卡 + 到期日 + 权益清单 + 账号「会员」徽标', async () => {
+  it('账号页会员卡·会员态：金色卡 + 到期日 + 权益清单 + 账号「会员」徽标 + 续期按钮', async () => {
     CLOUD.member = true
     CLOUD.expires = '2026-11-28T00:00:00Z'
     CLOUD.deviceLimit = 5
@@ -96,25 +97,63 @@ describe('v9.19 会员差异可视化', () => {
     expect(screen.getByTestId('member-badge')).toBeInTheDocument()
     // 兑换码行保留（续期入口）
     expect(screen.getByTestId('redeem-input')).toBeInTheDocument()
+    // v9.20：续期会员按钮 → 打开购买说明页
+    fireEvent.click(screen.getByTestId('renew-btn'))
+    await waitFor(() => expect(store.getState().purchaseOpen).toBe(true))
   })
 
-  it('账号页会员卡·非会员态：试用剩余 + 未解锁项 + 升级按钮聚焦兑换码', async () => {
+  it('账号页会员卡·非会员态：试用剩余 + 未解锁项 + 主按钮打开购买页 + 次按钮聚焦兑换码', async () => {
     CLOUD.member = false
     CLOUD.expires = null
     CLOUD.deviceLimit = 1
     CLOUD.mode = 'trial_total'
     CLOUD.remaining = 7
-    await renderWithStore(<AccountSettingsView />)
+    const store = await renderWithStore(<AccountSettingsView />)
     await waitFor(() => expect(screen.getByTestId('member-card-free')).toBeInTheDocument())
     expect(screen.getByText('DayCell 免费版')).toBeInTheDocument()
     expect(screen.getByText('AI 整理试用剩余 7 次')).toBeInTheDocument()
     expect(screen.getAllByText('未解锁')).toHaveLength(2)
     expect(screen.getByText('仅 1 台')).toBeInTheDocument()
     expect(screen.queryByTestId('member-badge')).not.toBeInTheDocument()
-    // 点「升级 DayCell 会员」→ 聚焦兑换码输入框
-    const upgrade = screen.getByTestId('upgrade-btn')
-    fireEvent.click(upgrade)
+    // v9.20：主按钮「获取兑换码 · 前往购买」→ 打开购买说明页
+    fireEvent.click(screen.getByTestId('upgrade-btn'))
+    await waitFor(() => expect(store.getState().purchaseOpen).toBe(true))
+    // 次按钮「我有兑换码，去激活」→ 聚焦兑换码输入框（重新渲染，避免上一次残留 DOM）
+    cleanup()
+    await renderWithStore(<AccountSettingsView />)
+    await waitFor(() => expect(screen.getByTestId('member-card-free')).toBeInTheDocument())
+    fireEvent.click(screen.getByTestId('redeem-focus-btn'))
     await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('redeem-input')))
+  })
+
+  it('购买说明页：¥4.9 定价卡 + 四项权益 + 爱发电外链 + FAQ 三条 + 兑换回填', async () => {
+    CLOUD.member = false
+    CLOUD.deviceLimit = 1
+    CLOUD.mode = 'trial_total'
+    CLOUD.remaining = 7
+    const store = await renderWithStore(<PurchaseView />)
+    await waitFor(() => expect(screen.getByTestId('purchase-card')).toBeInTheDocument())
+    expect(screen.getByText('DayCell 会员 · 月卡')).toBeInTheDocument()
+    expect(screen.getByText('¥4.9')).toBeInTheDocument()
+    expect(screen.getByText('/ 30 天')).toBeInTheDocument()
+    expect(screen.getByText('每日可用')).toBeInTheDocument()
+    expect(screen.getByText('已解锁')).toBeInTheDocument()
+    expect(screen.getByText('已开启')).toBeInTheDocument()
+    expect(screen.getByText('最多 5 台')).toBeInTheDocument()
+    // 外链 CTA：跳爱发电（新窗口）
+    const cta = screen.getByTestId('purchase-cta') as HTMLAnchorElement
+    expect(cta.href).toContain('afdian.net')
+    expect(cta.target).toBe('_blank')
+    // FAQ 三条
+    expect(screen.getByText('付款后兑换码在哪里看？')).toBeInTheDocument()
+    expect(screen.getByText('没收到码 / 码无效怎么办？')).toBeInTheDocument()
+    expect(screen.getByText('兑换后有效期怎么算？')).toBeInTheDocument()
+    // 兑换回填
+    expect(screen.getByTestId('purchase-redeem-input')).toBeInTheDocument()
+    expect(screen.getByTestId('purchase-redeem-btn')).toBeInTheDocument()
+    // 返回按钮关闭购买页
+    fireEvent.click(screen.getByText('← 返回'))
+    expect(store.getState().purchaseOpen).toBe(false)
   })
 
   it('AI 导入配额金条：非会员「试用剩余 N 次」+ 升级会员 → 打开账号页', async () => {

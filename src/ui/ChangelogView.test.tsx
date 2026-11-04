@@ -37,15 +37,18 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v9.19')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v9.20')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v9.19')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v9.20')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v9.19，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v9.20，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+(\.\d+)+$/)
-    expect(vers[0].textContent).toBe('v9.19')
+    expect(vers[0].textContent).toBe('v9.20')
+    expect(screen.getByText(/会员购买闭环上线/)).toBeInTheDocument()
+    expect(screen.getByText(/我有兑换码，去激活/)).toBeInTheDocument()
+    expect(screen.getByText(/批量生成兑换码接口/)).toBeInTheDocument()
     expect(screen.getByText(/点面板外空白才保存并关闭/)).toBeInTheDocument()
     expect(screen.getByText(/移动端点类型按钮不转移焦点/)).toBeInTheDocument()
     expect(screen.getByText(/「2 小时不打开就掉登录」/)).toBeInTheDocument()

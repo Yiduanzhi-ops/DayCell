@@ -98,6 +98,8 @@ function CrownIcon({ muted }: { muted?: boolean }): JSX.Element {
 export function AccountSettingsView(): JSX.Element {
   const closeAccount = useApp((s) => s.closeAccount)
   const openSync = useApp((s) => s.openSync)
+  const openPurchase = useApp((s) => s.openPurchase)
+  const purchaseOpen = useApp((s) => s.purchaseOpen)
   const exportSnapshotObject = useApp((s) => s.exportSnapshotObject)
   const restoreSnapshot = useApp((s) => s.restoreSnapshot)
   const setCloudSyncEnabled = useApp((s) => s.setCloudSyncEnabled)
@@ -373,6 +375,21 @@ export function AccountSettingsView(): JSX.Element {
     }
   }
 
+  // v9.20：购买说明页关闭后（可能刚完成兑换）刷新会员状态，让会员卡立即变金
+  const purchaseClosedRef = useRef(false)
+  useEffect(() => {
+    if (purchaseOpen) {
+      purchaseClosedRef.current = true
+      return
+    }
+    if (!purchaseClosedRef.current) return
+    purchaseClosedRef.current = false
+    void (async () => {
+      const token = await getAccessToken()
+      if (token) await refreshCloudState(token)
+    })()
+  }, [purchaseOpen])
+
   const onSignOut = async (): Promise<void> => {
     try {
       await getCloudApp().auth().signOut()
@@ -464,6 +481,13 @@ export function AccountSettingsView(): JSX.Element {
                     <Perk txt="周日周报推送" tag="已开启" on />
                     <Perk txt="云同步设备数" tag={`${memberInfo.deviceLimit} 台`} on />
                   </div>
+                  <button
+                    className={styles.upgradeBtn}
+                    onClick={openPurchase}
+                    data-testid="renew-btn"
+                  >
+                    续期会员 · 购买月卡
+                  </button>
                 </div>
               ) : (
                 /* v9.19 非会员态：灰卡 + 试用剩余 + 未解锁项 + 升级按钮 */
@@ -479,16 +503,23 @@ export function AccountSettingsView(): JSX.Element {
                   </div>
                   <div className={styles.perkList}>
                     <Perk txt="AI 智能整理" tag={aiTrial == null ? '试用中' : `剩余 ${aiTrial} 次`} on />
-                    <Perk txt="AI 周 / 月深度复盘" tag="未解锁" />
-                    <Perk txt="周日周报推送" tag="未解锁" />
-                    <Perk txt="云同步设备数" tag={`仅 ${memberInfo.deviceLimit} 台`} />
+                    <Perk txt="AI 周 / 月深度复盘" tag="未解锁" on={false} />
+                    <Perk txt="周日周报推送" tag="未解锁" on={false} />
+                    <Perk txt="云同步设备数" tag={`仅 ${memberInfo.deviceLimit} 台`} on={false} />
                   </div>
                   <button
                     className={styles.upgradeBtn}
-                    onClick={() => redeemInputRef.current?.focus()}
+                    onClick={openPurchase}
                     data-testid="upgrade-btn"
                   >
-                    升级 DayCell 会员
+                    获取兑换码 · 前往购买
+                  </button>
+                  <button
+                    className={styles.buyGhostBtn}
+                    onClick={() => redeemInputRef.current?.focus()}
+                    data-testid="redeem-focus-btn"
+                  >
+                    我有兑换码，去激活
                   </button>
                 </div>
               )}

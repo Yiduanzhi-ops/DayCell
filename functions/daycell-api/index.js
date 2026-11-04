@@ -4,6 +4,7 @@
 // 安全底线：user_id 一律取自网关注入的登录身份，绝不接受请求方自报
 const cloudbase = require('@cloudbase/node-sdk');
 const tencentcloud = require('tencentcloud-sdk-nodejs');
+const crypto = require('crypto');
 
 let app = null;
 function getApp() {
@@ -222,6 +223,55 @@ async function getMemberExpiry(db, uid) {
     return Number.isFinite(d.getTime()) ? d.toISOString() : null;
   } catch (e) {
     return null;
+  }
+}
+
+// ============================================================
+// v9.20 第 6 步接购买闭环：批量生成兑换码（仅平台侧管理端可调）
+// 用途：先跑一批码 → 粘贴到爱发电「自动随机回复/卡密」→ 用户购买后自动收码 → /redeem 核销。
+// 鉴权：网关注入 x-usertype=B_SIDE_USER（平台侧）或 x-administrator 有值才放行，普通登录用户 403。
+// 码格式：DC-XXXX-XXXX-XXXX（大写，剔除易混字符 0O1I），一码一次激活由 status=unused→redeemed 保证。
+// ============================================================
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 32 字符，无 0/O/1/I
+function genCode() {
+  const bytes = crypto.randomBytes(12);
+  let s = '';
+  for (let i = 0; i < 12; i++) s += CODE_ALPHABET[bytes[i] % 32];
+  return 'DC-' + s.slice(0, 4) + '-' + s.slice(4, 8) + '-' + s.slice(8, 12);
+}
+
+async function generateCodes(event) {
+  const headers = event.headers || {};
+  const side = headers['x-usertype'] || headers['X-Usertype'] || '';
+  const admin = headers['x-administrator'] || headers['X-Administrator'] || '';
+  // 只放行平台侧（管理端/API Key 调用），普通登录用户不可生成
+  if (side !== 'B_SIDE_USER' && !admin) {
+    return json(403, { ok: false, error: 'admin_only' });
+  }
+  const body = parseBody(event);
+  const count = Math.min(Math.max(Number(body.count) || 1, 1), 500);
+  const days = Number(body.days) || 30;
+  if (days !== 30 && days !== 365) return json(400, { ok: false, error: 'days_must_be_30_or_365' });
+  const plan = body.plan === 'member_year' ? 'member_year' : 'member_month';
+  const db = getApp().rdb();
+  try {
+    // 拉取已有码集合，生成时避开（PK 冲突兜底）
+    const existing = await db.from('daycell_redeem_codes').select('code');
+    const taken = new Set((existing.data || []).map((r) => r.code));
+    const codes = [];
+    while (codes.length < count) {
+      const c = genCode();
+      if (!taken.has(c)) {
+        taken.add(c);
+        codes.push(c);
+      }
+    }
+    const rows = codes.map((code) => ({ code, plan, duration_days: days, status: 'unused' }));
+    await db.from('daycell_redeem_codes').insert(rows);
+    return json(200, { ok: true, count: codes.length, plan, days, codes });
+  } catch (e) {
+    console.error('[codes/generate] failed:', (e && e.message) || e);
+    return json(500, { ok: false, error: 'generate_failed' });
   }
 }
 
@@ -968,6 +1018,11 @@ exports.main = async (event, context) => {
     const uid = extractUid(event);
     if (!uid) return json(401, { ok: false, error: 'unauthorized' });
     return redeemCode(event, uid);
+  }
+
+  // v9.20 批量生成兑换码（仅平台侧管理端；前端不暴露此路由）
+  if (path === '/codes/generate' && method === 'POST') {
+    return generateCodes(event);
   }
 
   // AI 配额查询：当前身份（非会员试用总额 / 会员每日）与剩余次数

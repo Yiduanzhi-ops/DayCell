@@ -1,0 +1,206 @@
+/* v9.20 会员购买说明页（PurchaseView）——沿用账号页金色会员视觉 token */
+
+.mcard {
+  border-radius: 14px;
+  padding: 15px 15px 13px;
+  position: relative;
+  overflow: hidden;
+}
+.mcardGold {
+  background: #f9f3e4;
+  border: 1px solid #e6d9b8;
+}
+.mcardHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mcardTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.mcardPrice {
+  margin-top: 3px;
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+}
+.priceNum {
+  font-size: 26px;
+  font-weight: 700;
+  color: #8a6d2f;
+  line-height: 1;
+}
+.priceUnit {
+  font-size: 12px;
+  color: #8a6d2f;
+  opacity: 0.75;
+}
+.perkList {
+  margin-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.07);
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.perkRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink);
+}
+.perkTxt {
+  flex: 1;
+  min-width: 0;
+}
+.perkIcon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.perkTag {
+  font-size: 11px;
+  color: #8a6d2f;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ctaBtn {
+  margin-top: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 42px;
+  border: none;
+  border-radius: 11px;
+  text-decoration: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  background: linear-gradient(180deg, #c7a45c, #b08a3e);
+  color: #fff;
+}
+.ctaBtn:active {
+  transform: scale(0.98);
+}
+.ctaHint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #8a6d2f;
+  text-align: center;
+}
+.sectionTitle {
+  margin: 20px 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f7f7f8;
+  border: 1px solid #e8e8ed;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.stepNum {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #c7a45c, #b08a3e);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.stepTxt {
+  min-width: 0;
+}
+.stepTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.stepDesc {
+  margin-top: 1px;
+  font-size: 12px;
+  color: #86868b;
+}
+.faqList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.faqItem {
+  background: #f7f7f8;
+  border: 1px solid #e8e8ed;
+  border-radius: 12px;
+  padding: 0 12px;
+}
+.faqQ {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  padding: 10px 0;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.faqQ::-webkit-details-marker {
+  display: none;
+}
+.faqQ::after {
+  content: '›';
+  color: #8a6d2f;
+  font-size: 16px;
+  transition: transform 0.15s ease;
+}
+.faqItem[open] .faqQ::after {
+  transform: rotate(90deg);
+}
+.faqA {
+  font-size: 12px;
+  color: #86868b;
+  line-height: 1.6;
+  padding: 0 0 12px;
+}
+.redeemBox {
+  background: #f7f7f8;
+  border: 1px solid #e8e8ed;
+  border-radius: 12px;
+  padding: 12px;
+}
+.redeemRow {
+  display: flex;
+  gap: 8px;
+}
+.redeemHint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #86868b;
+}
+.foot {
+  margin: 20px 0 6px;
+  font-size: 11px;
+  color: #a0a0a8;
+  line-height: 1.6;
+  text-align: center;
+}
+.mailLink {
+  color: #8a6d2f;
+  text-decoration: none;
+}

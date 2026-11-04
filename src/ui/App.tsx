@@ -31,6 +31,7 @@ import { ChangelogView } from './ChangelogView'
 import { SettingsView } from './SettingsView'
 import { NotificationSettingsView } from './NotificationSettingsView'
 import { AccountSettingsView } from './AccountSettingsView'
+import { PurchaseView } from './PurchaseView'
 import { OnboardingView } from './OnboardingView'
 import styles from './App.module.css'
 
@@ -64,6 +65,7 @@ function Shell(): JSX.Element {
   const notificationSettingsOpen = useApp((s) => s.notificationSettingsOpen)
   const accountOpen = useApp((s) => s.accountOpen)
   const openAccount = useApp((s) => s.openAccount)
+  const purchaseOpen = useApp((s) => s.purchaseOpen)
   const onboardingOpen = useApp((s) => s.onboardingOpen)
 
   // v7.5 夜间模式：store 里 setTheme 已同步 localStorage 与 <html>；这里兜底保证
@@ -234,6 +236,7 @@ function Shell(): JSX.Element {
       {settingsOpen && <SettingsView />}
       {notificationSettingsOpen && <NotificationSettingsView />}
       {accountOpen && <AccountSettingsView />}
+      {purchaseOpen && <PurchaseView />}
       {onboardingOpen && <OnboardingView />}
     </div>
   )

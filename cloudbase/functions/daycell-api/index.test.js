@@ -87,6 +87,46 @@ describe('daycell-api 路由（网关事件 → exports.main）', () => {
     }
   })
 
+  it('/codes/generate 无任何凭证 → 403 admin_only（不依赖用户登录，仅认平台侧凭证）', async () => {
+    const r = await main(ev('POST', '/codes/generate', {}, JSON.stringify({ count: 3 })))
+    expect(r.statusCode).toBe(403)
+    expect(JSON.parse(r.body).error).toBe('admin_only')
+  })
+
+  it('/codes/generate 普通登录用户 → 403 admin_only（生成码仅平台侧可调）', async () => {
+    const r = await main(ev('POST', '/codes/generate', { 'x-userid': 'u-1' }, JSON.stringify({ count: 3 })))
+    expect(r.statusCode).toBe(403)
+    expect(JSON.parse(r.body).error).toBe('admin_only')
+  })
+
+  it('/codes/generate 平台侧（x-usertype=B_SIDE_USER）→ 生成 3 个 30 天月卡码', async () => {
+    globalThis.__daycell_test_db = makeDb({
+      tables: { daycell_members: [], daycell_redeem_codes: [] },
+    })
+    const r = await main(
+      ev(
+        'POST',
+        '/codes/generate',
+        { 'x-userid': 'admin-1', 'x-usertype': 'B_SIDE_USER' },
+        JSON.stringify({ count: 3 }),
+      ),
+    )
+    expect(r.statusCode).toBe(200)
+    const b = JSON.parse(r.body)
+    expect(b.ok).toBe(true)
+    expect(b.count).toBe(3)
+    expect(b.plan).toBe('member_month')
+    expect(b.days).toBe(30)
+    expect(b.codes).toHaveLength(3)
+    // 码格式：DC-XXXX-XXXX-XXXX（大写，不含 0O1I）
+    for (const c of b.codes) expect(c).toMatch(/^DC-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/)
+    // 入库行：code/plan/duration_days/status=unused
+    const inserts = globalThis.__daycell_test_db._calls?.().filter((c) => c.op === 'insert') ?? []
+    expect(inserts.length).toBe(1)
+    expect(inserts[0].args[0]).toHaveLength(3)
+    expect(inserts[0].args[0][0]).toMatchObject({ plan: 'member_month', duration_days: 30, status: 'unused' })
+  })
+
   it('/ai/quota 非会员 → trial_total 模式（FREE_AI_TOTAL_LIMIT=5，读 ai_usage_total）', async () => {
     globalThis.__daycell_test_db = makeDb({
       tables: { daycell_members: [], ai_usage_total: [{ total_count: 3 }] },

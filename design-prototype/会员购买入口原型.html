@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DayCell · 会员购买入口原型</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23B08A3E'/%3E%3Cpath d='M16 6.5l2.6 5 5.7.8-4.1 4 .9 5.7L16 19.3l-5.1 2.7.9-5.7-4.1-4 5.7-.8z' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#f2f2f7; --card:#fff; --sep:#e5e5ea; --sep2:#c7c7cc;
+  --txt:#1d1d1f; --sub:#8e8e93; --sub2:#98989d;
+  --blue:#2E4BA6; --blue-soft:#e9edf9;
+  --gold:#B08A3E; --gold-strong:#8f6d2c; --gold-soft:#F7F0E0; --gold-line:#E5D8B8;
+  --green:#34c759;
+  --scrim:rgba(0,0,0,.35);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Helvetica Neue",sans-serif;
+  background:#161617; color:var(--txt); display:flex; flex-direction:column; align-items:center;
+  min-height:100%; padding:30px 16px 40px;
+}
+.page-title{color:#f5f5f7;font-size:17px;font-weight:600;letter-spacing:.01em;text-align:center}
+.page-title b{color:var(--gold);font-weight:700}
+.page-sub{color:#86868b;font-size:12.5px;margin-top:7px;text-align:center;line-height:1.7;max-width:620px}
+.page-sub b{color:#a1a1a6;font-weight:600}
+
+/* ============ 网格 ============ */
+.stage{
+  display:grid;grid-template-columns:repeat(3,auto);gap:44px 32px;justify-content:center;
+  margin-top:26px;
+}
+.cell{display:flex;flex-direction:column;align-items:center;gap:12px}
+.cell-label{color:#f5f5f7;font-size:13.5px;font-weight:600;letter-spacing:.01em}
+.cell-note{
+  color:#8e8e93;font-size:12px;line-height:1.65;text-align:center;max-width:360px;
+}
+.cell-note b{color:#c7c7cc;font-weight:600}
+
+/* ============ iPhone 壳 ============ */
+.phone{
+  width:390px;height:844px;background:var(--bg);border-radius:50px;position:relative;
+  box-shadow:0 40px 90px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.08) inset;
+  overflow:hidden;flex-shrink:0;
+}
+.statusbar{
+  height:47px;display:flex;align-items:center;justify-content:space-between;
+  padding:14px 28px 0;position:absolute;top:0;left:0;right:0;z-index:5;
+  font-size:15px;font-weight:600;color:var(--txt);pointer-events:none;
+}
+.statusbar .sysicons{display:flex;gap:5px;align-items:center}
+.statusbar svg{display:block}
+.island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:126px;height:37px;background:#000;border-radius:20px;z-index:6}
+
+/* ============ App 内容 ============ */
+.app{position:absolute;inset:0;padding-top:47px;display:flex;flex-direction:column;overflow:hidden}
+.screen{position:absolute;inset:0;top:47px;overflow-y:auto;scrollbar-width:none;background:var(--bg)}
+.screen.off{display:none}
+
+/* ---- 导航 ---- */
+.acct-nav{
+  display:flex;align-items:center;gap:4px;padding:12px 16px 6px;background:var(--bg);
+  position:sticky;top:0;z-index:3;
+}
+.acct-nav .back{
+  width:32px;height:32px;border-radius:50%;background:transparent;border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;color:var(--blue);
+}
+.acct-nav h1{font-size:17px;font-weight:600;flex:1;text-align:center;margin-right:32px}
+.acct-nav .chev{color:var(--sub2);font-size:15px}
+
+.acct-body{padding:12px 16px 30px;display:flex;flex-direction:column;gap:16px}
+.acct-row{
+  background:var(--card);border-radius:14px;display:flex;align-items:center;gap:12px;
+  padding:13px 14px;box-shadow:0 1px 2px rgba(0,0,0,.02);
+}
+.avatar{width:38px;height:38px;border-radius:50%;background:var(--blue-soft);color:var(--blue);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:15px;flex-shrink:0}
+.acct-row .meta{flex:1;min-width:0}
+.acct-row .name{font-size:15px;font-weight:600}
+.acct-row .email{font-size:12.5px;color:var(--sub);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badge{font-size:11px;font-weight:600;padding:4px 9px;border-radius:999px;flex-shrink:0}
+
+/* 会员状态卡 */
+.mcard{border-radius:16px;padding:16px 16px 14px;position:relative;overflow:hidden}
+.mcard.member{background:var(--gold-soft);border:1px solid var(--gold-line)}
+.mcard.free{background:#F5F5F7;border:1px solid #E6E6E9}
+.mcard .corner{position:absolute;right:-18px;top:-18px;width:76px;height:76px;border-radius:50%;opacity:.5}
+.mcard.member .corner{background:var(--gold);opacity:.12}
+.mcard.free .corner{background:#8e8e93;opacity:.08}
+.mcard .top{display:flex;align-items:center;gap:9px}
+.mcard .crown{width:26px;height:26px;flex-shrink:0}
+.mcard .who{font-size:15px;font-weight:700}
+.mcard .sub{font-size:12px;margin-top:2px}
+.mcard.member .sub{color:#6f5b26}
+.mcard.free .sub{color:var(--sub)}
+.mcard .perk{margin-top:14px;border-top:1px solid rgba(0,0,0,.06);padding-top:11px;display:flex;flex-direction:column;gap:9px}
+.perk-line{display:flex;align-items:center;gap:9px;font-size:13px}
+.perk-line .ic{width:17px;height:17px;flex-shrink:0}
+.perk-line .txt{flex:1}
+.perk-line .tag{font-size:11px;color:var(--sub)}
+.btn{
+  margin-top:14px;width:100%;height:42px;border:none;border-radius:12px;cursor:pointer;
+  font-size:14.5px;font-weight:600;letter-spacing:.01em;display:flex;align-items:center;justify-content:center;gap:7px;
+}
+.btn.gold{
+  background:linear-gradient(180deg,#C7A45C,#B08A3E);color:#fff;
+  box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 4px 10px rgba(176,138,62,.25);
+}
+.btn.ghost{
+  background:#fff;color:var(--txt);border:1px solid var(--sep2);
+}
+.btn.blue{background:var(--blue);color:#fff}
+.btn.sm{margin-top:10px;height:40px;font-size:14px}
+.btn:active{transform:scale(.98)}
+.btn svg{flex-shrink:0}
+
+/* 兑换码区 */
+.redeem{
+  background:var(--card);border-radius:14px;padding:14px;box-shadow:0 1px 2px rgba(0,0,0,.02);
+  display:flex;flex-direction:column;gap:10px;
+}
+.redeem .lbl{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
+.redeem .lbl .dot{width:6px;height:6px;border-radius:50%;background:var(--gold)}
+.redeem input{
+  width:100%;height:42px;border:1px solid var(--sep2);border-radius:11px;padding:0 12px;
+  font-size:14px;outline:none;background:#fff;color:var(--txt);
+}
+.redeem input:focus{border-color:var(--gold)}
+.redeem .hint{font-size:11.5px;color:var(--sub);line-height:1.6}
+
+/* ---- 购买页 ---- */
+.buy-hero{
+  border-radius:18px;padding:18px 16px 16px;position:relative;overflow:hidden;
+  background:linear-gradient(180deg,#FBF4E3,#F7EDD3);border:1px solid var(--gold-line);
+  display:flex;flex-direction:column;gap:12px;
+}
+.buy-hero .corner{position:absolute;right:-22px;top:-22px;width:110px;height:110px;border-radius:50%;background:var(--gold);opacity:.14}
+.buy-hero .top{display:flex;align-items:center;gap:10px}
+.buy-hero .crown{width:30px;height:30px;flex-shrink:0}
+.buy-hero .name{font-size:16px;font-weight:700;color:var(--gold-strong)}
+.buy-hero .plan{display:flex;align-items:center;gap:7px;margin-top:10px}
+.buy-hero .plan .pill{
+  font-size:11.5px;font-weight:600;color:var(--gold-strong);background:#fff;border:1px solid var(--gold-line);
+  padding:4px 10px;border-radius:999px;
+}
+.buy-hero .price{font-size:32px;font-weight:700;color:var(--gold-strong);line-height:1}
+.buy-hero .price small{font-size:14px;font-weight:600;color:#a8874f}
+.buy-hero .pnote{font-size:11px;color:#9a7f4b;margin-top:2px}
+.buy-hero .perk{margin-top:4px;border-top:1px dashed rgba(176,138,62,.35);padding-top:12px;display:flex;flex-direction:column;gap:9px}
+.buy-hero .perk-line{font-size:13px;color:#5f4d22}
+.buy-hero .perk-line .ic{width:17px;height:17px;flex-shrink:0}
+.buy-hero .perk-line .tag{margin-left:auto;font-size:11px;color:#9a7f4b}
+
+.steps{
+  background:var(--card);border-radius:14px;padding:14px 14px 6px;box-shadow:0 1px 2px rgba(0,0,0,.02);
+  display:flex;flex-direction:column;
+}
+.steps .st-title{font-size:13px;font-weight:600;margin-bottom:8px}
+.step{display:flex;gap:11px;padding:8px 0 10px}
+.step .no{
+  width:24px;height:24px;border-radius:50%;background:var(--gold-soft);border:1px solid var(--gold-line);
+  color:var(--gold-strong);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;
+}
+.step .body{flex:1;min-width:0}
+.step .t{font-size:13.5px;font-weight:600}
+.step .d{font-size:12px;color:var(--sub);margin-top:2px;line-height:1.55}
+
+.buy-foot{
+  background:var(--card);border-radius:14px;padding:12px 14px;box-shadow:0 1px 2px rgba(0,0,0,.02);
+  font-size:11.5px;color:var(--sub);line-height:1.7;
+}
+.buy-foot b{color:var(--sub2);font-weight:600}
+
+/* ---- FAQ ---- */
+.faq{
+  background:var(--card);border-radius:14px;padding:4px 14px;box-shadow:0 1px 2px rgba(0,0,0,.02);
+  display:flex;flex-direction:column;
+}
+.faq .q{
+  width:100%;background:none;border:none;border-bottom:1px solid var(--sep);cursor:pointer;
+  display:flex;align-items:center;gap:10px;padding:13px 2px;text-align:left;font-size:13.5px;font-weight:600;color:var(--txt);
+}
+.faq .q:last-child{border-bottom:none}
+.faq .q .chev{margin-left:auto;color:var(--sub2);font-size:12px;transition:transform .15s;flex-shrink:0}
+.faq .q.open .chev{transform:rotate(90deg)}
+.faq .a{display:none;padding:0 2px 13px;font-size:12.5px;color:var(--sub);line-height:1.65}
+.faq .q.open + .a{display:block}
+
+/* ---- 底部闭环流程条 ---- */
+.flow{
+  margin-top:34px;width:100%;max-width:1180px;
+}
+.flow-label{color:#f5f5f7;font-size:13px;font-weight:600;text-align:center;margin-bottom:16px;letter-spacing:.01em}
+.flow-label b{color:var(--gold)}
+.flow-row{
+  display:flex;align-items:stretch;justify-content:center;gap:0;flex-wrap:wrap;
+}
+.flow-node{
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:12px;
+  padding:11px 14px;width:150px;display:flex;flex-direction:column;gap:4px;
+}
+.flow-node.gold{background:rgba(176,138,62,.14);border-color:rgba(176,138,62,.4)}
+.flow-node .n{font-size:11px;color:var(--gold);font-weight:700;letter-spacing:.05em}
+.flow-node .t{font-size:12.5px;color:#e8e8ed;font-weight:600}
+.flow-node .d{font-size:11px;color:#8e8e93;line-height:1.5}
+.flow-arrow{display:flex;align-items:center;color:var(--gold);padding:0 10px;font-size:14px;flex-shrink:0}
+
+/* toast */
+#toast{
+  position:fixed;left:50%;bottom:34px;transform:translateX(-50%) translateY(20px);
+  background:rgba(28,28,30,.92);color:#fff;font-size:13px;padding:11px 18px;border-radius:12px;
+  opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;z-index:99;max-width:86vw;text-align:center;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (max-width:920px){
+  .stage{grid-template-columns:1fr;gap:38px}
+  .cell-note{max-width:390px}
+  .flow-arrow{transform:rotate(90deg);padding:4px 0}
+}
+@media (max-width:420px){
+  body{padding:24px 0 36px}
+  .phone{border-radius:0}
+  .page-sub{padding:0 18px}
+}
+</style>
+</head>
+<body>
+
+<h1 class="page-title">DayCell · 会员<b>购买入口</b>原型</h1>
+<p class="page-sub">付费闭环前端部分：免费会员卡新增「获取兑换码 · 前往购买」→ 购买说明页（定价 + 权益 + 3 步）→ 爱发电自动发货 → 回填兑换码激活。定价 <b>¥9.9/月为示例</b>，正式发布前待定。</p>
+
+<div class="stage">
+
+  <!-- 手机 A：账号页（非会员）↔ 购买页，主链路切屏演示 -->
+  <div class="cell">
+    <div class="phone">
+      <div class="statusbar">
+        <span>9:41</span>
+        <span class="sysicons">
+          <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3" stroke="#3a3a3c" opacity=".5"/><rect x="2" y="2" width="14" height="8" rx="1.5" fill="#3a3a3c"/><rect x="23" y="4" width="2" height="4" rx="1" fill="#3a3a3c" opacity=".5"/></svg>
+        </span>
+      </div>
+      <div class="island"></div>
+      <div class="app">
+
+        <!-- A·屏1：账号设置页 · 非会员（购买入口） -->
+        <div class="screen" id="acct">
+          <div class="acct-nav">
+            <button onclick="__tip(event,'演示：返回设置页')" class="back" aria-label="返回">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <h1>账号与同步</h1>
+            <span class="chev"></span>
+          </div>
+          <div class="acct-body">
+            <div class="acct-row">
+              <div class="avatar">王</div>
+              <div class="meta">
+                <div class="name">wangduanmao</div>
+                <div class="email">wangduanmao@daycell.app</div>
+              </div>
+              <span class="badge" style="background:#EEEEF0;color:#8e8e93">免费版</span>
+            </div>
+
+            <!-- 会员状态卡（非会员态）· 新增购买入口 -->
+            <div class="mcard free">
+              <div class="corner"></div>
+              <div class="top">
+                <svg class="crown" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 3.2l2 4.1 4.6.7-3.3 3.2.8 4.6L12 13.7l-4.1 2.1.8-4.6-3.3-3.2 4.6-.7z" fill="#B9B9BE"/>
+                </svg>
+                <div>
+                  <div class="who">DayCell 免费版</div>
+                  <div class="sub">AI 整理试用剩余 7 次</div>
+                </div>
+              </div>
+              <div class="perk">
+                <div class="perk-line">
+                  <svg class="ic" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#34c759" opacity=".15"/><path d="M7.5 12.3l3 3 6-6.5" stroke="#2d9d50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  <span class="txt">AI 智能整理</span><span class="tag">试用中</span>
+                </div>
+                <div class="perk-line">
+                  <svg class="ic" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#c7c7cc"/><path d="M8 11a4 4 0 0 1 8 0v1h1.5v6h-11v-6H8zm3 1v4h2v-4z" fill="#8e8e93"/></svg>
+                  <span class="txt">AI 周 / 月深度复盘</span><span class="tag">未解锁</span>
+                </div>
+                <div class="perk-line">
+                  <svg class="ic" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#c7c7cc"/><path d="M8 11a4 4 0 0 1 8 0v1h1.5v6h-11v-6H8zm3 1v4h2v-4z" fill="#8e8e93"/></svg>
+                  <span class="txt">周日周报推送</span><span class="tag">未解锁</span>
+                </div>
+                <div class="perk-line">
+                  <svg class="ic" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#c7c7cc"/><path d="M8 11a4 4 0 0 1 8 0v1h1.5v6h-11v-6H8zm3 1v4h2v-4z" fill="#8e8e93"/></svg>
+                  <span class="txt">云同步设备数</span><span class="tag">仅 1 台</span>
+                </div>
+              </div>
+              <button onclick="__go('buy')" class="btn gold">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 3.2l2 4.1 4.6.7-3.3 3.2.8 4.6L12 13.7l-4.1 2.1.8-4.6-3.3-3.2 4.6-.7z" fill="#fff"/></svg>
+                获取兑换码 · 前往购买
+              </button>
+              <button onclick="__focusRedeem()" class="btn ghost">我有兑换码，去激活</button>
+            </div>
+
+            <!-- 兑换码区 -->
+            <div class="redeem" id="redeemBox">
+              <div class="lbl"><span class="dot"></span>兑换码</div>
+              <input id="redeemInput" placeholder="粘贴爱发电收到的兑换码" onclick="this.focus()">
+              <button onclick="__tip(event,'演示：调 /redeem 核销，成功后会员卡变金色')" class="btn blue sm">激活会员</button>
+              <div class="hint">兑换后自当日起生效 30 天；会员到期后自动恢复免费版，可再次购买续期。</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- A·屏2：购买说明页 -->
+        <div class="screen off" id="buy">
+          <div class="acct-nav">
+            <button onclick="__go('acct')" class="back" aria-label="返回">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <h1>购买会员</h1>
+            <span class="chev"></span>
+          </div>
+          <div class="acct-body">
+            <div class="buy-hero">
+              <div class="corner"></div>
+              <div class="top">
+                <svg class="crown" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 3.2l2 4.1 4.6.7-3.3 3.2.8 4.6L12 13.7l-4.1 2.1.8-4.6-3.3-3.2 4.6-.7z" fill="#B08A3E"/>
+                  <rect x="7.5" y="20.5" width="9" height="1.6" rx="0.8" fill="#B08A3E"/>
+                </svg>
+                <div class="name">DayCell 会员 · 月卡</div>
+              </div>
+              <div class="plan">
+                <span class="pill">30 天</span>
+                <span class="pill">自动发货</span>
+              </div>
+              <div class="price">¥9.9<small> / 30 天</small></div>
+              <div class="pnote">示例价 · 正式定价发布前待定</div>
+              <div class="perk">
+                <div class="perk-line">
+                  <svg class="ic" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#B08A3E" opacity=".16"/><path d="M7.5 12.3l3 3 6-6.5" stroke="#B08A3E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  <span>AI 智能整理 · 每日额度升级</span><span class="tag">20 次/天</span>
+                </div>
+                <div class="perk-line">
+                  <svg class="ic" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#B08A3E" opacity=".16"/><path d="M7.5 12.3l3 3 6-6.5" stroke="#B08A3E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  <span>AI 周 / 月深度复盘</span><span class="tag">解锁</span>
+                </div>
+                <div class="perk-line">
+                  <svg class="ic" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#B08A3E" opacity=".16"/><path d="M7.5 12.3l3 3 6-6.5" stroke="#B08A3E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  <span>周日周报推送</span><span class="tag">解锁</span>
+                </div>
+                <div class="perk-line">
+                  <svg class="ic" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#B08A3E" opacity=".16"/><path d="M7.5 12.3l3 3 6-6.5" stroke="#B08A3E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  <span>云同步设备数</span><span class="tag">3 台</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="steps">
+              <div class="st-title">三步开通</div>
+              <div class="step">
+                <div class="no">1</div>
+                <div class="body">
+                  <div class="t">前往爱发电购买</div>
+                  <div class="d">购买「DayCell 会员 · 月卡」，支持微信 / 支付宝</div>
+                </div>
+              </div>
+              <div class="step">
+                <div class="no">2</div>
+                <div class="body">
+                  <div class="t">支付后自动收到兑换码</div>
+                  <div class="d">平台自动发货，订单页 / 私信即时推送卡密</div>
+                </div>
+              </div>
+              <div class="step">
+                <div class="no">3</div>
+                <div class="body">
+                  <div class="t">回 DayCell 输入兑换码</div>
+                  <div class="d">粘贴到账号页「兑换码」输入框，激活立即生效</div>
+                </div>
+              </div>
+            </div>
+
+            <button onclick="__tip(event,'演示：跳转 afdian.net 商品页')" class="btn gold">
+              前往爱发电购买
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M7 17L17 7M17 7H9m8 0v8" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button onclick="__go('acct'),setTimeout(__focusRedeem,60)" class="btn ghost">我有兑换码，去激活</button>
+            <div class="buy-foot"><b>说明</b> · 购买页为站外链接（爱发电 afdian.net），DayCell 内不直接收款；码为一次性，兑换后 30 天有效。付款后一般数秒内发货，若超时未收到请在爱发电订单页查看或联系作者。</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="cell-label">手机 A · 账号页（非会员） ↔ 购买页</div>
+    <p class="cell-note">免费卡新增<b>「获取兑换码 · 前往购买」</b>（金色主按钮）→ 切到购买页；「我有兑换码」聚焦下方兑换框。点金色按钮可<b>实际切换</b>查看。</p>
+  </div>
+
+  <!-- 手机 B：购买页 · 常见问题 + 兑换回填 -->
+  <div class="cell">
+    <div class="phone">
+      <div class="statusbar">
+        <span>9:41</span>
+        <span class="sysicons">
+          <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3" stroke="#3a3a3c" opacity=".5"/><rect x="2" y="2" width="14" height="8" rx="1.5" fill="#3a3a3c"/><rect x="23" y="4" width="2" height="4" rx="1" fill="#3a3a3c" opacity=".5"/></svg>
+        </span>
+      </div>
+      <div class="island"></div>
+      <div class="app">
+        <div class="screen" style="position:static">
+          <div class="acct-nav">
+            <button onclick="__tip(event,'演示：返回购买页')" class="back" aria-label="返回">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <h1>购买会员</h1>
+            <span class="chev"></span>
+          </div>
+          <div class="acct-body">
+            <div class="faq">
+              <button onclick="__faq(this)" class="q">付款后兑换码在哪里看？<span class="chev">›</span></button>
+              <div class="a">支付成功后爱发电<b>自动发货</b>：订单页「卡密」区即时显示，同时私信推送一条带码消息，一般数秒内到账，无需人工介入。</div>
+              <button onclick="__faq(this)" class="q">没收到码 / 码无效怎么办？<span class="chev">›</span></button>
+              <div class="a">先在爱发电订单页查看卡密是否已显示；仍没有可联系作者（站内私信）补发。兑换时若提示「无效或已使用」，确认粘贴完整、无前后空格。</div>
+              <button onclick="__faq(this)" class="q">兑换后有效期怎么算？<span class="chev">›</span></button>
+              <div class="a">自成功兑换当日起 <b>30 天</b>；到期自动恢复免费版，权益回归锁定态。再次购买新码兑换即可续期，不会损失剩余天数之外的时间。</div>
+            </div>
+
+            <div class="redeem">
+              <div class="lbl"><span class="dot"></span>兑换码</div>
+              <input placeholder="粘贴爱发电收到的兑换码" onclick="this.focus()">
+              <button onclick="__tip(event,'演示：调 /redeem 核销，成功后会员卡变金色')" class="btn blue">激活会员</button>
+              <div class="hint">激活后回到账号页，会员卡变为金色并展示有效期；AI 配额、复盘、周报、云同步设备数同步解锁。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cell-label">手机 B · 购买页 · 常见问题 + 兑换回填</div>
+    <p class="cell-note">FAQ 可折叠展开（演示）。兑换框与账号页同一组件——<b>购买与兑换放在同一页面</b>，减少「买完找不到入口」的流失。</p>
+  </div>
+
+  <!-- 手机 C：账号设置页 · 会员态（闭环终点） -->
+  <div class="cell">
+    <div class="phone">
+      <div class="statusbar">
+        <span>9:41</span>
+        <span class="sysicons">
+          <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3" stroke="#3a3a3c" opacity=".5"/><rect x="2" y="2" width="14" height="8" rx="1.5" fill="#3a3a3c"/><rect x="23" y="4" width="2" height="4" rx="1" fill="#3a3a3c" opacity=".5"/></svg>
+        </span>
+      </div>
+      <div class="island"></div>
+      <div class="app">
+        <div class="screen" style="position:static">
+          <div class="acct-nav">
+            <button onclick="__tip(event,'演示：返回设置页')" class="back" aria-label="返回">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <h1>账号与同步</h1>
+            <span class="chev"></span>
+          </div>
+          <div class="acct-body">
+            <div class="acct-row">
+              <div class="avatar" style="background:var(--gold-soft);color:var(--gold-strong)">王</div>
+              <div class="meta">
+                <div class="name">wangduanmao</div>
+                <div class="email">wangduanmao@daycell.app</div>
+              </div>
+              <span class="badge" style="background:var(--gold-soft);color:var(--gold-strong);display:flex;align-items:center;gap:4px">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M12 3.2l2 4.1 4.6.7-3.3 3.2.8 4.6L12 13.7l-4.1 2.1.8-4.6-3.3-3.2 4.6-.7z" fill="#B08A3E"/></svg>会员
+              </span>
+            </div>
+
+            <!-- 会员状态卡（会员态） -->
+            <div class="mcard member">
+              <div class="corner"></div>
+              <div class="top">
+                <svg class="crown" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 3.2l2 4.1 4.6.7-3.3 3.2.8 4.6L12 13.7l-4.1 2.1.8-4.6-3.3-3.2 4.6-.7z" fill="#B08A3E"/>
+                  <rect x="7.5" y="20.5" width="9" height="1.6" rx="0.8" fill="#B08A3E"/>
+                </svg>
+                <div>
+                  <div class="who">DayCell 会员</div>
+                  <div class="sub">有效期至 2026-12-04</div>
+                </div>
+              </div>
+              <div class="perk">
+                <div class="perk-line">
+                  <svg class="ic" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#B08A3E" opacity=".16"/><path d="M7.5 12.3l3 3 6-6.5" stroke="#B08A3E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  <span class="txt">AI 智能整理</span><span class="tag">每日 20 次</span>
+                </div>
+                <div class="perk-line">
+                  <svg class="ic" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#B08A3E" opacity=".16"/><path d="M7.5 12.3l3 3 6-6.5" stroke="#B08A3E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  <span class="txt">AI 周 / 月深度复盘</span><span class="tag">已解锁</span>
+                </div>
+                <div class="perk-line">
+                  <svg class="ic" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#B08A3E" opacity=".16"/><path d="M7.5 12.3l3 3 6-6.5" stroke="#B08A3E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  <span class="txt">周日周报推送</span><span class="tag">已解锁</span>
+                </div>
+                <div class="perk-line">
+                  <svg class="ic" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#B08A3E" opacity=".16"/><path d="M7.5 12.3l3 3 6-6.5" stroke="#B08A3E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  <span class="txt">云同步设备数</span><span class="tag">3 / 3</span>
+                </div>
+              </div>
+              <button onclick="__tip(event,'演示：再次进入购买页续期')" class="btn ghost">续期会员 · 购买月卡</button>
+            </div>
+
+            <div class="redeem">
+              <div class="lbl"><span class="dot"></span>兑换码</div>
+              <input value="DC-MEMBER-2026-11-04-XXXX" disabled style="background:#f5f5f7;color:var(--sub)">
+              <button onclick="__tip(event,'演示：本月已激活，续期请购买新码')" class="btn ghost sm">已激活 · 2026-11-04</button>
+              <div class="hint">再次兑换将按新码重新计算 30 天；同一账号会员期间内重复兑换顺延叠加。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cell-label">手机 C · 账号设置页 · 会员态（兑换成功）</div>
+    <p class="cell-note">兑换成功后的<b>终点状态</b>：金色卡 + 有效期 + 四项权益全部解锁；底部提供「续期」入口回到购买闭环。</p>
+  </div>
+
+</div>
+
+<!-- 闭环流程条 -->
+<div class="flow">
+  <div class="flow-label">完整购买闭环 · <b>前端</b>（本原型）＋ <b>后端</b>（生成码接口 / /redeem 核销）＋ <b>爱发电</b>（上架自动发货）</div>
+  <div class="flow-row">
+    <div class="flow-node"><span class="n">STEP 1</span><span class="t">免费会员卡</span><span class="d">「获取兑换码 · 前往购买」入口</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-node"><span class="n">STEP 2</span><span class="t">购买说明页</span><span class="d">定价 / 权益 / 三步指引</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-node gold"><span class="n">STEP 3</span><span class="t">爱发电下单</span><span class="d">微信 / 支付宝 · 自动发货卡密</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-node"><span class="n">STEP 4</span><span class="t">收到兑换码</span><span class="d">订单页 / 私信即时推送</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-node"><span class="n">STEP 5</span><span class="t">输入兑换码</span><span class="d">账号页 / 购买页兑换框</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-node gold"><span class="n">STEP 6</span><span class="t">会员生效</span><span class="d">/redeem 核销 · 金色卡 30 天</span></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(function(){
+  var toastEl = document.getElementById('toast');
+  var timer = null;
+  window.__tip = function(e, msg){
+    if(e && e.stopPropagation) e.stopPropagation();
+    var m = msg || '演示：此按钮为原型占位';
+    toastEl.textContent = m;
+    toastEl.classList.add('show');
+    clearTimeout(timer);
+    timer = setTimeout(function(){ toastEl.classList.remove('show'); }, 1800);
+  };
+  window.__go = function(id){
+    var acct = document.getElementById('acct');
+    var buy = document.getElementById('buy');
+    if(id === 'buy'){ acct.classList.add('off'); buy.classList.remove('off'); }
+    else { buy.classList.add('off'); acct.classList.remove('off'); }
+  };
+  window.__focusRedeem = function(){
+    var box = document.getElementById('redeemBox');
+    var inp = document.getElementById('redeemInput');
+    box.scrollIntoView({behavior:'smooth', block:'center'});
+    setTimeout(function(){ if(inp) inp.focus(); }, 350);
+  };
+  window.__faq = function(btn){
+    var open = btn.classList.contains('open');
+    var root = btn.parentElement;
+    var qs = root.querySelectorAll('.q');
+    for(var i=0;i<qs.length;i++) qs[i].classList.remove('open');
+    if(!open) btn.classList.add('open');
+  };
+})();
+</script>
+</body>
+</html>
