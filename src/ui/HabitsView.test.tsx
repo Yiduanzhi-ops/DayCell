@@ -9,7 +9,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import '@testing-library/jest-dom/vitest'
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react'
 import { createMemoryStore, type DateKey } from '@core'
 import { initCore } from '@/app/bootstrap'
 import { createAppStore } from '@/app/store'
@@ -137,6 +137,34 @@ describe('习惯模块（v8.0）', () => {
     // 回今天：9/29 是周二，周三习惯不出现 → 今日区块无「阅读」（改频率生效）
     fireEvent.click(screen.getByRole('button', { name: '返回' }))
     expect(screen.queryByText('阅读')).not.toBeInTheDocument()
+  })
+
+  it('长按拖动换序：松手后顺序持久化到列表与今日区块', async () => {
+    const store = await renderApp()
+    await openHabitSettings()
+    await createHabit('喝水', null)
+    await createHabit('运动', null)
+    expect(store.getState().habitList.map((h) => h.name)).toEqual(['喝水', '运动'])
+
+    // jsdom 缺 setPointerCapture → 打桩
+    if (typeof HTMLElement.prototype.setPointerCapture !== 'function') {
+      Object.defineProperty(HTMLElement.prototype, 'setPointerCapture', { value: () => {}, writable: true })
+    }
+    const overlay = screen.getByRole('dialog', { name: '习惯设置' })
+    const row = within(overlay).getByText('喝水').closest('li')!
+    fireEvent.pointerDown(row, { pointerId: 1, clientX: 0, clientY: 0 })
+    await new Promise((r) => setTimeout(r, 260)) // 长按激活拖拽
+    // jsdom rect 全 0 → 指针落点判为末尾 → 喝水拖到最后
+    fireEvent.pointerMove(row, { pointerId: 1, clientX: 0, clientY: 0 })
+    fireEvent.pointerUp(row, { pointerId: 1, clientX: 0, clientY: 0 })
+
+    await waitFor(() => expect(store.getState().habitList.map((h) => h.name)).toEqual(['运动', '喝水']), {
+      timeout: 5000,
+    })
+    // 今日区块与列表同源（refreshHabits 排序后全量下发），回今天确认渲染不报错
+    fireEvent.click(screen.getByRole('button', { name: '返回' }))
+    expect(await screen.findByText('运动')).toBeInTheDocument()
+    expect(screen.getByText('喝水')).toBeInTheDocument()
   })
 
   it('删除习惯 → 今日区块回到空状态', async () => {

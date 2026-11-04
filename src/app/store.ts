@@ -297,6 +297,8 @@ export interface AppState {
   closeHabits(): void
   createHabit(input: { name: string; freq: HabitFreq }): Promise<boolean>
   updateHabit(id: string, patch: Partial<{ name: string; freq: HabitFreq; paused: boolean }>): Promise<boolean>
+  /** v8.67 拖拽换序：按新顺序写入 order（0 起），全量刷一次 */
+  reorderHabits(ids: string[]): Promise<boolean>
   deleteHabit(id: string): Promise<boolean>
   /** 打卡/取消（纯勾选）；成功后刷新今日习惯 */
   toggleHabit(date: DateKey, habitId: string): Promise<void>
@@ -1489,7 +1491,14 @@ export function createAppStore(
 
     async refreshHabits() {
       try {
-        const habitList = await repos.habits.all()
+        const list = await repos.habits.all()
+        // v8.67：手动排序优先（order 序号），缺省按 createdAt 兜底
+        const habitList = [...list].sort((a, b) => {
+          const ao = a.order ?? Number.MAX_SAFE_INTEGER
+          const bo = b.order ?? Number.MAX_SAFE_INTEGER
+          if (ao !== bo) return ao - bo
+          return a.createdAt - b.createdAt
+        })
         set({ habitList })
       } catch (e) {
         get().showToast(errMsg(e))
@@ -1522,6 +1531,21 @@ export function createAppStore(
     async updateHabit(id, patch) {
       try {
         await repos.habits.update(id, patch)
+        set({ dataVer: get().dataVer + 1 })
+        await get().refreshHabits()
+        await get().refresh()
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async reorderHabits(ids) {
+      try {
+        for (let i = 0; i < ids.length; i++) {
+          await repos.habits.update(ids[i], { order: i })
+        }
         set({ dataVer: get().dataVer + 1 })
         await get().refreshHabits()
         await get().refresh()
