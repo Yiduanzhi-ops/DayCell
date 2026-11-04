@@ -8,11 +8,18 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.65'
+const CURRENT_VERSION = 'v8.66'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.66',
+    date: '2026-11-04',
+    items: [
+      '习惯设置页新增「编辑」：每个习惯可直接改名称与频率（每天 / 每周选星期几），改完自动生效，不用再删除重建',
+    ],
+  },
   {
     version: 'v8.65',
     date: '2026-10-26',

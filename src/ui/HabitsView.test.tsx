@@ -114,6 +114,31 @@ describe('习惯模块（v8.0）', () => {
     expect(await screen.findByText('运动 30 分钟')).toBeInTheDocument()
   })
 
+  it('原地编辑习惯：改名 + 改频率 → 列表与今日区块同步更新', async () => {
+    await renderApp()
+    await openHabitSettings()
+    await createHabit('喝水', null) // 每天
+
+    // 打开编辑：名称与频率预填
+    fireEvent.click(screen.getByRole('button', { name: '编辑习惯：喝水' }))
+    expect(await screen.findByRole('dialog', { name: '编辑习惯' })).toBeInTheDocument()
+    const input = screen.getByPlaceholderText('如：多喝水 / 运动 30 分钟') as HTMLInputElement
+    expect(input.value).toBe('喝水')
+
+    // 改名 + 改成每周周三
+    fireEvent.change(input, { target: { value: '阅读' } })
+    fireEvent.click(screen.getByRole('button', { name: '每周' }))
+    fireEvent.click(screen.getByRole('button', { name: '周三' }))
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(screen.queryByText('喝水')).not.toBeInTheDocument())
+    expect(screen.getByText('阅读')).toBeInTheDocument()
+    expect(screen.getByText(/每周/)).toBeInTheDocument() // 频率徽标更新
+
+    // 回今天：9/29 是周二，周三习惯不出现 → 今日区块无「阅读」（改频率生效）
+    fireEvent.click(screen.getByRole('button', { name: '返回' }))
+    expect(screen.queryByText('阅读')).not.toBeInTheDocument()
+  })
+
   it('删除习惯 → 今日区块回到空状态', async () => {
     await renderApp()
     await openHabitSettings()
