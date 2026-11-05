@@ -89,6 +89,7 @@ describe('parseBackup', () => {
       checkins: [],
       annivchecks: [],
       reviews: [],
+      folders: [],
       settings: [],
     },
   })
@@ -168,6 +169,7 @@ describe('mergeBackup（合并导入）', () => {
       checkins: [],
       annivchecks: [],
       reviews: [],
+      folders: [],
         settings: [],
       },
     }
@@ -193,7 +195,7 @@ describe('mergeBackup（合并导入）', () => {
       exportedAt: 1,
       schemaVersion: 1,
       data: {
-        todos: [], notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], subtasks: [], habits: [], checkins: [], annivchecks: [], reviews: [],
+        todos: [], notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], subtasks: [], habits: [], checkins: [], annivchecks: [], folders: [], reviews: [],
         settings: [
           { key: 'onboarded', value: true, updatedAt: 9_999 },
           { key: 'weekStartsOn', value: 0, updatedAt: 1 },
@@ -215,7 +217,7 @@ describe('mergeBackup（合并导入）', () => {
       schemaVersion: 1,
       data: {
         todos: [{ ...local }],
-        notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], subtasks: [], habits: [], checkins: [], annivchecks: [], reviews: [], settings: [],
+        notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], subtasks: [], habits: [], checkins: [], annivchecks: [], reviews: [], folders: [], settings: [],
       },
     }
     const stats = await mergeBackup(store, file)
@@ -233,7 +235,7 @@ describe('mergeBackup（合并导入）', () => {
       exportedAt: 1,
       schemaVersion: 1,
       data: {
-        todos: [], notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], subtasks: [], habits: [], checkins: [], annivchecks: [],
+        todos: [], notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], subtasks: [], habits: [], checkins: [], annivchecks: [], folders: [],
         reviews: [
           { ...local, text: '备份改过的文本', updatedAt: 9_999 },
           { id: 'rv-new', type: 'review', date: k('2026-09-30'), text: '备份新增复盘', createdAt: 1_800_000_000_000, updatedAt: 1_800_000_000_000, deleted: false },
@@ -262,7 +264,7 @@ describe('mergeBackup（合并导入）', () => {
       exportedAt: 1,
       schemaVersion: 1,
       data: {
-        todos: [], notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], subtasks: [], habits: [], checkins: [], annivchecks: [], settings: [],
+        todos: [], notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], subtasks: [], habits: [], checkins: [], annivchecks: [], folders: [], settings: [],
       },
     }
     // 老格式没有 reviews 键

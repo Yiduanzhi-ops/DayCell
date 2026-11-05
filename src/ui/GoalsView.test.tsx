@@ -10,7 +10,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from 'vitest'
 import '@testing-library/jest-dom/vitest'
-import { render, screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, cleanup, act, within } from '@testing-library/react'
 import { createMemoryStore, type DateKey } from '@core'
 import { initCore } from '@/app/bootstrap'
 import { createAppStore } from '@/app/store'
@@ -169,7 +169,9 @@ describe('目标模块（v7.9）', () => {
     await waitFor(() => expect(screen.getAllByText('基础学习').length).toBeGreaterThan(0))
 
     fireEvent.click(screen.getByRole('button', { name: '删除目标' }))
-    // 删除 = 级联事务 + 列表刷新，异步链较长
+    // v9.14.3 删除目标二次确认：确认后 = 级联事务 + 列表刷新，异步链较长
+    const delDialog = await screen.findByRole('dialog', { name: '删除目标' })
+    fireEvent.click(within(delDialog).getByRole('button', { name: '删除目标' }))
     await waitFor(() => expect(screen.getByText(/还没有目标/)).toBeInTheDocument(), { timeout: 5000 })
   })
 
@@ -498,3 +500,183 @@ describe('目标模块（v7.9）', () => {
     expect(screen.queryByText('已完成框架')).not.toBeInTheDocument()
   })
 })
+
+// ===========================================================================
+// v9.14 目标文件夹（chips 区 / 新建选夹 / 卡片标签 / 详情移动 / 删夹移出未分类）
+// ===========================================================================
+
+describe('目标文件夹（v9.14）', () => {
+  it('新建文件夹 → chips 出现；新建目标可选放入 → 卡片显示文件夹标签', async () => {
+    await renderApp()
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => expect(screen.getByText(/进行中的目标/)).toBeInTheDocument())
+
+    // 无文件夹时仍显示「新建文件夹」入口
+    expect(screen.getByRole('button', { name: '＋ 新建文件夹' })).toBeInTheDocument()
+
+    // 新建文件夹
+    fireEvent.click(screen.getByRole('button', { name: '＋ 新建文件夹' }))
+    fireEvent.change(screen.getByPlaceholderText(/2026 考证/), { target: { value: '2026 考证' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: '2026 考证 0' })).toBeInTheDocument())
+
+    // 新建目标 → 表单里选「放入文件夹」→ 卡片带标签
+    fireEvent.click(screen.getByRole('button', { name: '＋ 新建目标' }))
+    fireEvent.change(screen.getByPlaceholderText(/复习考公/), { target: { value: '考公刷题' } })
+    fireEvent.click(screen.getByRole('button', { name: '2026 考证' }))
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
+    await waitFor(() => expect(screen.getByText('考公刷题')).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: '2026 考证 1' })).toBeInTheDocument()
+    // 分组视图：组头「2026 考证（1）」+ chips「2026 考证 1」均含文件夹名（卡片小标签已隐藏）
+    expect(screen.getAllByText(/2026 考证/).length).toBeGreaterThan(0)
+  })
+
+  it('详情页「移动到文件夹」：从未分类移入 → 卡片标签出现', async () => {
+    const { store } = await renderAppWrap()
+    const s = store.getState()
+    await s.createFolder('学习')
+    await s.createGoal('英语', '', null)
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => expect(screen.getByText('英语')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByText('英语'))
+    await waitFor(() => expect(screen.getByRole('button', { name: '移动到文件夹' })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: '移动到文件夹' }))
+    await waitFor(() => expect(screen.getByRole('dialog', { name: '移动到文件夹' })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: '学习' }))
+    fireEvent.click(screen.getByRole('button', { name: '移动' }))
+    // 回列表，卡片带「学习」标签
+    await waitFor(() => expect(screen.getAllByText('学习').length).toBeGreaterThan(0))
+  })
+
+  it('过滤视图：组头折叠持久化 + 删除文件夹 → 目标自动移出到未分类', async () => {
+    const { store } = await renderAppWrap()
+    const s = store.getState()
+    await s.createFolder('工作')
+    const fid = store.getState().folderList[0]?.folder.id
+    expect(fid).toBeTruthy()
+    await s.createGoal('交付上线', '', fid)
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: /工作 \d/ })).toBeInTheDocument())
+
+    // 进过滤视图 → 组头出现 → 折叠（无占位行，目标隐藏、组头仍在）
+    fireEvent.click(screen.getByRole('button', { name: /工作 \d/ }))
+    await waitFor(() => expect(screen.getByText('工作（1）')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: '折叠文件夹' }))
+    await waitFor(() => expect(screen.queryByText('交付上线')).not.toBeInTheDocument())
+    expect(screen.getByText('工作（1）')).toBeInTheDocument()
+
+    // 菜单 → 删除文件夹 → 确认
+    fireEvent.click(screen.getByRole('button', { name: '文件夹菜单' }))
+    await waitFor(() => expect(screen.getByText('删除文件夹')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('删除文件夹'))
+    await waitFor(() => expect(screen.getByText(/自动移出到未分类/)).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: '删除文件夹' }))
+    // 回到「全部」，chips 消失，目标仍在（未分类）
+    await waitFor(() => expect(screen.getByText('交付上线')).toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: /工作 \d/ })).not.toBeInTheDocument()
+  })
+
+  it('文件夹视图内新建目标 → 自动归属该文件夹（无需手动选夹）', async () => {
+    const { store } = await renderAppWrap()
+    const s = store.getState()
+    await s.createFolder('工作')
+    const fid = store.getState().folderList[0]?.folder.id
+    expect(fid).toBeTruthy()
+    await s.createGoal('既有目标', '', fid)
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: /工作 \d/ })).toBeInTheDocument())
+
+    // 进入文件夹视图 → 「＋ 新建目标」直接创建（不手动选夹）
+    fireEvent.click(screen.getByRole('button', { name: /工作 \d/ }))
+    await waitFor(() => expect(screen.getByText('文件夹中的目标（1）')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: '＋ 新建目标' }))
+    fireEvent.change(screen.getByPlaceholderText(/复习考公/), { target: { value: '文件夹内新建' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
+    // 自动归属：文件夹视图计数 +1、新目标可见、chips 计数同步
+    await waitFor(() => expect(screen.getByText('文件夹中的目标（2）')).toBeInTheDocument())
+    expect(screen.getByText('文件夹内新建')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /工作 2/ })).toBeInTheDocument()
+  })
+
+  it('空文件夹视图：仍提供「＋ 新建目标」入口，新建后自动归属', async () => {
+    const { store } = await renderAppWrap()
+    const s = store.getState()
+    await s.createFolder('空夹')
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: /空夹 \d/ })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /空夹 \d/ }))
+    await waitFor(() => expect(screen.getByText('这个文件夹还没有目标')).toBeInTheDocument())
+    // 空态内也有新建入口
+    const btn = screen.getByRole('button', { name: '＋ 新建目标' })
+    expect(btn).toBeInTheDocument()
+    fireEvent.click(btn)
+    fireEvent.change(screen.getByPlaceholderText(/复习考公/), { target: { value: '空夹首个目标' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
+    // 自动归属：空态消失 → 文件夹视图出现该目标
+    await waitFor(() => expect(screen.getByText('文件夹中的目标（1）')).toBeInTheDocument())
+    expect(screen.getByText('空夹首个目标')).toBeInTheDocument()
+  })
+
+  it('全部视图分组：文件夹组顺序 + 折叠 + 未分类沉底 + 组内新建自动归属', async () => {
+    const { store } = await renderAppWrap()
+    const s = store.getState()
+    await s.createFolder('甲夹')
+    const fidA = store.getState().folderList.find((f) => f.folder.name === '甲夹')?.folder.id
+    await s.createFolder('乙夹')
+    const fidB = store.getState().folderList.find((f) => f.folder.name === '乙夹')?.folder.id
+    await s.createGoal('甲目标', '', fidA ?? null)
+    await s.createGoal('乙目标', '', fidB ?? null)
+    await s.createGoal('散目标', '', null)
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    // 分组组头：甲夹 → 乙夹 → 未分类（沉底）
+    await waitFor(() => expect(screen.getByText('甲夹（1）')).toBeInTheDocument())
+    const body = (): string => document.body.textContent ?? ''
+    expect(body().indexOf('乙夹（1）')).toBeGreaterThan(body().indexOf('甲夹（1）'))
+    expect(body().indexOf('未分类（1）')).toBeGreaterThan(body().indexOf('乙夹（1）'))
+    // 折叠乙夹 → 乙目标隐藏；组头仍在（▸ + 名称（N）），无占位行
+    fireEvent.click(screen.getAllByRole('button', { name: '折叠文件夹' })[1])
+    await waitFor(() => expect(screen.queryByText('乙目标')).not.toBeInTheDocument())
+    expect(screen.getByText('乙夹（1）')).toBeInTheDocument()
+    expect(screen.queryByText(/已折叠/)).not.toBeInTheDocument()
+    // 展开乙夹 → 目标回来（折叠后仅乙夹为「展开文件夹」）
+    fireEvent.click(screen.getAllByRole('button', { name: '展开文件夹' })[0])
+    await waitFor(() => expect(screen.getByText('乙目标')).toBeInTheDocument())
+    // 甲夹组内「＋ 新建目标」→ 自动归属甲夹
+    fireEvent.click(screen.getAllByRole('button', { name: '＋ 新建目标' })[0])
+    fireEvent.change(screen.getByPlaceholderText(/复习考公/), { target: { value: '甲夹新建' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
+    await waitFor(() => expect(screen.getByText('甲夹（2）')).toBeInTheDocument())
+    expect(screen.getByText('甲夹新建')).toBeInTheDocument()
+  })
+
+  it('删除目标二次确认：取消不删，确认后删除并回列表', async () => {
+    const { store } = await renderAppWrap()
+    const s = store.getState()
+    await s.createGoal('待删', '', null)
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => expect(screen.getByText('待删')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('待删'))
+    await waitFor(() => screen.getByRole('tab', { name: '阶段' }))
+    fireEvent.click(screen.getByRole('button', { name: '删除目标' }))
+    const delDialog = await screen.findByRole('dialog', { name: '删除目标' })
+    // 取消 → 弹层关闭、目标仍在
+    fireEvent.click(within(delDialog).getByRole('button', { name: '取消' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(screen.getByText('待删')).toBeInTheDocument()
+    // 再次删除并确认 → 删除成功回列表
+    fireEvent.click(screen.getByRole('button', { name: '删除目标' }))
+    const delDialog2 = await screen.findByRole('dialog', { name: '删除目标' })
+    fireEvent.click(within(delDialog2).getByRole('button', { name: '删除目标' }))
+    await waitFor(() => expect(screen.queryByText('待删')).not.toBeInTheDocument())
+    expect(screen.getByText(/还没有目标/)).toBeInTheDocument()
+  })
+})
+async function renderAppWrap() {
+  localStorage.clear()
+  const bundle = await initCore({ store: createMemoryStore(), skipLunar: true })
+  const store = createAppStore(bundle, { today: TODAY, isNarrow: () => false })
+  await store.getState().init()
+  render(<App store={store} />)
+  return { store }
+}

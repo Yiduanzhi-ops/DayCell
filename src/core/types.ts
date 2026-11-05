@@ -45,6 +45,13 @@ export interface TodoRecord extends DatedRecord {
   /** v8.53 截止日（可选）：带截止日的待办=DDL 待办，未完成时**每天出现**在日视图
    *  置顶组（按截止日紧迫度排序），完成或删除后消失；不参与顺延（rolledTo 机制） */
   deadline?: DateKey
+  /** v9.2.2 具体时间（可选）：'HH:mm'（如 '14:30'）。设了 → 今日视图置顶按时刻排 + 行内时间标签 + 通知文案带时刻 */
+  time?: string
+  /** v9.2.3 时间语义（可选，仅随 time 存在时有意义）：
+   *  'due'=截止时刻（配合 deadline，展示「截止 X 14:00」，逾期标红）；
+   *  'at'=提醒/开始时刻（只在提醒日期当天显示，展示「X 14:00 提醒」，过点置灰、不标逾期）。
+   *  老数据无此字段时：有 deadline 按 due 展示，无 deadline 按 at 展示。 */
+  timeType?: 'due' | 'at'
   /**
    * v8.63 子任务来源（可选）：由目标子任务「加入今日待办」生成，text 快照子任务标题。
    * 语义：当天有效（date=加入当天）；可勾选（=当天打卡，联动 subtask.workDates）、
@@ -138,6 +145,22 @@ export interface GoalRecord extends CoreRecord {
    *  旧记录/旧备份无此字段 → 读路径一律按 false 归一化；favoritedAt 仅收藏时写入 */
   favorite?: boolean
   favoritedAt?: number
+  /** v9.14 目标所属文件夹（可空 = 未分类，直接创建目标天然成立）。
+   *  旧记录/旧备份无此字段 → 读路径一律按 null 归一化；删除文件夹后目标自动归入未分类（读路径归一化，不改记录） */
+  folderId?: string
+}
+
+/** v9.14 目标文件夹：一层扁平，不嵌套。文件夹可创建/删除/收藏/折叠；
+ *  删除文件夹时其内目标**自动移出到未分类**（读路径归一化：folder 不存在或已墓碑即视为未分类）。
+ *  旧记录/旧备份无此表 → 读路径按空列表处理 */
+export interface FolderRecord extends CoreRecord {
+  type: 'folder'
+  name: string
+  /** v9.14 文件夹收藏：置顶排序（与目标收藏同套路：favoritedAt 仅收藏时写入） */
+  favorite?: boolean
+  favoritedAt?: number
+  /** v9.14 折叠状态：折叠时列表只显示文件夹标题行，隐藏其内目标 */
+  collapsed?: boolean
 }
 
 export interface StageRecord extends CoreRecord {
@@ -246,7 +269,7 @@ export const SETTING_KEYS = [
 
 export type SettingKey = (typeof SETTING_KEYS)[number]
 
-/** 十二个 store（PRD §6.3，v7.9 加 goals/stages，v8.0 加 habits/checkins，v8.29 加 annivchecks，v8.42 加 reviews） */
+/** 十三个 store（PRD §6.3，v7.9 加 goals/stages，v8.0 加 habits/checkins，v8.29 加 annivchecks，v8.42 加 reviews，v9.14 加 folders） */
 export type StoreName =
   | 'todos'
   | 'notes'
@@ -260,6 +283,7 @@ export type StoreName =
   | 'checkins'
   | 'annivchecks'
   | 'reviews'
+  | 'folders'
   | 'settings'
 
 /** 存放带归属日内容记录的 store（v8.42 加 reviews） */
@@ -280,6 +304,7 @@ export const ALL_STORES: readonly StoreName[] = [
   'checkins',
   'annivchecks',
   'reviews',
+  'folders',
   'settings',
 ]
 
@@ -309,5 +334,6 @@ export interface RecordTable {
   checkins: CheckinRecord[]
   annivchecks: AnnivCheckRecord[]
   reviews: ReviewRecord[]
+  folders: FolderRecord[]
   settings: SettingRecord[]
 }

@@ -10,7 +10,7 @@
  *  - 备份合并含 goals/stages；旧备份（无这两段）仍可导入
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import type { GoalRecord, StageRecord, StoreName, DateKey } from '../types'
+import type { FolderRecord, GoalRecord, StageRecord, StoreName, DateKey } from '../types'
 import { createMemoryStore } from '../store/memory'
 import type { RecordStore } from '../store/types'
 import { createFakeClock, type FakeClock } from '../clock'
@@ -577,5 +577,122 @@ describe('v8.45 子任务打卡', () => {
     await repos.subtasks.softDelete(b.id)
     const sum2 = await agg.goalSummaries()
     expect(sum2.find((x) => x.goal.id === g.id)?.activeDays).toBe(2)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// v9.14 目标文件夹
+// ---------------------------------------------------------------------------
+
+describe('folders', () => {
+  it('create：名称 trim；超长拒绝（LIMITS.folderName=12）', async () => {
+    const f = await repos.folders.create({ name: '  2026 考证  ' })
+    expect(f.name).toBe('2026 考证')
+    expect(f.type).toBe('folder')
+    expect(f.deleted).toBe(false)
+    await expect(repos.folders.create({ name: 'x'.repeat(13) })).rejects.toThrow(ValidationError)
+    await expect(repos.folders.create({ name: '  ' })).rejects.toThrow(ValidationError)
+  })
+
+  it('all：只返回活文件夹', async () => {
+    const f = await repos.folders.create({ name: 'A' })
+    await repos.folders.create({ name: 'B' })
+    await repos.folders.softDelete(f.id)
+    const all = await repos.folders.all()
+    expect(all.map((x) => x.name)).toEqual(['B'])
+  })
+
+  it('setFavorite：收藏写 favorite+favoritedAt；取消收藏同清（与目标同套路）', async () => {
+    const f = await repos.folders.create({ name: 'A' })
+    const fav = await repos.folders.setFavorite(f.id, true)
+    expect(fav.favorite).toBe(true)
+    expect(fav.favoritedAt).toBe(clock())
+    const unfav = await repos.folders.setFavorite(f.id, false)
+    expect(unfav.favorite).toBeUndefined()
+    expect(unfav.favoritedAt).toBeUndefined()
+  })
+
+  it('setCollapsed：写 true/清 undefined', async () => {
+    const f = await repos.folders.create({ name: 'A' })
+    const c = await repos.folders.setCollapsed(f.id, true)
+    expect(c.collapsed).toBe(true)
+    const u = await repos.folders.setCollapsed(f.id, false)
+    expect(u.collapsed).toBeUndefined()
+  })
+
+  it('goals.create/update：folderId 写入与清除（null/undefined 清除字段）', async () => {
+    const f = await repos.folders.create({ name: 'A' })
+    const g = await repos.goals.create({ title: '目标', folderId: f.id })
+    expect(g.folderId).toBe(f.id)
+    // 未传 folderId → 不写字段（未分类）
+    const g2 = await repos.goals.create({ title: '目标2' })
+    expect('folderId' in g2).toBe(false)
+    // 移出到未分类
+    const moved = await repos.goals.update(g.id, { folderId: null })
+    expect('folderId' in moved).toBe(false)
+    // 再移入
+    const back = await repos.goals.update(g.id, { folderId: f.id })
+    expect(back.folderId).toBe(f.id)
+  })
+
+  it('softDelete：删夹不连带删目标（目标保留 folderId，聚合层归一化为未分类）', async () => {
+    const f = await repos.folders.create({ name: 'A' })
+    const g = await repos.goals.create({ title: '目标', folderId: f.id })
+    await repos.folders.softDelete(f.id)
+
+    // 文件夹没了
+    expect((await repos.folders.all()).length).toBe(0)
+    // 目标还在，folderId 保留
+    const [gs] = await Promise.all([repos.goals.all()])
+    expect(gs.find((x) => x.id === g.id)?.folderId).toBe(f.id)
+    // 聚合读路径：folder = null（未分类）
+    const sums = await agg.goalSummaries()
+    expect(sums.find((x) => x.goal.id === g.id)?.folder).toBeNull()
+  })
+
+  it('foldersAll：收藏置顶 + 目标计数；goalSummaries.folder 归一化', async () => {
+    const f1 = await repos.folders.create({ name: 'A' })
+    const f2 = await repos.folders.create({ name: 'B' })
+    await repos.folders.setFavorite(f2.id, true)
+    await repos.goals.create({ title: 'g1', folderId: f1.id })
+    await repos.goals.create({ title: 'g2', folderId: f2.id })
+    await repos.goals.create({ title: 'g3' }) // 未分类
+
+    const list = await agg.foldersAll()
+    expect(list.map((x) => x.folder.name)).toEqual(['B', 'A']) // 收藏在前
+    expect(list.find((x) => x.folder.id === f1.id)?.count).toBe(1)
+    expect(list.find((x) => x.folder.id === f2.id)?.count).toBe(1)
+
+    const sums = await agg.goalSummaries()
+    expect(sums.find((x) => x.goal.title === 'g1')?.folder?.name).toBe('A')
+    expect(sums.find((x) => x.goal.title === 'g3')?.folder).toBeNull()
+  })
+
+  it('备份：folders 随 serialize 导出、随 merge 补入；旧备份无 folders 键仍可导入', async () => {
+    const f = await repos.folders.create({ name: 'A' })
+    await repos.goals.create({ title: '目标', folderId: f.id })
+
+    // 导出含 folders
+    const file = await serializeBackup(store)
+    expect(file.data.folders.map((x) => x.name)).toEqual(['A'])
+
+    // 合并到空库：folders 补入
+    const store2 = createMemoryStore({ now: clock })
+    await store2.init()
+    const stats = await mergeBackup(store2, file)
+    expect(stats.added.folders).toBe(1)
+    const f2 = await store2.all<FolderRecord>('folders')
+    expect(f2.map((x) => x.name)).toEqual(['A'])
+
+    // 旧备份（无 folders 键）→ parse 自动补空数组，不炸
+    const oldText = JSON.stringify({
+      app: 'daycell',
+      version: 1,
+      exportedAt: clock(),
+      schemaVersion: 1,
+      data: { todos: [], notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], subtasks: [], habits: [], checkins: [], annivchecks: [], reviews: [], settings: [] },
+    })
+    const parsed = await parseBackup(oldText)
+    expect(parsed.data.folders).toEqual([])
   })
 })

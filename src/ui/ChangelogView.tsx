@@ -8,11 +8,18 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.71'
+const CURRENT_VERSION = 'v8.72'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.72',
+    date: '2026-11-05',
+    items: [
+      '目标文件夹：把目标整理进文件夹，一键折叠分组、收藏置顶；文件夹内新建目标自动归入',
+    ],
+  },
   {
     version: 'v8.71',
     date: '2026-11-04',

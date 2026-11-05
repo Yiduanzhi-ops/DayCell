@@ -17,6 +17,7 @@ import type {
   CoreRecord,
   DateKey,
   ExpenseRecord,
+  FolderRecord,
   GoalRecord,
   HabitFreq,
   HabitRecord,
@@ -39,6 +40,7 @@ import {
   parseCategoryName,
   parseDateKey,
   parseExpenseNote,
+  parseFolderName,
   parseGoalNote,
   parseGoalTitle,
   parseHabitFreq,
@@ -52,6 +54,8 @@ import {
   parseProgressNote,
   parseTodoText,
   parseDeadline,
+  parseTodoTime,
+  parseTodoTimeType,
   type ParseResult,
 } from '../validate'
 
@@ -80,13 +84,15 @@ export interface RollOverResult {
 
 export interface TodoRepo {
   byDate(date: DateKey): Promise<TodoRecord[]>
-  /** v8.63 第 4 参 subtaskId：子任务「加入今日待办」来源标记（可选）；v8.64 第 5 参来源目标标题快照 */
-  create(date: DateKey, text: string, deadline?: string | null, subtaskId?: string, subtaskGoalTitle?: string): Promise<TodoRecord>
+  /** v9.2.2 第 4 参 time：具体时间（可选）；v9.2.3 第 7 参 timeType：'due'|'at'（可选）；v8.63 第 5 参 subtaskId：子任务来源标记（可选）；v8.64 第 6 参来源目标标题快照 */
+  create(date: DateKey, text: string, deadline?: string | null, time?: string | null, subtaskId?: string, subtaskGoalTitle?: string, timeType?: 'due' | 'at' | null): Promise<TodoRecord>
   /** v8.63 按 id 取待办（含已删除；toggle/delete 联动读取用） */
   byId(id: string): Promise<TodoRecord>
   setText(id: string, text: string): Promise<TodoRecord>
   /** v8.53 设/清截止日（null = 清除）；非法日期抛 BAD_DATE */
   setDeadline(id: string, deadline: string | null): Promise<TodoRecord>
+  /** v9.2.2 设/清具体时间（null = 清除）；v9.2.3 可同时设 timeType（null = 清除）；非法格式抛 BAD_VALUE */
+  setTime(id: string, time: string | null, timeType?: 'due' | 'at' | null): Promise<TodoRecord>
   toggle(id: string): Promise<TodoRecord>
   softDelete(id: string): Promise<void>
   rollOver(from: DateKey, to: DateKey): Promise<RollOverResult>
@@ -239,17 +245,42 @@ export interface GoalInput {
   note?: string
   /** v8.10 目标层级当前进度（可空；空对象 = 无进度） */
   progress?: ProgressField
+  /** v9.14 可选：所属文件夹（空/缺省 = 未分类，直接创建目标天然成立） */
+  folderId?: string | null
 }
 
 export interface GoalRepo {
   all(): Promise<GoalRecord[]>
   create(input: GoalInput): Promise<GoalRecord>
-  update(id: string, patch: Partial<GoalInput>): Promise<GoalRecord>
+  /** v9.14 folderId 传 null 表示移出到未分类（清除字段）；undefined 表示不改 */
+  update(id: string, patch: Partial<Omit<GoalInput, 'title'>> & { title?: string }): Promise<GoalRecord>
   /** 目标整体完成/取消完成（v7.9 补：完成的目标沉底到「已完成」列表） */
   setDone(id: string, done: boolean): Promise<GoalRecord>
   /** v8.43 目标收藏/取消收藏：收藏时写 favoritedAt（列表置顶按它倒序）；取消时两字段一起清掉 */
   setFavorite(id: string, favorite: boolean): Promise<GoalRecord>
   /** 软删目标，**连带软删其全部阶段**（单事务） */
+  softDelete(id: string): Promise<void>
+}
+
+// ---------------------------------------------------------------------------
+// 目标文件夹（v9.14）：一层扁平，不嵌套
+// ---------------------------------------------------------------------------
+
+export interface FolderInput {
+  name: string
+}
+
+export interface FolderRepo {
+  /** 全部**活**文件夹（墓碑被过滤）；排序由聚合层做（收藏置顶 + createdAt） */
+  all(): Promise<FolderRecord[]>
+  create(input: FolderInput): Promise<FolderRecord>
+  /** 改名（菜单暂不提供入口，接口预留） */
+  update(id: string, patch: Partial<FolderInput>): Promise<FolderRecord>
+  /** 收藏/取消收藏：与目标收藏同套路（favoritedAt 仅收藏时写入） */
+  setFavorite(id: string, favorite: boolean): Promise<FolderRecord>
+  /** 折叠/展开：折叠时列表只显示标题行，隐藏其内目标 */
+  setCollapsed(id: string, collapsed: boolean): Promise<FolderRecord>
+  /** 软删文件夹：其内目标**不连带删除**，读路径归一化为未分类 */
   softDelete(id: string): Promise<void>
 }
 
@@ -350,6 +381,7 @@ export interface Repos {
   goals: GoalRepo
   stages: StageRepo
   subtasks: SubtaskRepo
+  folders: FolderRepo
   habits: HabitRepo
   checkins: CheckinRepo
   reviews: ReviewRepo
@@ -361,7 +393,7 @@ export function createRepos(deps: RepoDeps): Repos {
   const now = deps.now ?? systemClock
   const idGen = deps.idGen ?? createIdGen()
 
-  type MutableStore = 'todos' | 'notes' | 'expenses' | 'anniversaries' | 'categories' | 'goals' | 'stages' | 'subtasks' | 'habits' | 'checkins' | 'annivchecks' | 'reviews'
+  type MutableStore = 'todos' | 'notes' | 'expenses' | 'anniversaries' | 'categories' | 'goals' | 'stages' | 'subtasks' | 'folders' | 'habits' | 'checkins' | 'annivchecks' | 'reviews'
 
   /** 取一条活记录；不存在或已是墓碑都算 NotFound（PRD E19：可能已被其他标签页删除） */
   const mustGet = async <T extends CoreRecord>(storeName: MutableStore, id: string): Promise<T> => {
@@ -380,11 +412,15 @@ export function createRepos(deps: RepoDeps): Repos {
   const todos: TodoRepo = {
     byDate: (date) => store.byDate<TodoRecord>('todos', date, date),
 
-    async create(date, text, deadline, subtaskId, subtaskGoalTitle) {
+    async create(date, text, deadline, time, subtaskId, subtaskGoalTitle, timeType) {
       unwrap(parseDateKey(date))
       const t = unwrap(parseTodoText(text))
       // v8.53 可选截止日：空串/null/undefined = 普通待办；非空必须合法日期
       const ddl = deadline === undefined || deadline === null ? undefined : unwrap(parseDeadline(deadline))
+      // v9.2.2 可选具体时间：空串/null/undefined = 无时间；非空必须 HH:mm
+      const tm = time === undefined || time === null ? undefined : unwrap(parseTodoTime(time))
+      // v9.2.3 可选时间语义：仅当设了 time 时才有意义；非法值抛 BAD_VALUE
+      const ttp = timeType === undefined || timeType === null ? undefined : unwrap(parseTodoTimeType(timeType))
       // v8.63 可选子任务来源（加入今日待办）：子任务删除后该标记随待办保留（文字快照）
       const stid = subtaskId === undefined || subtaskId === null ? undefined : String(subtaskId).slice(0, 64)
       // v8.64 可选来源目标标题快照：待办行标注「· 目标名」用；同样截 64 字符
@@ -397,6 +433,8 @@ export function createRepos(deps: RepoDeps): Repos {
         text: t,
         done: false,
         ...(ddl ? { deadline: ddl } : {}),
+        ...(tm ? { time: tm } : {}),
+        ...(tm && ttp ? { timeType: ttp } : {}),
         ...(stid ? { subtaskId: stid } : {}),
         ...(stGoal ? { subtaskGoalTitle: stGoal } : {}),
         createdAt: ts,
@@ -422,6 +460,27 @@ export function createRepos(deps: RepoDeps): Repos {
         return store.put<TodoRecord>('todos', rest)
       }
       return store.put<TodoRecord>('todos', { ...rec, deadline: unwrap(parseDeadline(deadline)) })
+    },
+
+    /** v9.2.2 设/清待办具体时间：null/undefined = 清除 */
+    async setTime(id, time, timeType) {
+      const rec = await mustGet<TodoRecord>('todos', id)
+      if (time === null || time === undefined) {
+        // v9.15：time=null 但显式传了 timeType 时，只删 time、保留类型语义——
+        // 旧实现无条件删 timeType，导致「只切类型不设时间」保存后类型被还原
+        if (timeType === null || timeType === undefined) {
+          const { time: _drop, timeType: _drop2, ...rest } = rec
+          return store.put<TodoRecord>('todos', rest)
+        }
+        const ttp = unwrap(parseTodoTimeType(timeType))
+        const { time: _drop, ...rest } = rec
+        return store.put<TodoRecord>('todos', { ...rest, timeType: ttp })
+      }
+      const tm = unwrap(parseTodoTime(time))
+      // timeType：null/undefined = 清除该语义（沿用展示推导）；显式传 'due'/'at' 则写入；非法抛 BAD_VALUE
+      let ttp: 'due' | 'at' | undefined
+      if (timeType !== null && timeType !== undefined) ttp = unwrap(parseTodoTimeType(timeType))
+      return store.put<TodoRecord>('todos', { ...rec, time: tm, ...(ttp ? { timeType: ttp } : { timeType: undefined }) })
     },
 
     /** v8.53 活跃 DDL 待办（未完成、未删除、带截止日）——聚合层注入"每天出现"用 */
@@ -706,6 +765,8 @@ export function createRepos(deps: RepoDeps): Repos {
       const note = unwrap(parseGoalNote(input.note ?? ''))
       // v8.10 progress 可选：空对象/缺省不写入字段（旧数据兼容）
       const progress = parseProgress(input.progress)
+      // v9.14 可选文件夹：空/缺省 = 未分类；显式给则写 folderId（id 合法性由 UI/聚合层兜底，这里只做截断）
+      const folderId = input.folderId === undefined || input.folderId === null ? undefined : String(input.folderId).slice(0, 64)
       const ts = now()
       return store.put<GoalRecord>('goals', {
         id: idGen.next(),
@@ -713,6 +774,7 @@ export function createRepos(deps: RepoDeps): Repos {
         title,
         note,
         ...(progress !== undefined ? { progress } : {}),
+        ...(folderId ? { folderId } : {}),
         done: false,
         createdAt: ts,
         updatedAt: ts,
@@ -730,6 +792,12 @@ export function createRepos(deps: RepoDeps): Repos {
         const p = parseProgress(patch.progress)
         if (p === undefined) delete next.progress
         else next.progress = p
+      }
+      // v9.14 移动文件夹：null/undefined = 移出到未分类（清除字段）；非空 = 写入
+      if ('folderId' in patch) {
+        const fid = patch.folderId === undefined || patch.folderId === null ? undefined : String(patch.folderId).slice(0, 64)
+        if (fid === undefined) delete next.folderId
+        else next.folderId = fid
       }
       return store.put<GoalRecord>('goals', next)
     },
@@ -775,6 +843,51 @@ export function createRepos(deps: RepoDeps): Repos {
     if (!Number.isInteger(pct) || pct < 0 || pct > 100) {
       throw new ValidationError('BAD_VALUE', '进度必须是 0–100 的整数')
     }
+  }
+
+  // v9.14 目标文件夹：一层扁平。删除文件夹**不连带删目标**——
+  // 目标保留原 folderId，聚合层读路径把「文件夹不存在/已墓碑」归一化为未分类（与 favorite/done 同套路）
+  const folders: FolderRepo = {
+    all: async () => {
+      const all = await store.all<FolderRecord>('folders')
+      return all.filter((f) => !f.deleted)
+    },
+
+    async create(input) {
+      const name = unwrap(parseFolderName(input.name))
+      const ts = now()
+      return store.put<FolderRecord>('folders', {
+        id: idGen.next(),
+        type: 'folder',
+        name,
+        createdAt: ts,
+        updatedAt: ts,
+        deleted: false,
+      })
+    },
+
+    async update(id, patch) {
+      const rec = await mustGet<FolderRecord>('folders', id)
+      const next: FolderRecord = { ...rec }
+      if (patch.name !== undefined) next.name = unwrap(parseFolderName(patch.name))
+      return store.put<FolderRecord>('folders', next)
+    },
+
+    async setFavorite(id, favorite) {
+      const rec = await mustGet<FolderRecord>('folders', id)
+      return store.put<FolderRecord>('folders', {
+        ...rec,
+        favorite: favorite ? true : undefined,
+        favoritedAt: favorite ? now() : undefined,
+      })
+    },
+
+    async setCollapsed(id, collapsed) {
+      const rec = await mustGet<FolderRecord>('folders', id)
+      return store.put<FolderRecord>('folders', { ...rec, collapsed: collapsed ? true : undefined })
+    },
+
+    softDelete: softDelete('folders'),
   }
 
   /**
@@ -1086,7 +1199,7 @@ export function createRepos(deps: RepoDeps): Repos {
     all: () => store.all<ReviewRecord>('reviews'),
   }
 
-  return { todos, notes, expenses, anniversaries, annivChecks, categories, goals, stages, subtasks, habits, checkins, reviews, settings }
+  return { todos, notes, expenses, anniversaries, annivChecks, categories, goals, stages, subtasks, folders, habits, checkins, reviews, settings }
 }
 
 /** 便捷入口：从 store 里读金额时用，避免 UI 层出现 /100（ADR-0003） */

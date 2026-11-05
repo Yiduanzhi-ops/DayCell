@@ -58,6 +58,7 @@ export function mergeTables(local: RecordTable, remote: RecordTable): RecordTabl
     checkins: mergeByUpdated(local.checkins, remote.checkins),
     annivchecks: mergeByUpdated(local.annivchecks, remote.annivchecks),
     reviews: mergeByUpdated(local.reviews, remote.reviews),
+    folders: mergeByUpdated(local.folders, remote.folders),
     settings: mergeSettings(local.settings, remote.settings),
   }
 }

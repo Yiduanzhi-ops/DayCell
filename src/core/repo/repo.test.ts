@@ -76,7 +76,7 @@ describe('todos.create / byDate', () => {
 
 describe('todos.subtaskId（v8.63 子任务加入今日待办）', () => {
   it('create 第 4 参带 subtaskId → 记录携带；不带 → 无字段；byId 可读回', async () => {
-    const a = await repos.todos.create(k('2026-10-20'), '背单词', undefined, 'st-1')
+    const a = await repos.todos.create(k('2026-10-20'), '背单词', undefined, undefined, 'st-1')
     expect(a.subtaskId).toBe('st-1')
     const b = await repos.todos.create(k('2026-10-20'), '普通待办')
     expect(b.subtaskId).toBeUndefined()
@@ -85,9 +85,9 @@ describe('todos.subtaskId（v8.63 子任务加入今日待办）', () => {
   })
 
   it('v8.64 create 第 5 参 subtaskGoalTitle → 记录携带；不带 → 无字段', async () => {
-    const a = await repos.todos.create(k('2026-10-20'), '背单词', undefined, 'st-1', '考研上岸')
+    const a = await repos.todos.create(k('2026-10-20'), '背单词', undefined, undefined, 'st-1', '考研上岸')
     expect(a.subtaskGoalTitle).toBe('考研上岸')
-    const b = await repos.todos.create(k('2026-10-20'), '背单词', undefined, 'st-1')
+    const b = await repos.todos.create(k('2026-10-20'), '背单词', undefined, undefined, 'st-1')
     expect(b.subtaskGoalTitle).toBeUndefined()
   })
 })
