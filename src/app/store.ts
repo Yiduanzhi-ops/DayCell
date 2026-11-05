@@ -26,6 +26,7 @@ import {
   rangeKeys,
   renderRangeMd,
   serializeBackup,
+  shiftCursor,
   startOfWeek,
   today as todayKey,
   weekKeys,
@@ -44,6 +45,8 @@ import {
   type MonthSummary,
   type NoteRecord,
   type ProgressField,
+  type ReportData,
+  type ReportKind,
   type ReviewRecord,
   type StageInput,
   type StageRecord,
@@ -140,12 +143,21 @@ export interface AppState {
   notesList: NoteRecord[]
   /** v8.13：想法列表页码（1 起；切走 tab 重置为 1，从日视图返回还原） */
   notesPage: number
-  /** v8.42：回顾页当前列表（想法 / 复盘）；切走 tab 重置为 'notes' */
-  reviewTab: 'notes' | 'reviews'
+  /** v8.42：回顾页当前列表（想法 / 复盘 / 报告）；切走 tab 重置为 'notes' */
+  reviewTab: 'notes' | 'reviews' | 'report'
   /** v8.42：复盘列表数据源（全量活复盘，日期倒序） */
   reviewsList: ReviewRecord[]
   /** v8.42：复盘列表页码（1 起，切走 tab 重置） */
   reviewPage: number
+
+  /** v8.74 周/月报告：当前档位（week / month） */
+  reportKind: ReportKind
+  /** v8.74 周/月报告：当前光标（周首日 / 月首日 key） */
+  reportCursor: DateKey
+  /** v8.74 周/月报告：统计结果（纯本地 aggregates.buildReport） */
+  report: ReportData | null
+  /** v8.74 周/月报告：统计中标记 */
+  reportLoading: boolean
 
   /** IndexedDB 不可用（PRD E1）：数据不持久，UI 顶部红色横幅 */
   degraded: boolean
@@ -211,9 +223,15 @@ export interface AppState {
   /** v8.24 想法收藏：切换星标（pinned），刷新列表并保持收藏置顶 */
   toggleNotePinned(id: string): Promise<void>
   /** v8.42 回顾页 [想法|复盘] 切换 */
-  setReviewTab(tab: 'notes' | 'reviews'): void
+  setReviewTab(tab: 'notes' | 'reviews' | 'report'): void
   /** v8.42 复盘列表翻页 */
   setReviewPage(p: number): void
+  /** v8.74 周/月报告：切换档位（week/month） */
+  setReportKind(kind: ReportKind): void
+  /** v8.74 周/月报告：前后翻期 */
+  shiftReport(delta: number): Promise<void>
+  /** v8.74 周/月报告：重算（纯本地 aggregates.buildReport） */
+  loadReport(): Promise<void>
   /** v8.42 写当日复盘（每日一条，upsert 覆盖） */
   createReview(text: string): Promise<boolean>
   /** v8.42 就地编辑当日复盘（覆盖写） */
@@ -447,6 +465,10 @@ export function createAppStore(
     reviewTab: 'notes',
     reviewsList: [],
     reviewPage: 1,
+    reportKind: 'week',
+    reportCursor: todayKey(),
+    report: null,
+    reportLoading: false,
 
     degraded: bundle.degraded,
     lunarFailed: bundle.lunarFailed,
@@ -961,6 +983,38 @@ export function createAppStore(
     setReviewTab(tab) {
       if (get().reviewTab === tab) return
       set({ reviewTab: tab, reviewPage: 1 })
+      // v8.74 进「报告」时数据可能还没有（首进或换周月后），拉一次
+      if (tab === 'report' && get().report === null) {
+        void get().loadReport()
+      }
+    },
+
+    setReportKind(kind) {
+      if (get().reportKind === kind) return
+      set({ reportKind: kind, report: null })
+      void get().loadReport()
+    },
+
+    async shiftReport(delta) {
+      const { reportKind, reportCursor } = get()
+      const cursor = shiftCursor(reportKind, reportCursor, delta)
+      set({ reportCursor: cursor, report: null })
+      await get().loadReport()
+    },
+
+    async loadReport() {
+      const { reportKind, reportCursor } = get()
+      set({ reportLoading: true })
+      try {
+        const report = await aggregates.buildReport(reportKind, reportCursor)
+        // 期间用户又翻了页/换了档 → 丢弃过期结果
+        if (get().reportKind !== reportKind || get().reportCursor !== reportCursor) return
+        set({ report, reportLoading: false })
+      } catch (e) {
+        if (get().reportKind !== reportKind || get().reportCursor !== reportCursor) return
+        set({ reportLoading: false })
+        get().showToast(errMsg(e))
+      }
     },
 
     setReviewPage(p) {

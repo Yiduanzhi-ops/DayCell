@@ -8,11 +8,18 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.73'
+const CURRENT_VERSION = 'v8.74'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.74',
+    date: '2026-11-05',
+    items: [
+      '周/月报告：回顾页新增「报告」入口，全屏查看每周/每月总结——概览、习惯、待办统计、特殊日、目标进度五张卡片，纯本地统计，不依赖账号',
+    ],
+  },
   {
     version: 'v8.73',
     date: '2026-11-05',

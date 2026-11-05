@@ -2,11 +2,13 @@
  * 回顾 tab（v8.13 想法列表 → v8.42 改名回顾）：顶部 [想法 | 复盘] 切换。
  *  - 想法列表（v8.13）：按天分组、10 条/页、收藏置顶、点击原地编辑（v8.31）、删除带确认
  *  - 复盘列表（v8.42）：每日一条、日期倒序、10 条/页、日期 + 正文摘要 + 箭头，点条目进对应日视图
+ *  - 报告入口（v8.74）：seg 下方第二行卡片，进全屏周/月报告（纯本地统计）
  *  - 返回语义：窄屏记来源（view='notes' + 页码 + 滚动位），返回精确还原
  */
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react'
 import { useApp } from '@/app/context'
 import { dowOf, fromKey, loadLunar, lunarFullText, type DateKey, type NoteRecord } from '@core'
+import { ReportView } from './ReportView'
 import styles from './NotesView.module.css'
 
 /** v8.13：10 条一页（用户拍板）；复盘列表同规格（v8.42） */
@@ -37,6 +39,8 @@ export function NotesView(): JSX.Element {
   const setReviewPage = useApp((s) => s.setReviewPage)
   const openDayFromNotes = useApp((s) => s.openDayFromNotes)
   const scrollRef = useRef<HTMLDivElement>(null)
+  /** v8.74：报告入口记住来自想法还是复盘 tab，返回时还原 */
+  const fromTabRef = useRef<'notes' | 'reviews'>('notes')
   const [lunarMap, setLunarMap] = useState<ReadonlyMap<string, string>>(new Map())
   /** v8.31：正在原地编辑的想法 id（同一时刻最多一条） */
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -110,6 +114,12 @@ export function NotesView(): JSX.Element {
     openDayFromNotes(k, 0)
   }
 
+  // v8.74：报告入口——记住来自想法还是复盘 tab，返回时还原
+  const openReport = (): void => {
+    fromTabRef.current = reviewTab === 'reviews' ? 'reviews' : 'notes'
+    setReviewTab('report')
+  }
+
   return (
     <section className={styles.page} data-testid="notes-view" aria-label="回顾列表">
       {/* v8.42：顶部 [想法 | 复盘] 分段切换 */}
@@ -133,6 +143,37 @@ export function NotesView(): JSX.Element {
           复盘
         </button>
       </div>
+      {/* v8.74：第二行报告入口卡片，点击进全屏报告页（纯本地统计，无 AI 段） */}
+      <div className={styles.reportRow}>
+        <div
+          className={styles.reportCard}
+          role="button"
+          tabIndex={0}
+          aria-label="查看每周/每月报告"
+          onClick={openReport}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              openReport()
+            }
+          }}
+        >
+          <span className={styles.reportIc} aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 20h16M6 16v-6M10 16V7M14 16v-9M18 16v-4" />
+            </svg>
+          </span>
+          <span className={styles.reportTx}>
+            <b>报告</b>
+            <span>每周 / 每月总结 · 本地统计</span>
+          </span>
+          <span className={styles.reportArrow} aria-hidden="true">›</span>
+        </div>
+      </div>
+      {/* v8.74：报告用全屏覆盖层（ReportView 自带滚动布局）；想法/复盘共用原 .list 容器 */}
+      {reviewTab === 'report' ? (
+        <ReportView onBack={() => setReviewTab(fromTabRef.current)} />
+      ) : (
       <div className={styles.list} ref={scrollRef}>
         {reviewTab === 'reviews' ? (
           rvTotal === 0 ? (
@@ -310,6 +351,7 @@ export function NotesView(): JSX.Element {
           </>
         )}
       </div>
+      )}
     </section>
   )
 }

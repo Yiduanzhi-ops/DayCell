@@ -1017,3 +1017,46 @@ describe('v8.45 子任务打卡与复盘联动', () => {
     await waitFor(() => expect(S(app).goalList[0]!.activeDays).toBe(0))
   })
 })
+
+describe('v8.74 周/月报告', () => {
+  it('进「报告」tab 自动拉一次本地统计（report 非空、loading 复位）', async () => {
+    const { app } = await makeApp()
+    const s = S(app)
+    await s.setReviewTab('report')
+    await waitFor(() => expect(S(app).report).not.toBeNull())
+    expect(S(app).reportLoading).toBe(false)
+    expect(S(app).report!.period.label.length).toBeGreaterThan(0)
+  })
+
+  it('setReportKind 换档清旧结果并重算（周→月）', async () => {
+    const { app } = await makeApp()
+    const s = S(app)
+    await s.setReviewTab('report')
+    await waitFor(() => expect(S(app).report).not.toBeNull())
+    const weekLabel = S(app).report!.period.label
+    s.setReportKind('month')
+    await waitFor(() => expect(S(app).report).not.toBeNull())
+    expect(S(app).reportKind).toBe('month')
+    expect(S(app).report!.period.label).not.toBe(weekLabel)
+  })
+
+  it('shiftReport 前后翻期改变光标与结果', async () => {
+    const { app } = await makeApp()
+    const s = S(app)
+    await s.setReviewTab('report')
+    await waitFor(() => expect(S(app).report).not.toBeNull())
+    const c0 = S(app).reportCursor
+    await s.shiftReport(-1)
+    expect(S(app).reportCursor).not.toBe(c0)
+    await waitFor(() => expect(S(app).report).not.toBeNull())
+  })
+
+  it('返回离开报告 tab 不再触发重算（reviewTab 还原为 notes）', async () => {
+    const { app } = await makeApp()
+    const s = S(app)
+    await s.setReviewTab('report')
+    await waitFor(() => expect(S(app).report).not.toBeNull())
+    s.setReviewTab('notes')
+    expect(S(app).reviewTab).toBe('notes')
+  })
+})

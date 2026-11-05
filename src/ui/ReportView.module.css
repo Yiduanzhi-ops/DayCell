@@ -1,0 +1,318 @@
+/* 周/月报告（v9.10 主体 + v9.11 全屏覆盖层）。
+ * 视觉对齐回顾页现有苹果风：浅灰列表底（bg-subtle）+ 圆角白卡 + 强调色节制。
+ * v9.11（方案 B）：报告改为全屏覆盖层（仿 ChangelogView），左上角「‹ 返回」。 */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  /* v8.61 键盘顶起：弹窗底边对齐键盘顶（--kb-inset 由 visualViewport 全局写入） */
+  padding-bottom: var(--kb-inset, 0px);
+  z-index: 60;
+  background: var(--bg);
+  display: flex;
+  justify-content: center;
+}
+
+.page {
+  width: 100%;
+  max-width: 560px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ---- 全屏覆盖层头部：‹ 返回 + 报告（v9.11） ---- */
+.head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.back {
+  font-size: 13.5px;
+  color: var(--ink-2);
+  padding: 6px 10px;
+  border-radius: 8px;
+  min-height: 34px;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.back:hover { background: var(--bg-hover); color: var(--ink); }
+.title { flex: 1; font-size: 16px; font-weight: 650; text-align: center; }
+.headSpacer { width: 48px; }
+
+/* ---- 顶部：周/月 seg + 期号导航 ---- */
+.header {
+  background: var(--bg);
+  padding: 10px 14px 8px;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.seg {
+  display: flex;
+  gap: 4px;
+}
+.segBtn {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-3);
+  background: var(--bg-subtle);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 7px 0;
+  cursor: pointer;
+  min-height: 36px;
+}
+.segBtn:hover { color: var(--accent); }
+.segOn {
+  color: #fff;
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+}
+.segOn:hover { color: #fff; }
+
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.navBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--bg-subtle);
+  color: var(--ink-2);
+  font-size: 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.navBtn:hover { color: var(--accent); }
+.period {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-1);
+  min-width: 110px;
+  text-align: center;
+}
+
+/* ---- 滚动主体 ---- */
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 14px 18px;
+  background: var(--bg-subtle);
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-3);
+  font-size: 13px;
+  background: var(--bg-subtle);
+}
+.empty {
+  flex: 1;
+  padding: 72px 24px;
+  text-align: center;
+  color: var(--ink-3);
+  background: var(--bg-subtle);
+}
+.emptyMain { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.emptySub { font-size: 12.5px; }
+
+/* ---- 概览卡 ---- */
+.card {
+  background: var(--bg);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ovTop {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.ovRate {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--accent-strong);
+}
+.ovRateLabel {
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+.ovGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.mini {
+  background: var(--bg-subtle);
+  border-radius: 10px;
+  padding: 8px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.miniVal {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink-1);
+}
+.miniLabel {
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+/* ---- 区块 ---- */
+.block {
+  background: var(--bg);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+.blockTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-1);
+  margin-bottom: 10px;
+}
+.blockEmpty {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  padding: 4px 0 6px;
+}
+
+/* ---- 特殊日 ---- */
+.spList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.spRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.spDate {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 7px;
+  padding: 2px 8px;
+  flex: 0 0 auto;
+}
+.spTitle {
+  color: var(--ink-1);
+  flex: 1;
+}
+.spDone { color: var(--ink-3); text-decoration: line-through; }
+.spChecked { color: var(--accent); font-size: 13px; }
+
+/* ---- 通用行（习惯/目标） ---- */
+.rows {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.row:last-child { border-bottom: none; }
+.rowMain { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rowTitle {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rowSub {
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+.streak {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-3);
+  background: var(--bg-subtle);
+  border-radius: 8px;
+  padding: 4px 8px;
+  flex: 0 0 auto;
+}
+.streakHot { color: var(--accent); background: var(--accent-soft); }
+.pct {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-strong);
+  flex: 0 0 auto;
+}
+
+/* ---- 待办统计 ---- */
+.todoStats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.week {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+  height: 74px;
+}
+.weekCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+.weekBarWrap {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.weekBar {
+  width: 60%;
+  border-radius: 4px 4px 0 0;
+  background: var(--accent);
+  min-height: 2px;
+}
+.weekDow {
+  font-size: 10px;
+  color: var(--ink-3);
