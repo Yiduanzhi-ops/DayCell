@@ -37,17 +37,17 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v8.72')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v8.73')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v8.72')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v8.73')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v8.72，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v8.73，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v8.72')
-    expect(screen.getByText(/目标文件夹/)).toBeInTheDocument()
-    expect(screen.getByText(/收藏置顶/)).toBeInTheDocument()
+    expect(vers[0].textContent).toBe('v8.73')
+    expect(screen.getByText(/待办时间标签/)).toBeInTheDocument()
+    expect(screen.getByText(/截止型·提醒型/)).toBeInTheDocument()
     expect(screen.getByText(/iPhone 上拖动更跟手/)).toBeInTheDocument()
     expect(screen.getByText(/不再误选文字/)).toBeInTheDocument()
     expect(screen.getByText(/按住列表项拖动调整顺序/)).toBeInTheDocument()

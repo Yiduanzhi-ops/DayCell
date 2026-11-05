@@ -8,11 +8,18 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.72'
+const CURRENT_VERSION = 'v8.73'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.73',
+    date: '2026-11-05',
+    items: [
+      '待办时间标签：新建/编辑可选「截止型·提醒型」，滚轮自定义时刻；截止型蓝色「截止 今天 14:00」、提醒型绿色「14:00 提醒」，过点自动置灰；有时间的待办自动置顶按时刻排序',
+    ],
+  },
   {
     version: 'v8.72',
     date: '2026-11-05',

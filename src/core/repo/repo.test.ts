@@ -75,7 +75,7 @@ describe('todos.create / byDate', () => {
 })
 
 describe('todos.subtaskId（v8.63 子任务加入今日待办）', () => {
-  it('create 第 4 参带 subtaskId → 记录携带；不带 → 无字段；byId 可读回', async () => {
+  it('create 第 5 参带 subtaskId → 记录携带；不带 → 无字段；byId 可读回（v9.2.2 起第 4 参为 time）', async () => {
     const a = await repos.todos.create(k('2026-10-20'), '背单词', undefined, undefined, 'st-1')
     expect(a.subtaskId).toBe('st-1')
     const b = await repos.todos.create(k('2026-10-20'), '普通待办')
@@ -84,11 +84,69 @@ describe('todos.subtaskId（v8.63 子任务加入今日待办）', () => {
     expect(back.subtaskId).toBe('st-1')
   })
 
-  it('v8.64 create 第 5 参 subtaskGoalTitle → 记录携带；不带 → 无字段', async () => {
+  it('v8.64 create 第 6 参 subtaskGoalTitle → 记录携带；不带 → 无字段（v9.2.2 起第 4 参为 time）', async () => {
     const a = await repos.todos.create(k('2026-10-20'), '背单词', undefined, undefined, 'st-1', '考研上岸')
     expect(a.subtaskGoalTitle).toBe('考研上岸')
     const b = await repos.todos.create(k('2026-10-20'), '背单词', undefined, undefined, 'st-1')
     expect(b.subtaskGoalTitle).toBeUndefined()
+  })
+
+  it('v9.2.2 create 第 4 参带 time → 记录携带；不带 → 无字段；非法格式抛 BAD_VALUE', async () => {
+    const a = await repos.todos.create(k('2026-10-20'), '交周报', undefined, '14:30')
+    expect(a.time).toBe('14:30')
+    const b = await repos.todos.create(k('2026-10-20'), '普通待办')
+    expect(b.time).toBeUndefined()
+    await expect(repos.todos.create(k('2026-10-20'), 'x', undefined, '25:99')).rejects.toMatchObject({
+      validateCode: 'BAD_VALUE',
+    })
+  })
+
+  it('v9.2.2 setTime 设/改/清具体时间；清除后字段整体移除', async () => {
+    const t = await repos.todos.create(k('2026-10-20'), '交周报', undefined, '09:30')
+    await repos.todos.setTime(t.id, '14:00')
+    expect((await repos.todos.byDate(k('2026-10-20')))[0]!.time).toBe('14:00')
+    await repos.todos.setTime(t.id, null)
+    const rec = (await repos.todos.byDate(k('2026-10-20')))[0]!
+    expect(rec.time).toBeUndefined()
+    expect('time' in rec).toBe(false)
+  })
+
+  it('v9.2.3 create 第 7 参带 timeType → 随 time 一起写入；不带 → 无字段', async () => {
+    const a = await repos.todos.create(k('2026-10-20'), '开会', '2026-10-28', '14:00', undefined, undefined, 'due')
+    expect(a.time).toBe('14:00')
+    expect(a.timeType).toBe('due')
+    const b = await repos.todos.create(k('2026-10-20'), '健身', undefined, '18:00', undefined, undefined, 'at')
+    expect(b.timeType).toBe('at')
+    // 无 time 时即使传了 timeType 也不写入（timeType 只随 time 有意义）
+    const c = await repos.todos.create(k('2026-10-20'), '普通', undefined, undefined, undefined, undefined, 'due')
+    expect(c.timeType).toBeUndefined()
+    // 非法类型抛 BAD_VALUE
+    // @ts-expect-error 故意传非法 timeType，验证运行时校验抛 BAD_VALUE
+    await expect(repos.todos.create(k('2026-10-20'), 'x', undefined, '14:00', undefined, undefined, 'start')).rejects.toMatchObject({
+      validateCode: 'BAD_VALUE',
+    })
+  })
+
+  it('v9.2.3 setTime 带 timeType：设 type 写入、显式清除、清 time 连带清除 type', async () => {
+    const t = await repos.todos.create(k('2026-10-20'), '开会', '2026-10-28', '14:00', undefined, undefined, 'due')
+    // 显式设 'at' 覆盖
+    await repos.todos.setTime(t.id, '15:00', 'at')
+    expect((await repos.todos.byDate(k('2026-10-20')))[0]!.timeType).toBe('at')
+    // 清 time → type 一并移除
+    await repos.todos.setTime(t.id, null)
+    const rec = (await repos.todos.byDate(k('2026-10-20')))[0]!
+    expect(rec.time).toBeUndefined()
+    expect('timeType' in rec).toBe(false)
+    // v9.15：清 time 但显式传 timeType → 仅删 time、保留类型（修复「只切类型不设时间」保存后被还原）
+    await repos.todos.setTime(t.id, null, 'at')
+    const rec2 = (await repos.todos.byDate(k('2026-10-20')))[0]!
+    expect('time' in rec2).toBe(false)
+    expect(rec2.timeType).toBe('at')
+    // 非法 type 抛 BAD_VALUE
+    // @ts-expect-error 故意传非法 timeType，验证运行时校验抛 BAD_VALUE
+    await expect(repos.todos.setTime(t.id, '14:00', 'start')).rejects.toMatchObject({
+      validateCode: 'BAD_VALUE',
+    })
   })
 })
 describe('todos.deadline（v8.53 DDL 待办）', () => {  it('create 带截止日 → 记录带 deadline；不带 → 无字段', async () => {

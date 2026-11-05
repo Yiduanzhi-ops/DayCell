@@ -119,6 +119,121 @@
   position: absolute; inset: 0; opacity: 0; cursor: pointer;
   width: 100%; height: 100%; border: none; background: transparent; outline: none;
 }
+/* v9.2.2 待办具体时间：行内时间 pill——due 截止蓝（ttime）/ 逾期红（ttimeLate）/ 逾期完成淡红（ttimeLateDone），at 提醒绿（tat）/ 过点灰（tatPast） */
+.ttime {
+  flex: 0 0 auto; font-size: 10.5px; font-weight: 700;
+  color: var(--accent); background: var(--accent-soft);
+  border-radius: 4px; padding: 1px 6px; margin-top: 2px; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.ttimeLate {
+  flex: 0 0 auto; font-size: 10.5px; font-weight: 700;
+  color: var(--danger, #e5484d); background: rgba(229, 72, 77, 0.08);
+  border-radius: 4px; padding: 1px 6px; margin-top: 2px; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.ttimeLateDone {
+  flex: 0 0 auto; font-size: 10.5px; font-weight: 700;
+  color: var(--danger, #e5484d); background: rgba(229, 72, 77, 0.05);
+  border-radius: 4px; padding: 1px 6px; margin-top: 2px; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.tat {
+  flex: 0 0 auto; font-size: 10.5px; font-weight: 700;
+  color: #1d8a5f; background: rgba(29, 138, 95, 0.1);
+  border-radius: 4px; padding: 1px 6px; margin-top: 2px; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.tatPast {
+  flex: 0 0 auto; font-size: 10.5px; font-weight: 700;
+  color: #9aa2ab; background: rgba(154, 162, 171, 0.1);
+  border-radius: 4px; padding: 1px 6px; margin-top: 2px; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+/* v9.2.4 待办类型独立行（日期/时间上方）：截止型 / 提醒型 分段控件 */
+.todoTypeRow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.todoTypeBtn {
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+  min-height: 26px; padding: 3px 14px; border-radius: 999px;
+  font-size: 11.5px; color: var(--ink-2);
+  border: 1px solid var(--line); background: var(--bg);
+}
+.todoTypeBtn:hover { background: var(--bg-hover); }
+.todoTypeOn { color: var(--accent); background: var(--accent-soft); border-color: var(--accent); font-weight: 600; }
+/* v9.2.10：提醒型选中态与截止型一致（去掉绿色），不再单独着色 */
+/* v9.2.8 时间行改用与日期行同款 ddlRow/ddlChip/ddlDateWrap（见上方 .ddl* 定义）；
+   底部 sheet 样式保持不变 */
+/* v9.2.3 底部 sheet：fixed 遮罩（点遮罩=取消）+ 面板贴底；z-index 低于全屏弹层(60) */
+.timeMask {
+  position: fixed; inset: 0; z-index: 55;
+  background: rgba(15, 20, 30, 0.42);
+  display: flex; align-items: flex-end;
+}
+.timeSheet {
+  width: 100%;
+  background: var(--bg);
+  border-radius: 20px 20px 0 0;
+  padding: 10px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -10px 30px rgba(20, 30, 50, 0.18);
+}
+.timeSheetHead { display: flex; align-items: center; padding: 2px 2px 0; }
+.timeSheetTitle { font-size: 14px; font-weight: 700; color: var(--ink-1); }
+.timeSheetNote { font-size: 11px; color: var(--ink-3); margin-left: auto; }
+.timeTypes { display: flex; gap: 8px; padding: 12px 0 4px; }
+.timeChip {
+  flex: 1; text-align: center; font-size: 13px; font-weight: 600;
+  padding: 8px 0; border-radius: 10px;
+  border: 1.5px solid var(--line); color: var(--ink-3); background: var(--bg);
+}
+.timeChipOn { background: var(--accent); border-color: var(--accent); color: #fff; }
+.timeChipOnAt { background: #1d8a5f; border-color: #1d8a5f; color: #fff; }
+.timeWheels { display: flex; justify-content: center; align-items: center; gap: 6px; height: 180px; position: relative; margin-top: 6px; }
+/* v9.2.4 滚轮选中高亮条：横跨时/分两列，iOS 风格（上下细线 + 浅灰底） */
+.wheelBar {
+  position: absolute; left: 10%; right: 10%; top: 50%; transform: translateY(-50%);
+  height: 36px; border-radius: 12px;
+  background: var(--bg-subtle);
+  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  pointer-events: none; z-index: 0;
+}
+.timeColon { font-size: 20px; font-weight: 700; color: var(--ink-2); }
+.wheel {
+  width: 64px; height: 180px; overflow-y: auto;
+  overscroll-behavior: contain;
+  text-align: center;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  position: relative; z-index: 1;
+}
+.wheel::-webkit-scrollbar { display: none; }
+/* 上下淡出遮罩：与 sheet 底色同色，覆盖 pad 占位（72px），营造滚轮纵深、消除"顶部空白"观感 */
+.wheel::before, .wheel::after {
+  content: ''; position: absolute; left: 0; right: 0; height: 76px;
+  z-index: 2; pointer-events: none;
+}
+.wheel::before { top: 0; background: linear-gradient(to bottom, var(--bg) 55%, transparent); }
+.wheel::after { bottom: 0; background: linear-gradient(to top, var(--bg) 55%, transparent); }
+.wheelPad { height: 72px; flex: 0 0 auto; }
+.wheelItem {
+  height: 36px; line-height: 36px;
+  font-size: 15px; color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  transition: color 0.12s, font-size 0.12s, font-weight 0.12s;
+}
+.wheelOn { color: var(--ink-1); font-size: 20px; font-weight: 700; }
+/* v9.2.6 底部操作：保存 = 蓝色主按钮（44px 触达区，与表单「保存」同款主色），清除 = 次按钮 */
+.timeActs { display: flex; gap: 10px; margin-top: 10px; }
+.timeClear {
+  flex: 1; font-size: 14px; color: var(--ink-2);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 14px; padding: 11px 0;
+  min-height: 44px;
+}
+.timeOk {
+  flex: 1.4; font-size: 14px; font-weight: 700; color: #fff;
+  background: var(--accent); border: none; border-radius: 14px; padding: 11px 0;
+  min-height: 44px; box-shadow: 0 2px 10px rgba(46, 75, 166, 0.2);
+}
+.timeClear:active, .timeOk:active { filter: brightness(0.94); }
 /* 就地编辑：文本输入 + 截止行纵向排列，占满 titem 剩余宽度 */
 .teditWrap { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 
