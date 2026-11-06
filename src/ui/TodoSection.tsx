@@ -33,13 +33,12 @@ function TimePill({ t, k }: { t: TodoRecord; k: DateKey }): JSX.Element {
   const late = isDue && !!t.deadline && compareKey(t.deadline, k) < 0
   const overdueDone = isDue && isOverdueDone(t)
   const day = t.deadline ? (t.deadline === k ? '今天' : md(t.deadline)) : ''
+  // v8.75：at 型可能只有日期没有具体时刻（类型独立于时刻落库）——按存在项拼接，避免多余空格
   const label = isDue
     ? `${overdueDone ? '逾期完成 · ' : late && !t.done ? '已逾期 · ' : ''}截止 ${day} ${t.time}`
         .replace(/\s{2,}/g, ' ')
         .trim()
-    : day
-      ? `${day} ${t.time} 提醒`
-      : `${t.time} 提醒`
+    : [day, t.time, '提醒'].filter(Boolean).join(' ')
   // at 型仅提醒日当天比较时刻（未来日不置灰）
   const past = !isDue && !!t.time && (!t.deadline || t.deadline === k) && t.time <= nowHm()
   const cls = isDue
@@ -150,7 +149,7 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
                 {t.done && <Check />}
               </button>
               {editingId === t.id ? (
-                <TodoEdit todo={t} onDone={() => setEditingId(null)} />
+                <TodoEdit todo={t} day={k} onDone={() => setEditingId(null)} />
               ) : t.subtaskId ? (
                 // v8.63 子任务来源待办：不可编辑文字（标题快照只读），可勾选、可删除；
                 // v8.64 文字后标注来源目标「· 目标名」
@@ -209,18 +208,18 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
           <div className={styles.emptySm}>{dayWord}还没有待办</div>
         )}
       </div>
-      {edit === 'todo' && <TodoForm />}
+      {edit === 'todo' && <TodoForm day={k} />}
     </div>
   )
 }
 
-function TodoForm(): JSX.Element {
+function TodoForm({ day }: { day: DateKey }): JSX.Element {
   const createTodo = useApp((s) => s.createTodo)
   const closeForm = useApp((s) => s.closeForm)
-  const todayKey = useApp((s) => s.today)
   const [v, setV] = useState('')
-  // v8.53.1：默认截止日 = 今天（待办默认当天截止，没做完每天置顶提醒）
-  const [ddl, setDdl] = useState<string>(todayKey)
+  // v8.75：默认日期锚「当日（视图日）」而非真实今天——在未来日视图建待办，
+  // 日期默认归到那一天，不再倒挂成今天的日期。真实今天时两者同一。
+  const [ddl, setDdl] = useState<string>(day)
   // v9.2.2：具体时间可选，默认不设置
   const [tm, setTm] = useState('')
   // v9.2.9：默认「提醒型」（日常"几点做什么"多为定时提醒）；用户可切截止型
@@ -267,7 +266,7 @@ function TodoForm(): JSX.Element {
           截止型
         </button>
       </div>
-      <DdlPicker value={ddl} onChange={setDdl} />
+      <DdlPicker value={ddl} onChange={setDdl} day={day} />
       <TimePicker value={tm} onChange={setTm} />
       <FormActs onCancel={closeForm} onSave={submit} />
     </div>
@@ -275,27 +274,39 @@ function TodoForm(): JSX.Element {
 }
 
 /**
- * v8.53 截止日期选择行：今天 / 自定义。
+ * v8.53 日期选择行：今天 / 自定义。
  * 创建表单默认「今天」；编辑态空值 = 未设截止日（两个选项都不亮，保存不改动）。
  * v8.53.1：去「无/明天」快捷项，只留今天 + 自定义（用户拍板）。
  * v8.53.2：自定义改为无框「日期 + 箭头」样式（方案 B）——隐藏原生 date input 铺满整行，
  *          点击仍是系统选择器（手机滚轮 / 桌面日历），视觉上不再是一条输入框。
+ * v8.75：锚点从「真实今天」改为「当日（视图日）」——切到未来日 / 过去日视图时，
+ *        chip 显示「当天」并指那一天；视图日恰为真实今天时仍显示「今天」。
  */
-function DdlPicker({ value, onChange }: { value: string; onChange: (v: string) => void }): JSX.Element {
-  // 「今天」用 app 注入时钟（store.today），与视图语义一致
-  const t = useApp((s) => s.today)
-  const custom = value && value !== t
+function DdlPicker({
+  value,
+  onChange,
+  day,
+}: {
+  value: string
+  onChange: (v: string) => void
+  day: DateKey
+}): JSX.Element {
+  const today = useApp((s) => s.today)
+  const sameDay = value === day
+  const custom = !!value && !sameDay
+  // 非今日视图叫「当天」：明确指「你正在看的这一天」，避免「今天」的歧义
+  const chipLabel = day === today ? '今天' : '当天'
   return (
     <div className={styles.ddlRow}>
       {/* v9.2.3：语义从「截止」改为「日期」——提醒型也会在别的时间设日期 */}
       <span className={styles.ddlLabel}>日期</span>
       <button
         type="button"
-        className={`${styles.ddlChip} ${value === t ? styles.ddlOn : ''}`}
-        aria-pressed={value === t}
-        onClick={() => onChange(t)}
+        className={`${styles.ddlChip} ${sameDay ? styles.ddlOn : ''}`}
+        aria-pressed={sameDay}
+        onClick={() => onChange(day)}
       >
-        今天
+        {chipLabel}
       </button>
       <span className={`${styles.ddlDateWrap} ${custom ? styles.ddlDateSet : ''}`}>
         {custom ? fmtFullDate(value) : '自定义'}
@@ -305,7 +316,7 @@ function DdlPicker({ value, onChange }: { value: string; onChange: (v: string) =
         <input
           type="date"
           className={styles.ddlDateInput}
-          value={value === t ? '' : value}
+          value={sameDay ? '' : value}
           aria-label="自定义截止日"
           onChange={(e) => onChange(e.target.value)}
         />
@@ -525,7 +536,7 @@ function Wheel({
  * `done` 防双触发：Esc → cancel 会先卸载输入框，随后的 blur 不得再走一次保存；
  * 「保存」按钮同理——click 前浏览器先派发 blur，谁先到谁生效，后到的直接 no-op。
  */
-function TodoEdit({ todo, onDone }: { todo: TodoRecord; onDone: () => void }): JSX.Element {
+function TodoEdit({ todo, day, onDone }: { todo: TodoRecord; day: DateKey; onDone: () => void }): JSX.Element {
   const updateTodoText = useApp((s) => s.updateTodoText)
   const updateTodoDeadline = useApp((s) => s.updateTodoDeadline)
   const updateTodoTime = useApp((s) => s.updateTodoTime)
@@ -642,7 +653,7 @@ function TodoEdit({ todo, onDone }: { todo: TodoRecord; onDone: () => void }): J
           提醒型
         </button>
       </div>
-      <DdlPicker value={ddl} onChange={setDdl} />
+      <DdlPicker value={ddl} onChange={setDdl} day={day} />
       <TimePicker value={tm} onChange={setTm} />
     </div>
   )

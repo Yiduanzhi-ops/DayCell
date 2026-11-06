@@ -581,6 +581,17 @@ describe('v8.53 活跃 DDL 待办注入（每天出现）', () => {
     expect((await agg.aggregateDayDetail(k('2026-10-24'))).todos.map((t) => t.text)).toContain('交作业')
   })
 
+  it('v8.75 提醒型只选类型不填时刻：timeType 也落库，未来日提醒不会提前出现', async () => {
+    // 未来日建「提醒型」但没填具体时刻——旧实现 timeType 只在有 time 时才写，
+    // 丢失后被按 due 推导 → 逐日注入（未来日提醒今天也能看到）。v8.75 起独立落库。
+    await repos.todos.create(k('2026-10-25'), '取快递提醒', '2026-10-25', undefined, undefined, undefined, 'at')
+    const saved = await repos.todos.byDate(k('2026-10-25'))
+    expect(saved[0]?.timeType).toBe('at')
+    // 提醒日之前：不注入；当天：可见
+    expect((await agg.aggregateDayDetail(k('2026-10-24'))).todos.map((t) => t.text)).not.toContain('取快递提醒')
+    expect((await agg.aggregateDayDetail(k('2026-10-25'))).todos.map((t) => t.text)).toContain('取快递提醒')
+  })
+
   it('v9.16 提醒型编辑改日期后（date≠deadline）在 deadline 当天注入显示', async () => {
     // 模拟：10-25 创建的截止型待办，编辑切成提醒型并把提醒日期改到 10-28
     const t = await repos.todos.create(k('2026-10-25'), '改期提醒', '2026-10-25', '18:00', undefined, undefined, 'due')

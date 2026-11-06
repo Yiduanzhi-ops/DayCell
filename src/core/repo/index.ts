@@ -434,7 +434,9 @@ export function createRepos(deps: RepoDeps): Repos {
         done: false,
         ...(ddl ? { deadline: ddl } : {}),
         ...(tm ? { time: tm } : {}),
-        ...(tm && ttp ? { timeType: ttp } : {}),
+        // v8.75：类型语义独立于「是否填了时刻」落库——旧实现只在 tm 非空时写 timeType，
+        // 用户选了「提醒型」但没填时刻 → 语义丢失，被展示/注入逻辑按 due 推导 → 未来日的提醒每天出现。
+        ...(ttp ? { timeType: ttp } : {}),
         ...(stid ? { subtaskId: stid } : {}),
         ...(stGoal ? { subtaskGoalTitle: stGoal } : {}),
         createdAt: ts,

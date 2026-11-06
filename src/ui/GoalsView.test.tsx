@@ -506,6 +506,26 @@ describe('目标模块（v7.9）', () => {
 // ===========================================================================
 
 describe('目标文件夹（v9.14）', () => {
+  it('v8.75 文件夹组头：点文件夹名本身也能折叠/展开（箭头+标题合并为一个按钮）', async () => {
+    const { store } = await renderAppWrap()
+    await store.getState().createFolder('学习')
+    const fid = store.getState().folderList[0].folder.id
+    await store.getState().createGoal('英语', '', fid)
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => expect(screen.getByText('英语')).toBeInTheDocument())
+
+    // 组头整体是一个按钮，语义为「折叠文件夹「学习」」；点它（不是箭头）就收起
+    const head = screen.getByRole('button', { name: '折叠文件夹「学习」' })
+    expect(head).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(head)
+    await waitFor(() => expect(screen.queryByText('英语')).not.toBeInTheDocument())
+    expect(screen.getByRole('button', { name: '展开文件夹「学习」' })).toHaveAttribute('aria-expanded', 'false')
+
+    // 再点一次（展开态按钮）→ 卡片回来
+    fireEvent.click(screen.getByRole('button', { name: '展开文件夹「学习」' }))
+    await waitFor(() => expect(screen.getByText('英语')).toBeInTheDocument())
+  })
+
   it('新建文件夹 → chips 出现；新建目标可选放入 → 卡片显示文件夹标签', async () => {
     await renderApp()
     fireEvent.click(screen.getByRole('tab', { name: '目标' }))
@@ -562,7 +582,7 @@ describe('目标文件夹（v9.14）', () => {
     // 进过滤视图 → 组头出现 → 折叠（无占位行，目标隐藏、组头仍在）
     fireEvent.click(screen.getByRole('button', { name: /工作 \d/ }))
     await waitFor(() => expect(screen.getByText('工作（1）')).toBeInTheDocument())
-    fireEvent.click(screen.getByRole('button', { name: '折叠文件夹' }))
+    fireEvent.click(screen.getByRole('button', { name: '折叠文件夹「工作」' }))
     await waitFor(() => expect(screen.queryByText('交付上线')).not.toBeInTheDocument())
     expect(screen.getByText('工作（1）')).toBeInTheDocument()
 
@@ -635,12 +655,12 @@ describe('目标文件夹（v9.14）', () => {
     expect(body().indexOf('乙夹（1）')).toBeGreaterThan(body().indexOf('甲夹（1）'))
     expect(body().indexOf('未分类（1）')).toBeGreaterThan(body().indexOf('乙夹（1）'))
     // 折叠乙夹 → 乙目标隐藏；组头仍在（▸ + 名称（N）），无占位行
-    fireEvent.click(screen.getAllByRole('button', { name: '折叠文件夹' })[1])
+    fireEvent.click(screen.getByRole('button', { name: '折叠文件夹「乙夹」' }))
     await waitFor(() => expect(screen.queryByText('乙目标')).not.toBeInTheDocument())
     expect(screen.getByText('乙夹（1）')).toBeInTheDocument()
     expect(screen.queryByText(/已折叠/)).not.toBeInTheDocument()
     // 展开乙夹 → 目标回来（折叠后仅乙夹为「展开文件夹」）
-    fireEvent.click(screen.getAllByRole('button', { name: '展开文件夹' })[0])
+    fireEvent.click(screen.getByRole('button', { name: '展开文件夹「乙夹」' }))
     await waitFor(() => expect(screen.getByText('乙目标')).toBeInTheDocument())
     // 甲夹组内「＋ 新建目标」→ 自动归属甲夹
     fireEvent.click(screen.getAllByRole('button', { name: '＋ 新建目标' })[0])

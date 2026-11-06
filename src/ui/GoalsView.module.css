@@ -97,12 +97,38 @@
   justify-content: center;
 }
 .folderCollapse:hover { background: var(--bg-hover); }
+/* v8.75：组头「箭头 + 标题」合并为一个可点击区——点文件夹名也能折叠/展开。
+   右侧「＋新建目标」/「···菜单」仍是独立按钮，点击不触发折叠。 */
+.folderGroupMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.folderGroupMain:hover .folderCollapse { background: var(--bg-hover); }
+.folderGroupMain:hover .folderGroupTitle { color: var(--ink-2); }
+.folderGroupMain:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 .folderGroupTitle {
   flex: 1;
+  min-width: 0;
   font-size: 13px;
   color: var(--ink-3);
   font-weight: 700;
   letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 /* v9.14.3 全部视图分组组头右侧「＋ 新建目标」：克制浅底（区别于列表区实心主按钮） */
 .folderGroupHead .newGoalBtn {
