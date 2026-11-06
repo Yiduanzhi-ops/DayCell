@@ -1316,26 +1316,20 @@ function GoalList(): JSX.Element {
             <span className={styles.emptyHint}>自动归入此文件夹，或在详情页移动进来</span>
           </div>
         ) : (
-          renderGroup('文件夹中的目标', items, false, null, true)
+          renderGroup('文件夹中的目标', items, false, fs.folder.id, true)
         )}
       </section>
     )
   }
 
-  // v9.14.3 全部视图按文件夹分组：文件夹组（收藏置顶 → 创建时间）+ 未分类组沉底；每组可折叠
+  // v9.28 全部视图按文件夹分组：文件夹组（收藏置顶 → 创建时间）+ 未分类组沉底；每组可折叠
   // 组内沿用「进行中在上、已完成沉底」（aggregate 排序）；分组视图隐藏卡片文件夹小标签（组头已标明）
+  // v9.28 空文件夹也入列（新建但还没放目标时也在列表里，而不是凭空消失）；未分类组常驻
   const renderGroupedAll = (): JSX.Element => {
     const uncategorized = goalList.filter((x) => !x.goal.folderId)
-    const groupedFolders = folderList.filter((f) =>
-      goalList.some((x) => x.goal.folderId === f.folder.id),
-    )
-    if (groupedFolders.length === 0 && uncategorized.length === 0) {
-      // 全部为空：沿用原「进行中（0）」空态提示
-      return renderGroup('进行中的目标', [], false)
-    }
     return (
       <>
-        {groupedFolders.map(({ folder }) => {
+        {folderList.map(({ folder }) => {
           const items = goalList.filter((x) => x.goal.folderId === folder.id)
           const collapsed = folder.collapsed ?? false
           return (
@@ -1364,67 +1358,86 @@ function GoalList(): JSX.Element {
                   ＋ 新建目标
                 </button>
               </div>
-              {collapsed ? null : renderCards(items, false, true)}
+              {collapsed ? null : items.length === 0 ? (
+                <div className={styles.groupEmpty}>这个文件夹还没有目标</div>
+              ) : (
+                renderCards(items, false, true)
+              )}
             </section>
           )
         })}
-        {uncategorized.length > 0 && (
-          <section>
-            <div className={`${styles.folderGroupHead} ${uncatCollapsed ? styles.folderGroupHeadCollapsed : ''}`}>
-              <button
-                className={styles.folderGroupMain}
-                aria-expanded={!uncatCollapsed}
-                aria-label={uncatCollapsed ? '展开未分类' : '折叠未分类'}
-                onClick={() => setUncatCollapsed(!uncatCollapsed)}
-              >
-                <span className={styles.folderCollapse} aria-hidden="true">
-                  {uncatCollapsed ? '▸' : '▾'}
-                </span>
-                <span className={styles.folderGroupTitle}>未分类（{uncategorized.length}）</span>
-              </button>
-              <button
-                className={styles.newGoalBtn}
-                onClick={() => {
-                  setNewGoalFolder(null)
-                  setNewOpen(true)
-                }}
-              >
-                ＋ 新建目标
-              </button>
-            </div>
-            {uncatCollapsed ? null : renderCards(uncategorized, false, true)}
-          </section>
-        )}
+        <section>
+          <div className={`${styles.folderGroupHead} ${uncatCollapsed ? styles.folderGroupHeadCollapsed : ''}`}>
+            <button
+              className={styles.folderGroupMain}
+              aria-expanded={!uncatCollapsed}
+              aria-label={uncatCollapsed ? '展开未分类' : '折叠未分类'}
+              onClick={() => setUncatCollapsed(!uncatCollapsed)}
+            >
+              <span className={styles.folderCollapse} aria-hidden="true">
+                {uncatCollapsed ? '▸' : '▾'}
+              </span>
+              <span className={styles.folderGroupTitle}>未分类（{uncategorized.length}）</span>
+            </button>
+            <button
+              className={styles.newGoalBtn}
+              onClick={() => {
+                setNewGoalFolder(null)
+                setNewOpen(true)
+              }}
+            >
+              ＋ 新建目标
+            </button>
+          </div>
+          {uncatCollapsed ? null : uncategorized.length === 0 ? (
+            <div className={styles.groupEmpty}>还没有未分类的目标</div>
+          ) : (
+            renderCards(uncategorized, false, true)
+          )}
+        </section>
       </>
     )
   }
 
-  // v9.14 文件夹 chips 区（无文件夹时不显示，老用户界面零变化）
+  // v9.28 顶部工具条：新建文件夹、新建目标两端固定（不随 chips 横滑被滚走），中间 chips 横滑
+  // 新建目标的默认归属跟随当前视图：全部 → 未分类；单文件夹视图 → 该文件夹
+  const openNewGoal = (): void => {
+    setNewGoalFolder(filter === 'all' ? null : filter)
+    setNewOpen(true)
+  }
   const folderBar = folderList.length > 0 ? (
     <div className={styles.folderBar}>
-      <button
-        className={filter === 'all' ? `${styles.folderChip} ${styles.folderChipOn}` : styles.folderChip}
-        onClick={() => setFilter('all')}
-      >
-        全部
+      <button className={styles.folderNew} aria-label="新建文件夹" onClick={() => setFolderSheet(true)}>
+        ＋ 文件夹
       </button>
-      {folderList.map(({ folder, count }) => (
+      <div className={styles.folderChips}>
         <button
-          key={folder.id}
-          className={filter === folder.id ? `${styles.folderChip} ${styles.folderChipOn}` : styles.folderChip}
-          onClick={() => setFilter(folder.id)}
+          className={filter === 'all' ? `${styles.folderChip} ${styles.folderChipOn}` : styles.folderChip}
+          onClick={() => setFilter('all')}
         >
-          {folder.favorite ? '★ ' : ''}{folder.name} {count}
+          全部
         </button>
-      ))}
-      <button className={styles.folderNew} onClick={() => setFolderSheet(true)}>
-        ＋ 新建文件夹
+        {folderList.map(({ folder, count }) => (
+          <button
+            key={folder.id}
+            className={filter === folder.id ? `${styles.folderChip} ${styles.folderChipOn}` : styles.folderChip}
+            onClick={() => setFilter(folder.id)}
+          >
+            {folder.favorite ? '★ ' : ''}{folder.name} {count}
+          </button>
+        ))}
+      </div>
+      <button className={styles.folderNewGoal} aria-label="新建目标" onClick={openNewGoal}>
+        ＋ 目标
       </button>
     </div>
   ) : (
     <div className={styles.folderBar}>
-      <button className={styles.folderNew} onClick={() => setFolderSheet(true)}>
-        ＋ 新建文件夹
+      <button className={styles.folderNew} aria-label="新建文件夹" onClick={() => setFolderSheet(true)}>
+        ＋ 文件夹
+      </button>
+      <button className={styles.folderNewGoal} aria-label="新建目标" onClick={openNewGoal}>
+        ＋ 目标
       </button>
     </div>
   )
