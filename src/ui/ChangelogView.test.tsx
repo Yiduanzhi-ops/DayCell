@@ -37,20 +37,24 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v8.76')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v8.77')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v8.76')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v8.77')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v8.76，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v8.77，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v8.76')
+    expect(vers[0].textContent).toBe('v8.77')
     expect(screen.getByText(/待办日期口径统一/)).toBeInTheDocument()
     expect(screen.getByText(/点文件夹名本身即可折叠/)).toBeInTheDocument()
     expect(screen.getByText(/文件夹多了也不会被横向挤走/)).toBeInTheDocument()
     expect(screen.getByText(/建完就看不见/)).toBeInTheDocument()
     expect(screen.getByText(/不用再借某个文件夹的入口绕一圈/)).toBeInTheDocument()
+    // v8.77
+    expect(screen.getByText(/「未分类」组头那颗常驻按钮去掉/)).toBeInTheDocument()
+    expect(screen.getByText(/单夹视图不再在组头和顶部各挂一个同效按钮/)).toBeInTheDocument()
+    expect(screen.getByText(/按钮文案去掉/)).toBeInTheDocument()
     expect(screen.getByText(/周\/月报告/)).toBeInTheDocument()
     expect(screen.getByText(/纯本地统计/)).toBeInTheDocument()
     expect(screen.getByText(/待办时间标签/)).toBeInTheDocument()

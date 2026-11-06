@@ -35,7 +35,7 @@ describe('目标模块（v7.9）', () => {
     fireEvent.click(screen.getByRole('tab', { name: '目标' }))
     await waitFor(() => expect(screen.getByText(/进行中的目标/)).toBeInTheDocument())
     expect(screen.getByText(/还没有目标/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '＋ 新建目标' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '新建目标' })).toBeInTheDocument()
   })
 
   it('新建目标 → 列表卡片出现', async () => {
@@ -43,7 +43,7 @@ describe('目标模块（v7.9）', () => {
     fireEvent.click(screen.getByRole('tab', { name: '目标' }))
     await waitFor(() => screen.getByText(/进行中的目标/))
 
-    fireEvent.click(screen.getByRole('button', { name: '＋ 新建目标' }))
+    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
     const nameInput = screen.getByPlaceholderText('如：复习考公')
     fireEvent.change(nameInput, { target: { value: '复习考公' } })
     const note = screen.getByPlaceholderText('这个阶段想做什么、为什么做、怎么衡量')
@@ -61,7 +61,7 @@ describe('目标模块（v7.9）', () => {
     await waitFor(() => screen.getByText(/进行中的目标/))
 
     // 建目标 + 阐述
-    fireEvent.click(screen.getByRole('button', { name: '＋ 新建目标' }))
+    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
     fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
     fireEvent.change(screen.getByPlaceholderText('这个阶段想做什么、为什么做、怎么衡量'), {
       target: { value: '每天 2 小时行测，重点数量关系' },
@@ -98,7 +98,7 @@ describe('目标模块（v7.9）', () => {
     fireEvent.click(screen.getByRole('tab', { name: '目标' }))
     await waitFor(() => screen.getByText(/进行中的目标/))
 
-    fireEvent.click(screen.getByRole('button', { name: '＋ 新建目标' }))
+    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
     fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
     await screen.findByText('复习考公')
@@ -132,7 +132,7 @@ describe('目标模块（v7.9）', () => {
     fireEvent.click(screen.getByRole('tab', { name: '目标' }))
     await waitFor(() => screen.getByText(/进行中的目标/))
 
-    fireEvent.click(screen.getByRole('button', { name: '＋ 新建目标' }))
+    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
     fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
     await screen.findByText('复习考公')
@@ -153,7 +153,7 @@ describe('目标模块（v7.9）', () => {
     fireEvent.click(screen.getByRole('tab', { name: '目标' }))
     await waitFor(() => screen.getByText(/进行中的目标/))
 
-    fireEvent.click(screen.getByRole('button', { name: '＋ 新建目标' }))
+    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
     fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
     await screen.findByText('复习考公')
@@ -182,7 +182,7 @@ describe('目标模块（v7.9）', () => {
     fireEvent.click(screen.getByRole('tab', { name: '目标' }))
     await waitFor(() => screen.getByText(/进行中的目标/))
 
-    fireEvent.click(screen.getByRole('button', { name: '＋ 新建目标' }))
+    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
     fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
     await screen.findByText('复习考公')
@@ -202,7 +202,7 @@ describe('目标模块（v7.9）', () => {
     fireEvent.click(screen.getByRole('tab', { name: '目标' }))
     await waitFor(() => screen.getByText(/进行中的目标/))
 
-    fireEvent.click(screen.getByRole('button', { name: '＋ 新建目标' }))
+    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
     fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
     await screen.findByText('复习考公')
@@ -249,7 +249,7 @@ describe('目标模块（v7.9）', () => {
     fireEvent.click(screen.getByRole('tab', { name: '目标' }))
     await waitFor(() => screen.getByText(/进行中的目标/))
 
-    fireEvent.click(screen.getByRole('button', { name: '＋ 新建目标' }))
+    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
     fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
     await screen.findByText('复习考公')
@@ -291,7 +291,7 @@ describe('目标模块（v7.9）', () => {
     fireEvent.click(screen.getByRole('tab', { name: '目标' }))
     await waitFor(() => screen.getByText(/进行中的目标/))
 
-    fireEvent.click(screen.getByRole('button', { name: '＋ 新建目标' }))
+    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
     fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
     await screen.findByText('复习考公')
@@ -328,7 +328,7 @@ describe('目标模块（v7.9）', () => {
     fireEvent.click(screen.getByRole('tab', { name: '目标' }))
     await waitFor(() => screen.getByText(/进行中的目标/))
 
-    fireEvent.click(screen.getByRole('button', { name: '＋ 新建目标' }))
+    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
     fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
     await screen.findByText('复习考公')
@@ -376,7 +376,7 @@ describe('目标模块（v7.9）', () => {
     fireEvent.click(screen.getByRole('tab', { name: '目标' }))
     await waitFor(() => screen.getByText(/进行中的目标/))
 
-    fireEvent.click(screen.getByRole('button', { name: '＋ 新建目标' }))
+    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
     fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
     await screen.findByText('复习考公')
@@ -433,7 +433,7 @@ describe('目标模块（v7.9）', () => {
     fireEvent.click(screen.getByRole('tab', { name: '目标' }))
     await waitFor(() => screen.getByText(/进行中的目标/))
 
-    fireEvent.click(screen.getByRole('button', { name: '＋ 新建目标' }))
+    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
     fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
     await screen.findByText('复习考公')
@@ -468,7 +468,7 @@ describe('目标模块（v7.9）', () => {
     fireEvent.click(screen.getByRole('tab', { name: '目标' }))
     await waitFor(() => screen.getByText(/进行中的目标/))
 
-    fireEvent.click(screen.getByRole('button', { name: '＋ 新建目标' }))
+    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
     fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
     await screen.findByText('复习考公')
@@ -608,10 +608,11 @@ describe('目标文件夹（v9.14）', () => {
     fireEvent.click(screen.getByRole('tab', { name: '目标' }))
     await waitFor(() => expect(screen.getByRole('button', { name: /工作 \d/ })).toBeInTheDocument())
 
-    // 进入文件夹视图 → 「＋ 新建目标」直接创建（不手动选夹）
+    // 进入文件夹视图 → 顶部「新建目标」默认归该夹（组头不再重复挂按钮）
     fireEvent.click(screen.getByRole('button', { name: /工作 \d/ }))
     await waitFor(() => expect(screen.getByText('文件夹中的目标（1）')).toBeInTheDocument())
-    fireEvent.click(screen.getByRole('button', { name: '＋ 新建目标' }))
+    expect(screen.queryByRole('button', { name: '在「工作」下新建目标' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
     fireEvent.change(screen.getByPlaceholderText(/复习考公/), { target: { value: '文件夹内新建' } })
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
     // 自动归属：文件夹视图计数 +1、新目标可见、chips 计数同步
@@ -620,7 +621,7 @@ describe('目标文件夹（v9.14）', () => {
     expect(screen.getByRole('button', { name: /工作 2/ })).toBeInTheDocument()
   })
 
-  it('空文件夹视图：仍提供「＋ 新建目标」入口，新建后自动归属', async () => {
+  it('空文件夹视图：空态里提供「新建目标」入口，新建后自动归属', async () => {
     const { store } = await renderAppWrap()
     const s = store.getState()
     await s.createFolder('空夹')
@@ -628,9 +629,8 @@ describe('目标文件夹（v9.14）', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: /空夹 \d/ })).toBeInTheDocument())
     fireEvent.click(screen.getByRole('button', { name: /空夹 \d/ }))
     await waitFor(() => expect(screen.getByText('这个文件夹还没有目标')).toBeInTheDocument())
-    // 空态内也有新建入口（组头与空态各一个同名按钮，取空态里那个）
-    const btns = screen.getAllByRole('button', { name: '＋ 新建目标' })
-    const btn = btns[btns.length - 1]
+    // 空态框里保留一个作用域入口（aria-label 指明归哪个夹）
+    const btn = screen.getByRole('button', { name: '在「空夹」下新建目标' })
     expect(btn).toBeInTheDocument()
     fireEvent.click(btn)
     fireEvent.change(screen.getByPlaceholderText(/复习考公/), { target: { value: '空夹首个目标' } })
@@ -664,8 +664,8 @@ describe('目标文件夹（v9.14）', () => {
     // 展开乙夹 → 目标回来（折叠后仅乙夹为「展开文件夹」）
     fireEvent.click(screen.getByRole('button', { name: '展开文件夹「乙夹」' }))
     await waitFor(() => expect(screen.getByText('乙目标')).toBeInTheDocument())
-    // 甲夹组内「＋ 新建目标」→ 自动归属甲夹
-    fireEvent.click(screen.getAllByRole('button', { name: '＋ 新建目标' })[0])
+    // 甲夹组头的「新建目标」→ 自动归属甲夹
+    fireEvent.click(screen.getByRole('button', { name: '在「甲夹」下新建目标' }))
     fireEvent.change(screen.getByPlaceholderText(/复习考公/), { target: { value: '甲夹新建' } })
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
     await waitFor(() => expect(screen.getByText('甲夹（2）')).toBeInTheDocument())
@@ -688,7 +688,7 @@ describe('目标文件夹（v9.14）', () => {
     expect(screen.getByText('未分类（0）')).toBeInTheDocument()
     expect(screen.getByText('还没有未分类的目标')).toBeInTheDocument()
 
-    // 顶部「＋ 目标」：全部视图下默认归未分类，不用先借某个文件夹的按钮
+    // 顶部「新建目标」：全部视图下默认归未分类，不用先借某个文件夹的按钮
     fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
     fireEvent.change(screen.getByPlaceholderText(/复习考公/), { target: { value: '散落目标' } })
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
@@ -696,11 +696,31 @@ describe('目标文件夹（v9.14）', () => {
     expect(screen.getByText('散落目标')).toBeInTheDocument()
     expect(screen.getByText('有内容的夹（1）')).toBeInTheDocument()
 
-    // 顶部「＋ 文件夹」：新建后立刻入列（0 目标也看得见，不再"建完消失"）
+    // 顶部「新建文件夹」：新建后立刻入列（0 目标也看得见，不再"建完消失"）
     fireEvent.click(screen.getByRole('button', { name: '新建文件夹' }))
     fireEvent.change(screen.getByPlaceholderText(/2026 考证/), { target: { value: '新建的夹' } })
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
     await waitFor(() => expect(screen.getByText('新建的夹（0）')).toBeInTheDocument())
+  })
+
+  it('v8.77 入口去冗余：文件夹组头保留作用域入口，未分类组头不再挂按钮', async () => {
+    const { store } = await renderAppWrap()
+    const s = store.getState()
+    await s.createFolder('学习')
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => expect(screen.getByText('学习（0）')).toBeInTheDocument())
+
+    // 顶部两个入口：文案去 + 号，全局唯二
+    expect(screen.getByRole('button', { name: '新建文件夹' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '新建目标' })).toBeInTheDocument()
+    expect(screen.queryByText(/＋ 新建目标/)).not.toBeInTheDocument()
+
+    // 文件夹组头：保留一个作用域入口（aria-label 指明归属该夹）
+    expect(screen.getByRole('button', { name: '在「学习」下新建目标' })).toBeInTheDocument()
+
+    // 未分类组头：不再常驻新建按钮（顶部在全部视图默认就是未分类，属完全冗余）
+    expect(screen.getByText('未分类（0）')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '在「未分类」下新建目标' })).not.toBeInTheDocument()
   })
 
   it('删除目标二次确认：取消不删，确认后删除并回列表', async () => {

@@ -8,11 +8,20 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.76'
+const CURRENT_VERSION = 'v8.77'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.77',
+    date: '2026-11-06',
+    items: [
+      '新建入口去冗余：文件夹组头只在「全部」视图保留「新建目标」（默认归该夹），「未分类」组头那颗常驻按钮去掉——顶部按钮已覆盖同一作用域',
+      '单夹视图不再在组头和顶部各挂一个同效按钮：组头不显示，顶部那个默认就归当前文件夹',
+      '按钮文案去掉 + 号：顶部为「新建文件夹 / 新建目标」，组头与空态为「新建目标」，组头并用「在「X」下新建目标」说明作用域',
+    ],
+  },
   {
     version: 'v8.76',
     date: '2026-11-06',

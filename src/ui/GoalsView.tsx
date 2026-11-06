@@ -1182,7 +1182,7 @@ function GoalList(): JSX.Element {
             <span className={styles.emptyBig}>◎</span>
             还没有目标
             <br />
-            点右上角「＋ 新建目标」创建一个阶段性目标
+            点右上角「新建目标」创建一个阶段性目标
           </div>
         )
       )}
@@ -1249,11 +1249,12 @@ function GoalList(): JSX.Element {
     </>
   )
 
+  // v8.77 组头不再挂「新建目标」——全局入口固定在顶部工具条；只有文件夹组头保留
+  // 该夹的就地入口（作用于该文件夹，语义不同于顶部）
   const renderGroup = (
     title: string,
     items: typeof goalList,
     doneGroup: boolean,
-    defaultFolder?: string | null,
     hideFolderTag?: boolean,
   ): JSX.Element => (
     <section key={title}>
@@ -1261,17 +1262,6 @@ function GoalList(): JSX.Element {
         <span className={styles.listTitle}>
           {title}（{items.length}）
         </span>
-        {!doneGroup && (
-          <button
-            className={styles.newGoalBtn}
-            onClick={() => {
-              setNewGoalFolder(defaultFolder ?? null)
-              setNewOpen(true)
-            }}
-          >
-            ＋ 新建目标
-          </button>
-        )}
       </div>
       {renderCards(items, doneGroup, hideFolderTag)}
     </section>
@@ -1312,13 +1302,20 @@ function GoalList(): JSX.Element {
             <span className={styles.emptyBig}>◎</span>
             这个文件夹还没有目标
             <br />
-            <button className={styles.newGoalBtn} onClick={() => setNewOpen(true)}>
-              ＋ 新建目标
+            <button
+              className={styles.newGoalBtn}
+              aria-label={`在「${fs.folder.name}」下新建目标`}
+              onClick={() => {
+                setNewGoalFolder(fs.folder.id)
+                setNewOpen(true)
+              }}
+            >
+              新建目标
             </button>
             <span className={styles.emptyHint}>自动归入此文件夹，或在详情页移动进来</span>
           </div>
         ) : (
-          renderGroup('文件夹中的目标', items, false, fs.folder.id, true)
+          renderGroup('文件夹中的目标', items, false, true)
         )}
       </section>
     )
@@ -1352,12 +1349,13 @@ function GoalList(): JSX.Element {
                 </button>
                 <button
                   className={styles.newGoalBtn}
+                  aria-label={`在「${folder.name}」下新建目标`}
                   onClick={() => {
                     setNewGoalFolder(folder.id)
                     setNewOpen(true)
                   }}
                 >
-                  ＋ 新建目标
+                  新建目标
                 </button>
               </div>
               {collapsed ? null : items.length === 0 ? (
@@ -1381,15 +1379,6 @@ function GoalList(): JSX.Element {
               </span>
               <span className={styles.folderGroupTitle}>未分类（{uncategorized.length}）</span>
             </button>
-            <button
-              className={styles.newGoalBtn}
-              onClick={() => {
-                setNewGoalFolder(null)
-                setNewOpen(true)
-              }}
-            >
-              ＋ 新建目标
-            </button>
           </div>
           {uncatCollapsed ? null : uncategorized.length === 0 ? (
             <div className={styles.groupEmpty}>还没有未分类的目标</div>
@@ -1410,7 +1399,7 @@ function GoalList(): JSX.Element {
   const folderBar = folderList.length > 0 ? (
     <div className={styles.folderBar}>
       <button className={styles.folderNew} aria-label="新建文件夹" onClick={() => setFolderSheet(true)}>
-        ＋ 文件夹
+        新建文件夹
       </button>
       <div className={styles.folderChips}>
         <button
@@ -1430,16 +1419,16 @@ function GoalList(): JSX.Element {
         ))}
       </div>
       <button className={styles.folderNewGoal} aria-label="新建目标" onClick={openNewGoal}>
-        ＋ 目标
+        新建目标
       </button>
     </div>
   ) : (
     <div className={styles.folderBar}>
       <button className={styles.folderNew} aria-label="新建文件夹" onClick={() => setFolderSheet(true)}>
-        ＋ 文件夹
+        新建文件夹
       </button>
       <button className={styles.folderNewGoal} aria-label="新建目标" onClick={openNewGoal}>
-        ＋ 目标
+        新建目标
       </button>
     </div>
   )
