@@ -474,10 +474,11 @@ describe('目标模块（v7.9）', () => {
     await screen.findByText('复习考公')
 
     fireEvent.click(screen.getByText('复习考公'))
-    // 阐述区块（空态）+ 当前进度区块（空态，与阐述同级）
-    await waitFor(() => screen.getByText(/还没有写阐述/))
+    // 阐述区块 + 当前进度区块，空态只留标签与「编辑」，不再塞整段默认说明
+    await waitFor(() => screen.getByText('目标阐述'))
+    expect(screen.queryByText(/还没有写阐述/)).not.toBeInTheDocument()
     expect(screen.getByText('当前进度')).toBeInTheDocument()
-    expect(screen.getByText(/还没有写当前进度/)).toBeInTheDocument()
+    expect(screen.queryByText(/还没有写当前进度/)).not.toBeInTheDocument()
 
     // 点「编辑」（当前进度行的按钮）→ pct + note → 保存 → 显示在阐述下方
     fireEvent.click(screen.getAllByRole('button', { name: '编辑' })[1])

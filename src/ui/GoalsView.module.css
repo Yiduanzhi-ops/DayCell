@@ -464,7 +464,6 @@
   color: var(--ink-3);
   font-weight: 600;
   letter-spacing: 0.06em;
-  margin-bottom: 8px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -478,13 +477,13 @@
   cursor: pointer;
 }
 .noteBox p {
+  margin: 8px 0 0;
   font-size: 14px;
   line-height: 1.75;
   color: var(--ink);
   white-space: pre-wrap;
   word-break: break-word;
 }
-.noteEmpty { color: var(--ink-3); }
 .noteEdit { margin-top: 4px; }
 .noteEdit textarea {
   width: 100%;
