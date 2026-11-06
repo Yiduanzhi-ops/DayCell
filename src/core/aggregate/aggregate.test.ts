@@ -279,7 +279,7 @@ describe('aggregateWeek — 恒 7 行', () => {
     expect(tue.notePreview.map((n) => n.text)).toEqual(['2026-09-29 想法1', '2026-09-29 想法2'])
   })
 
-  it('预览排除已顺延出去的待办；来源日显示「顺延 →」由 UI 按 rolledTo 判断', async () => {
+  it('预览排除已顺延出去的待办；来源日不再显示痕迹（v9.31 连痕迹也不留）', async () => {
     await seedDay('2026-09-28', { todos: 2 })
     await repos.todos.rollOver(k('2026-09-28'), k('2026-09-29'))
     const { days } = await agg.aggregateWeek(k('2026-09-29'))
@@ -380,14 +380,20 @@ describe('aggregateDayDetail — v6 首屏关键路径', () => {
     expect(detail.summary).toEqual(plain)
   })
 
-  it('todos 按 createdAt 升序，且**含 rolledTo 项**（进度计算要自己排除）', async () => {
+  it('v9.31 已顺延出去的源记录不再进入日详情（历史日不留删不掉的痕迹）', async () => {
     await seedDay('2026-09-28', { todos: 2 })
     await repos.todos.rollOver(k('2026-09-28'), k('2026-09-29'))
 
+    // 源日：内容已搬到 09-29，这天什么都不剩
     const d = await agg.aggregateDayDetail(k('2026-09-28'))
-    expect(d.todos).toHaveLength(2) // 记录还在这天，只是被标记为已顺延
-    expect(d.todos.every((t) => t.rolledTo === '2026-09-29')).toBe(true)
-    expect(d.summary.todoTotal).toBe(0) // 但进度里不算
+    expect(d.todos).toHaveLength(0)
+    expect(d.summary.todoTotal).toBe(0)
+    expect(d.summary.isEmpty).toBe(true) // 空态口径与展示一致
+
+    // 目标日：两条都在，且带 rolledFrom 回溯
+    const to = await agg.aggregateDayDetail(k('2026-09-29'))
+    expect(to.todos).toHaveLength(2)
+    expect(to.todos.every((t) => t.rolledFrom === '2026-09-28')).toBe(true)
   })
 
   it('★ prevDayRollable：昨天未完成且未顺延的条数，一次查询顺带拿到', async () => {
@@ -567,6 +573,36 @@ describe('v8.53 活跃 DDL 待办注入（每天出现）', () => {
     expect(r.moved[0]!.text).toBe('2026-10-20 待办1')
     const left = await repos.todos.byDate(k('2026-10-20'))
     expect(left.some((t) => t.text === 'DDL任务' && !t.rolledTo)).toBe(true)
+  })
+
+  it('v9.31 逾期完成后：截止日（date=deadline 的本地桶）不再显示，只在完成当天保留', async () => {
+    clock.set(new Date(2026, 9, 25).getTime())
+    const t = await repos.todos.create(k('2026-10-25'), '还书', '2026-10-25')
+
+    // 未完成时截止日当然显示
+    expect((await agg.aggregateDayDetail(k('2026-10-25'))).todos).toHaveLength(1)
+
+    // 10-28 才完成（逾期）
+    clock.set(new Date(2026, 9, 28).getTime())
+    await repos.todos.toggle(t.id)
+
+    // 完成当天保留（带「逾期完成」标注）
+    const onDone = await agg.aggregateDayDetail(k('2026-10-28'))
+    expect(onDone.todos).toHaveLength(1)
+    expect(onDone.todos[0]!.done).toBe(true)
+
+    // 截止日 10-25 历史格不再挂着这条已完成的待办
+    expect((await agg.aggregateDayDetail(k('2026-10-25'))).todos).toHaveLength(0)
+    expect((await agg.aggregateDayDetail(k('2026-10-25'))).summary.isEmpty).toBe(true)
+
+    // 中间日 10-26 / 10-27 也不显示
+    expect((await agg.aggregateDayDetail(k('2026-10-26'))).todos).toHaveLength(0)
+    expect((await agg.aggregateDayDetail(k('2026-10-27'))).todos).toHaveLength(0)
+
+    // 周视图行预览同一口径（否则周行还挂着那条已完成的）
+    const week = await agg.aggregateWeek(k('2026-10-25'))
+    const sun = week.days.find((d) => d.date === '2026-10-25')!
+    expect(sun.todoPreview.map((t) => t.text)).not.toContain('还书')
   })
 
   it('v9.2.3 提醒型（timeType=at）不逐日注入：只在提醒日期当天显示', async () => {

@@ -664,12 +664,8 @@ describe('目标文件夹（v9.14）', () => {
     // 展开乙夹 → 目标回来
     fireEvent.click(screen.getByRole('button', { name: '展开文件夹「乙夹」' }))
     await waitFor(() => expect(screen.getByText('乙目标')).toBeInTheDocument())
-    // 甲夹组头的「新建目标」→ 自动归属甲夹
-    fireEvent.click(screen.getByRole('button', { name: '在「甲夹」下新建目标' }))
-    fireEvent.change(screen.getByPlaceholderText(/复习考公/), { target: { value: '甲夹新建' } })
-    fireEvent.click(screen.getByRole('button', { name: '创建' }))
-    await waitFor(() => expect(screen.getByText('甲夹（2）')).toBeInTheDocument())
-    expect(screen.getByText('甲夹新建')).toBeInTheDocument()
+    // v9.31 组头不再挂「新建目标」：入口只在顶部工具条
+    expect(screen.queryByRole('button', { name: '在「甲夹」下新建目标' })).not.toBeInTheDocument()
   })
 
   it('v9.28 全部视图：空文件夹也入列 + 未分类常驻 + 顶部新建目标默认未分类', async () => {
@@ -703,7 +699,7 @@ describe('目标文件夹（v9.14）', () => {
     await waitFor(() => expect(screen.getByText('新建的夹（0）')).toBeInTheDocument())
   })
 
-  it('v9.29 入口去冗余：文件夹组头保留作用域入口，未分类组头不再挂按钮', async () => {
+  it('v9.31 入口去冗余：组头一律不挂「新建目标」，只留顶部一个', async () => {
     const { store } = await renderAppWrap()
     const s = store.getState()
     await s.createFolder('学习')
@@ -715,8 +711,8 @@ describe('目标文件夹（v9.14）', () => {
     expect(screen.getByRole('button', { name: '新建目标' })).toBeInTheDocument()
     expect(screen.queryByText(/＋ 新建目标/)).not.toBeInTheDocument()
 
-    // 文件夹组头：保留一个作用域入口（aria-label 指明归属该夹）
-    expect(screen.getByRole('button', { name: '在「学习」下新建目标' })).toBeInTheDocument()
+    // v9.31 文件夹组头也不再挂入口：全局只在顶部工具条
+    expect(screen.queryByRole('button', { name: '在「学习」下新建目标' })).not.toBeInTheDocument()
 
     // 未分类组头：不再常驻新建按钮（顶部在全部视图默认就是未分类，属完全冗余）
     expect(screen.getByText('未分类（0）')).toBeInTheDocument()

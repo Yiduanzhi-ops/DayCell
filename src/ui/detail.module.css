@@ -81,7 +81,6 @@
   .tdel { visibility: visible; color: var(--ink-3); }
 }
 .rolled { font-size: 10.5px; color: var(--ink-3); background: var(--bg-hover); border: 1px solid var(--line); padding: 1px 6px; border-radius: 4px; flex: 0 0 auto; margin-top: 2px; }
-.rolledout { opacity: 0.55; }
 /* v8.53 待办截止日徽标：普通态弱化，逾期态强调色 */
 .ddlBadge {
   flex: 0 0 auto; font-size: 10.5px; color: var(--ink-3);
