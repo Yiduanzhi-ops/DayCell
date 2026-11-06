@@ -8,11 +8,20 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.33'
+const CURRENT_VERSION = 'v9.34'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.34',
+    date: '2026-11-06',
+    items: [
+      '导入备份能救回删掉的东西了：本地删掉的文件夹、目标、待办等，只要备份里还在，导入时按备份恢复回来，创建/更新时间保持原样',
+      '恢复不算「新增」，提示会单独说明「恢复 N 条已删除的记录」，不会再出现「备份里没有新数据」而实际什么都没恢复',
+      '没删的照旧保留本地（后来改的标题、归属不会被备份盖掉），两边都删的继续保持删除',
+    ],
+  },
   {
     version: 'v9.33',
     date: '2026-11-06',

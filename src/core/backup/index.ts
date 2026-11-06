@@ -248,6 +248,9 @@ export function formatMergeStats(stats: MergeStats): string {
     ({ key, unit }) => `${stats.added[key]} ${unit}`,
   )
   if (stats.settingsAdded > 0) parts.push(`${stats.settingsAdded} 项设置`)
+  // v9.34：本地删掉、备份里还在的记录会被恢复，同样要如实说，否则用户以为只导入了新增
+  const restoredTotal = (Object.values(stats.restored) as number[]).reduce((a, b) => a + b, 0)
+  if (restoredTotal > 0) parts.push(`恢复 ${restoredTotal} 条已删除的记录`)
   // v9.33：这次没有新增目标、但把已有目标补回了文件夹归属，也要如实说
   if (stats.linkedGoals > 0) parts.push(`${stats.linkedGoals} 个目标归回文件夹`)
   return parts.join('、')
@@ -260,9 +263,15 @@ export function formatMergeStats(stats: MergeStats): string {
 export interface MergeStats {
   /** 各 store 实际新增（补入）的记录数 */
   added: Record<Exclude<StoreName, 'settings'>, number>
+  /**
+   * v9.34：各 store 从备份恢复的条数（本地是墓碑 deleted=true、备份里是活记录）。
+   * 「导入备份」的语义是恢复，删掉的数据必须能跟着备份回来——
+   * 此前同 id 一律整条保留本地，墓碑也算「本地已有」，删掉的东西永远导不回来。
+   */
+  restored: Record<Exclude<StoreName, 'settings'>, number>
   /** 新增的设置项数 */
   settingsAdded: number
-  /** 因 id 冲突保留本地的条数 */
+  /** 因 id 冲突保留本地的条数（备份里既没新增、也没恢复的） */
   keptLocal: number
   /** v9.33：同 id 目标从备份补回文件夹归属的条数（本地原本没有归属） */
   linkedGoals: number
@@ -292,32 +301,48 @@ export async function mergeBackup(store: RecordStore, file: BackupFile): Promise
       store.allSettings(),
     ])
 
-  // 按 id 去重：本地已有 → 保留本地（keptLocal 计数）；备份新增且未删除 → 补入
-  const pickNew = <T extends { id: string; deleted?: boolean }>(backup: T[], local: T[]): T[] => {
-    const ids = new Set(local.map((r) => r.id))
-    return backup.filter((r) => !r.deleted && !ids.has(r.id))
+  // 按 id 三分：备份是墓碑 → 不引入；本地没有 → 新增；本地是墓碑、备份是活记录 → 恢复；
+  // 本地活着 → 保留本地（keptLocal 计数），不覆盖用户后来的修改
+  const splitMerge = <T extends { id: string; deleted?: boolean }>(
+    backup: T[],
+    local: T[],
+  ): { fresh: T[]; restored: T[] } => {
+    const localById = new Map(local.map((r) => [r.id, r]))
+    const fresh: T[] = []
+    const restored: T[] = []
+    for (const r of backup) {
+      if (r.deleted) continue
+      const localRow = localById.get(r.id)
+      if (!localRow) fresh.push(r)
+      else if (localRow.deleted) restored.push(r)
+    }
+    return { fresh, restored }
   }
 
-  const newTodos = pickNew(file.data.todos, localTodos)
-  const newNotes = pickNew(file.data.notes, localNotes)
-  const newExpenses = pickNew(file.data.expenses, localExpenses)
-  const newAnniv = pickNew(file.data.anniversaries, localAnniv)
-  const newCats = pickNew(file.data.categories, localCats)
-  const newGoals = pickNew(file.data.goals, localGoals)
-  const newStages = pickNew(file.data.stages, localStages)
-  const newSubtasks = pickNew(file.data.subtasks, localSubtasks)
-  const newHabits = pickNew(file.data.habits, localHabits)
-  const newCheckins = pickNew(file.data.checkins, localCheckins)
-  const newAnnivChecks = pickNew(file.data.annivchecks, localAnnivChecks)
-  const newReviews = pickNew(file.data.reviews ?? [], localReviews)
-  const newFolders = pickNew(file.data.folders ?? [], localFolders)
+  const mTodos = splitMerge(file.data.todos, localTodos)
+  const mNotes = splitMerge(file.data.notes, localNotes)
+  const mExpenses = splitMerge(file.data.expenses, localExpenses)
+  const mAnniv = splitMerge(file.data.anniversaries, localAnniv)
+  const mCats = splitMerge(file.data.categories, localCats)
+  const mGoals = splitMerge(file.data.goals, localGoals)
+  const mStages = splitMerge(file.data.stages, localStages)
+  const mSubtasks = splitMerge(file.data.subtasks, localSubtasks)
+  const mHabits = splitMerge(file.data.habits, localHabits)
+  const mCheckins = splitMerge(file.data.checkins, localCheckins)
+  const mAnnivChecks = splitMerge(file.data.annivchecks, localAnnivChecks)
+  const mReviews = splitMerge(file.data.reviews ?? [], localReviews)
+  const mFolders = splitMerge(file.data.folders ?? [], localFolders)
 
   // v9.33 文件夹归属补全：id 冲突时目标整条保留本地，但 folderId 是纯归属元数据——
   // 本地目标没有归属（在文件夹功能之前创建、或从旧版备份导入的），备份里却带着它属于哪个文件夹，
   // 此前会被"本地已有"一并跳过，于是文件夹导进来了、里面的目标却全落在未分类。
   // 这里只补「本地没有 folderId」的目标，不覆盖任何本地已有归属；文件夹在合并后不存在则跳过。
   const liveLocalFolderIds = new Set(localFolders.filter((f) => !f.deleted).map((f) => f.id))
-  const folderIdsAfterMerge = new Set([...liveLocalFolderIds, ...newFolders.map((f) => f.id)])
+  const folderIdsAfterMerge = new Set([
+    ...liveLocalFolderIds,
+    ...mFolders.fresh.map((f) => f.id),
+    ...mFolders.restored.map((f) => f.id),
+  ])
   const backupGoalById = new Map(file.data.goals.map((g) => [g.id, g]))
   const goalLinkUpdates: GoalRecord[] = []
   for (const g of localGoals) {
@@ -329,39 +354,50 @@ export async function mergeBackup(store: RecordStore, file: BackupFile): Promise
   }
 
   const localKeys = new Set<SettingKey>(localSettings.map((s) => s.key))
-  // v8.80：白名单兜底——快照恢复等路径不经 parseSettings，这里再挡一次，
+  // v9.32：白名单兜底——快照恢复等路径不经 parseSettings，这里再挡一次，
   // 未知设置键绝不写库
   const knownKeys = new Set<string>(SETTING_KEYS)
   const newSettings = file.data.settings.filter(
     (s) => knownKeys.has(s.key) && !localKeys.has(s.key),
   )
 
+  // 备份里有、但既没新增也没恢复的条数：本地活着（同 id 冲突保留本地）+ 两边都是墓碑
   const keptLocal =
-    (file.data.todos.length - newTodos.length) +
-    (file.data.notes.length - newNotes.length) +
-    (file.data.expenses.length - newExpenses.length) +
-    (file.data.anniversaries.length - newAnniv.length) +
-    (file.data.categories.length - newCats.length) +
-    (file.data.goals.length - newGoals.length) +
-    (file.data.stages.length - newStages.length) +
-    (file.data.subtasks.length - newSubtasks.length) +
-    (file.data.habits.length - newHabits.length) +
-    (file.data.checkins.length - newCheckins.length) +
-    (file.data.annivchecks.length - newAnnivChecks.length) +
-    ((file.data.reviews?.length ?? 0) - newReviews.length) +
-    ((file.data.folders?.length ?? 0) - newFolders.length)
+    (file.data.todos.length - mTodos.fresh.length - mTodos.restored.length) +
+    (file.data.notes.length - mNotes.fresh.length - mNotes.restored.length) +
+    (file.data.expenses.length - mExpenses.fresh.length - mExpenses.restored.length) +
+    (file.data.anniversaries.length - mAnniv.fresh.length - mAnniv.restored.length) +
+    (file.data.categories.length - mCats.fresh.length - mCats.restored.length) +
+    (file.data.goals.length - mGoals.fresh.length - mGoals.restored.length) +
+    (file.data.stages.length - mStages.fresh.length - mStages.restored.length) +
+    (file.data.subtasks.length - mSubtasks.fresh.length - mSubtasks.restored.length) +
+    (file.data.habits.length - mHabits.fresh.length - mHabits.restored.length) +
+    (file.data.checkins.length - mCheckins.fresh.length - mCheckins.restored.length) +
+    (file.data.annivchecks.length - mAnnivChecks.fresh.length - mAnnivChecks.restored.length) +
+    ((file.data.reviews?.length ?? 0) - mReviews.fresh.length - mReviews.restored.length) +
+    ((file.data.folders?.length ?? 0) - mFolders.fresh.length - mFolders.restored.length)
 
   const allEmpty =
-    newTodos.length === 0 && newNotes.length === 0 && newExpenses.length === 0 &&
-    newAnniv.length === 0 && newCats.length === 0 && newGoals.length === 0 &&
-    newStages.length === 0 && newSubtasks.length === 0 && newHabits.length === 0 &&
-    newCheckins.length === 0 && newAnnivChecks.length === 0 && newReviews.length === 0 &&
-    newFolders.length === 0 && newSettings.length === 0 && goalLinkUpdates.length === 0
+    mTodos.fresh.length === 0 && mTodos.restored.length === 0 &&
+    mNotes.fresh.length === 0 && mNotes.restored.length === 0 &&
+    mExpenses.fresh.length === 0 && mExpenses.restored.length === 0 &&
+    mAnniv.fresh.length === 0 && mAnniv.restored.length === 0 &&
+    mCats.fresh.length === 0 && mCats.restored.length === 0 &&
+    mGoals.fresh.length === 0 && mGoals.restored.length === 0 &&
+    mStages.fresh.length === 0 && mStages.restored.length === 0 &&
+    mSubtasks.fresh.length === 0 && mSubtasks.restored.length === 0 &&
+    mHabits.fresh.length === 0 && mHabits.restored.length === 0 &&
+    mCheckins.fresh.length === 0 && mCheckins.restored.length === 0 &&
+    mAnnivChecks.fresh.length === 0 && mAnnivChecks.restored.length === 0 &&
+    mReviews.fresh.length === 0 && mReviews.restored.length === 0 &&
+    mFolders.fresh.length === 0 && mFolders.restored.length === 0 &&
+    newSettings.length === 0 && goalLinkUpdates.length === 0
 
   // 一条可合并的都没有 → 无需开事务（也避免"导入了个空备份"误报成功）
   if (allEmpty) {
     return {
       added: { todos: 0, notes: 0, expenses: 0, anniversaries: 0, categories: 0, goals: 0, stages: 0, subtasks: 0, habits: 0, checkins: 0, annivchecks: 0, reviews: 0, folders: 0 },
+      restored: { todos: 0, notes: 0, expenses: 0, anniversaries: 0, categories: 0, goals: 0, stages: 0, subtasks: 0, habits: 0, checkins: 0, annivchecks: 0, reviews: 0, folders: 0 },
       settingsAdded: 0,
       keptLocal,
       linkedGoals: 0,
@@ -370,19 +406,33 @@ export async function mergeBackup(store: RecordStore, file: BackupFile): Promise
 
   await store.tx(async (scope) => {
     // keepTimestamps: true —— 恢复备份必须保留原始时间戳（见文件头注释）
-    if (newTodos.length) await scope.putMany<TodoRecord>('todos', newTodos, { keepTimestamps: true })
-    if (newNotes.length) await scope.putMany<NoteRecord>('notes', newNotes, { keepTimestamps: true })
-    if (newExpenses.length) await scope.putMany<ExpenseRecord>('expenses', newExpenses, { keepTimestamps: true })
-    if (newAnniv.length) await scope.putMany<AnniversaryRecord>('anniversaries', newAnniv, { keepTimestamps: true })
-    if (newCats.length) await scope.putMany<CategoryRecord>('categories', newCats, { keepTimestamps: true })
-    if (newGoals.length) await scope.putMany<GoalRecord>('goals', newGoals, { keepTimestamps: true })
-    if (newStages.length) await scope.putMany<StageRecord>('stages', newStages, { keepTimestamps: true })
-    if (newSubtasks.length) await scope.putMany<SubtaskRecord>('subtasks', newSubtasks, { keepTimestamps: true })
-    if (newHabits.length) await scope.putMany<HabitRecord>('habits', newHabits, { keepTimestamps: true })
-    if (newCheckins.length) await scope.putMany<CheckinRecord>('checkins', newCheckins, { keepTimestamps: true })
-    if (newAnnivChecks.length) await scope.putMany<AnnivCheckRecord>('annivchecks', newAnnivChecks, { keepTimestamps: true })
-    if (newReviews.length) await scope.putMany<ReviewRecord>('reviews', newReviews, { keepTimestamps: true })
-    if (newFolders.length) await scope.putMany<FolderRecord>('folders', newFolders, { keepTimestamps: true })
+    // v9.34：新增（fresh）与恢复（restored，本地墓碑被备份里的活记录覆盖写回）一起落库
+    const wTodos = [...mTodos.fresh, ...mTodos.restored]
+    const wNotes = [...mNotes.fresh, ...mNotes.restored]
+    const wExpenses = [...mExpenses.fresh, ...mExpenses.restored]
+    const wAnniv = [...mAnniv.fresh, ...mAnniv.restored]
+    const wCats = [...mCats.fresh, ...mCats.restored]
+    const wGoals = [...mGoals.fresh, ...mGoals.restored]
+    const wStages = [...mStages.fresh, ...mStages.restored]
+    const wSubtasks = [...mSubtasks.fresh, ...mSubtasks.restored]
+    const wHabits = [...mHabits.fresh, ...mHabits.restored]
+    const wCheckins = [...mCheckins.fresh, ...mCheckins.restored]
+    const wAnnivChecks = [...mAnnivChecks.fresh, ...mAnnivChecks.restored]
+    const wReviews = [...mReviews.fresh, ...mReviews.restored]
+    const wFolders = [...mFolders.fresh, ...mFolders.restored]
+    if (wTodos.length) await scope.putMany<TodoRecord>('todos', wTodos, { keepTimestamps: true })
+    if (wNotes.length) await scope.putMany<NoteRecord>('notes', wNotes, { keepTimestamps: true })
+    if (wExpenses.length) await scope.putMany<ExpenseRecord>('expenses', wExpenses, { keepTimestamps: true })
+    if (wAnniv.length) await scope.putMany<AnniversaryRecord>('anniversaries', wAnniv, { keepTimestamps: true })
+    if (wCats.length) await scope.putMany<CategoryRecord>('categories', wCats, { keepTimestamps: true })
+    if (wGoals.length) await scope.putMany<GoalRecord>('goals', wGoals, { keepTimestamps: true })
+    if (wStages.length) await scope.putMany<StageRecord>('stages', wStages, { keepTimestamps: true })
+    if (wSubtasks.length) await scope.putMany<SubtaskRecord>('subtasks', wSubtasks, { keepTimestamps: true })
+    if (wHabits.length) await scope.putMany<HabitRecord>('habits', wHabits, { keepTimestamps: true })
+    if (wCheckins.length) await scope.putMany<CheckinRecord>('checkins', wCheckins, { keepTimestamps: true })
+    if (wAnnivChecks.length) await scope.putMany<AnnivCheckRecord>('annivchecks', wAnnivChecks, { keepTimestamps: true })
+    if (wReviews.length) await scope.putMany<ReviewRecord>('reviews', wReviews, { keepTimestamps: true })
+    if (wFolders.length) await scope.putMany<FolderRecord>('folders', wFolders, { keepTimestamps: true })
     // v9.33 归属补全：只写回 folderId，原始创建/更新时间戳一律不动
     if (goalLinkUpdates.length) await scope.putMany<GoalRecord>('goals', goalLinkUpdates, { keepTimestamps: true })
     // settings 没有 keepTimestamps 选项（key/value 单例），刷新 updatedAt 无副作用
@@ -391,19 +441,34 @@ export async function mergeBackup(store: RecordStore, file: BackupFile): Promise
 
   return {
     added: {
-      todos: newTodos.length,
-      notes: newNotes.length,
-      expenses: newExpenses.length,
-      anniversaries: newAnniv.length,
-      categories: newCats.length,
-      goals: newGoals.length,
-      stages: newStages.length,
-      subtasks: newSubtasks.length,
-      habits: newHabits.length,
-      checkins: newCheckins.length,
-      annivchecks: newAnnivChecks.length,
-      reviews: newReviews.length,
-      folders: newFolders.length,
+      todos: mTodos.fresh.length,
+      notes: mNotes.fresh.length,
+      expenses: mExpenses.fresh.length,
+      anniversaries: mAnniv.fresh.length,
+      categories: mCats.fresh.length,
+      goals: mGoals.fresh.length,
+      stages: mStages.fresh.length,
+      subtasks: mSubtasks.fresh.length,
+      habits: mHabits.fresh.length,
+      checkins: mCheckins.fresh.length,
+      annivchecks: mAnnivChecks.fresh.length,
+      reviews: mReviews.fresh.length,
+      folders: mFolders.fresh.length,
+    },
+    restored: {
+      todos: mTodos.restored.length,
+      notes: mNotes.restored.length,
+      expenses: mExpenses.restored.length,
+      anniversaries: mAnniv.restored.length,
+      categories: mCats.restored.length,
+      goals: mGoals.restored.length,
+      stages: mStages.restored.length,
+      subtasks: mSubtasks.restored.length,
+      habits: mHabits.restored.length,
+      checkins: mCheckins.restored.length,
+      annivchecks: mAnnivChecks.restored.length,
+      reviews: mReviews.restored.length,
+      folders: mFolders.restored.length,
     },
     settingsAdded: newSettings.length,
     keptLocal,
