@@ -525,10 +525,56 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     expect(pinnedIdx2).toBeGreaterThan(latestIdx2)
   })
 
+  it('v9.27 非今日视图建待办：日期默认锚「当日」、chip 显示「当天」，且只在该日出现', async () => {
+    const store = await renderApp()
+    // TODAY = 9/29，切月视图点 10/1 格子
+    fireEvent.click(screen.getByRole('tab', { name: '月' }))
+    await waitFor(() => expect(within(screen.getByTestId('month-center')).getAllByRole('gridcell')).toHaveLength(42))
+    fireEvent.click(within(screen.getByTestId('month-center')).getByLabelText(/10月1日/))
+    await waitFor(() => expect(store.getState().selected).toBe('2026-10-01'))
+    await waitFor(() =>
+      expect(within(screen.getByTestId('day-center')).getByText('2026 年 10 月 1 日')).toBeInTheDocument(),
+    )
+
+    // 表单日期锚「当天」：chip 文案是「当天」且选中（不再是「今天」）
+    fireEvent.click(within(screen.getByTestId('day-center')).getByRole('button', { name: '添加待办' }))
+    expect(screen.getByRole('button', { name: '当天' })).toHaveAttribute('aria-pressed', 'true')
+
+    // 建一条（默认提醒型）→ 出现在 10/1 当天
+    fireEvent.change(screen.getByLabelText('新待办'), { target: { value: '十月的事' } })
+    fireEvent.keyDown(screen.getByLabelText('新待办'), { key: 'Enter' })
+    await waitFor(() => expect(within(screen.getByTestId('day-center')).getByText('十月的事')).toBeInTheDocument())
+
+    // 点「今天」tab 回到真实今天（9/29）：提醒型只在提醒日出现，今天不应看到
+    fireEvent.click(screen.getByRole('tab', { name: '今天' }))
+    await waitFor(() => expect(store.getState().selected).toBe('2026-09-29'))
+    await waitFor(() =>
+      expect(within(screen.getByTestId('day-center')).getByText('2026 年 9 月 29 日')).toBeInTheDocument(),
+    )
+    expect(within(screen.getByTestId('day-center')).queryByText('十月的事')).toBeNull()
+
+    // 用户拍板保留：截止型未完成仍「每天注入」——回到 10/1 建一条截止型，今天依然能看到
+    fireEvent.click(screen.getByRole('tab', { name: '月' }))
+    await waitFor(() => expect(within(screen.getByTestId('month-center')).getAllByRole('gridcell')).toHaveLength(42))
+    fireEvent.click(within(screen.getByTestId('month-center')).getByLabelText(/10月1日/))
+    await waitFor(() => expect(store.getState().selected).toBe('2026-10-01'))
+    fireEvent.click(within(screen.getByTestId('day-center')).getByRole('button', { name: '添加待办' }))
+    fireEvent.click(screen.getByRole('button', { name: '截止型' }))
+    fireEvent.change(screen.getByLabelText('新待办'), { target: { value: '十月截止' } })
+    fireEvent.keyDown(screen.getByLabelText('新待办'), { key: 'Enter' })
+    await waitFor(() => expect(within(screen.getByTestId('day-center')).getByText('十月截止')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('tab', { name: '今天' }))
+    await waitFor(() => expect(store.getState().selected).toBe('2026-09-29'))
+    await waitFor(() => expect(within(screen.getByTestId('day-center')).getByText('十月截止')).toBeInTheDocument())
+  })
+
   it('v8.53 添加 DDL 待办：默认截止今天 → 徽标；切到明天仍在顶部；完成后消失', async () => {
     const store = await renderApp()
     // 创建表单默认「今天」= 注入时钟的 TODAY（2026-09-29）
     fireEvent.click(within(screen.getByTestId('day-center')).getByRole('button', { name: '添加待办' }))
+    // v8.75 起表单默认「提醒型」；本用例断言截止徽标/截止语义，先切截止型
+    fireEvent.click(screen.getByRole('button', { name: '截止型' }))
     const input = screen.getByLabelText('新待办')
     fireEvent.change(input, { target: { value: '交作业' } })
     fireEvent.keyDown(input, { key: 'Enter' })
@@ -549,6 +595,8 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     await renderApp()
     // 新建待办（默认截止今天 9/29）
     fireEvent.click(within(screen.getByTestId('day-center')).getByRole('button', { name: '添加待办' }))
+    // v8.75 起表单默认「提醒型」；本用例断言截止徽标/截止语义，先切截止型
+    fireEvent.click(screen.getByRole('button', { name: '截止型' }))
     const input = screen.getByLabelText('新待办')
     fireEvent.change(input, { target: { value: '交作业' } })
     fireEvent.keyDown(input, { key: 'Enter' })
@@ -571,6 +619,8 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
   it('v8.53 编辑待办可改截止日（自定义日期）', async () => {
     await renderApp()
     fireEvent.click(within(screen.getByTestId('day-center')).getByRole('button', { name: '添加待办' }))
+    // v8.75 起表单默认「提醒型」；本用例断言截止徽标/截止语义，先切截止型
+    fireEvent.click(screen.getByRole('button', { name: '截止型' }))
     const input = screen.getByLabelText('新待办')
     fireEvent.change(input, { target: { value: '交作业' } })
     fireEvent.keyDown(input, { key: 'Enter' })
@@ -588,6 +638,8 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
   it('v8.55 编辑态点「自定义日期」不关闭表单：焦点转移到截止行不触发 blur 保存，改完离开才保存', async () => {
     await renderApp()
     fireEvent.click(within(screen.getByTestId('day-center')).getByRole('button', { name: '添加待办' }))
+    // v8.75 起表单默认「提醒型」；本用例断言截止徽标/截止语义，先切截止型
+    fireEvent.click(screen.getByRole('button', { name: '截止型' }))
     const input = screen.getByLabelText('新待办')
     fireEvent.change(input, { target: { value: '交作业' } })
     fireEvent.keyDown(input, { key: 'Enter' })

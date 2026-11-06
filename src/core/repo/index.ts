@@ -419,7 +419,8 @@ export function createRepos(deps: RepoDeps): Repos {
       const ddl = deadline === undefined || deadline === null ? undefined : unwrap(parseDeadline(deadline))
       // v9.2.2 可选具体时间：空串/null/undefined = 无时间；非空必须 HH:mm
       const tm = time === undefined || time === null ? undefined : unwrap(parseTodoTime(time))
-      // v9.2.3 可选时间语义：仅当设了 time 时才有意义；非法值抛 BAD_VALUE
+      // v9.2.3 可选时间语义：类型语义独立于是否填了时刻——只选「提醒型」不填时刻也要落库，
+      // 否则读出来是 undefined，会被按「有截止日=截止型」推导而逐日注入（v8.75 修复）
       const ttp = timeType === undefined || timeType === null ? undefined : unwrap(parseTodoTimeType(timeType))
       // v8.63 可选子任务来源（加入今日待办）：子任务删除后该标记随待办保留（文字快照）
       const stid = subtaskId === undefined || subtaskId === null ? undefined : String(subtaskId).slice(0, 64)
@@ -434,7 +435,7 @@ export function createRepos(deps: RepoDeps): Repos {
         done: false,
         ...(ddl ? { deadline: ddl } : {}),
         ...(tm ? { time: tm } : {}),
-        ...(tm && ttp ? { timeType: ttp } : {}),
+        ...(ttp ? { timeType: ttp } : {}),
         ...(stid ? { subtaskId: stid } : {}),
         ...(stGoal ? { subtaskGoalTitle: stGoal } : {}),
         createdAt: ts,

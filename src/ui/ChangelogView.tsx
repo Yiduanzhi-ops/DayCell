@@ -8,11 +8,20 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.26'
+const CURRENT_VERSION = 'v9.27'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.27',
+    date: '2026-11-06',
+    items: [
+      '待办日期口径统一：在非今天的日子建待办，日期默认就是「当天」，按钮文案也显示「当天」，不会再悄悄存进今天',
+      '修复未来日的「提醒型」提前出现在今天：只选提醒型、不填具体时刻时，类型也会正确记住',
+      '目标文件夹组头：点文件夹名本身就能折叠/展开，右侧「＋ 新建目标 / ⋯ 菜单」各自独立',
+    ],
+  },
   {
     version: 'v9.26',
     date: '2026-11-04',

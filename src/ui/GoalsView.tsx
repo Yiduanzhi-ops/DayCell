@@ -1286,16 +1286,21 @@ function GoalList(): JSX.Element {
     return (
       <section>
         <div className={`${styles.folderGroupHead} ${collapsed ? styles.folderGroupHeadCollapsed : ''}`}>
+          {/* v8.75：箭头 + 标题合并为一个可点击区——点文件夹名本身也能折叠/展开；
+              右侧「＋新建目标」/「···菜单」仍是独立按钮，点击不触发折叠 */}
           <button
-            className={styles.folderCollapse}
-            aria-label={collapsed ? '展开文件夹' : '折叠文件夹'}
+            className={styles.folderGroupMain}
+            aria-expanded={!collapsed}
+            aria-label={`${collapsed ? '展开' : '折叠'}文件夹「${fs.folder.name}」`}
             onClick={() => void setFolderCollapsed(fs.folder.id, !collapsed)}
           >
-            {collapsed ? '▸' : '▾'}
+            <span className={styles.folderCollapse} aria-hidden="true">
+              {collapsed ? '▸' : '▾'}
+            </span>
+            <span className={styles.folderGroupTitle}>
+              {fs.folder.name}（{items.length}）{fs.folder.favorite ? ' ★' : ''}
+            </span>
           </button>
-          <span className={styles.folderGroupTitle}>
-            {fs.folder.name}（{items.length}）{fs.folder.favorite ? ' ★' : ''}
-          </span>
           <button className={styles.folderGroupMenu} aria-label="文件夹菜单" onClick={() => setMenuFor(fs)}>
             ···
           </button>
@@ -1337,15 +1342,18 @@ function GoalList(): JSX.Element {
             <section key={folder.id}>
               <div className={`${styles.folderGroupHead} ${collapsed ? styles.folderGroupHeadCollapsed : ''}`}>
                 <button
-                  className={styles.folderCollapse}
-                  aria-label={collapsed ? '展开文件夹' : '折叠文件夹'}
+                  className={styles.folderGroupMain}
+                  aria-expanded={!collapsed}
+                  aria-label={`${collapsed ? '展开' : '折叠'}文件夹「${folder.name}」`}
                   onClick={() => void setFolderCollapsed(folder.id, !collapsed)}
                 >
-                  {collapsed ? '▸' : '▾'}
+                  <span className={styles.folderCollapse} aria-hidden="true">
+                    {collapsed ? '▸' : '▾'}
+                  </span>
+                  <span className={styles.folderGroupTitle}>
+                    {folder.name}（{items.length}）{folder.favorite ? ' ★' : ''}
+                  </span>
                 </button>
-                <span className={styles.folderGroupTitle}>
-                  {folder.name}（{items.length}）{folder.favorite ? ' ★' : ''}
-                </span>
                 <button
                   className={styles.newGoalBtn}
                   onClick={() => {
@@ -1364,13 +1372,16 @@ function GoalList(): JSX.Element {
           <section>
             <div className={`${styles.folderGroupHead} ${uncatCollapsed ? styles.folderGroupHeadCollapsed : ''}`}>
               <button
-                className={styles.folderCollapse}
+                className={styles.folderGroupMain}
+                aria-expanded={!uncatCollapsed}
                 aria-label={uncatCollapsed ? '展开未分类' : '折叠未分类'}
                 onClick={() => setUncatCollapsed(!uncatCollapsed)}
               >
-                {uncatCollapsed ? '▸' : '▾'}
+                <span className={styles.folderCollapse} aria-hidden="true">
+                  {uncatCollapsed ? '▸' : '▾'}
+                </span>
+                <span className={styles.folderGroupTitle}>未分类（{uncategorized.length}）</span>
               </button>
-              <span className={styles.folderGroupTitle}>未分类（{uncategorized.length}）</span>
               <button
                 className={styles.newGoalBtn}
                 onClick={() => {
