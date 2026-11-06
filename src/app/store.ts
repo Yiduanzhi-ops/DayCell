@@ -19,6 +19,7 @@ import {
   addMonths,
   formatMoney,
   isDayCellError,
+  formatMergeStats,
   mergeBackup,
   monthKeys,
   monthOf,
@@ -1164,11 +1165,11 @@ export function createAppStore(
         aggregates.invalidate()
         set({ dataVer: get().dataVer + 1 })
         await get().refresh()
-        const total =
-          stats.added.todos + stats.added.notes + stats.added.expenses +
-          stats.added.anniversaries + stats.added.categories + stats.settingsAdded
-        if (total > 0) {
-          get().showToast(`已合并导入 ${total} 条记录`)
+        // v8.78：按类别显示（原实现只累加 6 类，目标/阶段/子任务/文件夹/习惯/打卡/复盘
+        // 全漏算，只导入目标时会误报"没有新数据"）
+        const detail = formatMergeStats(stats)
+        if (detail) {
+          get().showToast(`已合并导入：${detail}`)
         } else {
           get().showToast('备份里没有新数据，本地已是最新')
         }

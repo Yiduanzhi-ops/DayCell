@@ -202,6 +202,45 @@ export function parseBackup(text: string): BackupFile {
 }
 
 // ---------------------------------------------------------------------------
+// 合并统计的可读文案（v8.78）
+// ---------------------------------------------------------------------------
+
+/**
+ * 统计文案用的展示单位与顺序（v8.78）。
+ * 顺序刻意让「目标 / 文件夹」排在前面：用户最关心的就是备份有没有带上这些，
+ * 从前这几类漏算，导致只导入目标时误报「没有新数据」。
+ */
+const MERGE_LABELS: { key: keyof MergeStats['added']; unit: string }[] = [
+  { key: 'goals', unit: '个目标' },
+  { key: 'stages', unit: '个阶段' },
+  { key: 'subtasks', unit: '个子任务' },
+  { key: 'folders', unit: '个文件夹' },
+  { key: 'todos', unit: '条待办' },
+  { key: 'notes', unit: '条想法' },
+  { key: 'expenses', unit: '条支出' },
+  { key: 'anniversaries', unit: '条纪念日' },
+  { key: 'categories', unit: '个分类' },
+  { key: 'habits', unit: '个习惯' },
+  { key: 'checkins', unit: '条打卡' },
+  { key: 'annivchecks', unit: '条纪念日打卡' },
+  { key: 'reviews', unit: '条复盘' },
+]
+
+/**
+ * 把 MergeStats 渲染成「2 个目标、1 个文件夹、3 条待办」。
+ * 全为 0 时返回空串（调用方据此给「没有新数据」）。
+ * **覆盖 MergeStats.added 的全部键**：新增 store 时必须同步 MERGE_LABELS，
+ * 否则又会出现"明明导入了却不计数"的老问题。
+ */
+export function formatMergeStats(stats: MergeStats): string {
+  const parts = MERGE_LABELS.filter(({ key }) => stats.added[key] > 0).map(
+    ({ key, unit }) => `${stats.added[key]} ${unit}`,
+  )
+  if (stats.settingsAdded > 0) parts.push(`${stats.settingsAdded} 项设置`)
+  return parts.join('、')
+}
+
+// ---------------------------------------------------------------------------
 // 合并导入（merge）
 // ---------------------------------------------------------------------------
 
