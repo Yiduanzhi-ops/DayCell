@@ -970,9 +970,7 @@ function GoalDetail({
         {!noteEdit ? (
           goal.note ? (
             <p>{goal.note}</p>
-          ) : (
-            <p className={styles.noteEmpty}>还没有写阐述。点「编辑」写下这个阶段想做什么、为什么做、怎么衡量。</p>
-          )
+          ) : null
         ) : (
           <div className={styles.noteEdit}>
             <textarea
@@ -1010,9 +1008,7 @@ function GoalDetail({
               {goal.progress.pct !== undefined && goal.progress.note && <span className={styles.progSep}> · </span>}
               {goal.progress.note}
             </p>
-          ) : (
-            <p className={styles.noteEmpty}>还没有写当前进度。点「编辑」记录现在做到哪一步。</p>
-          )
+          ) : null
         ) : (
           <div className={styles.progEdit}>
             <div className={styles.progEditRow}>

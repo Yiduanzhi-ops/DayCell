@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.34'
+const CURRENT_VERSION = 'v9.35'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.35',
+    date: '2026-11-06',
+    items: [
+      '目标详情顶部不再被默认说明撑高：阐述和当前进度为空时只留标签与「编辑」，两段长长的提示文字去掉了',
+      '有内容时照旧显示，写进去的文字和百分比一点没少',
+    ],
+  },
   {
     version: 'v9.34',
     date: '2026-11-06',
