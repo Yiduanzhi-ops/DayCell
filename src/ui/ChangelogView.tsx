@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.35'
+const CURRENT_VERSION = 'v9.36'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.36',
+    date: '2026-11-06',
+    items: [
+      '目标页顶部那条文件夹横条，电脑上用鼠标滚轮就能左右滑了（以前只有手机上滑得动）',
+      '文件夹多到超出屏幕时不再干瞪眼；触控板横滑、手指滑动照旧，滑到头页面正常上下滚',
+    ],
+  },
   {
     version: 'v9.35',
     date: '2026-11-06',
