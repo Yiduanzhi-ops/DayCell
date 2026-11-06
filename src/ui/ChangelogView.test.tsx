@@ -37,15 +37,18 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v8.80')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v8.81')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v8.80')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v8.81')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v8.80，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v8.81，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v8.80')
+    expect(vers[0].textContent).toBe('v8.81')
+    // v8.81
+    expect(screen.getByText(/补回文件夹归属/)).toBeInTheDocument()
+    expect(screen.getByText(/只补本地原本没有归属的目标/)).toBeInTheDocument()
     // v8.80
     expect(screen.getByText(/导入备份不再因「settings 含未知项」整份被拒/)).toBeInTheDocument()
     expect(screen.getByText(/设置项只有结构坏了/)).toBeInTheDocument()
