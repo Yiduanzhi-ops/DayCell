@@ -248,6 +248,8 @@ export function formatMergeStats(stats: MergeStats): string {
     ({ key, unit }) => `${stats.added[key]} ${unit}`,
   )
   if (stats.settingsAdded > 0) parts.push(`${stats.settingsAdded} 项设置`)
+  // v9.33：这次没有新增目标、但把已有目标补回了文件夹归属，也要如实说
+  if (stats.linkedGoals > 0) parts.push(`${stats.linkedGoals} 个目标归回文件夹`)
   return parts.join('、')
 }
 
@@ -262,6 +264,8 @@ export interface MergeStats {
   settingsAdded: number
   /** 因 id 冲突保留本地的条数 */
   keptLocal: number
+  /** v9.33：同 id 目标从备份补回文件夹归属的条数（本地原本没有归属） */
+  linkedGoals: number
 }
 
 /**
@@ -308,9 +312,25 @@ export async function mergeBackup(store: RecordStore, file: BackupFile): Promise
   const newReviews = pickNew(file.data.reviews ?? [], localReviews)
   const newFolders = pickNew(file.data.folders ?? [], localFolders)
 
+  // v9.33 文件夹归属补全：id 冲突时目标整条保留本地，但 folderId 是纯归属元数据——
+  // 本地目标没有归属（在文件夹功能之前创建、或从旧版备份导入的），备份里却带着它属于哪个文件夹，
+  // 此前会被"本地已有"一并跳过，于是文件夹导进来了、里面的目标却全落在未分类。
+  // 这里只补「本地没有 folderId」的目标，不覆盖任何本地已有归属；文件夹在合并后不存在则跳过。
+  const liveLocalFolderIds = new Set(localFolders.filter((f) => !f.deleted).map((f) => f.id))
+  const folderIdsAfterMerge = new Set([...liveLocalFolderIds, ...newFolders.map((f) => f.id)])
+  const backupGoalById = new Map(file.data.goals.map((g) => [g.id, g]))
+  const goalLinkUpdates: GoalRecord[] = []
+  for (const g of localGoals) {
+    if (g.deleted || g.folderId) continue
+    const fromBackup = backupGoalById.get(g.id)
+    if (!fromBackup || fromBackup.deleted || !fromBackup.folderId) continue
+    if (!folderIdsAfterMerge.has(fromBackup.folderId)) continue
+    goalLinkUpdates.push({ ...g, folderId: fromBackup.folderId })
+  }
+
   const localKeys = new Set<SettingKey>(localSettings.map((s) => s.key))
-  // v9.32：白名单兜底——云端快照恢复（restoreSnapshot）不经 parseSettings，
-  // 这里再挡一次，未知设置键绝不写库
+  // v8.80：白名单兜底——快照恢复等路径不经 parseSettings，这里再挡一次，
+  // 未知设置键绝不写库
   const knownKeys = new Set<string>(SETTING_KEYS)
   const newSettings = file.data.settings.filter(
     (s) => knownKeys.has(s.key) && !localKeys.has(s.key),
@@ -336,7 +356,7 @@ export async function mergeBackup(store: RecordStore, file: BackupFile): Promise
     newAnniv.length === 0 && newCats.length === 0 && newGoals.length === 0 &&
     newStages.length === 0 && newSubtasks.length === 0 && newHabits.length === 0 &&
     newCheckins.length === 0 && newAnnivChecks.length === 0 && newReviews.length === 0 &&
-    newFolders.length === 0 && newSettings.length === 0
+    newFolders.length === 0 && newSettings.length === 0 && goalLinkUpdates.length === 0
 
   // 一条可合并的都没有 → 无需开事务（也避免"导入了个空备份"误报成功）
   if (allEmpty) {
@@ -344,6 +364,7 @@ export async function mergeBackup(store: RecordStore, file: BackupFile): Promise
       added: { todos: 0, notes: 0, expenses: 0, anniversaries: 0, categories: 0, goals: 0, stages: 0, subtasks: 0, habits: 0, checkins: 0, annivchecks: 0, reviews: 0, folders: 0 },
       settingsAdded: 0,
       keptLocal,
+      linkedGoals: 0,
     }
   }
 
@@ -362,6 +383,8 @@ export async function mergeBackup(store: RecordStore, file: BackupFile): Promise
     if (newAnnivChecks.length) await scope.putMany<AnnivCheckRecord>('annivchecks', newAnnivChecks, { keepTimestamps: true })
     if (newReviews.length) await scope.putMany<ReviewRecord>('reviews', newReviews, { keepTimestamps: true })
     if (newFolders.length) await scope.putMany<FolderRecord>('folders', newFolders, { keepTimestamps: true })
+    // v9.33 归属补全：只写回 folderId，原始创建/更新时间戳一律不动
+    if (goalLinkUpdates.length) await scope.putMany<GoalRecord>('goals', goalLinkUpdates, { keepTimestamps: true })
     // settings 没有 keepTimestamps 选项（key/value 单例），刷新 updatedAt 无副作用
     for (const s of newSettings) await scope.putSetting(s.key, s.value)
   })
@@ -384,6 +407,7 @@ export async function mergeBackup(store: RecordStore, file: BackupFile): Promise
     },
     settingsAdded: newSettings.length,
     keptLocal,
+    linkedGoals: goalLinkUpdates.length,
   }
 }
 

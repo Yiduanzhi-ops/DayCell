@@ -8,7 +8,7 @@
  *  - keepTimestamps 保留原始时间戳（last-write-wins 防反转）
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import type { DateKey, TodoRecord, ReviewRecord } from '../types'
+import type { DateKey, TodoRecord, ReviewRecord, GoalRecord } from '../types'
 import { SETTING_KEYS } from '../types'
 import { createMemoryStore } from '../store/memory'
 import type { RecordStore } from '../store/types'
@@ -122,7 +122,7 @@ describe('parseBackup', () => {
     expect(() => parseBackup(JSON.stringify(f))).toThrow(BackupCorruptError)
   })
 
-  it('v9.32 settings 含未知 key → 跳过该项，不再判成损坏', () => {
+  it('v8.80 settings 含未知 key → 跳过该项，不再判成损坏', () => {
     const f = good()
     f.data.settings = [
       { key: 'onboarded', value: true, updatedAt: 1 },
@@ -134,7 +134,7 @@ describe('parseBackup', () => {
     expect(parsed.data.todos).toHaveLength(1)
   })
 
-  it('v9.32 settings 结构坏了（没有 key / 不是对象）仍拒绝', () => {
+  it('v8.80 settings 结构坏了（没有 key / 不是对象）仍拒绝', () => {
     const f = good()
     f.data.settings = [{ value: 1, updatedAt: 1 }] as never
     expect(() => parseBackup(JSON.stringify(f))).toThrow(BackupCorruptError)
@@ -291,6 +291,66 @@ describe('mergeBackup（合并导入）', () => {
     // 本地复盘不受影响
     expect((await store.all<ReviewRecord>('reviews'))[0]!.text).toBe('本地复盘')
   })
+
+  it('v9.33 同 id 目标：本地没有归属、备份带归属 → 补回文件夹，且不动时间戳', async () => {
+    const folder = await repos.folders.create({ name: '工作' })
+    const goal = await repos.goals.create({ title: '季度复盘', note: '' })
+    expect(goal.folderId).toBeUndefined()
+    const file: BackupFile = {
+      app: 'daycell',
+      version: 1,
+      exportedAt: 1,
+      schemaVersion: 1,
+      data: {
+        todos: [], notes: [], expenses: [], anniversaries: [], categories: [], stages: [], subtasks: [], habits: [], checkins: [], annivchecks: [], reviews: [], folders: [], settings: [],
+        goals: [{ ...goal, folderId: folder.id }],
+      },
+    }
+    const stats = await mergeBackup(store, file)
+    expect(stats.added.goals).toBe(0) // 目标本身是重复的，不重复导入
+    expect(stats.linkedGoals).toBe(1) // 但归属补回来了
+    const g = (await store.all<GoalRecord>('goals')).find((x) => x.id === goal.id)!
+    expect(g.folderId).toBe(folder.id)
+    expect(g.updatedAt).toBe(goal.updatedAt)
+  })
+
+  it('v9.33 备份指向的文件夹合并后仍不存在 → 不补归属（不留悬空引用）', async () => {
+    const goal = await repos.goals.create({ title: '空夹自动归属', note: '' })
+    const file: BackupFile = {
+      app: 'daycell',
+      version: 1,
+      exportedAt: 1,
+      schemaVersion: 1,
+      data: {
+        todos: [], notes: [], expenses: [], anniversaries: [], categories: [], stages: [], subtasks: [], habits: [], checkins: [], annivchecks: [], reviews: [], folders: [], settings: [],
+        goals: [{ ...goal, folderId: 'folder-not-exist' }],
+      },
+    }
+    const stats = await mergeBackup(store, file)
+    expect(stats.linkedGoals).toBe(0)
+    const g = (await store.all<GoalRecord>('goals')).find((x) => x.id === goal.id)!
+    expect(g.folderId).toBeUndefined()
+  })
+
+  it('v9.33 本地已有归属（即便不同于备份）→ 不覆盖', async () => {
+    const a = await repos.folders.create({ name: '工作' })
+    const b = await repos.folders.create({ name: '生活' })
+    const goal = await repos.goals.create({ title: '已归类目标', note: '', folderId: a.id })
+    const file: BackupFile = {
+      app: 'daycell',
+      version: 1,
+      exportedAt: 1,
+      schemaVersion: 1,
+      data: {
+        todos: [], notes: [], expenses: [], anniversaries: [], categories: [], stages: [], subtasks: [], habits: [], checkins: [], annivchecks: [], reviews: [], folders: [], settings: [],
+        goals: [{ ...goal, folderId: b.id }],
+      },
+    }
+    const stats = await mergeBackup(store, file)
+    expect(stats.linkedGoals).toBe(0)
+    const g = (await store.all<GoalRecord>('goals')).find((x) => x.id === goal.id)!
+    expect(g.folderId).toBe(a.id)
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -305,12 +365,12 @@ describe('formatMergeStats（v9.30 分项统计）', () => {
   }
 
   it('目标 / 文件夹排在前面，空项不出现', () => {
-    expect(formatMergeStats({ added: { ...zero, goals: 2, folders: 1, todos: 3 }, settingsAdded: 0, keptLocal: 0 }))
+    expect(formatMergeStats({ added: { ...zero, goals: 2, folders: 1, todos: 3 }, settingsAdded: 0, keptLocal: 0, linkedGoals: 0 }))
       .toBe('2 个目标、1 个文件夹、3 条待办')
   })
 
   it('全部为 0 → 空串（调用方据此提示"没有新数据"）', () => {
-    expect(formatMergeStats({ added: zero, settingsAdded: 0, keptLocal: 0 })).toBe('')
+    expect(formatMergeStats({ added: zero, settingsAdded: 0, keptLocal: 0, linkedGoals: 0 })).toBe('')
   })
 
   it('七类此前漏算的 store 全部计入（目标/阶段/子任务/文件夹/习惯/打卡/复盘）', () => {
@@ -318,6 +378,7 @@ describe('formatMergeStats（v9.30 分项统计）', () => {
       added: { ...zero, goals: 1, stages: 2, subtasks: 3, folders: 1, habits: 2, checkins: 4, reviews: 1 },
       settingsAdded: 1,
       keptLocal: 0,
+      linkedGoals: 0,
     })
     for (const part of ['1 个目标', '2 个阶段', '3 个子任务', '1 个文件夹', '2 个习惯', '4 条打卡', '1 条复盘', '1 项设置']) {
       expect(msg).toContain(part)

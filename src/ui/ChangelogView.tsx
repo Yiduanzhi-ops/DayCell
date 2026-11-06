@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.32'
+const CURRENT_VERSION = 'v9.33'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.33',
+    date: '2026-11-06',
+    items: [
+      '导入备份时，本地已存在的目标也会补回文件夹归属：以前同一条目标「本地保留」就整条跳过，备份里带的「属于哪个文件夹」一起丢了，于是文件夹导进来了、里面的目标全躺在未分类',
+      '只补本地原本没有归属的目标：自己手动归过类的不覆盖，只是写回归属、不动创建/更新时间',
+    ],
+  },
   {
     version: 'v9.32',
     date: '2026-11-06',
