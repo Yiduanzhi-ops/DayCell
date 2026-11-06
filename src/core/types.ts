@@ -257,6 +257,10 @@ export interface SettingRecord {
  * 历史教训（v8.65）：v8.62 新增 weekViewHabits 时只改了类型联合、没同步
  * backup 里的一份手抄白名单，导致备份文件带 weekViewHabits 后被 parseSettings
  * 判为「settings 含未知设置项」，同步/导入全挂。故改为单一来源，杜绝复发。
+ *
+ * v8.80 再进一步：本数组现在只决定"认不认这个设置键"，**不再当损坏判据**。
+ * 备份里混进白名单外的键（旧版本导出的、另一分支新增的、已废弃的）时，
+ * parseSettings 跳过该项、其余数据照常导入，不再整份拒绝。
  */
 export const SETTING_KEYS = [
   'accentColor',

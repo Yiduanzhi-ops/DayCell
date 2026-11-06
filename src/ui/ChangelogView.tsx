@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.79'
+const CURRENT_VERSION = 'v8.80'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.80',
+    date: '2026-11-06',
+    items: [
+      '导入备份不再因「settings 含未知项」整份被拒：本端不认识的设置项直接跳过，待办、目标、文件夹照样导进来',
+      '设置项只有结构坏了（不是数组、条目里没有键）才算文件损坏，其余情况一律放行',
+    ],
+  },
   {
     version: 'v8.79',
     date: '2026-11-06',

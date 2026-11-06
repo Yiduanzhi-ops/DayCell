@@ -143,16 +143,27 @@ function parseRecords<T>(raw: unknown, type: string, field: string): T[] {
   return raw as T[]
 }
 
+/**
+ * v8.80 未知设置项**跳过**，不再判成"文件损坏"。
+ *
+ * 原先白名单里没有的 key 会让整份备份一条都不导入（提示"备份文件损坏：
+ * settings 含未知设置项"）——可备份里出现未知 key 是很正常的事：旧版本导出的、
+ * 已经废弃的偏好、另一条分支新增的开关、甚至同一设备早期残留的键。这些都不该
+ * 挡住用户的待办/目标数据。
+ * 只有**结构本身坏了**（settings 不是数组、条目不是对象、条目没有 key）才算损坏。
+ */
 function parseSettings(raw: unknown): SettingRecord[] {
   if (!Array.isArray(raw)) throw new BackupCorruptError('备份文件损坏：settings 不是数组')
+  const out: SettingRecord[] = []
   for (const s of raw) {
     if (!s || typeof s !== 'object') throw new BackupCorruptError('备份文件损坏：settings 数据异常')
     const key = (s as { key?: unknown }).key
-    if (typeof key !== 'string' || !SETTING_KEYS.includes(key as SettingKey)) {
-      throw new BackupCorruptError('备份文件损坏：settings 含未知设置项')
-    }
+    if (typeof key !== 'string') throw new BackupCorruptError('备份文件损坏：settings 数据异常')
+    // 不认识的键：本端用不上，直接忽略（不会写库）
+    if (!SETTING_KEYS.includes(key as SettingKey)) continue
+    out.push(s as SettingRecord)
   }
-  return raw as SettingRecord[]
+  return out
 }
 
 /**
@@ -298,7 +309,12 @@ export async function mergeBackup(store: RecordStore, file: BackupFile): Promise
   const newFolders = pickNew(file.data.folders ?? [], localFolders)
 
   const localKeys = new Set<SettingKey>(localSettings.map((s) => s.key))
-  const newSettings = file.data.settings.filter((s) => !localKeys.has(s.key))
+  // v8.80：白名单兜底——快照恢复等路径不经 parseSettings，这里再挡一次，
+  // 未知设置键绝不写库
+  const knownKeys = new Set<string>(SETTING_KEYS)
+  const newSettings = file.data.settings.filter(
+    (s) => knownKeys.has(s.key) && !localKeys.has(s.key),
+  )
 
   const keptLocal =
     (file.data.todos.length - newTodos.length) +
