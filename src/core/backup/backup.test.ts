@@ -351,6 +351,112 @@ describe('mergeBackup（合并导入）', () => {
     const g = (await store.all<GoalRecord>('goals')).find((x) => x.id === goal.id)!
     expect(g.folderId).toBe(a.id)
   })
+
+  // v8.82：删除只是打墓碑，同 id 一律"保留本地"会让删掉的记录永远导不回来。
+  // 语义定死：本地墓碑 + 备份活记录 → 用备份版本复活；其余组合一律不动。
+  it('v8.82 本地已删、备份未删 → 复活，保留备份里的原始时间戳', async () => {
+    const created = await repos.goals.create({ title: '被删掉的目标', note: '' })
+    await repos.goals.softDelete(created.id)
+    const backupAt = created.createdAt
+    const file: BackupFile = {
+      app: 'daycell',
+      version: 1,
+      exportedAt: 1,
+      schemaVersion: 1,
+      data: {
+        todos: [], notes: [], expenses: [], anniversaries: [], categories: [], stages: [], subtasks: [], habits: [], checkins: [], annivchecks: [], reviews: [], folders: [], settings: [],
+        goals: [{ ...created, deleted: false, updatedAt: backupAt }],
+      },
+    }
+    const stats = await mergeBackup(store, file)
+    expect(stats.added.goals).toBe(0) // 不是新增
+    expect(stats.restored.goals).toBe(1) // 是恢复
+    const g = (await store.all<GoalRecord>('goals')).find((x) => x.id === created.id)!
+    expect(g.deleted).toBe(false)
+    expect(g.createdAt).toBe(created.createdAt) // 原始时间戳不动
+    expect(g.title).toBe('被删掉的目标')
+  })
+
+  it('v8.82 文件夹与待办同样能复活（不止目标一类）', async () => {
+    const folder = await repos.folders.create({ name: '工作' })
+    await repos.folders.softDelete(folder.id)
+    const todo = await repos.todos.create(k('2026-09-29'), '被删掉的待办')
+    await repos.todos.softDelete(todo.id)
+    const file: BackupFile = {
+      app: 'daycell',
+      version: 1,
+      exportedAt: 1,
+      schemaVersion: 1,
+      data: {
+        todos: [{ ...todo, deleted: false }], notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], subtasks: [], habits: [], checkins: [], annivchecks: [], reviews: [], settings: [],
+        folders: [{ ...folder, deleted: false }],
+      },
+    }
+    const stats = await mergeBackup(store, file)
+    expect(stats.restored.folders).toBe(1)
+    expect(stats.restored.todos).toBe(1)
+    expect(stats.added.folders).toBe(0)
+    const f = (await store.all('folders')).find((x) => x.id === folder.id)!
+    expect(f.deleted).toBe(false)
+    const t = (await store.all<TodoRecord>('todos')).find((x) => x.id === todo.id)!
+    expect(t.deleted).toBe(false)
+  })
+
+  it('v8.82 本地活着、备份未删 → 仍保留本地（不覆盖后来的修改）', async () => {
+    const todo = await repos.todos.create(k('2026-09-29'), '本地改过的标题')
+    const file: BackupFile = {
+      app: 'daycell',
+      version: 1,
+      exportedAt: 1,
+      schemaVersion: 1,
+      data: {
+        todos: [{ ...todo, text: '备份里的旧标题', deleted: false }], notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], subtasks: [], habits: [], checkins: [], annivchecks: [], reviews: [], folders: [], settings: [],
+      },
+    }
+    const stats = await mergeBackup(store, file)
+    expect(stats.added.todos).toBe(0)
+    expect(stats.restored.todos).toBe(0)
+    const t = (await store.all<TodoRecord>('todos')).find((x) => x.id === todo.id)!
+    expect(t.text).toBe('本地改过的标题')
+  })
+
+  it('v8.82 两边都是墓碑 → 保持删除', async () => {
+    const todo = await repos.todos.create(k('2026-09-29'), '两边都删')
+    await repos.todos.softDelete(todo.id)
+    const file: BackupFile = {
+      app: 'daycell',
+      version: 1,
+      exportedAt: 1,
+      schemaVersion: 1,
+      data: {
+        todos: [{ ...todo, deleted: true }], notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], subtasks: [], habits: [], checkins: [], annivchecks: [], reviews: [], folders: [], settings: [],
+      },
+    }
+    const stats = await mergeBackup(store, file)
+    expect(stats.restored.todos).toBe(0)
+    expect(stats.added.todos).toBe(0)
+    const t = (await store.all<TodoRecord>('todos', { includeDeleted: true })).find((x) => x.id === todo.id)!
+    expect(t.deleted).toBe(true)
+  })
+
+  it('v8.82 只有复活、没有新增时也要开事务并返回恢复数（不能判成"没有新数据"）', async () => {
+    const folder = await repos.folders.create({ name: '个人成长' })
+    await repos.folders.softDelete(folder.id)
+    const file: BackupFile = {
+      app: 'daycell',
+      version: 1,
+      exportedAt: 1,
+      schemaVersion: 1,
+      data: {
+        todos: [], notes: [], expenses: [], anniversaries: [], categories: [], goals: [], stages: [], subtasks: [], habits: [], checkins: [], annivchecks: [], reviews: [], settings: [],
+        folders: [{ ...folder, deleted: false }],
+      },
+    }
+    const stats = await mergeBackup(store, file)
+    expect(stats.added.folders).toBe(0)
+    expect(stats.restored.folders).toBe(1)
+    expect(formatMergeStats(stats)).toContain('恢复 1 条已删除的记录')
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -365,17 +471,18 @@ describe('formatMergeStats（v8.78 分项统计）', () => {
   }
 
   it('目标 / 文件夹排在前面，空项不出现', () => {
-    expect(formatMergeStats({ added: { ...zero, goals: 2, folders: 1, todos: 3 }, settingsAdded: 0, keptLocal: 0, linkedGoals: 0 }))
+    expect(formatMergeStats({ added: { ...zero, goals: 2, folders: 1, todos: 3 }, restored: zero, settingsAdded: 0, keptLocal: 0, linkedGoals: 0 }))
       .toBe('2 个目标、1 个文件夹、3 条待办')
   })
 
   it('全部为 0 → 空串（调用方据此提示"没有新数据"）', () => {
-    expect(formatMergeStats({ added: zero, settingsAdded: 0, keptLocal: 0, linkedGoals: 0 })).toBe('')
+    expect(formatMergeStats({ added: zero, restored: zero, settingsAdded: 0, keptLocal: 0, linkedGoals: 0 })).toBe('')
   })
 
   it('七类此前漏算的 store 全部计入（目标/阶段/子任务/文件夹/习惯/打卡/复盘）', () => {
     const msg = formatMergeStats({
       added: { ...zero, goals: 1, stages: 2, subtasks: 3, folders: 1, habits: 2, checkins: 4, reviews: 1 },
+      restored: zero,
       settingsAdded: 1,
       keptLocal: 0,
       linkedGoals: 0,
@@ -383,6 +490,11 @@ describe('formatMergeStats（v8.78 分项统计）', () => {
     for (const part of ['1 个目标', '2 个阶段', '3 个子任务', '1 个文件夹', '2 个习惯', '4 条打卡', '1 条复盘', '1 项设置']) {
       expect(msg).toContain(part)
     }
+  })
+
+  it('v8.82 恢复的条数单独成句，只恢复时不判成"没有新数据"', () => {
+    expect(formatMergeStats({ added: zero, restored: { ...zero, goals: 2, folders: 1 }, settingsAdded: 0, keptLocal: 0, linkedGoals: 0 }))
+      .toBe('恢复 3 条已删除的记录')
   })
 })
 
