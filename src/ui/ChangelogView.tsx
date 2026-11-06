@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.29'
+const CURRENT_VERSION = 'v9.30'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.30',
+    date: '2026-11-06',
+    items: [
+      '导入备份的统计修好了：目标、阶段、子任务、文件夹、习惯、打卡、复盘这七类以前不计入，只导入目标时会误报「备份里没有新数据」',
+      '导入提示改成按类别显示：「已合并导入：2 个目标、1 个文件夹、3 条待办」，一眼就能看出备份有没有带上目标',
+    ],
+  },
   {
     version: 'v9.29',
     date: '2026-11-06',

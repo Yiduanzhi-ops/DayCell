@@ -17,6 +17,7 @@ import { createSeqIdGen } from '../id'
 import { createRepos, type Repos } from '../repo'
 import { BackupCorruptError } from '../errors'
 import {
+  formatMergeStats,
   serializeBackup,
   parseBackup,
   mergeBackup,
@@ -280,6 +281,34 @@ describe('mergeBackup（合并导入）', () => {
 // ---------------------------------------------------------------------------
 // renderRangeMd
 // ---------------------------------------------------------------------------
+
+describe('formatMergeStats（v9.30 分项统计）', () => {
+  const zero = {
+    todos: 0, notes: 0, expenses: 0, anniversaries: 0, categories: 0,
+    goals: 0, stages: 0, subtasks: 0, habits: 0, checkins: 0,
+    annivchecks: 0, reviews: 0, folders: 0,
+  }
+
+  it('目标 / 文件夹排在前面，空项不出现', () => {
+    expect(formatMergeStats({ added: { ...zero, goals: 2, folders: 1, todos: 3 }, settingsAdded: 0, keptLocal: 0 }))
+      .toBe('2 个目标、1 个文件夹、3 条待办')
+  })
+
+  it('全部为 0 → 空串（调用方据此提示"没有新数据"）', () => {
+    expect(formatMergeStats({ added: zero, settingsAdded: 0, keptLocal: 0 })).toBe('')
+  })
+
+  it('七类此前漏算的 store 全部计入（目标/阶段/子任务/文件夹/习惯/打卡/复盘）', () => {
+    const msg = formatMergeStats({
+      added: { ...zero, goals: 1, stages: 2, subtasks: 3, folders: 1, habits: 2, checkins: 4, reviews: 1 },
+      settingsAdded: 1,
+      keptLocal: 0,
+    })
+    for (const part of ['1 个目标', '2 个阶段', '3 个子任务', '1 个文件夹', '2 个习惯', '4 条打卡', '1 条复盘', '1 项设置']) {
+      expect(msg).toContain(part)
+    }
+  })
+})
 
 describe('renderRangeMd', () => {
   const catName = (): string => '餐饮'

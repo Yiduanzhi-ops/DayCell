@@ -37,21 +37,24 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v9.29')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v9.30')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v9.29')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v9.30')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v9.29，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v9.30，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+(\.\d+)+$/)
-    expect(vers[0].textContent).toBe('v9.29')
+    expect(vers[0].textContent).toBe('v9.30')
     expect(screen.getByText(/日期默认就是「当天」/)).toBeInTheDocument()
     expect(screen.getByText(/只选提醒型、不填具体时刻时，类型也会正确记住/)).toBeInTheDocument()
     expect(screen.getByText(/点文件夹名本身就能折叠\/展开/)).toBeInTheDocument()
     expect(screen.getByText(/文件夹多了也不会被横向挤走/)).toBeInTheDocument()
     expect(screen.getByText(/不会再"建完就看不见"/)).toBeInTheDocument()
     expect(screen.getByText(/不用再借某个文件夹的入口绕一圈/)).toBeInTheDocument()
+    // v9.30
+    expect(screen.getByText(/目标、阶段、子任务、文件夹、习惯、打卡、复盘这七类以前不计入/)).toBeInTheDocument()
+    expect(screen.getByText(/已合并导入：2 个目标、1 个文件夹、3 条待办/)).toBeInTheDocument()
     // v9.29
     expect(screen.getByText(/「未分类」组头那颗常驻按钮去掉/)).toBeInTheDocument()
     expect(screen.getByText(/单夹视图不再在组头和顶部各挂一个同效按钮/)).toBeInTheDocument()

@@ -830,9 +830,41 @@ describe('v7.5 备份导出与合并导入', () => {
     expect(texts).toContain('本地待办')
     expect(texts).toContain('备份新增')
     expect(texts).not.toContain('备份改的文本')
-    expect(S(app).toast?.msg).toContain('已合并导入 2 条记录') // 1 条待办 + 1 项设置
+    expect(S(app).toast?.msg).toContain('已合并导入：1 条待办、1 项设置') // v9.30 按类别显示
     // 设置本地优先不受影响（weekStartsOn 是备份新 key → 补入）
     expect(await bundle.repos.settings.get('weekStartsOn', 1)).toBe(0)
+  })
+
+  it('importBackup 只含目标与文件夹 → 提示按类别显示，不再误报"没有新数据"', async () => {
+    const { app, bundle } = await makeApp()
+    const backup = {
+      app: 'daycell',
+      version: 1,
+      exportedAt: 2_000_000_000_000,
+      schemaVersion: 1,
+      data: {
+        todos: [], notes: [], expenses: [], anniversaries: [], categories: [],
+        stages: [], subtasks: [], habits: [], checkins: [], annivchecks: [], reviews: [],
+        goals: [
+          { id: 'g1', type: 'goal', title: '备考', note: '', folderId: 'f1', done: false, createdAt: 1, updatedAt: 1, deleted: false },
+        ],
+        folders: [
+          { id: 'f1', type: 'folder', name: '学习', createdAt: 1, updatedAt: 1, deleted: false },
+        ],
+        settings: [],
+      },
+    }
+    const ok = await S(app).importBackup({ text: async () => JSON.stringify(backup) })
+    expect(ok).toBe(true)
+    const msg = S(app).toast?.msg ?? ''
+    expect(msg).toContain('1 个目标')
+    expect(msg).toContain('1 个文件夹')
+    expect(msg).not.toContain('没有新数据')
+    // 确实落库了（提示与实际一致）
+    const goals = await bundle.store.all<{ id: string; createdAt: number; updatedAt: number; deleted: boolean; title: string }>('goals')
+    expect(goals.map((g) => g.title)).toContain('备考')
+    const folders = await bundle.store.all<{ id: string; createdAt: number; updatedAt: number; deleted: boolean; name: string }>('folders')
+    expect(folders.map((f) => f.name)).toContain('学习')
   })
 
   it('importBackup 坏文件 → false 且现有数据不动', async () => {
