@@ -1249,8 +1249,8 @@ function GoalList(): JSX.Element {
     </>
   )
 
-  // v8.77 组头不再挂「新建目标」——全局入口固定在顶部工具条；只有文件夹组头保留
-  // 该夹的就地入口（作用于该文件夹，语义不同于顶部）
+  // v8.77 组头不再挂「新建目标」——全局入口固定在顶部工具条
+  // v8.79 文件夹组头那枚也去掉：只留顶部一个入口，表单里可选文件夹
   const renderGroup = (
     title: string,
     items: typeof goalList,
@@ -1346,16 +1346,6 @@ function GoalList(): JSX.Element {
                   <span className={styles.folderGroupTitle}>
                     {folder.name}（{items.length}）{folder.favorite ? ' ★' : ''}
                   </span>
-                </button>
-                <button
-                  className={styles.newGoalBtn}
-                  aria-label={`在「${folder.name}」下新建目标`}
-                  onClick={() => {
-                    setNewGoalFolder(folder.id)
-                    setNewOpen(true)
-                  }}
-                >
-                  新建目标
                 </button>
               </div>
               {collapsed ? null : items.length === 0 ? (

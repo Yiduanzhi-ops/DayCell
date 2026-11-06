@@ -60,7 +60,8 @@ import type {
 /** 月格 / 周行要的**指示器**：只有计数与汇总，不含正文 */
 export interface DayAggregate {
   date: DateKey
-  /** 均**排除 rolledTo**（PRD US-04：顺延出去的不再算这天的进度） */
+  /** 均**排除 rolledTo**（PRD US-04：顺延出去的不再算这天的进度）；
+   *  v8.79 起也排除「已完成且非完成日的截止型」（不显示的东西不计数） */
   todoDone: number
   todoTotal: number
   noteCount: number
@@ -76,10 +77,10 @@ export interface DayAggregate {
   /**
    * 三类内容**皆无**（已排墓碑）→ 视图渲染空状态。
    *
-   * ⚠️ **含 rolledTo 的待办**：那条记录仍属于这一天、仍会显示（划线态），
-   *    所以这天不算"空白"。纪念日不计入——它不是用户写的东西。
-   *    （v6.1 曾用此语义驱动"空白日自动展开待办表单"，v7.2 已移除该机制，
-   *    isEmpty 现只被 UI 的空状态文案消费。）
+   * v8.79：按**展示口径**算，与 `visibleTodos` 一致——已顺延出去的源记录不再是
+   * "这天的内容"，这天该显示空态。纪念日不计入——它不是用户写的东西。
+   * （v6.1 曾用此语义驱动"空白日自动展开待办表单"，v7.2 已移除该机制，
+   * isEmpty 现只被 UI 的空状态文案消费。）
    */
   isEmpty: boolean
 }
@@ -123,7 +124,10 @@ export interface WeekDay extends DayAggregate {
 export interface DayDetail {
   date: DateKey
   summary: DayAggregate
-  /** 已排序（createdAt 升序）、已排墓碑；**含 rolledTo 项**——进度计算要自己排除它们 */
+  /**
+   * 已排序（createdAt 升序）、已排墓碑；
+   * v8.79 起**不含 rolledTo 项**（顺延出去的源记录不再显示）与「已完成且非完成日的截止型」
+   */
   todos: TodoRecord[]
   notes: NoteRecord[]
   expenses: ExpenseRecord[]
@@ -247,6 +251,20 @@ interface DayBucket {
 const emptyBucket = (): DayBucket => ({ todos: [], notes: [], expenses: [] })
 
 /**
+ * v8.79 日详情「可见待办」口径（进度另算，`todoProgress` 自己排除 rolledTo）：
+ *  - **已顺延出去（rolledTo）的不显示**：内容已复制到目标日，源日是一条删不掉的痕迹，
+ *    留着只会在历史日期上重复出现同一条待办。
+ *  - **带截止日且已完成的，只在完成当天显示**：v8.60 只过滤了「注入的那部分」，
+ *    `date === deadline` 的记录走当天本地桶，绕过了过滤 —— 逾期完成后翻回截止日
+ *    仍能看到它勾着挂在那里。现在两边同规则。
+ */
+function visibleTodos(todos: readonly TodoRecord[], date: DateKey): TodoRecord[] {
+  return todos.filter(
+    (t) => !t.rolledTo && !(t.deadline && t.done && keyOf(t.doneAt ?? 0) !== date),
+  )
+}
+
+/**
  * v8.53 合并「当天本地待办 + 注入的活跃 DDL 待办」：
  *  - 去重：DDL 待办 date=截止日，截止日当天的本地集合已含它，注入时跳过
  *  - 排序：带截止日的 DDL 置顶（截止日升序，逾期自然最前；同日 createdAt 升序兜底），
@@ -255,6 +273,7 @@ const emptyBucket = (): DayBucket => ({ todos: [], notes: [], expenses: [] })
  *    （翻到它还不存在的史前日子）不再出现。
  * v8.60 修复：完成的 DDL 不再"突然消失"——完成当天仍注入（勾选保留显示），
  *    次日起（doneAt 非当天）不再注入，自然从今天视图消失。
+ * v8.79：本地桶也套同一口径（见 visibleTodos），顺延源记录一并排除。
  */
 function mergeDdlTodos(local: TodoRecord[], active: TodoRecord[], date: DateKey): TodoRecord[] {
   const localIds = new Set(local.map((t) => t.id))
@@ -270,7 +289,7 @@ function mergeDdlTodos(local: TodoRecord[], active: TodoRecord[], date: DateKey)
       // 未完成每天注入；已完成仅完成当天保留（doneAt 与查看日同天），次日消失
       (!t.done || keyOf(t.doneAt ?? 0) === date),
   )
-  return [...local, ...injected].sort((a, b) => {
+  return [...visibleTodos(local, date), ...injected].sort((a, b) => {
     const da = a.deadline !== undefined
     const db = b.deadline !== undefined
     if (da !== db) return da ? -1 : 1
@@ -557,7 +576,10 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
     cats: CatResolver,
     review: ReviewRecord | null = null,
   ): DayAggregate => {
-    const { done, total } = todoProgress(b.todos)
+    // v8.79 进度按「可见待办」算，与日详情/周行同一口径：
+    // 不显示的东西也不该出现在 1/3、+N 项待办这类计数里
+    const visible = visibleTodos(b.todos, date)
+    const { done, total } = todoProgress(visible)
 
     let costCents = 0
     const perCat = new Map<string, number>()
@@ -586,7 +608,8 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
       anniversaries: [...anniv],
       label: cellLabel(info, anniv),
       hasReview: review !== null,
-      isEmpty: b.todos.length === 0 && b.notes.length === 0 && b.expenses.length === 0,
+      // v8.79：空态判定与展示口径一致（顺延痕迹、完成在别的日子的 DDL 都不算"这天的内容"）
+      isEmpty: visible.length === 0 && b.notes.length === 0 && b.expenses.length === 0,
     }
   }
 
@@ -666,8 +689,8 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
       ])
       const days: WeekDay[] = built.map(({ agg, bucket, info, review }, i) => ({
         ...agg,
-        // 周行只展示活跃待办（已顺延出去的淡化在日详情里看，不占周行）
-        todoPreview: bucket.todos.filter((t) => !t.rolledTo).slice(0, 3),
+        // 周行只展示活跃待办（v8.79：与日详情同一口径——顺延源记录、已完成且非完成日的 DDL 都不占周行）
+        todoPreview: visibleTodos(bucket.todos, agg.date).slice(0, 3),
         notePreview: bucket.notes.slice(0, 2),
         reviewPreview: review ? { id: review.id, text: review.text } : null,
         habitPreview: buildHabitItems(habits, dones[i] ?? new Set<string>(), keys[i]!),

@@ -8,11 +8,20 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.78'
+const CURRENT_VERSION = 'v8.79'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.79',
+    date: '2026-11-06',
+    items: [
+      '截止型待办完成后只在完成那天显示：翻回截止日、或中间任何一天，都不再挂着一条已完成的任务',
+      '顺延出去的记录不在原日期留痕：内容只在今天那条上标「顺延自 M/D」，历史日看到的就是干净的当天',
+      '目标页去掉各文件夹组头右侧的「新建目标」，入口只留顶部一个；空文件夹的空态里那个新建入口保留',
+    ],
+  },
   {
     version: 'v8.78',
     date: '2026-11-06',

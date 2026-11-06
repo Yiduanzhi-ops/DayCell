@@ -37,15 +37,19 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v8.78')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v8.79')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v8.78')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v8.79')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v8.78，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v8.79，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v8.78')
+    expect(vers[0].textContent).toBe('v8.79')
+    // v8.79
+    expect(screen.getByText(/只在完成那天显示/)).toBeInTheDocument()
+    expect(screen.getByText(/历史日看到的就是干净的当天/)).toBeInTheDocument()
+    expect(screen.getByText(/组头右侧的「新建目标」/)).toBeInTheDocument()
     expect(screen.getByText(/待办日期口径统一/)).toBeInTheDocument()
     expect(screen.getByText(/点文件夹名本身即可折叠/)).toBeInTheDocument()
     expect(screen.getByText(/文件夹多了也不会被横向挤走/)).toBeInTheDocument()

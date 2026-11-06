@@ -134,11 +134,7 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
           {sorted.map((t) => (
             <div
               key={t.id}
-              className={[
-                styles.titem,
-                t.done ? styles.done : '',
-                t.rolledTo ? styles.rolledout : '',
-              ].filter(Boolean).join(' ')}
+              className={[styles.titem, t.done ? styles.done : ''].filter(Boolean).join(' ')}
             >
               <button
                 className={styles.chk}
@@ -166,7 +162,7 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
                   <span className={styles.ttxt}>{t.text}</span>
                 </button>
               )}
-              {t.rolledTo && <span className={styles.rolled}>已顺延 →</span>}
+              {/* v8.79：顺延源记录不再进入日详情，只剩今天这条「顺延自 M/D」 */}
               {t.rolledFrom && <span className={styles.rolled}>顺延自 {md(t.rolledFrom)}</span>}
               {/* v9.2.3 时间标签合并为单枚语义 pill：截止蓝（逾期红）/ 提醒绿（过点灰），今天只写「今天」 */}
               {t.time ? (
@@ -196,11 +192,10 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
                   </span>
                 )
               ) : null}
-              {!t.rolledTo && (
-                <button className={styles.tdel} aria-label={`删除待办：${t.text}`} onClick={() => void deleteTodo(t.id)}>
-                  ×
-                </button>
-              )}
+              {/* v8.79：源记录不再渲染，删除按钮对所有行可见（不再有删不掉的待办） */}
+              <button className={styles.tdel} aria-label={`删除待办：${t.text}`} onClick={() => void deleteTodo(t.id)}>
+                ×
+              </button>
             </div>
           ))}
           </>
