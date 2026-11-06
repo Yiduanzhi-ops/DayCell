@@ -10,7 +10,7 @@
  *  - 阶段 = 名称 + 百分比滑杆 + 备注 + 进行中/已完成 + 「当前」（同目标互斥）
  *  - 无子阶段、无每日打卡、不与待办/支出联动；账单总结 = 目标的一种用法（用户拍板）
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX, ReactNode } from 'react'
 import { parsePct } from '@core'
 import type { FolderSummary, GoalRecord, ProgressField, StageInput, StageRecord, SubtaskRecord } from '@core'
@@ -1376,6 +1376,22 @@ function GoalList(): JSX.Element {
     )
   }
 
+  // 桌面端：鼠标只有纵向滚轮，把纵向滚轮转成文件夹 chips 的横向滚动（触控板/触摸仍是原生横滑）
+  const chipsRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const el = chipsRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent): void => {
+      if (el.scrollWidth <= el.clientWidth + 1) return          // 没溢出就不用接管
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return      // 横向手势（触控板）交还原生
+      const before = el.scrollLeft
+      el.scrollLeft = before + e.deltaY
+      if (el.scrollLeft !== before) e.preventDefault()          // 滚到头就放行，让页面继续滚
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [folderList.length])
+
   // v9.28 顶部工具条：新建文件夹、新建目标两端固定（不随 chips 横滑被滚走），中间 chips 横滑
   // 新建目标的默认归属跟随当前视图：全部 → 未分类；单文件夹视图 → 该文件夹
   const openNewGoal = (): void => {
@@ -1387,7 +1403,7 @@ function GoalList(): JSX.Element {
       <button className={styles.folderNew} aria-label="新建文件夹" onClick={() => setFolderSheet(true)}>
         新建文件夹
       </button>
-      <div className={styles.folderChips}>
+      <div ref={chipsRef} className={styles.folderChips}>
         <button
           className={filter === 'all' ? `${styles.folderChip} ${styles.folderChipOn}` : styles.folderChip}
           onClick={() => setFilter('all')}

@@ -37,15 +37,17 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v8.83')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v8.84')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v8.83')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v8.84')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v8.83，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v8.84，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v8.83')
+    expect(vers[0].textContent).toBe('v8.84')
+    // v8.84
+    expect(screen.getByText(/电脑上用鼠标滚轮就能左右滑/)).toBeInTheDocument()
     // v8.83
     expect(screen.getByText(/目标详情顶部不再被默认说明撑高/)).toBeInTheDocument()
     // v8.82
