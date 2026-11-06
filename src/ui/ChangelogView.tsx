@@ -8,11 +8,20 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.75'
+const CURRENT_VERSION = 'v8.76'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.76',
+    date: '2026-11-06',
+    items: [
+      '目标页顶部：新建文件夹、新建目标固定在工具条两端，文件夹多了也不会被横向挤走',
+      '空文件夹也进列表：新建后立刻以「名称（0）」出现，不会再"建完就看不见"',
+      '「未分类」常驻列表末尾，可以直接在未分类下新建目标，不用再借某个文件夹的入口绕一圈',
+    ],
+  },
   {
     version: 'v8.75',
     date: '2026-11-06',

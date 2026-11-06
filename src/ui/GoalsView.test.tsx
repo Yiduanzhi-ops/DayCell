@@ -531,17 +531,18 @@ describe('目标文件夹（v9.14）', () => {
     fireEvent.click(screen.getByRole('tab', { name: '目标' }))
     await waitFor(() => expect(screen.getByText(/进行中的目标/)).toBeInTheDocument())
 
-    // 无文件夹时仍显示「新建文件夹」入口
-    expect(screen.getByRole('button', { name: '＋ 新建文件夹' })).toBeInTheDocument()
+    // 无文件夹时仍显示「新建文件夹」入口（v9.28 顶部工具条：新建文件夹 + 新建目标）
+    expect(screen.getByRole('button', { name: '新建文件夹' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '新建目标' })).toBeInTheDocument()
 
     // 新建文件夹
-    fireEvent.click(screen.getByRole('button', { name: '＋ 新建文件夹' }))
+    fireEvent.click(screen.getByRole('button', { name: '新建文件夹' }))
     fireEvent.change(screen.getByPlaceholderText(/2026 考证/), { target: { value: '2026 考证' } })
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
     await waitFor(() => expect(screen.getByRole('button', { name: '2026 考证 0' })).toBeInTheDocument())
 
-    // 新建目标 → 表单里选「放入文件夹」→ 卡片带标签
-    fireEvent.click(screen.getByRole('button', { name: '＋ 新建目标' }))
+    // 新建目标（顶部工具条入口，默认未分类）→ 表单里选「放入文件夹」→ 卡片带标签
+    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
     fireEvent.change(screen.getByPlaceholderText(/复习考公/), { target: { value: '考公刷题' } })
     fireEvent.click(screen.getByRole('button', { name: '2026 考证' }))
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
@@ -592,7 +593,7 @@ describe('目标文件夹（v9.14）', () => {
     fireEvent.click(screen.getByText('删除文件夹'))
     await waitFor(() => expect(screen.getByText(/自动移出到未分类/)).toBeInTheDocument())
     fireEvent.click(screen.getByRole('button', { name: '删除文件夹' }))
-    // 回到「全部」，chips 消失，目标仍在（未分类）
+    // 回到「全部」，该夹 chip 消失，目标仍在（未分类）
     await waitFor(() => expect(screen.getByText('交付上线')).toBeInTheDocument())
     expect(screen.queryByRole('button', { name: /工作 \d/ })).not.toBeInTheDocument()
   })
@@ -627,8 +628,9 @@ describe('目标文件夹（v9.14）', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: /空夹 \d/ })).toBeInTheDocument())
     fireEvent.click(screen.getByRole('button', { name: /空夹 \d/ }))
     await waitFor(() => expect(screen.getByText('这个文件夹还没有目标')).toBeInTheDocument())
-    // 空态内也有新建入口
-    const btn = screen.getByRole('button', { name: '＋ 新建目标' })
+    // 空态内也有新建入口（组头与空态各一个同名按钮，取空态里那个）
+    const btns = screen.getAllByRole('button', { name: '＋ 新建目标' })
+    const btn = btns[btns.length - 1]
     expect(btn).toBeInTheDocument()
     fireEvent.click(btn)
     fireEvent.change(screen.getByPlaceholderText(/复习考公/), { target: { value: '空夹首个目标' } })
@@ -668,6 +670,37 @@ describe('目标文件夹（v9.14）', () => {
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
     await waitFor(() => expect(screen.getByText('甲夹（2）')).toBeInTheDocument())
     expect(screen.getByText('甲夹新建')).toBeInTheDocument()
+  })
+
+  it('v9.28 全部视图：空文件夹也入列 + 未分类常驻 + 顶部新建目标默认未分类', async () => {
+    const { store } = await renderAppWrap()
+    const s = store.getState()
+    await s.createFolder('有内容的夹')
+    const fid = store.getState().folderList.find((f) => f.folder.name === '有内容的夹')?.folder.id
+    await s.createGoal('夹内目标', '', fid ?? null)
+    await s.createFolder('空夹')
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+
+    // 空文件夹也在列表里（组头 + 轻量提示）；未分类 0 条时也常驻
+    await waitFor(() => expect(screen.getByText('有内容的夹（1）')).toBeInTheDocument())
+    expect(screen.getByText('空夹（0）')).toBeInTheDocument()
+    expect(screen.getByText('这个文件夹还没有目标')).toBeInTheDocument()
+    expect(screen.getByText('未分类（0）')).toBeInTheDocument()
+    expect(screen.getByText('还没有未分类的目标')).toBeInTheDocument()
+
+    // 顶部「＋ 目标」：全部视图下默认归未分类，不用先借某个文件夹的按钮
+    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
+    fireEvent.change(screen.getByPlaceholderText(/复习考公/), { target: { value: '散落目标' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
+    await waitFor(() => expect(screen.getByText('未分类（1）')).toBeInTheDocument())
+    expect(screen.getByText('散落目标')).toBeInTheDocument()
+    expect(screen.getByText('有内容的夹（1）')).toBeInTheDocument()
+
+    // 顶部「＋ 文件夹」：新建后立刻入列（0 目标也看得见，不再"建完消失"）
+    fireEvent.click(screen.getByRole('button', { name: '新建文件夹' }))
+    fireEvent.change(screen.getByPlaceholderText(/2026 考证/), { target: { value: '新建的夹' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
+    await waitFor(() => expect(screen.getByText('新建的夹（0）')).toBeInTheDocument())
   })
 
   it('删除目标二次确认：取消不删，确认后删除并回列表', async () => {
