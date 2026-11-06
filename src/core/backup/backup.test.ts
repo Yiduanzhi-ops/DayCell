@@ -122,10 +122,25 @@ describe('parseBackup', () => {
     expect(() => parseBackup(JSON.stringify(f))).toThrow(BackupCorruptError)
   })
 
-  it('settings 含未知 key → 拒绝', () => {
+  it('v9.32 settings 含未知 key → 跳过该项，不再判成损坏', () => {
     const f = good()
-    f.data.settings = [{ key: 'hacked', value: 1, updatedAt: 1 }] as never
+    f.data.settings = [
+      { key: 'onboarded', value: true, updatedAt: 1 },
+      { key: 'hacked', value: 1, updatedAt: 1 },
+    ] as never
+    const parsed = parseBackup(JSON.stringify(f))
+    // 认识的留下，不认识的丢掉；整份备份照常可用（待办等数据一条不少）
+    expect(parsed.data.settings.map((s) => s.key)).toEqual(['onboarded'])
+    expect(parsed.data.todos).toHaveLength(1)
+  })
+
+  it('v9.32 settings 结构坏了（没有 key / 不是对象）仍拒绝', () => {
+    const f = good()
+    f.data.settings = [{ value: 1, updatedAt: 1 }] as never
     expect(() => parseBackup(JSON.stringify(f))).toThrow(BackupCorruptError)
+    const g = good()
+    g.data.settings = ['oops'] as never
+    expect(() => parseBackup(JSON.stringify(g))).toThrow(BackupCorruptError)
   })
 
   it('v8.65 全部已知设置键（含 weekViewHabits）均通过白名单校验', () => {
