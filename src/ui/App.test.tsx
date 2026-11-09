@@ -582,9 +582,12 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 30 日'))
     expect(within(screen.getByTestId('day-center')).getByText(/截止 9\/29/)).toBeInTheDocument()
 
-    // 完成 → 从明天消失
+    // v8.87 完成 → 不再从明天凭空消失，留在明天显示为已完成（此前勾完就看不到这条）
     fireEvent.click(within(screen.getByTestId('day-center')).getByRole('button', { name: '标记完成：交作业' }))
-    await waitFor(() => expect(within(screen.getByTestId('day-center')).queryByText(/截止 9\/29/)).not.toBeInTheDocument())
+    await waitFor(() =>
+      expect(within(screen.getByTestId('day-center')).getByRole('button', { name: '标记未完成：交作业' })).toBeInTheDocument(),
+    )
+    expect(within(screen.getByTestId('day-center')).getByText(/截止 9\/29/)).toBeInTheDocument()
   })
 
   it('v8.61 逾期完成标注：完成后把截止日改成过去日期 → 徽标「逾期完成」；截止日当天完成不标', async () => {

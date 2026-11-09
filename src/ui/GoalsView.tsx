@@ -273,7 +273,64 @@ function DeleteGoalConfirm({
 }
 
 // ---------------------------------------------------------------------------
-// v9.14 文件夹组头菜单（收藏/取消收藏、删除）
+// v8.87 重命名文件夹（菜单入口；名称校验与新建同口径：必填、≤12 字）
+// ---------------------------------------------------------------------------
+
+function RenameFolderSheet({
+  folder,
+  onClose,
+  onAliased,
+}: {
+  folder: FolderSummary
+  onClose: () => void
+  onAliased?: () => void
+}): JSX.Element {
+  const renameFolder = useApp((s) => s.renameFolder)
+  const [name, setName] = useState(folder.folder.name)
+
+  const submit = async (): Promise<void> => {
+    const trimmed = name.trim()
+    if (!trimmed || trimmed === folder.folder.name) return
+    const ok = await renameFolder(folder.folder.id, trimmed)
+    if (ok) {
+      onAliased?.()
+      onClose()
+    }
+  }
+
+  return (
+    <Sheet title="重命名文件夹" onCancel={onClose}>
+      <div className={styles.field}>
+        <label>文件夹名称</label>
+        <input
+          type="text"
+          placeholder="如：2026 考证"
+          value={name}
+          maxLength={12}
+          autoFocus
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void submit()
+          }}
+        />
+        <div className={styles.hint}>改名只影响显示名称，里面的目标不受影响。</div>
+      </div>
+      <div className={styles.act}>
+        <button className={styles.btnSoft} onClick={onClose}>取消</button>
+        <button
+          className={styles.btnPrimary}
+          disabled={!name.trim() || name.trim() === folder.folder.name}
+          onClick={() => void submit()}
+        >
+          保存
+        </button>
+      </div>
+    </Sheet>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// v9.14 文件夹组头菜单（重命名、收藏/取消收藏、删除）
 // ---------------------------------------------------------------------------
 
 function FolderMenuSheet({
@@ -287,10 +344,15 @@ function FolderMenuSheet({
 }): JSX.Element {
   const toggleFolderFavorite = useApp((s) => s.toggleFolderFavorite)
   const [confirmDel, setConfirmDel] = useState(false)
+  const [renameOpen, setRenameOpen] = useState(false)
   const fav = folder.folder.favorite ?? false
   return (
     <Sheet title={folder.folder.name} onCancel={onClose}>
       <div className={styles.menuList}>
+        <button className={styles.menuItem} onClick={() => setRenameOpen(true)}>
+          <span className={styles.menuIcon}>✎</span>
+          重命名文件夹
+        </button>
         <button
           className={styles.menuItem}
           onClick={() => {
@@ -306,6 +368,7 @@ function FolderMenuSheet({
           删除文件夹
         </button>
       </div>
+      {renameOpen && <RenameFolderSheet folder={folder} onClose={onClose} />}
       {confirmDel && <DeleteFolderConfirm folder={folder} onClose={onClose} onDeleted={onDeleted} />}
     </Sheet>
   )
@@ -1342,6 +1405,15 @@ function GoalList(): JSX.Element {
                   <span className={styles.folderGroupTitle}>
                     {folder.name}（{items.length}）{folder.favorite ? ' ★' : ''}
                   </span>
+                </button>
+                {/* v8.87 「全部」页的组头也挂 ··· 菜单：此前只有切进单文件夹视图才有编辑入口，
+                    导致在全部页看到的文件夹既不能改名也不能收藏/删除 */}
+                <button
+                  className={styles.folderGroupMenu}
+                  aria-label={`文件夹菜单：${folder.name}`}
+                  onClick={() => setMenuFor(folderList.find((x) => x.folder.id === folder.id) ?? null)}
+                >
+                  ···
                 </button>
               </div>
               {collapsed ? null : items.length === 0 ? (

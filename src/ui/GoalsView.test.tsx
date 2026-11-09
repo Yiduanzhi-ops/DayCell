@@ -507,6 +507,27 @@ describe('目标模块（v7.9）', () => {
 // ===========================================================================
 
 describe('目标文件夹（v9.14）', () => {
+  it('v8.87 全部视图组头 ··· 可直接重命名文件夹（无需先切进该夹）', async () => {
+    const { store } = await renderAppWrap()
+    await store.getState().createFolder('旧名字')
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => expect(screen.getByText('旧名字（0）')).toBeInTheDocument())
+
+    // 「全部」页组头上的 ··· 是唯一编辑入口（此前这里没有任何菜单）
+    fireEvent.click(screen.getByRole('button', { name: '文件夹菜单：旧名字' }))
+    fireEvent.click(await screen.findByRole('button', { name: /重命名文件夹/ }))
+
+    // 表单预填当前名；改完保存 → 组头、chips 同步
+    const input = screen.getByDisplayValue('旧名字')
+    fireEvent.change(input, { target: { value: '新名字' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+
+    await waitFor(() => expect(screen.getByText('新名字（0）')).toBeInTheDocument())
+    expect(screen.queryByText('旧名字（0）')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /新名字 0/ })).toBeInTheDocument()
+    expect(store.getState().folderList[0]!.folder.name).toBe('新名字')
+  })
+
   it('v8.75 文件夹组头：点文件夹名本身也能折叠/展开（箭头+标题合并为一个按钮）', async () => {
     const { store } = await renderAppWrap()
     await store.getState().createFolder('学习')
