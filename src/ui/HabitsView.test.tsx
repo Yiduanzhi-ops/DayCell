@@ -189,6 +189,57 @@ describe('习惯模块（v8.0）', () => {
     })
   })
 
+  // v9.37 拖拽三连回归：插入位偏移（拖过一格）、同位置反复 move 抖动、松手弹回旧序
+  it('拖拽中间插入不过冲，且同一位置反复 move 顺序稳定、松手不弹回', async () => {
+    const store = await renderApp()
+    await openHabitSettings()
+    await createHabit('A', null)
+    await createHabit('B', null)
+    await createHabit('C', null)
+    // 给每行真实坐标（行高 50）：A=0~50 / B=50~100 / C=100~150
+    HTMLLIElement.prototype.getBoundingClientRect = function () {
+      const idx = this.parentElement ? Array.prototype.indexOf.call(this.parentElement.children, this) : 0
+      const top = idx * 50
+      return { top, height: 50, bottom: top + 50, left: 0, right: 300, width: 300, x: 0, y: top } as DOMRect
+    }
+    const proto = HTMLLIElement.prototype as unknown as Record<string, unknown>
+    if (typeof HTMLElement.prototype.setPointerCapture !== 'function') {
+      Object.defineProperty(HTMLElement.prototype, 'setPointerCapture', { value: () => {}, writable: true })
+    }
+    const overlay = screen.getByRole('dialog', { name: '习惯设置' })
+    const order = () =>
+      [...overlay.querySelectorAll('li[data-hid]')].map(
+        (li) => li.querySelector('[class*="itemTitle"]')?.textContent ?? '',
+      )
+    const handle = within(overlay).getByRole('button', { name: '拖动排序：A' })
+    fireEvent.pointerDown(handle, { pointerId: 7, clientX: 0, clientY: 10 })
+    // 指针落在 B 中心(75)以下、C 中心(125)以上 → 应插到 B、C 之间
+    fireEvent.pointerMove(handle, { pointerId: 7, clientX: 0, clientY: 90 })
+    expect(order()).toEqual(['B', 'A', 'C'])
+    // 指针不动再派发两次 move：必须维持同一顺序，不能来回跳
+    fireEvent.pointerMove(handle, { pointerId: 7, clientX: 0, clientY: 90 })
+    fireEvent.pointerMove(handle, { pointerId: 7, clientX: 0, clientY: 90 })
+    expect(order()).toEqual(['B', 'A', 'C'])
+    fireEvent.pointerUp(handle, { pointerId: 7, clientX: 0, clientY: 90 })
+    // 松手瞬间不能弹回 [A,B,C]
+    expect(order()).toEqual(['B', 'A', 'C'])
+    await waitFor(() => expect(store.getState().habitList.map((h) => h.name)).toEqual(['B', 'A', 'C']))
+    delete proto.getBoundingClientRect
+  })
+
+  it('换序后外层（今日习惯数据源）跟随同一顺序', async () => {
+    const store = await renderApp()
+    await openHabitSettings()
+    await createHabit('A', null)
+    await createHabit('B', null)
+    await createHabit('C', null)
+    const idOf = (n: string) => store.getState().habitList.find((h) => h.name === n)!.id
+    await store.getState().reorderHabits([idOf('C'), idOf('A'), idOf('B')])
+    await waitFor(() => expect(store.getState().habitList.map((h) => h.name)).toEqual(['C', 'A', 'B']))
+    // 今日习惯区块 / 周视图 / 侧页统一走 aggregate 的 buildHabitItems
+    await waitFor(() => expect(store.getState().habitDay?.items.map((i) => i.name)).toEqual(['C', 'A', 'B']))
+  })
+
   it('删除习惯 → 今日区块回到空状态', async () => {
     await renderApp()
     await openHabitSettings()

@@ -37,8 +37,20 @@ export function HabitsView(): JSX.Element {
   const longPress = useRef<ReturnType<typeof setTimeout> | null>(null)
   const downPoint = useRef<{ x: number; y: number; pointerId: number } | null>(null)
   const dragging = useRef(false)
+  /** habitList 的最新镜像：rAF 自动滚动回调读不到渲染闭包里的旧 habitList */
+  const habitListRef = useRef(habitList)
+  habitListRef.current = habitList
+  /** 上一次的插入位：插入位没变就不重渲染，避免指针微动整表重排造成闪烁 */
+  const lastIdxRef = useRef(-1)
+  /** 边缘自动滚动：rAF 句柄 + 最新指针纵坐标（指针停在边缘不动也要继续滚） */
+  const rafRef = useRef<number | null>(null)
+  const lastYRef = useRef(0)
 
   const list = preview ?? habitList
+
+  function baseList(): HabitRecord[] {
+    return previewRef.current ?? habitListRef.current
+  }
 
   function resetDrag(): void {
     dragging.current = false
@@ -47,6 +59,9 @@ export function HabitsView(): JSX.Element {
     downPoint.current = null
     dragIdRef.current = null
     previewRef.current = null
+    lastIdxRef.current = -1
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+    rafRef.current = null
     setDragId(null)
     setPressingId(null)
     setPreview(null)
@@ -54,20 +69,74 @@ export function HabitsView(): JSX.Element {
     window.getSelection()?.removeAllRanges()
   }
 
-  /** 指针落在哪一行之间：返回应插入的 index（0..length）。
-   *  注意用「行序号」而非「非拖拽行计数」：拖拽行被跳过时序号照常递增，
-   *  否则拖到首行下方会返回 0（插回最前=看起来没拖动），只有拖到末尾才碰巧正确（v9.26 根治间歇性失败） */
+  /** 指针落在哪一行之间：返回**去掉拖拽行之后**的插入位（0..rest.length）。
+   *  v9.37：拖拽行必须不计数——它本来就占了 DOM 一行，若也计入序号，插入位会偏后一格：
+   *  跨过 ≥2 行时直接甩过头，且行位置一变下次重算又得到另一个值 → 行在两点间反复跳（用户看到的「一直闪」）。 */
   function targetIndex(clientY: number, draggingId: string): number {
     const lis = listRef.current?.querySelectorAll('li[data-hid]') ?? []
     let i = 0
     for (const li of lis) {
-      if (li.getAttribute('data-hid') !== draggingId) {
-        const r = li.getBoundingClientRect()
-        if (clientY < r.top + r.height / 2) return i
-      }
+      if (li.getAttribute('data-hid') === draggingId) continue
+      const r = li.getBoundingClientRect()
+      if (clientY < r.top + r.height / 2) return i
       i++
     }
     return i
+  }
+
+  /** 按指针位置算插入位并刷新预览（拖拽移动与自动滚动共用） */
+  function applyPreview(clientY: number): void {
+    const draggingId = dragIdRef.current
+    if (draggingId === null) return
+    const base = baseList()
+    const cur = base.find((x) => x.id === draggingId)
+    if (!cur) return
+    const rest = base.filter((x) => x.id !== draggingId)
+    const idx = Math.max(0, Math.min(targetIndex(clientY, draggingId), rest.length))
+    if (previewRef.current !== null && idx === lastIdxRef.current) return
+    lastIdxRef.current = idx
+    rest.splice(idx, 0, cur)
+    // 同步镜像 + 状态：镜像保证松手提交用最新顺序（React 批次内 state 可能未追上）
+    previewRef.current = rest
+    setPreview(rest)
+  }
+
+  /** 拖到列表上下边缘时持续滚动（每帧一次，越靠边越快）；滚动后行位置变了，重算插入位 */
+  function autoScrollStep(): void {
+    rafRef.current = null
+    if (!dragging.current) return
+    const el = listRef.current
+    const y = lastYRef.current
+    if (el) {
+      const r = el.getBoundingClientRect()
+      const EDGE = 56
+      let delta = 0
+      if (y < r.top + EDGE) delta = -Math.ceil(((r.top + EDGE - y) / EDGE) * 14)
+      else if (y > r.bottom - EDGE) delta = Math.ceil(((y - (r.bottom - EDGE)) / EDGE) * 14)
+      if (delta !== 0) {
+        const before = el.scrollTop
+        el.scrollTop = before + delta
+        if (el.scrollTop !== before) applyPreview(y)
+      }
+    }
+    rafRef.current = requestAnimationFrame(autoScrollStep)
+  }
+
+  function startAutoScroll(): void {
+    if (rafRef.current !== null) return
+    rafRef.current = requestAnimationFrame(autoScrollStep)
+  }
+
+  /** 真正进入拖拽态：状态 + 镜像 + 起点插入位 + 自动滚动 */
+  function beginDrag(id: string, clientY: number): void {
+    dragging.current = true
+    dragIdRef.current = id
+    previewRef.current = habitListRef.current
+    lastIdxRef.current = habitListRef.current.findIndex((x) => x.id === id)
+    lastYRef.current = clientY
+    setDragId(id)
+    setPreview(habitListRef.current)
+    startAutoScroll()
   }
 
   function onRowPointerDown(h: HabitRecord, e: React.PointerEvent<HTMLLIElement>): void {
@@ -80,12 +149,9 @@ export function HabitsView(): JSX.Element {
     downPoint.current = { x: e.clientX, y: e.clientY, pointerId: e.pointerId }
     longPress.current = setTimeout(() => {
       longPress.current = null
-      dragging.current = true
-      dragIdRef.current = h.id
-      setDragId(h.id)
-      setPreview(habitList)
-      previewRef.current = habitList
-      li.setPointerCapture(downPoint.current!.pointerId)
+      const p = downPoint.current
+      beginDrag(h.id, p?.y ?? 0)
+      li.setPointerCapture(p!.pointerId)
     }, LONG_PRESS_MS)
   }
 
@@ -100,15 +166,12 @@ export function HabitsView(): JSX.Element {
     }
     setPressingId(h.id)
     downPoint.current = { x: e.clientX, y: e.clientY, pointerId: e.pointerId }
-    dragging.current = true
-    dragIdRef.current = h.id
-    setDragId(h.id)
-    setPreview(habitList)
-    previewRef.current = habitList
+    beginDrag(h.id, e.clientY)
     li.setPointerCapture(e.pointerId)
   }
 
   function onRowPointerMove(e: React.PointerEvent<HTMLLIElement>): void {
+    lastYRef.current = e.clientY
     if (!dragging.current) {
       // 未激活：移动超阈值则取消长按（让位给滚动）
       if (longPress.current && downPoint.current) {
@@ -121,22 +184,14 @@ export function HabitsView(): JSX.Element {
       }
       return
     }
-    const draggingId = dragIdRef.current
-    if (draggingId === null) return
-    const cur = list.find((x) => x.id === draggingId)
-    if (!cur) return
-    const rest = list.filter((x) => x.id !== draggingId)
-    const idx = targetIndex(e.clientY, draggingId)
-    rest.splice(Math.max(0, Math.min(idx, rest.length)), 0, cur)
-    // 同步镜像 + 状态：镜像保证松手提交用最新顺序（React 批次内 state 可能未追上）
-    previewRef.current = rest
-    setPreview(rest)
+    applyPreview(e.clientY)
   }
 
   function onRowPointerUp(): void {
-    if (dragging.current && dragIdRef.current && previewRef.current) {
-      void reorderHabits(previewRef.current.map((x) => x.id))
-    }
+    const ids = dragging.current && previewRef.current ? previewRef.current.map((x) => x.id) : null
+    // 先提交（reorderHabits 内部第一句乐观改内存顺序，同步生效）再清预览，
+    // 否则预览清空时 habitList 还是旧顺序，列表会先弹回旧序再跳成新序（v9.37 修「松手闪一下」）
+    if (ids) void reorderHabits(ids)
     resetDrag()
   }
 

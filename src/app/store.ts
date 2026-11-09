@@ -31,6 +31,7 @@ import {
   startOfWeek,
   today as todayKey,
   weekKeys,
+  sortHabits,
   type AnniversaryInput,
   type AnniversaryRecord,
   type CategoryRecord,
@@ -1660,15 +1661,10 @@ export function createAppStore(
 
     async refreshHabits() {
       try {
-        const list = await repos.habits.all()
-        // v8.67：手动排序优先（order 序号），缺省按 createdAt 兜底
-        const habitList = [...list].sort((a, b) => {
-          const ao = a.order ?? Number.MAX_SAFE_INTEGER
-          const bo = b.order ?? Number.MAX_SAFE_INTEGER
-          if (ao !== bo) return ao - bo
-          return a.createdAt - b.createdAt
-        })
-        set({ habitList })
+        const all = await repos.habits.all()
+        // v9.23 手动排序：order 有值排前（升序），老数据（无 order）按 createdAt 升序沉底
+        // v9.37 口径抽到 core/sortHabits：设置页、今日区块、周视图、侧页共用同一排序
+        set({ habitList: sortHabits([...all]) })
       } catch (e) {
         get().showToast(errMsg(e))
       }
@@ -1711,6 +1707,12 @@ export function createAppStore(
     },
 
     async reorderHabits(ids) {
+      // v9.37 乐观更新：先按新顺序改内存 habitList，再逐条落库。
+      // 否则松手瞬间 preview 清空、写库还没完成，列表会先弹回旧顺序再跳成新顺序（用户看到的闪屏）。
+      const cur = get().habitList
+      const byId = new Map(cur.map((h) => [h.id, h] as const))
+      const next = ids.map((id) => byId.get(id)).filter((h): h is HabitRecord => h !== undefined)
+      if (next.length === cur.length) set({ habitList: next })
       try {
         for (let i = 0; i < ids.length; i++) {
           await repos.habits.update(ids[i], { order: i })

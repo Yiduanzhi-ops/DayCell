@@ -16,6 +16,7 @@ import type {
   DatedRecord,
   DateKey,
   ExpenseRecord,
+  HabitRecord,
   NoteRecord,
   SettingKey,
   SettingRecord,
@@ -139,6 +140,20 @@ export function sortDated<T extends DatedRecord>(recs: T[]): T[] {
     if (a.date !== b.date) return a.date < b.date ? -1 : 1
     if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt
     return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
+  })
+}
+
+/** 习惯按 order 升序（v9.37）：设置页拖拽的排序必须与今日区块/周视图/侧页同一口径；
+ *  缺省 order 的老数据按 createdAt 升序沉底 */
+export function sortHabits<T extends HabitRecord>(recs: T[]): T[] {
+  return recs.sort((a, b) => {
+    const ao = a.order ?? Number.MAX_SAFE_INTEGER
+    const bo = b.order ?? Number.MAX_SAFE_INTEGER
+    if (ao !== bo) return ao - bo
+    // 都没有 order（老数据）：按 createdAt 沉底；createdAt 也相同（同批写入）时返回 0，
+    // 依赖 sort 的稳定性保持传入顺序，避免用 id 字典序把原顺序打乱
+    if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt
+    return 0
   })
 }
 
