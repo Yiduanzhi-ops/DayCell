@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.85'
+const CURRENT_VERSION = 'v8.86'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.86',
+    date: '2026-11-09',
+    items: [
+      '习惯排序改成只在左侧 ⠿ 那个柄上拖：按住行文字或空白处不会再误触拖动，列表正常上下滑',
+      '列表上方那句提示改成了「按住每行左侧 ⠿ 拖动排序，松手即保存」，柄的可点范围也加宽了，手机上更好按',
+    ],
+  },
   {
     version: 'v8.85',
     date: '2026-11-09',

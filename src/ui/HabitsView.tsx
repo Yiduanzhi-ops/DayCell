@@ -14,8 +14,7 @@ import { freqLabel } from './HabitSection'
 import styles from './HabitsView.module.css'
 
 const DOW_FULL = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'] as const
-/** v9.23 拖拽换序：长按（移动端）/ 按住（桌面）220ms 激活，指针落点决定插入位 */
-const LONG_PRESS_MS = 180
+/** v9.38 拖拽换序：只有左侧 ⠿ 柄可拖（按下即激活），行文字与空白处不再响应 */
 
 export function HabitsView(): JSX.Element {
   const habitList = useApp((s) => s.habitList)
@@ -26,7 +25,6 @@ export function HabitsView(): JSX.Element {
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<HabitRecord | null>(null)
   const [dragId, setDragId] = useState<string | null>(null)
-  const [pressingId, setPressingId] = useState<string | null>(null)
   /** 拖拽中的实时预览顺序；null = 未拖拽 */
   const [preview, setPreview] = useState<HabitRecord[] | null>(null)
   /** dragId / preview 的同步镜像：拖拽判定与松手提交一律走 ref，
@@ -34,8 +32,6 @@ export function HabitsView(): JSX.Element {
   const dragIdRef = useRef<string | null>(null)
   const previewRef = useRef<HabitRecord[] | null>(null)
   const listRef = useRef<HTMLUListElement | null>(null)
-  const longPress = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const downPoint = useRef<{ x: number; y: number; pointerId: number } | null>(null)
   const dragging = useRef(false)
   /** habitList 的最新镜像：rAF 自动滚动回调读不到渲染闭包里的旧 habitList */
   const habitListRef = useRef(habitList)
@@ -54,16 +50,12 @@ export function HabitsView(): JSX.Element {
 
   function resetDrag(): void {
     dragging.current = false
-    if (longPress.current) clearTimeout(longPress.current)
-    longPress.current = null
-    downPoint.current = null
     dragIdRef.current = null
     previewRef.current = null
     lastIdxRef.current = -1
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
     rafRef.current = null
     setDragId(null)
-    setPressingId(null)
     setPreview(null)
     // 拖拽期间禁了文本选择，松手时清掉任何残留选区
     window.getSelection()?.removeAllRanges()
@@ -139,55 +131,28 @@ export function HabitsView(): JSX.Element {
     startAutoScroll()
   }
 
-  function onRowPointerDown(h: HabitRecord, e: React.PointerEvent<HTMLLIElement>): void {
-    if ((e.target as HTMLElement).closest('button')) return // 行内按钮不触发拖拽
-    // 阻止浏览器默认行为（文本选择 / iOS 长按手势 / 触摸抢占），让指针序列完全归拖拽逻辑管
-    e.preventDefault()
-    setPressingId(h.id) // 立即反馈：按住即行变淡，提示「按住可拖动」
-    // React 合成事件在异步回调中 currentTarget 会被置 null → 同步缓存 li 与 pointerId
-    const li = e.currentTarget
-    downPoint.current = { x: e.clientX, y: e.clientY, pointerId: e.pointerId }
-    longPress.current = setTimeout(() => {
-      longPress.current = null
-      const p = downPoint.current
-      beginDrag(h.id, p?.y ?? 0)
-      li.setPointerCapture(p!.pointerId)
-    }, LONG_PRESS_MS)
-  }
-
-  /** 拖拽柄：按下立即激活拖拽，无需长按停顿（v9.26 解决「按住即拖」被长按窗口取消的问题） */
+  /** v9.38 拖拽柄：按下立即激活拖拽（行文字与行空白处不再响应拖动，避免与列表滚动抢手势） */
   function onHandlePointerDown(h: HabitRecord, e: React.PointerEvent<HTMLButtonElement>): void {
     e.preventDefault() // 防文本选择 / iOS 手势抢占
     const li = e.currentTarget.closest('li')
     if (!li) return
-    if (longPress.current) {
-      clearTimeout(longPress.current)
-      longPress.current = null
-    }
-    setPressingId(h.id)
-    downPoint.current = { x: e.clientX, y: e.clientY, pointerId: e.pointerId }
     beginDrag(h.id, e.clientY)
-    li.setPointerCapture(e.pointerId)
+    // 指针捕获让指针移出柄/行之后仍能收到 move/up；部分环境（合成事件、已释放指针）会抛错，忽略即可
+    try {
+      li.setPointerCapture(e.pointerId)
+    } catch {
+      /* noop */
+    }
   }
 
-  function onRowPointerMove(e: React.PointerEvent<HTMLLIElement>): void {
+  /** 拖拽中指针移动：只有已进入拖拽态才重算插入位 */
+  function onPointerMove(e: React.PointerEvent<HTMLLIElement>): void {
     lastYRef.current = e.clientY
-    if (!dragging.current) {
-      // 未激活：移动超阈值则取消长按（让位给滚动）
-      if (longPress.current && downPoint.current) {
-        const dx = e.clientX - downPoint.current.x
-        const dy = e.clientY - downPoint.current.y
-        if (Math.abs(dx) + Math.abs(dy) > 12) {
-          clearTimeout(longPress.current)
-          longPress.current = null
-        }
-      }
-      return
-    }
+    if (!dragging.current) return
     applyPreview(e.clientY)
   }
 
-  function onRowPointerUp(): void {
+  function onPointerUp(): void {
     const ids = dragging.current && previewRef.current ? previewRef.current.map((x) => x.id) : null
     // 先提交（reorderHabits 内部第一句乐观改内存顺序，同步生效）再清预览，
     // 否则预览清空时 habitList 还是旧顺序，列表会先弹回旧序再跳成新序（v9.37 修「松手闪一下」）
@@ -209,7 +174,7 @@ export function HabitsView(): JSX.Element {
         </header>
         {habitList.length > 1 && (
           <p className={styles.dragHint}>
-            按住行左侧 ⠿ 立即拖动；按住行本身片刻也可拖，松手保存
+            按住每行左侧 ⠿ 拖动排序，松手即保存
           </p>
         )}
 
@@ -225,19 +190,17 @@ export function HabitsView(): JSX.Element {
               data-hid={h.id}
               className={
                 (h.paused ? `${styles.item} ${styles.paused}` : styles.item) +
-                (h.id === pressingId && h.id !== dragId ? ` ${styles.pressing}` : '') +
                 (h.id === dragId ? ` ${styles.dragging}` : '')
               }
-              onPointerDown={(e) => onRowPointerDown(h, e)}
-              onPointerMove={onRowPointerMove}
-              onPointerUp={onRowPointerUp}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
               onPointerCancel={resetDrag}
             >
               <button
                 className={styles.dragHandle}
                 aria-label={`拖动排序：${h.name}`}
                 onPointerDown={(e) => onHandlePointerDown(h, e)}
-                onPointerUp={onRowPointerUp}
+                onPointerUp={onPointerUp}
                 onPointerCancel={resetDrag}
               >
                 <svg width="13" height="15" viewBox="0 0 13 15" aria-hidden="true">

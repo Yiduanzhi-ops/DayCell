@@ -139,32 +139,22 @@ describe('习惯模块（v8.0）', () => {
     expect(screen.queryByText('阅读')).not.toBeInTheDocument()
   })
 
-  it('长按拖动换序：松手后顺序持久化到列表与今日区块', async () => {
+  it('按住行文字不再触发拖拽：只有左侧 ⠿ 能拖（v9.38）', async () => {
     const store = await renderApp()
     await openHabitSettings()
     await createHabit('喝水', null)
     await createHabit('运动', null)
     expect(store.getState().habitList.map((h) => h.name)).toEqual(['喝水', '运动'])
 
-    // jsdom 缺 setPointerCapture → 打桩
-    if (typeof HTMLElement.prototype.setPointerCapture !== 'function') {
-      Object.defineProperty(HTMLElement.prototype, 'setPointerCapture', { value: () => {}, writable: true })
-    }
     const overlay = screen.getByRole('dialog', { name: '习惯设置' })
     const row = within(overlay).getByText('喝水').closest('li')!
-    fireEvent.pointerDown(row, { pointerId: 1, clientX: 0, clientY: 0 })
-    await new Promise((r) => setTimeout(r, 260)) // 长按激活拖拽
-    // jsdom rect 全 0 → 指针落点判为末尾 → 喝水拖到最后
-    fireEvent.pointerMove(row, { pointerId: 1, clientX: 0, clientY: 0 })
-    fireEvent.pointerUp(row, { pointerId: 1, clientX: 0, clientY: 0 })
-
-    await waitFor(() => expect(store.getState().habitList.map((h) => h.name)).toEqual(['运动', '喝水']), {
-      timeout: 5000,
-    })
-    // 今日区块与列表同源（refreshHabits 排序后全量下发），回今天确认渲染不报错
-    fireEvent.click(screen.getByRole('button', { name: '返回' }))
-    expect(await screen.findByText('运动')).toBeInTheDocument()
-    expect(screen.getByText('喝水')).toBeInTheDocument()
+    // 旧版按住行片刻即可拖；v9.38 起行文字/空白处一律不响应，按下等 260ms 再移动也不应改变顺序
+    fireEvent.pointerDown(row, { pointerId: 9, clientX: 100, clientY: 10 })
+    await new Promise((r) => setTimeout(r, 260))
+    fireEvent.pointerMove(row, { pointerId: 9, clientX: 100, clientY: 90 })
+    fireEvent.pointerUp(row, { pointerId: 9, clientX: 100, clientY: 90 })
+    await new Promise((r) => setTimeout(r, 150))
+    expect(store.getState().habitList.map((h) => h.name)).toEqual(['喝水', '运动'])
   })
 
   it('按住拖拽柄立即换序：无需长按停顿（v8.71）', async () => {
