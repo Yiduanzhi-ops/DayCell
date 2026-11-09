@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DayCell Ball</title>
+<style>
+  /* 桌面壳悬浮球（v1.3）：独立透明小窗口，只画这一颗球。
+     窗口 80×80，球 60 居中，四周 10pt 留给投影——球不会被窗口边缘裁掉。 */
+  html, body {
+    margin: 0; padding: 0;
+    width: 80px; height: 80px;
+    background: transparent;
+    overflow: hidden;
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #ball {
+    position: absolute;
+    left: 10px; top: 10px;
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    /* 白瓷球体：左上高光 → 右下微灰收口。浅色壁纸上靠一圈极淡描边和投影分层，
+       深色壁纸上靠白色本身立住；品牌色只出现在中间的勾上。 */
+    background:
+      radial-gradient(circle at 32% 24%, #ffffff 0%, #f8fafd 42%, #eceff4 72%, #dde1e8 100%);
+    border: 1px solid rgba(20, 24, 32, 0.14);
+    box-shadow:
+      0 1px 3px rgba(16, 20, 28, 0.14),
+      0 0 1px rgba(16, 20, 28, 0.18),
+      inset 0 1px 1px rgba(255, 255, 255, 0.95),
+      inset 0 -6px 12px rgba(20, 24, 32, 0.07);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 1;
+    transition: opacity 0.16s ease, border-color 0.16s ease, transform 0.12s ease,
+                box-shadow 0.16s ease;
+  }
+  #ball:hover {
+    opacity: 1;
+    border-color: rgba(31, 122, 224, 0.28);
+    box-shadow:
+      0 2px 5px rgba(16, 20, 28, 0.16),
+      0 0 0 2px rgba(31, 122, 224, 0.12),
+      inset 0 1px 1px rgba(255, 255, 255, 1),
+      inset 0 -6px 12px rgba(20, 24, 32, 0.08);
+  }
+  #ball:active { transform: scale(0.94); }
+
+  /* 收起态：产品 logo 的勾，唯一保留的品牌色 */
+  .mark { display: block; transition: transform 0.16s ease; }
+  #ball:hover .mark { transform: scale(1.04); }
+
+  /* 展开态：球滑到面板左侧，变成「收起」把手（左向箭头） */
+  .chev { display: none; }
+  body.expanded .mark { display: none; }
+  body.expanded .chev { display: block; }
+  body.expanded #ball { border-color: rgba(20, 24, 32, 0.12); }
+</style>
+</head>
+<body>
+  <div id="ball" role="button" tabindex="-1" aria-label="展开或收起 DayCell 面板">
+    <svg class="mark" width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">
+      <path d="M6.5 15.6 L12.2 21.2 L23.5 9.4" stroke="#1f7ae0" stroke-width="3"
+            stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+    <!-- 展开态：球停在面板左边，点它是把面板收回去，所以箭头指向右 -->
+    <svg class="chev" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M9 5 L16 12 L9 19" stroke="#2f3440" stroke-width="2.2"
+            stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+  </div>
+
+<script>
+  (function () {
+    var ball = document.getElementById('ball')
+
+    // 拖拽：按住球移动超过 3px 就当拖窗口（只允许上下，横向由 Rust 拉回右缘）
+    var downAt = null
+    var suppressClick = false
+    ball.addEventListener('pointerdown', function (e) {
+      downAt = { x: e.clientX, y: e.clientY }
+    })
+    ball.addEventListener('pointermove', function (e) {
+      if (!downAt) return
+      if (Math.abs(e.clientX - downAt.x) > 3 || Math.abs(e.clientY - downAt.y) > 3) {
+        downAt = null
+        suppressClick = true
+        setTimeout(function () { suppressClick = false }, 320)
+        var core = window.__TAURI__ && window.__TAURI__.core
+        if (core && typeof core.invoke === 'function') {
+          core.invoke('ball_drag').catch(function (err) {
+            console.warn('[ball] drag failed', err)
+          })
+        }
+      }
+    })
+    document.addEventListener('pointerup', function () { downAt = null })
+
+    ball.addEventListener('click', function (e) {
+      if (suppressClick) {
+        suppressClick = false
+        e.preventDefault()
+        e.stopPropagation()
+        return
+      }
+      // Tauri 2 需要 withGlobalTauri 才注入 window.__TAURI__
+      var core = window.__TAURI__ && window.__TAURI__.core
+      if (core && typeof core.invoke === 'function') {
+        core.invoke('ball_click').catch(function (e) {
+          console.warn('[ball] invoke failed', e)
+        })
+      }
+    })
+
+    // 小球窗口里不需要右键菜单
+    window.addEventListener('contextmenu', function (e) { e.preventDefault() })
+  })()
+</script>
+</body>
+</html>
