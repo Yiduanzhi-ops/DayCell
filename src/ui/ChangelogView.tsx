@@ -8,11 +8,18 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.39'
+const CURRENT_VERSION = 'v9.40'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.40',
+    date: '2026-11-09',
+    items: [
+      '目标也能改名了：进详情页点一下标题就能改，阶段、子任务和进度都不受影响',
+    ],
+  },
   {
     version: 'v9.39',
     date: '2026-11-09',

@@ -422,9 +422,31 @@
 .back:hover { background: var(--bg-hover); }
 .detailTitle {
   flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 17px;
   font-weight: 650;
   letter-spacing: -0.01em;
+  text-align: left;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  margin-left: -4px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.detailTitle:hover { background: var(--bg-hover); }
+.detailTitle:focus-visible { outline: 2px solid var(--ink-2); outline-offset: 1px; }
+/* v9.40/v8.88 标题旁的重命名提示（低干扰，不抢标题） */
+.detailTitleEdit {
+  font-size: 12px;
+  color: var(--ink-3);
+  opacity: 0.7;
+  flex: none;
 }
 .deleteGoal {
   font-size: 12.5px;
