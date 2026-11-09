@@ -292,6 +292,8 @@ export interface AppState {
   closeGoal(): void
   createGoal(title: string, note: string, folderId?: string | null): Promise<boolean>
   updateGoal(id: string, patch: { title?: string; note?: string; progress?: ProgressField | undefined; folderId?: string | null }): Promise<boolean>
+  /** v8.88 重命名已存在的目标（只改显示标题，阶段/子任务/进度都不动；上限与新建同口径 50 字） */
+  renameGoal(id: string, title: string): Promise<boolean>
   /** 目标整体完成/取消完成（完成的目标沉底到「已完成」列表） */
   setGoalDone(id: string, done: boolean): Promise<boolean>
   /** v8.43 目标收藏/取消收藏（列表置顶；仅目标列表页操作） */
@@ -1318,6 +1320,21 @@ export function createAppStore(
         await get().refreshGoals()
         if ('folderId' in patch) await get().refreshFolders()
         get().showToast('已更新目标')
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    // v8.88 目标重命名：只改标题，其余字段与归属全部保持
+    async renameGoal(id, title) {
+      try {
+        const goal = await repos.goals.update(id, { title })
+        set({ dataVer: get().dataVer + 1 })
+        set((s) => (s.goalDetail && s.goalDetail.goal.id === id ? { goalDetail: { ...s.goalDetail, goal } } : s))
+        await get().refreshGoals()
+        get().showToast('已重命名目标')
         return true
       } catch (e) {
         get().showToast(errMsg(e))

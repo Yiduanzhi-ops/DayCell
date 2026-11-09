@@ -37,16 +37,20 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v8.87')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v8.88')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v8.87')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v8.88')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v8.87，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v8.88，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v8.87')
+    expect(vers[0].textContent).toBe('v8.88')
+    // v8.88
+    expect(screen.getByText(/目标也能改名了/)).toBeInTheDocument()
     // v8.87
+    expect(screen.getByText(/已经建好的文件夹现在能改名了/)).toBeInTheDocument()
+    expect(screen.getByText(/翻回过去某天去勾完成待办/)).toBeInTheDocument()
     expect(screen.getByText(/已经建好的文件夹现在能改名了/)).toBeInTheDocument()
     expect(screen.getByText(/翻回过去某天去勾完成待办/)).toBeInTheDocument()
     // v8.86

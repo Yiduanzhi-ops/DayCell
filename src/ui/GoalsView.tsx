@@ -330,6 +330,58 @@ function RenameFolderSheet({
 }
 
 // ---------------------------------------------------------------------------
+// v8.88 重命名目标（详情页标题入口；名称校验与新建同口径：必填、≤50 字）
+// ---------------------------------------------------------------------------
+
+function RenameGoalSheet({
+  goal,
+  onClose,
+}: {
+  goal: GoalRecord
+  onClose: () => void
+}): JSX.Element {
+  const renameGoal = useApp((s) => s.renameGoal)
+  const [title, setTitle] = useState(goal.title)
+
+  const submit = async (): Promise<void> => {
+    const trimmed = title.trim()
+    if (!trimmed || trimmed === goal.title) return
+    const ok = await renameGoal(goal.id, trimmed)
+    if (ok) onClose()
+  }
+
+  return (
+    <Sheet title="重命名目标" onCancel={onClose}>
+      <div className={styles.field}>
+        <label>目标名称</label>
+        <input
+          type="text"
+          placeholder="如：复习考公"
+          value={title}
+          maxLength={50}
+          autoFocus
+          onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void submit()
+          }}
+        />
+        <div className={styles.hint}>改名只影响显示名称，阶段、子任务和进度都不受影响。</div>
+      </div>
+      <div className={styles.act}>
+        <button className={styles.btnSoft} onClick={onClose}>取消</button>
+        <button
+          className={styles.btnPrimary}
+          disabled={!title.trim() || title.trim() === goal.title}
+          onClick={() => void submit()}
+        >
+          保存
+        </button>
+      </div>
+    </Sheet>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // v9.14 文件夹组头菜单（重命名、收藏/取消收藏、删除）
 // ---------------------------------------------------------------------------
 
@@ -946,6 +998,8 @@ function GoalDetail({
   const [subtaskSheet, setSubtaskSheet] = useState(false)
   // v9.14 移动到文件夹（详情页唯一新增入口；其余结构保持原样）
   const [moveSheet, setMoveSheet] = useState(false)
+  // v8.88 目标重命名（详情页标题点击进入）
+  const [renameOpen, setRenameOpen] = useState(false)
   // v8.5 双视图：阶段（时间维度）| 子任务（执行维度），各自进度独立
   const [viewMode, setViewMode] = useState<'stages' | 'subtasks'>('subtasks') // v8.7 默认子任务视图
 
@@ -996,7 +1050,15 @@ function GoalDetail({
         <button className={styles.back} onClick={closeGoal} aria-label="返回目标列表" title="返回">
           ←
         </button>
-        <span className={styles.detailTitle}>{goal.title}</span>
+        <button
+          className={styles.detailTitle}
+          onClick={() => setRenameOpen(true)}
+          aria-label={`重命名目标：${goal.title}`}
+          title="点击重命名"
+        >
+          {goal.title}
+          <span className={styles.detailTitleEdit} aria-hidden="true">✎</span>
+        </button>
         <button
           className={goal.done ? `${styles.doneGoalBtn} ${styles.doneGoalBtnOn}` : styles.doneGoalBtn}
           onClick={() => void setGoalDone(goal.id, !goal.done)}
@@ -1013,6 +1075,7 @@ function GoalDetail({
         </button>
       </div>
       {moveSheet && <MoveGoalSheet goal={goal} onClose={() => setMoveSheet(false)} />}
+      {renameOpen && <RenameGoalSheet goal={goal} onClose={() => setRenameOpen(false)} />}
       {delOpen && (
         <DeleteGoalConfirm goal={goal} onClose={() => setDelOpen(false)} onDeleted={closeGoal} />
       )}
