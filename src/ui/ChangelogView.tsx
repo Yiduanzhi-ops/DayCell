@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.36'
+const CURRENT_VERSION = 'v9.37'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.37',
+    date: '2026-11-09',
+    items: [
+      '习惯拖拽换序不再闪：以前行会在两个位置之间反复跳，现在指到哪就停在哪，松手立刻定住、不再弹回去',
+      '拖到列表上边/下边会自动滚，习惯多到一屏放不下也能一次拖到位；松手后今日习惯、周视图、侧页都按新顺序显示',
+    ],
+  },
   {
     version: 'v9.36',
     date: '2026-11-06',

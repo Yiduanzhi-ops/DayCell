@@ -37,7 +37,7 @@ import { cellLabel, type CellLabel } from '../label'
 import type { LunarApi, LunarInfo } from '../lunar'
 import { isRollable, todoProgress, type Repos } from '../repo'
 import { buildReport, type ReportData, type ReportKind } from '../report'
-import type { RecordStore } from '../store/types'
+import { sortHabits, type RecordStore } from '../store/types'
 import type {
   AnniversaryRecord,
   DateKey,
@@ -661,7 +661,8 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
   ): HabitDayItem[] => {
     const dow = dowOf(date)
     const items: HabitDayItem[] = []
-    for (const h of habits) {
+    // v9.37：按用户拖拽的 order 排（此前按 getAll 原始顺序，设置页改了今日区块也不跟着变）
+    for (const h of sortHabits([...habits])) {
       if (h.deleted || h.paused) continue // 暂停的习惯不出现在今日（设置页仍可见）
       if (keyOf(h.createdAt) > date) continue // 创建日晚于查看日 → 设定之前的日子不出现
       const due = h.freq.kind === 'daily' || h.freq.weekdays.includes(dow)

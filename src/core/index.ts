@@ -24,7 +24,7 @@ export * from './label'
 // ---- 存储 ----
 // store/types.ts 里重复定义了 ContentStoreName 并 re-export 了 ../types 的一批类型，
 // 不能 `export *`（会与 ./types 的同名**不同声明**冲突），只挑独有的。
-export { sortDated, sortCategories, emptyContent } from './store/types'
+export { sortDated, sortCategories, sortHabits, emptyContent } from './store/types'
 export type {
   RecordStore,
   PutOptions,
