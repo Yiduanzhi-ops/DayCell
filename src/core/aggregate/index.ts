@@ -251,16 +251,41 @@ interface DayBucket {
 const emptyBucket = (): DayBucket => ({ todos: [], notes: [], expenses: [] })
 
 /**
+ * v8.87 完成归属日：优先 doneOn（勾选时正在查看的那一天），旧数据回退 doneAt 的日期。
+ * 为什么不能只看 doneAt：翻回过去某天勾完成，doneAt 记的是真实时刻（今天），
+ * 与查看日不等 → 被下面的过滤判为"不该在这天显示"，待办点完就凭空消失。
+ */
+function doneDayOf(t: Pick<TodoRecord, 'doneOn' | 'doneAt'>): DateKey | null {
+  if (t.doneOn) return t.doneOn
+  return t.doneAt !== undefined ? keyOf(t.doneAt) : null
+}
+
+/**
+ * v8.87 一条「已完成且带截止日」的待办，是否算作在 `date` 这天完成过：
+ *  - `doneOn`：勾选时正在查看的那一天（回看过去勾完成 → 归属过去那天）
+ *  - `doneAt`：真实勾选时刻所在日（勾选发生在未来视图时，今天仍要看得到它）
+ * 两个都认。只认 doneOn 会让"在未来某天勾完成"时今天视图把这条丢掉（反向消失）；
+ * 只认 doneAt 就是用户报的那个 bug（翻回过去勾完成 → 那一天直接消失）。
+ */
+function doneSeenOn(t: Pick<TodoRecord, 'doneOn' | 'doneAt'>, date: DateKey): boolean {
+  if (doneDayOf(t) === date) return true
+  return t.doneAt !== undefined && keyOf(t.doneAt) === date
+}
+
+/**
  * v8.79 日详情「可见待办」口径（进度另算，`todoProgress` 自己排除 rolledTo）：
  *  - **已顺延出去（rolledTo）的不显示**：内容已复制到目标日，源日是一条删不掉的痕迹，
  *    留着只会在历史日期上重复出现同一条待办。
- *  - **带截止日且已完成的，只在完成当天显示**：v8.60 只过滤了「注入的那部分」，
- *    `date === deadline` 的记录走当天本地桶，绕过了过滤 —— 逾期完成后翻回截止日
- *    仍能看到它勾着挂在那里。现在两边同规则。
+ *  - **带截止日且已完成的，只在"完成那天"显示**（见 doneSeenOn：完成归属日 doneOn
+ *    或真实勾选日 doneAt 任一命中）：
+ *    v8.60 只过滤了「注入的那部分」，`date === deadline` 的记录走当天本地桶，
+ *    绕过了过滤 —— 逾期完成后翻回截止日仍能看到它勾着挂在那里。现在两边同规则。
+ *    v8.87 只按 doneAt 判会让「翻回过去勾完成」的那天直接消失；只按 doneOn 判会让
+ *    「在未来某天勾完成」时今天视图也丢掉它 —— 所以两个口径都认。
  */
 function visibleTodos(todos: readonly TodoRecord[], date: DateKey): TodoRecord[] {
   return todos.filter(
-    (t) => !t.rolledTo && !(t.deadline && t.done && keyOf(t.doneAt ?? 0) !== date),
+    (t) => !t.rolledTo && !(t.deadline && t.done && !doneSeenOn(t, date)),
   )
 }
 
@@ -286,8 +311,8 @@ function mergeDdlTodos(local: TodoRecord[], active: TodoRecord[], date: DateKey)
       // date≠deadline，旧逻辑只在本地 date 桶显示，导致待办从 deadline 当天「消失」。
       // 现让 deadline===date 当天也注入（本地 date 桶兜底创建当天、无 deadline 的提醒型）。
       ((t.timeType ?? 'due') !== 'at' || t.deadline === date) &&
-      // 未完成每天注入；已完成仅完成当天保留（doneAt 与查看日同天），次日消失
-      (!t.done || keyOf(t.doneAt ?? 0) === date),
+      // 未完成每天注入；已完成仅「完成那天」保留（doneOn 与查看日同天），次日消失
+      (!t.done || doneSeenOn(t, date)),
   )
   return [...visibleTodos(local, date), ...injected].sort((a, b) => {
     const da = a.deadline !== undefined

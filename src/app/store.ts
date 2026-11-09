@@ -351,6 +351,8 @@ export interface AppState {
   // ---- v9.14：目标文件夹（创建/删除/收藏/折叠；不嵌套；删夹不删目标） ----
   refreshFolders(): Promise<void>
   createFolder(name: string): Promise<boolean>
+  /** v8.87 重命名已存在的文件夹（名称校验与新建同口径：必填、≤12 字） */
+  renameFolder(id: string, name: string): Promise<boolean>
   deleteFolder(id: string): Promise<boolean>
   toggleFolderFavorite(id: string): Promise<boolean>
   setFolderCollapsed(id: string, collapsed: boolean): Promise<boolean>
@@ -902,7 +904,8 @@ export function createAppStore(
 
     async toggleTodo(id) {
       try {
-        const t = await repos.todos.toggle(id)
+        // v8.87：把「正在查看的日期」带进 repo → doneOn，翻回过去某天补勾时该待办留在那天
+        const t = await repos.todos.toggle(id, get().selected)
         // v8.63 子任务来源待办：勾选 = 当天打卡 / 取消 = 撤销当天打卡（两边同步，含 goalDetail 内存态）
         if (t.subtaskId) {
           const next = await repos.subtasks.setWork(t.subtaskId, t.date, t.done)
@@ -1467,6 +1470,19 @@ export function createAppStore(
         return true
       } catch (e) {
         console.error('[createFolder]', e)
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async renameFolder(id, name) {
+      try {
+        await repos.folders.update(id, { name })
+        const folderList = await aggregates.foldersAll()
+        set({ folderList })
+        get().showToast('已重命名文件夹')
+        return true
+      } catch (e) {
         get().showToast(errMsg(e))
         return false
       }

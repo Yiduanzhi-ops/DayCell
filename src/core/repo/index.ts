@@ -93,7 +93,8 @@ export interface TodoRepo {
   setDeadline(id: string, deadline: string | null): Promise<TodoRecord>
   /** v9.2.2 设/清具体时间（null = 清除）；v9.2.3 可同时设 timeType（null = 清除）；非法格式抛 BAD_VALUE */
   setTime(id: string, time: string | null, timeType?: 'due' | 'at' | null): Promise<TodoRecord>
-  toggle(id: string): Promise<TodoRecord>
+  /** v8.87 翻转完成态；viewDate = 勾选时正在查看的日期，写入 doneOn（过去日期补勾时保留显示） */
+  toggle(id: string, viewDate?: DateKey): Promise<TodoRecord>
   softDelete(id: string): Promise<void>
   rollOver(from: DateKey, to: DateKey): Promise<RollOverResult>
   /** 是否有可顺延项；0 时 UI 不显示横幅（PRD E10） */
@@ -496,10 +497,17 @@ export function createRepos(deps: RepoDeps): Repos {
       return all.filter((t) => !t.deleted && !!t.deadline)
     },
 
-    async toggle(id) {
+    async toggle(id, viewDate) {
       const rec = await mustGet<TodoRecord>('todos', id)
       const done = !rec.done
-      return store.put<TodoRecord>('todos', { ...rec, done, doneAt: done ? now() : undefined })
+      // v8.87：doneOn 记「勾选时在看的那一天」，doneAt 仍是真实时刻。
+      // 只传 doneAt 时，翻回过去日期勾完成会因 doneAt≠查看日被 visibleTodos 判为不可见 → 待办凭空消失。
+      return store.put<TodoRecord>('todos', {
+        ...rec,
+        done,
+        doneAt: done ? now() : undefined,
+        doneOn: done && viewDate ? viewDate : undefined,
+      })
     },
 
     softDelete: softDelete('todos'),
