@@ -38,6 +38,11 @@ export interface TodoRecord extends DatedRecord {
   text: string
   done: boolean
   doneAt?: number
+  /** v8.87 完成归属日（可选）：勾选时**正在查看的那一天**。
+   *  日视图「已完成是否还显示」按它判定——翻回过去某天补勾，就在那天挂着勾；
+   *  doneAt 仍是真实完成时刻（逾期判定/统计用），两者不互相污染。
+   *  旧数据没有此字段时回退 doneAt 的日期。 */
+  doneOn?: DateKey
   /** 顺延来源日期（PRD US-04） */
   rolledFrom?: DateKey
   /** 被顺延到的日期；存在即表示"已顺延出去"，进度统计要排除它 */

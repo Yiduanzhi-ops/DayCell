@@ -562,6 +562,33 @@ describe('v8.53 活跃 DDL 待办注入（每天出现）', () => {
     expect((await agg.aggregateDayDetail(k('2026-10-24'))).todos).toHaveLength(0)
   })
 
+  it('v8.87 翻回过去某天勾完成：待办留在那一天显示为已完成，不再凭空消失', async () => {
+    // 今天 = 11-09，待办归属 11-05（带截止日 → 每天注入）
+    clock.set(new Date(2026, 10, 9).getTime())
+    const t = await repos.todos.create(k('2026-11-05'), '补交周报', '2026-11-05')
+    expect((await agg.aggregateDayDetail(k('2026-11-09'))).todos).toHaveLength(1)
+
+    // 翻回 11-05，在那天勾完成（viewDate = 11-05）
+    await repos.todos.toggle(t.id, k('2026-11-05'))
+    expect((await repos.todos.byId(t.id)).doneOn).toBe(k('2026-11-05'))
+
+    // 11-05 当天：保留显示、已完成（旧实现按 doneAt=今天 判定 → 这里会是 0 条）
+    const past = await agg.aggregateDayDetail(k('2026-11-05'))
+    expect(past.todos).toHaveLength(1)
+    expect(past.todos[0]!.done).toBe(true)
+
+    // 今天 11-09（真实勾选日）：也保留为已完成，不再"既不在过去、也不在今天"
+    const today = await agg.aggregateDayDetail(k('2026-11-09'))
+    expect(today.todos).toHaveLength(1)
+    expect(today.todos[0]!.done).toBe(true)
+    // 但其他日子（11-06）不注入
+    expect((await agg.aggregateDayDetail(k('2026-11-06'))).todos).toHaveLength(0)
+
+    // 回到 11-05 取消完成 → 重新每天出现
+    await repos.todos.toggle(t.id, k('2026-11-05'))
+    expect((await agg.aggregateDayDetail(k('2026-11-09'))).todos).toHaveLength(1)
+  })
+
   it('v8.79 逾期完成后：截止日（date=deadline 的本地桶）不再显示，只在完成当天保留', async () => {
     clock.set(new Date(2026, 9, 25).getTime())
     const t = await repos.todos.create(k('2026-10-25'), '还书', '2026-10-25')

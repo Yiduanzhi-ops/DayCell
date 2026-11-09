@@ -500,6 +500,29 @@ describe('目标模块（v7.9）', () => {
     await waitFor(() => screen.getByText('80%'))
     expect(screen.queryByText('已完成框架')).not.toBeInTheDocument()
   })
+
+  it('v8.88 详情页点标题可直接重命名目标（标题、列表同步，进度不受影响）', async () => {
+    const { store } = await renderAppWrap()
+    await store.getState().createGoal('旧目标名', '阐述不动', null)
+    const gid = store.getState().goalList[0]!.goal.id
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => screen.getByText('旧目标名'))
+
+    // 详情页标题本身就是入口（此前标题只是纯文本，无法改名）
+    await store.getState().openGoal(gid)
+    const titleBtn = await screen.findByRole('button', { name: '重命名目标：旧目标名' })
+    fireEvent.click(titleBtn)
+
+    const input = screen.getByDisplayValue('旧目标名')
+    fireEvent.change(input, { target: { value: '新目标名' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+
+    await waitFor(() => expect(store.getState().goalDetail?.goal.title).toBe('新目标名'))
+    expect(store.getState().goalList[0]!.goal.title).toBe('新目标名')
+    expect(screen.getByRole('button', { name: '重命名目标：新目标名' })).toBeInTheDocument()
+    // 只改名称：阐述保持原样
+    expect(store.getState().goalDetail?.goal.note).toBe('阐述不动')
+  })
 })
 
 // ===========================================================================
@@ -507,6 +530,27 @@ describe('目标模块（v7.9）', () => {
 // ===========================================================================
 
 describe('目标文件夹（v9.14）', () => {
+  it('v8.87 全部视图组头 ··· 可直接重命名文件夹（无需先切进该夹）', async () => {
+    const { store } = await renderAppWrap()
+    await store.getState().createFolder('旧名字')
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => expect(screen.getByText('旧名字（0）')).toBeInTheDocument())
+
+    // 「全部」页组头上的 ··· 是唯一编辑入口（此前这里没有任何菜单）
+    fireEvent.click(screen.getByRole('button', { name: '文件夹菜单：旧名字' }))
+    fireEvent.click(await screen.findByRole('button', { name: /重命名文件夹/ }))
+
+    // 表单预填当前名；改完保存 → 组头、chips 同步
+    const input = screen.getByDisplayValue('旧名字')
+    fireEvent.change(input, { target: { value: '新名字' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+
+    await waitFor(() => expect(screen.getByText('新名字（0）')).toBeInTheDocument())
+    expect(screen.queryByText('旧名字（0）')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /新名字 0/ })).toBeInTheDocument()
+    expect(store.getState().folderList[0]!.folder.name).toBe('新名字')
+  })
+
   it('v8.75 文件夹组头：点文件夹名本身也能折叠/展开（箭头+标题合并为一个按钮）', async () => {
     const { store } = await renderAppWrap()
     await store.getState().createFolder('学习')

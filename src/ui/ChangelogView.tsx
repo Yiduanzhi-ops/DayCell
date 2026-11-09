@@ -8,11 +8,26 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.86'
+const CURRENT_VERSION = 'v8.88'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.88',
+    date: '2026-11-09',
+    items: [
+      '目标也能改名了：进详情页点一下标题就能改，阶段、子任务和进度都不受影响',
+    ],
+  },
+  {
+    version: 'v8.87',
+    date: '2026-11-09',
+    items: [
+      '已经建好的文件夹现在能改名了：点文件夹标题右边那三个点，选「重命名文件夹」直接改，里面的目标一个都不动',
+      '翻回过去某天去勾完成待办，它不会再凭空消失，会留在那一天显示成已完成',
+    ],
+  },
   {
     version: 'v8.86',
     date: '2026-11-09',
