@@ -551,6 +551,27 @@ describe('目标文件夹（v9.14）', () => {
     expect(store.getState().folderList[0]!.folder.name).toBe('新名字')
   })
 
+  it('v8.89 文件夹菜单「添加目标」→ 归属锁定该文件夹，创建后落在该组', async () => {
+    const { store } = await renderAppWrap()
+    await store.getState().createFolder('学习')
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => expect(screen.getByText('学习（0）')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: '文件夹菜单：学习' }))
+    fireEvent.click(await screen.findByRole('button', { name: /添加目标/ }))
+
+    await waitFor(() => expect(screen.getByRole('dialog', { name: '新建目标' })).toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: '未分类' })).not.toBeInTheDocument()
+    expect(screen.getByText(/将归入「学习」/)).toBeInTheDocument()
+
+    fireEvent.change(screen.getByPlaceholderText(/复习考公/), { target: { value: '背单词' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
+
+    await waitFor(() => expect(screen.getByText('背单词')).toBeInTheDocument())
+    expect(store.getState().goalList[0]!.goal.folderId).toBe(store.getState().folderList[0]!.folder.id)
+    expect(screen.getByRole('button', { name: /学习 1/ })).toBeInTheDocument()
+  })
+
   it('v8.75 文件夹组头：点文件夹名本身也能折叠/展开（箭头+标题合并为一个按钮）', async () => {
     const { store } = await renderAppWrap()
     await store.getState().createFolder('学习')
