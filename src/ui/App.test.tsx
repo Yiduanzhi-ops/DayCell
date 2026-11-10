@@ -712,6 +712,18 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     expect(localStorage.getItem('daycell-first-visit')).not.toBeNull()
   })
 
+  it('v9.41 今日视图空态：只有习惯时不再提示「今天还什么都没有」', async () => {
+    const store = await renderApp()
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
+    // 全空：待办/想法/支出/习惯/复盘都没有 → 提示成立
+    expect(document.body.textContent).toContain('今天还什么都没有')
+
+    // 加一条当天的习惯 → 习惯区块有内容，空态提示应消失
+    await store.getState().createHabit({ name: '跑步', freq: { kind: 'daily' } })
+    await waitFor(() => expect(document.body.textContent).toContain('跑步'))
+    expect(document.body.textContent).not.toContain('今天还什么都没有')
+  })
+
   it('v8.62 设置页：菜单 → 设置；开关「周视图显示习惯」默认关，打开后周视图列出当日习惯', async () => {
     const store = await renderApp()
     await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))

@@ -397,7 +397,9 @@ function DayFull({ date }: { date?: DateKey } = {}): JSX.Element {
       {/* v8.42 复盘：今日视图最下方，每日一条 */}
       <ReviewSection date={date} />
 
-      {effective.summary.isEmpty && !edit && (
+      {/* v9.41 空态收口：待办/想法/支出之外，有当日习惯或复盘也不算"什么都没有"
+          （此前只要没有待办就提示，习惯明明显示着却还喊空） */}
+      {effective.summary.isEmpty && !effective.summary.hasReview && effective.habits.length === 0 && !edit && (
         <div className={styles.empty}>
           <div className={styles.big}>○</div>
           {isToday ? (

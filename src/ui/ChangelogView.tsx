@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.40'
+const CURRENT_VERSION = 'v9.41'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.41',
+    date: '2026-11-10',
+    items: [
+      '文件夹右边的 ··· 菜单里新增「添加目标」：点一下直接建，目标只能进这个文件夹，不会再落进未分类',
+      '今日视图的空态提示不再误报：只要当天有习惯或复盘，就不会再说「今天还什么都没有」',
+    ],
+  },
   {
     version: 'v9.40',
     date: '2026-11-09',
