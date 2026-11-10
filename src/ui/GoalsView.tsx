@@ -55,12 +55,16 @@ function Sheet({
 
 function NewGoalSheet({
   defaultFolderId,
+  lockFolder = false,
   onClose,
 }: {
   defaultFolderId?: string | null
+  /** v8.89 文件夹菜单「添加目标」进入：归属文件夹固定，表单内不可改 */
+  lockFolder?: boolean
   onClose: () => void
 }): JSX.Element {
   const createGoal = useApp((s) => s.createGoal)
+  const folderList = useApp((s) => s.folderList)
   const [title, setTitle] = useState('')
   const [note, setNote] = useState('')
   // v9.14 放入文件夹：null = 未分类（可跳过）。defaultFolderId = 从文件夹视图进入时自动归属
@@ -97,11 +101,20 @@ function NewGoalSheet({
           onChange={(e) => setNote(e.target.value)}
         />
       </div>
-      {/* v9.14 放入文件夹：不选 = 未分类 */}
-      <div className={styles.field}>
-        <label>放入文件夹（可选）</label>
-        <FolderPick value={folderId} onChange={setFolderId} />
-      </div>
+      {/* v9.14 放入文件夹：不选 = 未分类；v8.89 文件夹菜单进入时锁定归属，不给切换 */}
+      {lockFolder ? (
+        <div className={styles.field}>
+          <label>归属文件夹</label>
+          <div className={styles.hint}>
+            将归入「{folderList.find((x) => x.folder.id === folderId)?.folder.name ?? ''}」，创建后可在详情页移动
+          </div>
+        </div>
+      ) : (
+        <div className={styles.field}>
+          <label>放入文件夹（可选）</label>
+          <FolderPick value={folderId} onChange={setFolderId} />
+        </div>
+      )}
       <div className={styles.act}>
         <button className={styles.btnSoft} onClick={onClose}>取消</button>
         <button
@@ -397,10 +410,19 @@ function FolderMenuSheet({
   const toggleFolderFavorite = useApp((s) => s.toggleFolderFavorite)
   const [confirmDel, setConfirmDel] = useState(false)
   const [renameOpen, setRenameOpen] = useState(false)
+  // v8.89 菜单里直接给这个文件夹加目标（归属锁定为本文件夹）
+  const [addGoalOpen, setAddGoalOpen] = useState(false)
   const fav = folder.folder.favorite ?? false
+  if (addGoalOpen) {
+    return <NewGoalSheet defaultFolderId={folder.folder.id} lockFolder onClose={onClose} />
+  }
   return (
     <Sheet title={folder.folder.name} onCancel={onClose}>
       <div className={styles.menuList}>
+        <button className={styles.menuItem} onClick={() => setAddGoalOpen(true)}>
+          <span className={styles.menuIcon}>＋</span>
+          添加目标
+        </button>
         <button className={styles.menuItem} onClick={() => setRenameOpen(true)}>
           <span className={styles.menuIcon}>✎</span>
           重命名文件夹

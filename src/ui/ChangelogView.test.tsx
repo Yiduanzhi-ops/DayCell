@@ -37,15 +37,18 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v8.88')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v8.89')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v8.88')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v8.89')).not.toBeInTheDocument()
   })
 
   it('列表倒序：第一条是最新版本 v8.88，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v8.88')
+    expect(vers[0].textContent).toBe('v8.89')
+    // v8.89
+    expect(screen.getByText(/文件夹右边的 ··· 菜单里新增「添加目标」/)).toBeInTheDocument()
+    expect(screen.getByText(/就不会再说「今天还什么都没有」/)).toBeInTheDocument()
     // v8.88
     expect(screen.getByText(/目标也能改名了/)).toBeInTheDocument()
     // v8.87

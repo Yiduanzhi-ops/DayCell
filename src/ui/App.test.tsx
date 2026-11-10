@@ -702,6 +702,16 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     Object.defineProperty(window.navigator, 'standalone', { get: () => undefined, configurable: true })
   })
 
+  it('v8.89 今日视图空态：只有习惯时不再提示「今天还什么都没有」', async () => {
+    const store = await renderApp()
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
+    expect(document.body.textContent).toContain('今天还什么都没有')
+
+    await store.getState().createHabit({ name: '跑步', freq: { kind: 'daily' } })
+    await waitFor(() => expect(document.body.textContent).toContain('跑步'))
+    expect(document.body.textContent).not.toContain('今天还什么都没有')
+  })
+
   it('v8.58 打开应用即写入首访时间戳（收费资格埋点）', async () => {
     await renderApp()
     await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
