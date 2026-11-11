@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.90'
+const CURRENT_VERSION = 'v8.91'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.91',
+    date: '2026-11-11',
+    items: [
+      '时间标签不再把你正在查看的那天写成「今天」：未来日 / 过去日视图里改为「当天」，只有真实今天才写「今天」',
+      '待办就地编辑补上「取消 / 保存」按钮：手机上改完直接点保存，不再只靠回车或点空白处',
+    ],
+  },
   {
     version: 'v8.90',
     date: '2026-11-11',
