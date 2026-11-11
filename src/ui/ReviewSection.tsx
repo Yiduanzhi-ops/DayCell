@@ -11,6 +11,7 @@ import { useRef, useState } from 'react'
 import type { JSX } from 'react'
 import type { DateKey } from '@core'
 import { useApp } from '@/app/context'
+import { NoteBody } from './NoteBody'
 import styles from './detail.module.css'
 
 /** v8.42：编辑态（预填当日内容；「清空」= 当日复盘置墓碑） */
@@ -103,13 +104,14 @@ export function ReviewSection({ date }: { date?: DateKey }): JSX.Element {
           <ReviewEdit initial={review?.text ?? ''} onDone={() => setEditing(false)} />
         ) : review ? (
           <div className={styles.nitem}>
-            <button
-              className={styles.ntxtBtn}
-              aria-label="编辑今天复盘"
-              onClick={() => setEditing(true)}
-            >
-              <span className={styles.ntxt}>{review.text}</span>
-            </button>
+            {/* v8.92：正文只读（可选中复制），编辑走独立按钮 */}
+            <NoteBody text={review.text} />
+            <div className={styles.nfoot}>
+              <span className={styles.nfootSp} />
+              <button className={styles.neditBtn} aria-label="编辑今天复盘" onClick={() => setEditing(true)}>
+                编辑
+              </button>
+            </div>
           </div>
         ) : (
           <button

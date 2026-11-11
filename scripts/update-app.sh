@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 重建桌面壳并替换 /Applications/DayCell.app
+# 重建桌面壳并替换 /Applications/DayCell 桌面版.app
 # 用法：./scripts/update-app.sh
 set -euo pipefail
 
@@ -7,7 +7,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 APP="$ROOT/src-tauri/target/universal-apple-darwin/release/bundle/macos/DayCell.app"
-TARGET="/Applications/DayCell.app"
+TARGET="/Applications/DayCell 桌面版.app"
 
 echo "▸ 1/4 构建通用包（x86_64 + arm64，约 1.5 分钟）"
 npm run tauri:build -- --target universal-apple-darwin
@@ -29,6 +29,10 @@ ditto "$APP" "$TMP/DayCell.app"
 rm -rf "$TARGET"
 ditto "$TMP/DayCell.app" "$TARGET"
 rm -rf "$TMP"
+# 构建产物默认显示名为 DayCell，这里统一成「DayCell 桌面版」并重签
+/usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName DayCell 桌面版" "$TARGET/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleName DayCell 桌面版" "$TARGET/Contents/Info.plist"
+codesign --force --deep --sign - "$TARGET"
 touch "$TARGET"
 
 echo "▸ 4/4 启动"

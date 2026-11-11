@@ -10,6 +10,7 @@ import type { NoteRecord } from '@core'
 import type { DateKey } from '@core'
 import { useApp } from '@/app/context'
 import { FormActs } from './forms'
+import { NoteBody } from './NoteBody'
 import styles from './detail.module.css'
 
 /** createdAt → 'HH:MM'。UI 层允许用 Date（core 才有铁律约束） */
@@ -68,14 +69,19 @@ export function NoteSection({ dayWord, date }: { dayWord: string; date?: DateKey
               <NoteEdit key={n.id} note={n} onDone={() => setEditingId(null)} />
             ) : (
               <div key={n.id} className={styles.nitem}>
-                <button
-                  className={styles.ntxtBtn}
-                  aria-label={`编辑想法：${n.text}`}
-                  onClick={() => setEditingId(n.id)}
-                >
-                  <span className={styles.ntxt}>{n.text}</span>
-                </button>
-                <div className={styles.ntime}>{hhmm(n.createdAt)}</div>
+                {/* v8.92：正文只读（可选中复制），点它不再进编辑态 */}
+                <NoteBody text={n.text} />
+                <div className={styles.nfoot}>
+                  <span className={styles.ntime}>{hhmm(n.createdAt)}</span>
+                  <span className={styles.nfootSp} />
+                  <button
+                    className={styles.neditBtn}
+                    aria-label={`编辑想法：${n.text}`}
+                    onClick={() => setEditingId(n.id)}
+                  >
+                    编辑
+                  </button>
+                </div>
                 <button className={styles.ndel} aria-label="删除这条想法" onClick={() => void deleteNote(n.id)}>
                   ×
                 </button>
