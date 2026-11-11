@@ -257,9 +257,21 @@
 .nlist { display: flex; flex-direction: column; gap: 8px; }
 .nitem { background: var(--bg-subtle); border-radius: 8px; padding: 9px 11px; position: relative; }
 .ntxt { font-size: 13.5px; line-height: 1.65; white-space: pre-wrap; word-break: break-word; }
-/* v7 / US-13：点正文就地编辑 */
-.ntxtBtn { display: block; width: 100%; text-align: left; cursor: text; border-radius: 6px; }
-.ntxtBtn:hover .ntxt { background: var(--bg-hover); }
+/* v9.44：正文是只读文本（可长按选中复制），编辑走独立按钮；长文用「展开全文」控制密度 */
+.moreBtn {
+  display: inline-block; margin-top: 4px; padding: 0;
+  background: none; border: 0; font-family: var(--font);
+  font-size: 11px; color: var(--ink-3); text-align: left;
+}
+.moreBtn:hover { color: var(--accent); }
+.nfoot { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
+.nfootSp { flex: 1; }
+.neditBtn {
+  font-family: var(--font); font-size: 11px; line-height: 1;
+  color: var(--ink-3); background: none; border: 1px solid var(--line);
+  border-radius: 6px; padding: 3px 8px;
+}
+.neditBtn:hover { color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft); }
 .nedit { background: var(--accent-soft); border: 1px solid var(--accent-line); display: flex; flex-direction: column; gap: 8px; }
 .neditArea {
   width: 100%; resize: vertical; min-height: 60px;

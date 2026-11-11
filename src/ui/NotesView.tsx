@@ -6,6 +6,7 @@
  */
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react'
 import { useApp } from '@/app/context'
+import { NoteBody } from './NoteBody'
 import { dowOf, fromKey, loadLunar, lunarFullText, type DateKey, type NoteRecord } from '@core'
 import styles from './NotesView.module.css'
 import { ReportView } from './ReportView'
@@ -269,31 +270,26 @@ export function NotesView(): JSX.Element {
                       editingId === n.id ? (
                         <NoteEdit key={n.id} note={n} onDone={() => setEditingId(null)} />
                       ) : (
-                        <div
-                          key={n.id}
-                          className={styles.item}
-                          role="button"
-                          tabIndex={0}
-                          aria-label={`编辑想法：${n.text}`}
-                          onClick={() => setEditingId(n.id)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault()
-                              setEditingId(n.id)
-                            }
-                          }}
-                        >
+                        <div key={n.id} className={styles.item}>
                           <span className={styles.itemTop}>
-                            <span className={styles.itemText}>{n.text}</span>
+                            <span className={styles.itemText}>
+                              {/* v9.44：正文只读（可选中复制，超 3 行折起可展开），编辑走独立按钮 */}
+                              <NoteBody text={n.text} clamp={3} />
+                            </span>
                             <span className={styles.itemActs}>
+                              <button
+                                type="button"
+                                className={styles.edit}
+                                aria-label={`编辑想法：${n.text}`}
+                                onClick={() => setEditingId(n.id)}
+                              >
+                                编辑
+                              </button>
                               <button
                                 type="button"
                                 className={styles.del}
                                 aria-label="删除这条想法"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  onDelete(n)
-                                }}
+                                onClick={() => onDelete(n)}
                               >
                                 ×
                               </button>
@@ -302,13 +298,9 @@ export function NotesView(): JSX.Element {
                                 role="button"
                                 tabIndex={0}
                                 aria-label={n.pinned ? '取消收藏' : '收藏'}
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  void toggleNotePinned(n.id)
-                                }}
+                                onClick={() => void toggleNotePinned(n.id)}
                                 onKeyDown={(e) => {
                                   if (e.key === 'Enter') {
-                                    e.stopPropagation()
                                     void toggleNotePinned(n.id)
                                   }
                                 }}

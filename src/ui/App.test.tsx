@@ -493,6 +493,46 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     confirmSpy.mockRestore()
   })
 
+  it('v9.44 想法正文只读：点内容不进编辑，改走「编辑」按钮', async () => {
+    const store = await renderApp()
+    await store.getState().createNote('今天先把想法正文改成只读文本')
+    await waitFor(() =>
+      expect(within(screen.getByTestId('day-center')).getByText('今天先把想法正文改成只读文本')).toBeInTheDocument(),
+    )
+
+    // 正文不再被 <button> 包住（否则文字选不中、复制不了）
+    expect(screen.getByText('今天先把想法正文改成只读文本').closest('button')).toBeNull()
+    fireEvent.click(screen.getByText('今天先把想法正文改成只读文本'))
+    expect(screen.queryByLabelText('编辑想法')).toBeNull()
+
+    // 只有点「编辑」才进编辑态
+    fireEvent.click(screen.getByLabelText('编辑想法：今天先把想法正文改成只读文本'))
+    await waitFor(() => expect(screen.getByLabelText('编辑想法')).toBeInTheDocument())
+    fireEvent.change(screen.getByLabelText('编辑想法'), { target: { value: '只读正文改好了' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(within(screen.getByTestId('day-center')).getByText('只读正文改好了')).toBeInTheDocument())
+  })
+
+  it('v9.44 回顾页长想法折 3 行：正文不可点，「展开全文」能看全', async () => {
+    const store = await renderApp()
+    const long =
+      '今天把日视图的换日按钮收尾了，电脑上也能直接点切前一天后一天，不用再靠键盘或者手机滑动。' +
+      '顺手把提醒标签的口径也改了：以前在未来日视图里总写成今天，其实那是你正在看的那天，现在改成当天。' +
+      '末尾标记'
+    await store.getState().createNote(long)
+    fireEvent.click(screen.getByRole('tab', { name: '回顾' }))
+    await waitFor(() => expect(document.body.textContent).toContain('共 1 条想法'))
+
+    // 超 3 行 → 默认折起，给「展开全文」
+    expect(screen.getByRole('button', { name: '展开全文' })).toBeInTheDocument()
+    fireEvent.click(screen.getByText(long))
+    expect(screen.queryByLabelText('编辑想法')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: '展开全文' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: '收起全文' })).toBeInTheDocument())
+    expect(document.body.textContent).toContain('末尾标记')
+  })
+
   it('10 条一页：11 条想法分两页，下一页看到第 11 条', async () => {
     const store = await renderApp()
     for (let i = 1; i <= 11; i++) await store.getState().createNote(`想法第 ${i} 条`)
