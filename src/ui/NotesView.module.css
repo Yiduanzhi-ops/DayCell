@@ -181,30 +181,33 @@
 .item:last-child {
   border-bottom: none;
 }
-.itemTop {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-}
 .itemText {
-  flex: 1;
-  min-width: 0;
+  display: block;
+  width: 100%;
 }
-/* v8.92 正文只读 + 独立「编辑」按钮（正文超 3 行折起，展开由 NoteBody 自己管） */
+/* v8.92 正文只读 + 独立编辑按钮；回顾页只放铅笔图标（今日视图仍用文字「编辑」） */
 .edit {
-  font-family: var(--font); font-size: 11px; line-height: 1;
-  color: var(--ink-3); background: none; border: 1px solid var(--line);
-  border-radius: 6px; padding: 3px 7px;
+  width: 26px; height: 26px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: none; border: 0; border-radius: 6px;
+  color: var(--ink-3);
 }
-.edit:hover { color: var(--accent); border-color: var(--accent-line); }
+.edit:hover { color: var(--accent); }
+.editIcon { width: 16px; height: 16px; stroke: currentColor; stroke-width: 1.5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
 
 /* 右侧操作区：删除 + 星标（v8.31 删除在收藏前） */
 .itemActs {
-  flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 8px;
+  margin-top: 6px;
+}
+/* 正文占满整行后，底行：时刻 · 编辑 · × · ☆（与今日视图同款） */
+.actsSp { flex: 1; }
+.itemTime {
+  font-size: 11px;
+  line-height: 1;
+  color: var(--ink-3);
 }
 .del {
   font-size: 15px;

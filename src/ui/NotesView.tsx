@@ -24,6 +24,13 @@ interface Group {
   pinned?: boolean
 }
 
+/** createdAt → 'HH:MM'（与今日视图同一口径） */
+const hhmm = (ms: number): string => {
+  const d = new Date(ms)
+  const p = (n: number): string => String(n).padStart(2, '0')
+  return `${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
 export function NotesView(): JSX.Element {
   const notesList = useApp((s) => s.notesList)
   const notesPage = useApp((s) => s.notesPage)
@@ -272,42 +279,51 @@ export function NotesView(): JSX.Element {
                         <NoteEdit key={n.id} note={n} onDone={() => setEditingId(null)} />
                       ) : (
                         <div key={n.id} className={styles.item}>
-                          <span className={styles.itemTop}>
-                            <span className={styles.itemText}>
-                              {/* v8.92：正文只读（可选中复制，超 3 行折起可展开），编辑走独立按钮 */}
-                              <NoteBody text={n.text} clamp={3} />
-                            </span>
-                            <span className={styles.itemActs}>
-                              <button
-                                type="button"
-                                className={styles.edit}
-                                aria-label={`编辑想法：${n.text}`}
-                                onClick={() => setEditingId(n.id)}
+                          <span className={styles.itemText}>
+                            {/* v8.92：正文只读（可选中复制，超 3 行折起可展开），编辑走独立按钮 */}
+                            <NoteBody text={n.text} clamp={3} />
+                          </span>
+                          <span className={styles.itemActs}>
+                            <span className={styles.itemTime}>{hhmm(n.createdAt)}</span>
+                            <span className={styles.actsSp} />
+                            <button
+                              type="button"
+                              className={styles.edit}
+                              aria-label={`编辑想法：${n.text}`}
+                              title="编辑"
+                              onClick={() => setEditingId(n.id)}
+                            >
+                              <svg
+                                viewBox="0 0 24 24"
+                                className={styles.editIcon}
+                                aria-hidden="true"
+                                focusable="false"
                               >
-                                编辑
-                              </button>
-                              <button
-                                type="button"
-                                className={styles.del}
-                                aria-label="删除这条想法"
-                                onClick={() => onDelete(n)}
-                              >
-                                ×
-                              </button>
-                              <span
-                                className={n.pinned ? `${styles.star} ${styles.starOn}` : styles.star}
-                                role="button"
-                                tabIndex={0}
-                                aria-label={n.pinned ? '取消收藏' : '收藏'}
-                                onClick={() => void toggleNotePinned(n.id)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    void toggleNotePinned(n.id)
-                                  }
-                                }}
-                              >
-                                {n.pinned ? '★' : '☆'}
-                              </span>
+                                <path d="M12 20h9" />
+                                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                              </svg>
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.del}
+                              aria-label="删除这条想法"
+                              onClick={() => onDelete(n)}
+                            >
+                              ×
+                            </button>
+                            <span
+                              className={n.pinned ? `${styles.star} ${styles.starOn}` : styles.star}
+                              role="button"
+                              tabIndex={0}
+                              aria-label={n.pinned ? '取消收藏' : '收藏'}
+                              onClick={() => void toggleNotePinned(n.id)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  void toggleNotePinned(n.id)
+                                }
+                              }}
+                            >
+                              {n.pinned ? '★' : '☆'}
                             </span>
                           </span>
                         </div>
