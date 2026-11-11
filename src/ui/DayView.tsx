@@ -35,6 +35,7 @@ import { HabitSection } from './HabitSection'
 import { ReviewSection } from './ReviewSection'
 import { InstallBanner } from './InstallBanner'
 import { arm as tapArm } from './tapGuard'
+import { ChevronLeft, ChevronRight } from './icons'
 import styles from './DayView.module.css'
 
 const DOW = ['日', '一', '二', '三', '四', '五', '六'] as const
@@ -313,6 +314,8 @@ function DayFull({ date }: { date?: DateKey } = {}): JSX.Element {
   const rollDismissed = useApp((s) => s.rollDismissed)
   const rollOver = useApp((s) => s.rollOver)
   const dismissRoll = useApp((s) => s.dismissRoll)
+  // v9.42：日视图标题右侧的 ‹ › 换日按钮（桌面无触摸手势时的主路径；顶栏箭头在日视图被 .navDay 隐藏）
+  const shiftDay = useApp((s) => s.shiftDay)
   const setAiOpen = useApp((s) => s.setAiOpen)
   const edit = useApp((s) => (date ? undefined : s.edit)) // 侧页不受全局表单态影响
 
@@ -359,19 +362,42 @@ function DayFull({ date }: { date?: DateKey } = {}): JSX.Element {
   return (
     <div className={styles.pageInner}>
       <div className={styles.dhead}>
-        <div className={styles.dtitle}>
-          {y} 年 {m} 月 {d} 日
-          <span className={styles.dow}>周{DOW[dowOf(k)]}</span>
-          {isToday && <span className={styles.todayMark}>今天</span>}
+        <div className={styles.dmain}>
+          <div className={styles.dtitle}>
+            {y} 年 {m} 月 {d} 日
+            <span className={styles.dow}>周{DOW[dowOf(k)]}</span>
+            {isToday && <span className={styles.todayMark}>今天</span>}
+          </div>
+          {(lunarText || effective.anniversaries.length > 0) && (
+            <div className={styles.dsub}>
+              {lunarText && (
+                <span className={lunarEmphasis ? styles.fest : undefined}>{lunarText}</span>
+              )}
+              {effective.anniversaries.map((a) => (
+                <span key={a.id} className={styles.anniBadge}>◷ {a.title}</span>
+              ))}
+            </div>
+          )}
         </div>
-        {(lunarText || effective.anniversaries.length > 0) && (
-          <div className={styles.dsub}>
-            {lunarText && (
-              <span className={lunarEmphasis ? styles.fest : undefined}>{lunarText}</span>
-            )}
-            {effective.anniversaries.map((a) => (
-              <span key={a.id} className={styles.anniBadge}>◷ {a.title}</span>
-            ))}
+        {/* v9.42：仅中间页（可交互页）显示换日按钮；两侧预览页（date 有值）不显示，滑动途中不出现重影按钮 */}
+        {!date && (
+          <div className={styles.dnav}>
+            <button
+              className={styles.navBtn}
+              onClick={() => shiftDay(-1)}
+              aria-label="前一天"
+              title="前一天"
+            >
+              <ChevronLeft />
+            </button>
+            <button
+              className={styles.navBtn}
+              onClick={() => shiftDay(1)}
+              aria-label="后一天"
+              title="后一天"
+            >
+              <ChevronRight />
+            </button>
           </div>
         )}
       </div>

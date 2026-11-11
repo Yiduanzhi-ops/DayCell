@@ -8,11 +8,18 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.41'
+const CURRENT_VERSION = 'v9.42'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.42',
+    date: '2026-11-11',
+    items: [
+      '今日视图日头右侧新增 ‹ › 按钮：电脑上（含桌面壳）也能直接切前一天 / 后一天，不用再靠键盘或手机滑动',
+    ],
+  },
   {
     version: 'v9.41',
     date: '2026-11-10',
