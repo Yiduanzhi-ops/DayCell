@@ -26,13 +26,18 @@ const nowHm = (): string => {
 
 /**
  * v9.2.3 行内时间标签：due 截止蓝（逾期红、逾期完成淡红）/ at 提醒绿（当天过点置灰）。
- * 今天只写「今天」；无 timeType 老数据：有截止日按 due、无按 at 推导。
+ * v8.91：日期等于**当前查看日**时的措辞区分——真实今天视图写「今天」，
+ *        未来日 / 过去日视图写「当天」，避免把查看日误读成真实今天。
  */
-function TimePill({ t, k }: { t: TodoRecord; k: DateKey }): JSX.Element {
+function sameDayWord(k: DateKey, today: DateKey): string {
+  return k === today ? '今天' : '当天'
+}
+
+function TimePill({ t, k, today }: { t: TodoRecord; k: DateKey; today: DateKey }): JSX.Element {
   const isDue = (t.timeType ?? (t.deadline ? 'due' : 'at')) === 'due'
   const late = isDue && !!t.deadline && compareKey(t.deadline, k) < 0
   const overdueDone = isDue && isOverdueDone(t)
-  const day = t.deadline ? (t.deadline === k ? '今天' : md(t.deadline)) : ''
+  const day = t.deadline ? (t.deadline === k ? sameDayWord(k, today) : md(t.deadline)) : ''
   // v8.75：at 型可能只有日期没有具体时刻（类型独立于时刻落库）——按存在项拼接，避免多余空格
   const label = isDue
     ? `${overdueDone ? '逾期完成 · ' : late && !t.done ? '已逾期 · ' : ''}截止 ${day} ${t.time}`
@@ -63,6 +68,7 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
   // v8.19：缓存条目携带 dataVer，过期（ver < dataVer）时兜底 store.detail（最新聚合）；
   // 侧页（有 date）无兜底——过期显示骨架，绝不显示旧数据。
   const selected = useApp((s) => s.selected)
+  const today = useApp((s) => s.today)
   const k = date ?? selected
   const cached = useApp((s) => {
     const e = s.dayCache.get(k)
@@ -166,14 +172,14 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
               {t.rolledFrom && <span className={styles.rolled}>顺延自 {md(t.rolledFrom)}</span>}
               {/* v9.2.3 时间标签合并为单枚语义 pill：截止蓝（逾期红）/ 提醒绿（过点灰），今天只写「今天」 */}
               {t.time ? (
-                <TimePill t={t} k={k} />
+                <TimePill t={t} k={k} today={today} />
               ) : t.deadline ? (
                 // v9.16：无具体时间的提醒型（timeType='at'）也按语义显示「… 提醒」绿标，
                 // 不再一律显示「截止 …」（旧实现让提醒型看起来像没改成功）
                 (t.timeType ?? 'due') === 'at' ? (
                   <span className={styles.tat}>
                     {md(t.deadline)}
-                    {t.deadline === k ? '（今天）' : ''} 提醒
+                    {t.deadline === k ? `（${sameDayWord(k, today)}）` : ''} 提醒
                   </span>
                 ) : (
                   <span
@@ -186,9 +192,9 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
                       : !t.done && compareKey(t.deadline, k) < 0
                         ? '已逾期 · '
                         : ''}
-                    {/* v9.2.2：截止日恰为今天时标注（今天） */}
+                    {/* v9.2.2：截止日恰为查看日时标注（今天 / 当天） */}
                     截止 {md(t.deadline)}
-                    {t.deadline === k ? '（今天）' : ''}
+                    {t.deadline === k ? `（${sameDayWord(k, today)}）` : ''}
                   </span>
                 )
               ) : null}
@@ -650,6 +656,9 @@ function TodoEdit({ todo, day, onDone }: { todo: TodoRecord; day: DateKey; onDon
       </div>
       <DdlPicker value={ddl} onChange={setDdl} day={day} />
       <TimePicker value={tm} onChange={setTm} />
+      {/* v8.91：编辑态补明确的「取消 / 保存」按钮——手机上改完没有回车键，
+          只靠失焦保存容易误存或不知道有没有生效 */}
+      <FormActs onCancel={() => finish(false)} onSave={() => finish(true)} />
     </div>
   )
 }
