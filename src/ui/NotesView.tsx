@@ -295,12 +295,12 @@ export function NotesView(): JSX.Element {
                             >
                               <svg
                                 viewBox="0 0 24 24"
-                                className={styles.editIcon}
+                                className={styles.icon}
                                 aria-hidden="true"
                                 focusable="false"
                               >
-                                <path d="M12 20h9" />
-                                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                                <path d="M3 21l1.2-4.5L15.5 5.2a2.1 2.1 0 0 1 3 3L7.2 19.5 3 21z" />
+                                <path d="M13.4 7.3l3.3 3.3" />
                               </svg>
                             </button>
                             <button
@@ -309,7 +309,14 @@ export function NotesView(): JSX.Element {
                               aria-label="删除这条想法"
                               onClick={() => onDelete(n)}
                             >
-                              ×
+                              <svg
+                                viewBox="0 0 24 24"
+                                className={styles.icon}
+                                aria-hidden="true"
+                                focusable="false"
+                              >
+                                <path d="M4.5 4.5l15 15M19.5 4.5L4.5 19.5" />
+                              </svg>
                             </button>
                             <span
                               className={n.pinned ? `${styles.star} ${styles.starOn}` : styles.star}
@@ -323,7 +330,14 @@ export function NotesView(): JSX.Element {
                                 }
                               }}
                             >
-                              {n.pinned ? '★' : '☆'}
+                              <svg
+                                viewBox="0 0 24 24"
+                                className={styles.icon}
+                                aria-hidden="true"
+                                focusable="false"
+                              >
+                                <path d="M12 4.4L13.76 9.57L19.23 9.65L14.85 12.93L16.47 18.15L12 15L7.53 18.15L9.15 12.93L4.77 9.65L10.24 9.57Z" />
+                              </svg>
                             </span>
                           </span>
                         </div>
