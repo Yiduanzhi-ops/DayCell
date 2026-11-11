@@ -336,7 +336,7 @@ export function NotesView(): JSX.Element {
                                 aria-hidden="true"
                                 focusable="false"
                               >
-                                <path d="M12 4.4L13.76 9.57L19.23 9.65L14.85 12.93L16.47 18.15L12 15L7.53 18.15L9.15 12.93L4.77 9.65L10.24 9.57Z" />
+                                <path d="M12 3.25L14.06 9.17L20.32 9.3L15.33 13.08L17.14 19.08L12 15.5L6.86 19.08L8.67 13.08L3.68 9.3L9.94 9.17Z" />
                               </svg>
                             </span>
                           </span>
