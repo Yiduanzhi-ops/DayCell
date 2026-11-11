@@ -177,7 +177,6 @@
   padding: 12px;
   background: transparent;
   color: var(--ink-1);
-  cursor: pointer;
 }
 .item:last-child {
   border-bottom: none;
@@ -191,14 +190,14 @@
 .itemText {
   flex: 1;
   min-width: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  font-size: 13px;
-  line-height: 1.5;
 }
-.item:active { background: var(--bg-hover); }
+/* v8.92 正文只读 + 独立「编辑」按钮（正文超 3 行折起，展开由 NoteBody 自己管） */
+.edit {
+  font-family: var(--font); font-size: 11px; line-height: 1;
+  color: var(--ink-3); background: none; border: 1px solid var(--line);
+  border-radius: 6px; padding: 3px 7px;
+}
+.edit:hover { color: var(--accent); border-color: var(--accent-line); }
 
 /* 右侧操作区：删除 + 星标（v8.31 删除在收藏前） */
 .itemActs {

@@ -37,17 +37,17 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v8.91')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v8.92')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v8.91')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v8.92')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v8.91，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v8.92，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v8.91')
-    // v8.91
-    expect(screen.getByText(/时间标签不再把你正在查看的那天写成「今天」/)).toBeInTheDocument()
+    expect(vers[0].textContent).toBe('v8.92')
+    // v8.92
+    expect(screen.getByText(/正文不再点一下就变成输入框/)).toBeInTheDocument()
     expect(screen.getByText(/待办就地编辑补上「取消 \/ 保存」按钮/)).toBeInTheDocument()
     // 上一版要点仍在
     expect(screen.getByText(/今日视图日头右侧新增 ‹ › 按钮/)).toBeInTheDocument()
