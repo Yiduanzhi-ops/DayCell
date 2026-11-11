@@ -37,16 +37,19 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v9.42')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v9.43')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v9.42')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v9.43')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v9.42，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v9.43，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+(\.\d+)+$/)
-    expect(vers[0].textContent).toBe('v9.42')
-    // v9.42
+    expect(vers[0].textContent).toBe('v9.43')
+    // v9.43
+    expect(screen.getByText(/时间标签不再把你正在查看的那天写成「今天」/)).toBeInTheDocument()
+    expect(screen.getByText(/待办就地编辑补上「取消 \/ 保存」按钮/)).toBeInTheDocument()
+    // 上一版要点仍在
     expect(screen.getByText(/今日视图日头右侧新增 ‹ › 按钮/)).toBeInTheDocument()
     // v9.41
     expect(screen.getByText(/文件夹右边的 ··· 菜单里新增「添加目标」/)).toBeInTheDocument()

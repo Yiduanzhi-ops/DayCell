@@ -585,6 +585,49 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     await waitFor(() => expect(within(screen.getByTestId('day-center')).getByText('十月截止')).toBeInTheDocument())
   })
 
+  it('v9.43 时间标签按查看日措辞：未来日写「当天」，只有真实今天写「今天」', async () => {
+    const store = await renderApp()
+    fireEvent.click(screen.getByRole('tab', { name: '月' }))
+    await waitFor(() => expect(within(screen.getByTestId('month-center')).getAllByRole('gridcell')).toHaveLength(42))
+    fireEvent.click(within(screen.getByTestId('month-center')).getByLabelText(/10月1日/))
+    await waitFor(() => expect(store.getState().selected).toBe('2026-10-01'))
+
+    void store.getState().createTodo('十月无时刻', '2026-10-01', undefined, 'at')
+    void store.getState().createTodo('十月有时刻', '2026-10-01', '14:00', 'at')
+    await waitFor(() => expect(within(screen.getByTestId('day-center')).getByText('十月无时刻')).toBeInTheDocument())
+
+    const center = screen.getByTestId('day-center')
+    expect(center.textContent).toContain('10/1（当天） 提醒')
+    expect(center.textContent).toContain('当天 14:00 提醒')
+    expect(center.textContent).not.toContain('（今天）')
+    expect(center.textContent).not.toContain('今天 14:00')
+
+    // 真实今天视图仍写「今天」
+    fireEvent.click(screen.getByRole('tab', { name: '今天' }))
+    await waitFor(() => expect(store.getState().selected).toBe('2026-09-29'))
+    void store.getState().createTodo('今天无时刻', '2026-09-29', undefined, 'at')
+    await waitFor(() => expect(within(screen.getByTestId('day-center')).getByText('今天无时刻')).toBeInTheDocument())
+    expect(screen.getByTestId('day-center').textContent).toContain('9/29（今天） 提醒')
+  })
+
+  it('v9.43 就地编辑待办有「保存 / 取消」：保存写回、取消不写', async () => {
+    const store = await renderApp()
+    void store.getState().createTodo('原始文字')
+    await waitFor(() => expect(within(screen.getByTestId('day-center')).getByText('原始文字')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByLabelText('编辑待办：原始文字'))
+    fireEvent.change(screen.getByLabelText('编辑待办'), { target: { value: '改后文字' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(within(screen.getByTestId('day-center')).getByText('改后文字')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByLabelText('编辑待办：改后文字'))
+    fireEvent.change(screen.getByLabelText('编辑待办'), { target: { value: '不该保存' } })
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+    await waitFor(() => expect(within(screen.getByTestId('day-center')).getByText('改后文字')).toBeInTheDocument())
+    expect(within(screen.getByTestId('day-center')).queryByText('不该保存')).toBeNull()
+  })
+
+
   it('v8.53 添加 DDL 待办：默认截止今天 → 徽标；切到明天仍在顶部；完成后消失', async () => {
     const store = await renderApp()
     // 创建表单默认「今天」= 注入时钟的 TODAY（2026-09-29）
@@ -875,8 +918,10 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     expect(screen.getByLabelText('编辑待办')).toBeInTheDocument()
 
     // ③ sheet 内点「保存」→ 时间写入表单、sheet 关闭、编辑面板保持
-    fireEvent.pointerDown(screen.getByRole('button', { name: '保存' }))
-    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    // v9.43：编辑面板自身也有「保存」按钮，这里必须限定在时间 sheet 内
+    const sheet = screen.getByRole('dialog', { name: '选择时间' })
+    fireEvent.pointerDown(within(sheet).getByRole('button', { name: '保存' }))
+    fireEvent.click(within(sheet).getByRole('button', { name: '保存' }))
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '选择时间' })).not.toBeInTheDocument())
     expect(screen.getByLabelText('编辑待办')).toBeInTheDocument()
 
