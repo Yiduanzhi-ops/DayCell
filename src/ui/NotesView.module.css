@@ -185,59 +185,46 @@
   display: block;
   width: 100%;
 }
-/* v9.44 正文只读 + 独立「编辑」按钮（正文超 3 行折起，展开由 NoteBody 自己管） */
-.edit {
+/*/* v9.44 回顾页底行操作：编辑 / 删除 / 收藏 同一套图标
+   —— 24 网格 · 渲染 14px · 线宽 1.6 · 26×26 热区，三者中心线完全对齐 */
+.edit,
+.del,
+.star {
   width: 26px; height: 26px; padding: 0;
   display: inline-flex; align-items: center; justify-content: center;
   background: none; border: 0; border-radius: 6px;
-  color: var(--ink-3);
+  color: var(--ink-4);
+  cursor: pointer;
+  user-select: none;
 }
-.edit:hover { color: var(--accent); }
-.editIcon { width: 16px; height: 16px; stroke: currentColor; stroke-width: 1.5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.edit:hover,
+.star:hover { color: var(--accent); background: var(--bg-hover); }
+.icon {
+  width: 15px; height: 15px;
+  stroke: currentColor; stroke-width: 1.6; fill: none;
+  stroke-linecap: round; stroke-linejoin: round;
+}
 
-/* 右侧操作区：删除 + 星标（v8.31 删除在收藏前） */
+/* 底行操作区：编辑 · 删除 · 收藏（同一套图标，中心线对齐） */
 .itemActs {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-top: 6px;
 }
-/* 正文占满整行后，底行：时刻 · 编辑 · × · ☆（与今日视图同款） */
+/* 正文占满整行：时刻在左，操作在右 */
 .actsSp { flex: 1; }
 .itemTime {
   font-size: 11px;
   line-height: 1;
   color: var(--ink-3);
 }
-.del {
-  font-size: 15px;
-  line-height: 1;
-  color: var(--ink-4);
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
-  border: none;
-  background: none;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  cursor: pointer;
-}
 .del:hover { color: #c0392b; background: var(--bg-hover); }
+.del svg { stroke-width: 1.8; }
 
-/* v8.24 收藏星标（嵌在想法框内右上，低调小号）；v8.30 恢复——功能保留，仅标题去除 */
-.star {
-  flex: 0 0 auto;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--ink-4);
-  padding: 1px 2px;
-  cursor: pointer;
-  user-select: none;
-}
-.starOn {
-  color: #f5b301;
-}
+/* 收藏态：金色实心星 */
+.starOn { color: #f5b301; }
+.starOn svg { fill: currentColor; }
 
 /* ---- 就地编辑态（v8.31，交互与日视图想法一致：Esc 取消 / ⌘+Enter 或保存提交 / 失焦有改动即保存） ---- */
 .nedit {

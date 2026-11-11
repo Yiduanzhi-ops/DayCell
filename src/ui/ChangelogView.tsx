@@ -8,15 +8,16 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.44'
+const CURRENT_VERSION = 'v9.45'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
-    version: 'v9.44',
+    version: 'v9.45',
     date: '2026-11-12',
     items: [
+      '回顾页每条想法底行的编辑 / 删除 / 收藏换成同一套细描边图标（铅笔、×、星），线宽、颜色、大小一致，三点严格对齐，点起来也更准',
       '想法、复盘的正文不再点一下就变成输入框：正文只读，可以长按选中、复制，要改点右侧的「编辑」按钮',
       '回顾页里的长想法默认折 3 行，点「展开全文」就能看全；今日视图不折叠，当天几条全展开',
     ],
