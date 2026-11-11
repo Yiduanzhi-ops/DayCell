@@ -81,6 +81,22 @@ describe('App 冒烟', () => {
     expect(document.body.textContent).toContain('2026 年 9 月 29 日')
   })
 
+  it('v8.90 日视图日头右侧的 ‹ › 可切前后一天（桌面无触摸手势时的换日入口）', async () => {
+    const store = await renderApp()
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
+    // 顶栏箭头在日视图被 .navDay 隐藏 → 换日按钮必须落在内容区，且只出现在中间页
+    expect(screen.getByLabelText('前一天')).toBeInTheDocument()
+    expect(screen.getByLabelText('后一天')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByLabelText('后一天'))
+    await waitFor(() => expect(store.getState().selected).toBe(addDays(TODAY, 1)))
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 30 日'))
+
+    fireEvent.click(screen.getByLabelText('前一天'))
+    await waitFor(() => expect(store.getState().selected).toBe(TODAY))
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
+  })
+
   it('默认落地今天的日视图；空白日不自动展开，手动点「+ 添加」才弹出（v7.2）', async () => {
     await renderApp()
     expect(document.body.textContent).toContain('2026 年 9 月 29 日')
