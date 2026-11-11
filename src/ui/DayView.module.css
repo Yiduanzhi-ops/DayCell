@@ -69,7 +69,20 @@
   gap: 14px;
 }
 
-.dhead { flex: 0 0 auto; }
+/* v8.90：日头改两栏——左侧标题/副标题，右侧 ‹ › 换日按钮（桌面无触摸手势时的主路径） */
+.dhead { flex: 0 0 auto; display: flex; align-items: flex-start; gap: 8px; }
+.dmain { flex: 1; min-width: 0; }
+.dnav { flex: 0 0 auto; display: flex; gap: 2px; }
+.navBtn {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  color: var(--ink-2);
+}
+.navBtn:hover { background: var(--bg-hover); }
+.navBtn:active { background: var(--accent-soft); color: var(--accent); }
 .dtitle { font-size: 17px; font-weight: 650; letter-spacing: -0.01em; display: flex; align-items: baseline; gap: 8px; }
 .dow { font-size: 12px; color: var(--ink-3); font-weight: 400; }
 .todayMark { font-size: 11px; color: var(--accent); font-weight: 600; }
