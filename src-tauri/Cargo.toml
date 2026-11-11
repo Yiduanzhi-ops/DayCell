@@ -1,6 +1,6 @@
 [package]
 name = "daycell"
-version = "1.3.2"
+version = "1.3.3"
 description = "DayCell 桌面壳：logo 悬浮球 + 常驻面板的 PWA"
 authors = ["yiduanzhi"]
 license = ""
