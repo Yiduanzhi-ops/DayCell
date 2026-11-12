@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.46'
+const CURRENT_VERSION = 'v9.47'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.47',
+    date: '2026-11-12',
+    items: [
+      '去掉阶段卡的收尾确认句和两个按钮：当前阶段最后一条子任务勾完，就直接标完成并进入下一段，不再打断',
+      '阶段完成仍写完成日，已完成段显示「完成于 MM/DD」与 N/N；没有下一段时提示「全部完成」',
+    ],
+  },
   {
     version: 'v9.46',
     date: '2026-11-12',

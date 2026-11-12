@@ -540,7 +540,6 @@ function StageCard({
   editing,
   open,
   subFormOpen,
-  showFinish,
   onToggle,
   onAddSub,
   onCancelSub,
@@ -548,8 +547,6 @@ function StageCard({
   onDeleteSub,
   onDeleteStage,
   onRenameStage,
-  onFinish,
-  onLater,
 }: {
   /** null = 不分阶段 */
   stage: StageRecord | null
@@ -558,7 +555,6 @@ function StageCard({
   editing: boolean
   open: boolean
   subFormOpen: boolean
-  showFinish: boolean
   onToggle: () => void
   onAddSub: () => void
   onCancelSub: () => void
@@ -566,8 +562,6 @@ function StageCard({
   onDeleteSub: (st: SubtaskRecord) => void
   onDeleteStage: (stage: StageRecord, index: number) => void
   onRenameStage: (stage: StageRecord, index: number, fullTitle: string) => void
-  onFinish: (stage: StageRecord) => void
-  onLater: (stage: StageRecord) => void
 }): JSX.Element {
   const [subName, setSubName] = useState('')
   const [renaming, setRenaming] = useState(false)
@@ -724,15 +718,6 @@ function StageCard({
               <button type="button" className={styles.subCancel} onClick={onCancelSub}>取消</button>
             </div>
           )}
-          {showFinish && stage && (
-            <div className={styles.finishBox}>
-              <p>这一段的事都做完了，要标完成并进入下一段吗？</p>
-              <div className={styles.finishRow}>
-                <button type="button" className={styles.finishBtn} onClick={() => onFinish(stage)}>标完成，进入下一段</button>
-                <button type="button" className={styles.finishLater} onClick={() => onLater(stage)}>先留着</button>
-              </div>
-            </div>
-          )}
         </>
       )}
     </div>
@@ -873,7 +858,6 @@ function GoalDetail({
   const clearGoalRange = useApp((s) => s.clearGoalRange)
   const createStage = useApp((s) => s.createStage)
   const renameStage = useApp((s) => s.renameStage)
-  const setStageDone = useApp((s) => s.setStageDone)
   const createSubtask = useApp((s) => s.createSubtask)
   const deleteSubtaskCascade = useApp((s) => s.deleteSubtaskCascade)
   const restoreSubtaskCascade = useApp((s) => s.restoreSubtaskCascade)
@@ -892,7 +876,6 @@ function GoalDetail({
   const [endDraft, setEndDraft] = useState(goal.endOn ?? '')
 
   const [openMap, setOpenMap] = useState<Record<string, boolean>>({})
-  const [laterStages, setLaterStages] = useState<string[]>([])
   const [subFormFor, setSubFormFor] = useState<string | null>(null)
 
   const [newStageOpen, setNewStageOpen] = useState(false)
@@ -987,10 +970,6 @@ function GoalDetail({
         },
       })
     })
-  }
-
-  const finishStage = (stage: StageRecord): void => {
-    void setStageDone(stage.id, true)
   }
 
   const titleDone = goal.done ? <span className={styles.goalDonePill}>已完成</span> : null
@@ -1090,7 +1069,6 @@ function GoalDetail({
         editing={editMode}
         open={openMap.loose ?? true}
         subFormOpen={subFormFor === 'loose'}
-        showFinish={false}
         onToggle={() => setOpenMap((m) => ({ ...m, loose: !(m.loose ?? true) }))}
         onAddSub={() => setSubFormFor('loose')}
         onCancelSub={() => setSubFormFor(null)}
@@ -1098,13 +1076,10 @@ function GoalDetail({
         onDeleteSub={removeSubtask}
         onDeleteStage={() => undefined}
         onRenameStage={() => undefined}
-        onFinish={() => undefined}
-        onLater={() => undefined}
       />
 
       {stages.map((stage, index) => {
         const items = itemsOfStage(stage.id)
-        const allDone = items.length > 0 && items.every((x) => x.done)
         return (
           <StageCard
             key={stage.id}
@@ -1114,7 +1089,6 @@ function GoalDetail({
             editing={editMode}
             open={editMode ? true : (openMap[stage.id] ?? !stage.done)}
             subFormOpen={subFormFor === stage.id}
-            showFinish={stage.isCurrent && !stage.done && allDone && !laterStages.includes(stage.id)}
             onToggle={() => setOpenMap((m) => ({ ...m, [stage.id]: !(m[stage.id] ?? !stage.done) }))}
             onAddSub={() => setSubFormFor(stage.id)}
             onCancelSub={() => setSubFormFor(null)}
@@ -1125,8 +1099,6 @@ function GoalDetail({
               const body = stageTitleFromInput(fullTitle, i)
               if (body && body !== cleanStageTitle(s.title)) void renameStage(s.id, body)
             }}
-            onFinish={finishStage}
-            onLater={(s) => setLaterStages((list) => [...list, s.id])}
           />
         )
       })}

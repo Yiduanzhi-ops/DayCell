@@ -250,7 +250,7 @@ describe('目标详情（v9.46 原型口径）', () => {
     )
   })
 
-  it('当前阶段全部子任务完成 → 收尾提示 → 标完成并进入下一段；已完成卡显示 N/N 且无新增入口', async () => {
+  it('当前阶段最后一条子任务完成 → 自动标完成并进入下一段，不再弹收尾提示', async () => {
     const { store } = await renderApp()
     await seedGoal(store)
     await openGoalUI()
@@ -261,13 +261,17 @@ describe('目标详情（v9.46 原型口径）', () => {
     await waitFor(() => screen.getByText('任务 A'))
 
     fireEvent.click(screen.getByRole('checkbox', { name: '标记完成：任务 A' }))
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: '取消完成：任务 A' })).toBeInTheDocument())
     fireEvent.click(screen.getByRole('checkbox', { name: '标记完成：任务 B' }))
-    await waitFor(() => screen.getByText('这一段的事都做完了，要标完成并进入下一段吗？'))
-    fireEvent.click(screen.getByRole('button', { name: '标完成，进入下一段' }))
+
+    // 不再出现确认句与两个按钮
+    expect(screen.queryByText('这一段的事都做完了，要标完成并进入下一段吗？')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '标完成，进入下一段' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '先留着' })).not.toBeInTheDocument()
 
     await waitFor(() => expect(screen.getByText(/完成于/)).toBeInTheDocument())
     expect(screen.getByText('2/2')).toBeInTheDocument()
-    // 下一位接任当前
+    // 自动交接下一位当前
     await waitFor(() => expect(screen.getByText('进行中')).toBeInTheDocument())
     expect(screen.getByText('已进入下一段')).toBeInTheDocument()
     // 已完成阶段不再有 ＋子任务

@@ -1639,6 +1639,14 @@ export function createAppStore(
         }
         // done 归一化（旧记录/旧备份无此字段）
         set({ goalDetail: { goal: { ...goal, done: goal.done ?? false }, stages, subtasks } })
+        // v9.47 兼容历史数据：打开详情时，当前阶段若已全部完成但没标完成，补一次自动收尾
+        if (!(goal.done ?? false)) {
+          const current = stages.find((x) => x.isCurrent && !x.done)
+          const items = current ? subtasks.filter((x) => x.stageId === current.id) : []
+          if (current && items.length > 0 && items.every((x) => x.done)) {
+            await get().setStageDone(current.id, true)
+          }
+        }
       } catch (e) {
         get().showToast(errMsg(e))
       }
@@ -2025,6 +2033,16 @@ export function createAppStore(
             ? { goalDetail: { ...s.goalDetail, subtasks: s.goalDetail.subtasks.map((x) => (x.id === id ? next : x)) } }
             : s,
         )
+        // v9.47 当前阶段最后一条子任务勾完即自动收尾：标完成、写完成日、交接下一段
+        if (done && subtask.stageId) {
+          const stage = d.stages.find((x) => x.id === subtask.stageId)
+          const group = d.subtasks
+            .map((x) => (x.id === id ? next : x))
+            .filter((x) => x.stageId === stage?.id)
+          if (stage?.isCurrent && !stage.done && group.length > 0 && group.every((x) => x.done)) {
+            await get().setStageDone(stage.id, true)
+          }
+        }
         await get().refreshGoals()
         await get().refresh()
         return true
