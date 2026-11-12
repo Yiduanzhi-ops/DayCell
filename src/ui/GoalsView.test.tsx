@@ -1,16 +1,16 @@
 /**
- * v7.9 目标模块 UI 冒烟测试（守"用户验收过的原型交互能跑"）：
- *  1. 底部 tab 第 4 个「目标」→ 空状态 + 新建入口
- *  2. 新建目标 → 列表卡片出现（标题 + 「当前」徽标随阶段）
- *  3. 打开详情 → 顶部主展示目标阐述，下方默认子任务列表（v8.7），可切「阶段」
- *  4. 添加第一个阶段 → 自动「当前」；第二个阶段「未开始」
- *  5. 点行展开 → 设为当前：原当前自动取消（互斥）
- *  6. 删除目标 → 连带阶段消失，回列表
+ * v9.46 目标详情页 UI 测试（严格对齐《阶段与待办联动原型》）：
+ *  - 详情页只保留标题 / 时间范围 / 不分阶段 / 阶段卡；阐述与进度下线
+ *  - 目标级三操作收进「…」：完成、移动文件夹、删除
+ *  - 标题改名只在编辑态；阶段/子任务改名、删除也在编辑态
+ *  - 勾选子任务 = 完成 + 今天打卡；＋/－每日待办
+ *  - 当前阶段全部子任务完成 → 收尾提示 → 进入下一段
+ *  - 删除子任务/阶段可 5 秒撤销
  */
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from 'vitest'
 import '@testing-library/jest-dom/vitest'
-import { render, screen, fireEvent, waitFor, cleanup, act, within } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react'
 import { createMemoryStore, type DateKey } from '@core'
 import { initCore } from '@/app/bootstrap'
 import { createAppStore } from '@/app/store'
@@ -20,800 +20,379 @@ afterEach(cleanup)
 
 const TODAY = '2026-09-29' as DateKey
 
-async function renderApp() {
+type Bundle = Awaited<ReturnType<typeof initCore>>
+
+async function renderApp(): Promise<{ store: ReturnType<typeof createAppStore>; bundle: Bundle }> {
   localStorage.clear()
   const bundle = await initCore({ store: createMemoryStore(), skipLunar: true })
   const store = createAppStore(bundle, { today: TODAY, isNarrow: () => false })
   await store.getState().init()
   render(<App store={store} />)
-  return store
+  return { store, bundle }
 }
 
-describe('目标模块（v7.9）', () => {
-  it('底部 tab 第 4 个「目标」：空状态 + 新建入口', async () => {
-    await renderApp()
-    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
-    await waitFor(() => expect(screen.getByText(/进行中的目标/)).toBeInTheDocument())
-    expect(screen.getByText(/还没有目标/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '新建目标' })).toBeInTheDocument()
+/** 建一个目标并返回 id（不打开详情） */
+async function seedGoal(store: ReturnType<typeof createAppStore>, title = '复习考公'): Promise<string> {
+  await store.getState().createGoal(title, '')
+  const id = store.getState().goalList[0]?.goal.id
+  if (!id) throw new Error('目标创建失败')
+  return id
+}
+
+/** 进入目标 tab 并打开指定目标详情 */
+async function openGoalUI(title = '复习考公'): Promise<void> {
+  fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+  await waitFor(() => screen.getByText(title))
+  fireEvent.click(screen.getByText(title))
+  await waitFor(() => screen.getByRole('button', { name: '返回目标列表' }))
+}
+
+/** 在已打开详情的 store 中建阶段，返回阶段 id */
+async function addStage(store: ReturnType<typeof createAppStore>, title: string): Promise<string> {
+  await store.getState().createStage({ goalId: store.getState().goalDetail!.goal.id, title })
+  const stage = store.getState().goalDetail!.stages.find((x) => x.title === title)
+  if (!stage) throw new Error('阶段创建失败')
+  return stage.id
+}
+
+async function addSub(store: ReturnType<typeof createAppStore>, title: string, stageId: string | null = null): Promise<string> {
+  await store.getState().createSubtask({ goalId: store.getState().goalDetail!.goal.id, title, stageId })
+  const sub = store.getState().goalDetail!.subtasks.find((x) => x.title === title)
+  if (!sub) throw new Error('子任务创建失败')
+  return sub.id
+}
+
+describe('目标详情（v9.46 原型口径）', () => {
+  it('详情页结构：顶栏「‹ 目标」+「…／编辑」、时间范围、不分阶段卡；阐述/进度/旧 tab 下线', async () => {
+    const { store } = await renderApp()
+    await seedGoal(store)
+    await openGoalUI()
+
+    expect(screen.getByText('复习考公')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '目标操作' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '编辑' })).toBeInTheDocument()
+    expect(screen.getByText('时间范围未设')).toBeInTheDocument()
+    expect(screen.getByText('不分阶段')).toBeInTheDocument()
+    expect(screen.queryByText('目标阐述')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前进度')).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: '阶段' })).not.toBeInTheDocument()
+    expect(screen.queryByText('＋ 添加阶段')).not.toBeInTheDocument()
   })
 
-  it('新建目标 → 列表卡片出现', async () => {
-    await renderApp()
-    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
-    await waitFor(() => screen.getByText(/进行中的目标/))
+  it('阶段与子任务：第N阶段前缀、当前徽标、排序不加「第X阶段」重复前缀', async () => {
+    const { store } = await renderApp()
+    await seedGoal(store)
+    await openGoalUI()
+    await addStage(store, '基础学习')
+    await waitFor(() => screen.getByText('第一阶段 · 基础学习'))
 
-    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
-    const nameInput = screen.getByPlaceholderText('如：复习考公')
-    fireEvent.change(nameInput, { target: { value: '复习考公' } })
-    const note = screen.getByPlaceholderText('这个阶段想做什么、为什么做、怎么衡量')
-    fireEvent.change(note, { target: { value: '2026 下半年主线' } })
-    fireEvent.click(screen.getByRole('button', { name: '创建' }))
-
-    expect(await screen.findByText('复习考公')).toBeInTheDocument()
-    expect(screen.getByText('2026 下半年主线')).toBeInTheDocument()
-    expect(screen.getByText(/0 个子任务 · 0 个阶段/)).toBeInTheDocument()
+    await addStage(store, '刷题阶段')
+    await waitFor(() => screen.getByText('第二阶段 · 刷题阶段'))
+    // 第一个阶段是当前，第二个未开始
+    expect(screen.getByText('进行中')).toBeInTheDocument()
+    expect(screen.getByText('未开始')).toBeInTheDocument()
   })
 
-  it('详情页：阐述在顶部主展示，阶段列表在下方；首个阶段自动「当前」', async () => {
-    await renderApp()
-    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
-    await waitFor(() => screen.getByText(/进行中的目标/))
+  it('编辑态：目标标题改名；常态标题不可点；空格/原值不提交', async () => {
+    const { store } = await renderApp()
+    await seedGoal(store)
+    await openGoalUI()
 
-    // 建目标 + 阐述
-    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
-    fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
-    fireEvent.change(screen.getByPlaceholderText('这个阶段想做什么、为什么做、怎么衡量'), {
-      target: { value: '每天 2 小时行测，重点数量关系' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: '创建' }))
-    await screen.findByText('复习考公')
+    expect(screen.queryByRole('button', { name: /重命名目标/ })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '编辑' }))
+    fireEvent.click(screen.getByRole('button', { name: '重命名目标：复习考公' }))
+    const input = screen.getByDisplayValue('复习考公')
+    fireEvent.change(input, { target: { value: '   ' } })
+    fireEvent.blur(input)
+    await waitFor(() => expect(screen.getByText('复习考公')).toBeInTheDocument())
 
-    // 进详情
-    fireEvent.click(screen.getByText('复习考公'))
-    await waitFor(() => expect(screen.getByText('目标阐述')).toBeInTheDocument())
-    // 阐述在主展示区
-    expect(screen.getByText('每天 2 小时行测，重点数量关系')).toBeInTheDocument()
-    // v8.7 默认子任务视图 → 切到阶段再断言阶段列表
-    fireEvent.click(screen.getByRole('tab', { name: '阶段' }))
-    expect(screen.getByText('阶段列表')).toBeInTheDocument()
-
-    // 添加第一个阶段 → 自动「当前」
-    fireEvent.click(screen.getByRole('button', { name: '＋ 添加阶段' }))
-    fireEvent.change(screen.getByPlaceholderText('如：刷题阶段'), { target: { value: '基础学习' } })
-    fireEvent.click(screen.getByRole('button', { name: '添加' }))
-    await waitFor(() => expect(screen.getAllByText('基础学习').length).toBeGreaterThan(0))
-    expect(screen.getByText('当前')).toBeInTheDocument()
-
-    // 第二个阶段 → 未开始
-    fireEvent.click(screen.getByRole('button', { name: '＋ 添加阶段' }))
-    fireEvent.change(screen.getByPlaceholderText('如：刷题阶段'), { target: { value: '刷题阶段' } })
-    fireEvent.click(screen.getByRole('button', { name: '添加' }))
-    await waitFor(() => expect(screen.getAllByText('刷题阶段').length).toBeGreaterThan(0))
-    expect(screen.getAllByText('未开始').length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByRole('button', { name: '重命名目标：复习考公' }))
+    const input2 = screen.getByDisplayValue('复习考公')
+    fireEvent.change(input2, { target: { value: '考公上岸' } })
+    fireEvent.keyDown(input2, { key: 'Enter' })
+    await waitFor(() => expect(screen.getByText('考公上岸')).toBeInTheDocument())
+    expect(store.getState().goalDetail?.goal.title).toBe('考公上岸')
   })
 
-  it('设为当前：同目标互斥（原「当前」自动取消）', async () => {
-    await renderApp()
-    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
-    await waitFor(() => screen.getByText(/进行中的目标/))
+  it('编辑态：阶段改名 / 子任务改名 / 删除子任务可撤销', async () => {
+    const { store } = await renderApp()
+    await seedGoal(store)
+    await openGoalUI()
+    await addStage(store, '基础学习')
+    await addSub(store, '做完教案')
+    await waitFor(() => screen.getByText('第一阶段 · 基础学习'))
 
-    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
-    fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
-    fireEvent.click(screen.getByRole('button', { name: '创建' }))
-    await screen.findByText('复习考公')
+    fireEvent.click(screen.getByRole('button', { name: '编辑' }))
+    // Esc 取消：输入不改库、退出后仍是原名
+    fireEvent.click(screen.getByRole('button', { name: '第一阶段 · 基础学习' }))
+    const escInput = screen.getByDisplayValue('第一阶段 · 基础学习')
+    fireEvent.change(escInput, { target: { value: '不该保存的名字' } })
+    fireEvent.keyDown(escInput, { key: 'Escape' })
+    await waitFor(() => expect(screen.getByText('第一阶段 · 基础学习')).toBeInTheDocument())
+    expect(screen.queryByText('第一阶段 · 不该保存的名字')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByText('复习考公'))
-    // v8.7 默认子任务视图 → 切到阶段
-    await waitFor(() => screen.getByRole('tab', { name: '阶段' }))
-    fireEvent.click(screen.getByRole('tab', { name: '阶段' }))
-    await waitFor(() => screen.getByText('阶段列表'))
-    // 两个阶段
-    for (const name of ['基础学习', '刷题阶段']) {
-      fireEvent.click(screen.getByRole('button', { name: '＋ 添加阶段' }))
-      fireEvent.change(screen.getByPlaceholderText('如：刷题阶段'), { target: { value: name } })
-      fireEvent.click(screen.getByRole('button', { name: '添加' }))
-      await waitFor(() => expect(screen.getAllByText(name).length).toBeGreaterThan(0))
-    }
-    // 当前是第一个
-    expect(screen.getByText('当前')).toBeInTheDocument()
+    fireEvent.click(within(screen.getByText('第一阶段 · 基础学习').closest('div')!).getByRole('button', { name: '改名' }))
+    const stageInput = screen.getByDisplayValue('第一阶段 · 基础学习')
+    fireEvent.change(stageInput, { target: { value: '打基础' } })
+    fireEvent.keyDown(stageInput, { key: 'Enter' })
+    await waitFor(() => expect(screen.getByText('第一阶段 · 打基础')).toBeInTheDocument())
 
-    // 展开第二个阶段行 → 设为当前
-    fireEvent.click(screen.getAllByRole('button', { name: /刷题阶段/ })[0])
-    fireEvent.click(screen.getByRole('button', { name: '设为当前' }))
-    await waitFor(() => {
-      // 互斥后仍然只有一个「当前」徽标
-      expect(screen.getAllByText('当前')).toHaveLength(1)
-    })
+    fireEvent.click(screen.getByText('做完教案'))
+    const subInput = screen.getByDisplayValue('做完教案')
+    fireEvent.change(subInput, { target: { value: '做完教案 v2' } })
+    fireEvent.keyDown(subInput, { key: 'Enter' })
+    await waitFor(() => expect(screen.getByText('做完教案 v2')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: '删除子任务：做完教案 v2' }))
+    await waitFor(() => expect(screen.queryByText('做完教案 v2')).not.toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: '撤销' }))
+    await waitFor(() => expect(screen.getByText('做完教案 v2')).toBeInTheDocument())
   })
 
-  it('标记完成 → 目标沉底到「已完成的目标」组，可恢复进行中（v7.9 补）', async () => {
-    await renderApp()
-    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
-    await waitFor(() => screen.getByText(/进行中的目标/))
+  it('删除当前阶段：子任务移入不分阶段、下一段接任并重排序号；撤销完整恢复', async () => {
+    const { store } = await renderApp()
+    await seedGoal(store)
+    await openGoalUI()
+    await addStage(store, '基础学习')
+    const aId = store.getState().goalDetail!.stages[0].id
+    await addSub(store, '做完教案', aId)
+    await addStage(store, '打通回写')
+    const bId = store.getState().goalDetail!.stages[1].id
+    await waitFor(() => screen.getByText('第二阶段 · 打通回写'))
 
-    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
-    fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
-    fireEvent.click(screen.getByRole('button', { name: '创建' }))
-    await screen.findByText('复习考公')
+    fireEvent.click(screen.getByRole('button', { name: '编辑' }))
+    // 编辑态不出现任何「＋子任务」新增入口（含不分阶段卡）
+    expect(screen.queryAllByRole('button', { name: /＋子任务/ })).toHaveLength(0)
+    const headA = screen.getByText('第一阶段 · 基础学习').closest('div')!
+    fireEvent.click(within(headA).getByRole('button', { name: '删除' }))
 
-    // 卡片上的「标记完成」→ 沉底
-    fireEvent.click(screen.getByRole('button', { name: '标记完成：复习考公' }))
-    await waitFor(() => expect(screen.getByText('已完成的目标（1）')).toBeInTheDocument())
-    expect(screen.getByText('已完成')).toBeInTheDocument()
-    expect(screen.getByText('进行中的目标（0）')).toBeInTheDocument()
+    await waitFor(() =>
+      expect(
+        screen.getByText('已删除「第一阶段 · 基础学习」，1 个子任务移入不分阶段'),
+      ).toBeInTheDocument(),
+    )
+    expect(screen.queryByText('第一阶段 · 基础学习')).not.toBeInTheDocument()
+    // 剩余阶段重排为「第一阶段」
+    expect(screen.getByText('第一阶段 · 打通回写')).toBeInTheDocument()
+    expect(screen.queryByText('第二阶段 · 打通回写')).not.toBeInTheDocument()
+    expect(screen.getByText('进行中')).toBeInTheDocument()
+    expect(screen.getByText('做完教案')).toBeInTheDocument()
+    expect(store.getState().goalDetail!.stages[0].isCurrent).toBe(true)
+    expect(store.getState().goalDetail!.subtasks.find((x) => x.title === '做完教案')?.stageId ?? null).toBeNull()
 
-    // 恢复进行中
-    fireEvent.click(screen.getByRole('button', { name: '恢复进行中：复习考公' }))
-    await waitFor(() => expect(screen.getByText('进行中的目标（1）')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: '撤销' }))
+    await waitFor(() => expect(screen.getByText('第二阶段 · 打通回写')).toBeInTheDocument())
+    expect(screen.getByText('第一阶段 · 基础学习')).toBeInTheDocument()
+    expect(store.getState().goalDetail!.stages.find((x) => x.id === aId)?.isCurrent).toBe(true)
+    expect(store.getState().goalDetail!.stages.find((x) => x.id === bId)?.isCurrent).toBe(false)
   })
 
-  it('删除目标：连带阶段消失并回列表', async () => {
-    await renderApp()
-    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
-    await waitFor(() => screen.getByText(/进行中的目标/))
+  it('勾选子任务 = 完成 + 当天打卡；副行显示打卡天数与完成日；再取消撤当天打卡', async () => {
+    const { store, bundle } = await renderApp()
+    await seedGoal(store)
+    await openGoalUI()
+    await addStage(store, '基础学习')
+    const sid = await addSub(store, '做完教案')
+    await waitFor(() => screen.getByText('做完教案'))
 
-    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
-    fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
-    fireEvent.click(screen.getByRole('button', { name: '创建' }))
-    await screen.findByText('复习考公')
+    fireEvent.click(screen.getByRole('checkbox', { name: '标记完成：做完教案' }))
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: '取消完成：做完教案' })).toBeInTheDocument())
+    const sub = (await bundle.repos.subtasks.byGoal(store.getState().goalDetail!.goal.id)).find((x) => x.id === sid)!
+    expect(sub.done).toBe(true)
+    expect(sub.workDates).toContain(TODAY)
+    expect(screen.getByText(/打卡 1 天 · .*完成/)).toBeInTheDocument()
+    expect(screen.getByText('已做')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByText('复习考公'))
-    // v8.7 默认子任务视图 → 切到阶段
-    await waitFor(() => screen.getByRole('tab', { name: '阶段' }))
-    fireEvent.click(screen.getByRole('tab', { name: '阶段' }))
-    await waitFor(() => screen.getByText('阶段列表'))
-    fireEvent.click(screen.getByRole('button', { name: '＋ 添加阶段' }))
-    fireEvent.change(screen.getByPlaceholderText('如：刷题阶段'), { target: { value: '基础学习' } })
-    fireEvent.click(screen.getByRole('button', { name: '添加' }))
-    await waitFor(() => expect(screen.getAllByText('基础学习').length).toBeGreaterThan(0))
-
-    fireEvent.click(screen.getByRole('button', { name: '删除目标' }))
-    // v9.14.3 删除目标二次确认：确认后 = 级联事务 + 列表刷新，异步链较长
-    const delDialog = await screen.findByRole('dialog', { name: '删除目标' })
-    fireEvent.click(within(delDialog).getByRole('button', { name: '删除目标' }))
-    await waitFor(() => expect(screen.getByText(/还没有目标/)).toBeInTheDocument(), { timeout: 5000 })
+    fireEvent.click(screen.getByRole('checkbox', { name: '取消完成：做完教案' }))
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: '标记完成：做完教案' })).toBeInTheDocument())
+    const after = (await bundle.repos.subtasks.byGoal(store.getState().goalDetail!.goal.id)).find((x) => x.id === sid)!
+    expect(after.done).toBe(false)
+    expect(after.workDates ?? []).not.toContain(TODAY)
   })
 
-  // ---- v8.5 子任务双视图 ----
+  it('＋每日待办 / －每日待办：加入后出现在今日待办，移除会撤销当天打卡', async () => {
+    const { store, bundle } = await renderApp()
+    await seedGoal(store)
+    await openGoalUI()
+    await addStage(store, '基础学习')
+    const sid = await addSub(store, '做完教案')
+    await waitFor(() => screen.getByText('做完教案'))
 
-  it('双视图：默认「子任务」（v8.7），切到「阶段」显示阶段列表', async () => {
-    await renderApp()
-    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
-    await waitFor(() => screen.getByText(/进行中的目标/))
+    fireEvent.click(screen.getByRole('button', { name: '＋每日待办' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: '- 每日待办' })).toBeInTheDocument())
+    expect(store.getState().subtaskTodayIds).toContain(sid)
 
-    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
-    fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
-    fireEvent.click(screen.getByRole('button', { name: '创建' }))
-    await screen.findByText('复习考公')
-
-    fireEvent.click(screen.getByText('复习考公'))
-    // 默认子任务视图
-    await waitFor(() => screen.getByText(/还没有子任务/))
-    expect(screen.getByRole('button', { name: '＋ 添加子任务' })).toBeInTheDocument()
-
-    // 切到阶段视图
-    fireEvent.click(screen.getByRole('tab', { name: '阶段' }))
-    await waitFor(() => screen.getByText('阶段列表'))
+    // 模拟今天已完成打卡，再从目标详情移除
+    await store.getState().toggleSubtaskWork(sid)
+    fireEvent.click(screen.getByRole('button', { name: '- 每日待办' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: '＋每日待办' })).toBeInTheDocument())
+    expect(store.getState().subtaskTodayIds).not.toContain(sid)
+    const sub = (await bundle.repos.subtasks.byGoal(store.getState().goalDetail!.goal.id)).find((x) => x.id === sid)!
+    expect(sub.workDates ?? []).not.toContain(TODAY)
   })
 
-  it('子任务：添加 → 勾选沉底 → 点文字就地编辑 → 删除', async () => {
-    await renderApp()
-    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
-    await waitFor(() => screen.getByText(/进行中的目标/))
+  it('编辑态强制展开已完成阶段；退出后恢复默认收起', async () => {
+    const { store } = await renderApp()
+    await seedGoal(store)
+    await openGoalUI()
+    await addStage(store, '基础学习')
+    const sid = store.getState().goalDetail!.stages[0].id
+    await addSub(store, '子任务一', sid)
+    await store.getState().setStageDone(sid, true)
+    await waitFor(() => expect(screen.getByText(/完成于/)).toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: '标记完成：子任务一' })).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
-    fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
-    fireEvent.click(screen.getByRole('button', { name: '创建' }))
-    await screen.findByText('复习考公')
-
-    fireEvent.click(screen.getByText('复习考公'))
-    // v8.7 默认子任务视图
-    await waitFor(() => screen.getByText(/还没有子任务/))
-
-    // 添加两条
-    fireEvent.click(screen.getByRole('button', { name: '＋ 添加子任务' }))
-    fireEvent.change(screen.getByPlaceholderText('如：做完教案第 3 章'), { target: { value: '做完教案' } })
-    fireEvent.click(screen.getByRole('button', { name: '添加' }))
-    await waitFor(() => expect(screen.getAllByText('做完教案').length).toBeGreaterThan(0))
-
-    fireEvent.click(screen.getByRole('button', { name: '＋ 添加子任务' }))
-    fireEvent.change(screen.getByPlaceholderText('如：做完教案第 3 章'), { target: { value: '刷一套题' } })
-    fireEvent.click(screen.getByRole('button', { name: '添加' }))
-    await waitFor(() => expect(screen.getAllByText('刷一套题').length).toBeGreaterThan(0))
-
-    // 进度文案出现
-    expect(screen.getByText('已完成 0/2')).toBeInTheDocument()
-
-    // 勾选「刷一套题」→ 沉底（「做完教案」在前）
-    fireEvent.click(screen.getByRole('checkbox', { name: '标记完成：刷一套题' }))
-    await waitFor(() => expect(screen.getByText('已完成 1/2')).toBeInTheDocument())
-    const rows = screen.getAllByRole('checkbox')
-    expect(rows[0]).toHaveAttribute('aria-label', '标记完成：做完教案')
-    expect(rows[1]).toHaveAttribute('aria-label', '取消完成：刷一套题')
-
-    // 点文字就地编辑（列表行内的标题文本，图表区同名不参与）
-    fireEvent.click(screen.getAllByText('做完教案')[0])
-    const input = screen.getByDisplayValue('做完教案')
-    fireEvent.change(input, { target: { value: '做完教案 v2' } })
-    fireEvent.keyDown(input, { key: 'Enter' })
-    await waitFor(() => screen.getByText('做完教案 v2'))
-
-    // 删除
-    fireEvent.click(screen.getByRole('button', { name: '删除子任务：刷一套题' }))
-    await waitFor(() => expect(screen.queryByText('刷一套题')).not.toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: '编辑' }))
+    expect(screen.getByRole('button', { name: '子任务一' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '完成' }))
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: '子任务一' })).not.toBeInTheDocument(),
+    )
   })
 
-  it('v8.60 子任务沉底：已完成排到未完成之后，已完成之间保持原完成顺序', async () => {
-    await renderApp()
-    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
-    await waitFor(() => screen.getByText(/进行中的目标/))
+  it('当前阶段全部子任务完成 → 收尾提示 → 标完成并进入下一段；已完成卡显示 N/N 且无新增入口', async () => {
+    const { store } = await renderApp()
+    await seedGoal(store)
+    await openGoalUI()
+    const s1 = await addStage(store, '基础学习')
+    await addStage(store, '刷题阶段')
+    await addSub(store, '任务 A', s1)
+    await addSub(store, '任务 B', s1)
+    await waitFor(() => screen.getByText('任务 A'))
 
-    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
-    fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
-    fireEvent.click(screen.getByRole('button', { name: '创建' }))
-    await screen.findByText('复习考公')
+    fireEvent.click(screen.getByRole('checkbox', { name: '标记完成：任务 A' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: '标记完成：任务 B' }))
+    await waitFor(() => screen.getByText('这一段的事都做完了，要标完成并进入下一段吗？'))
+    fireEvent.click(screen.getByRole('button', { name: '标完成，进入下一段' }))
 
-    fireEvent.click(screen.getByText('复习考公'))
-    await waitFor(() => screen.getByText(/还没有子任务/))
-
-    const add = async (t: string): Promise<void> => {
-      fireEvent.click(screen.getByRole('button', { name: '＋ 添加子任务' }))
-      fireEvent.change(screen.getByPlaceholderText('如：做完教案第 3 章'), { target: { value: t } })
-      fireEvent.click(screen.getByRole('button', { name: '添加' }))
-      await waitFor(() => expect(screen.getAllByText(t).length).toBeGreaterThan(0))
-    }
-    await add('任务甲')
-    await add('任务乙')
-    await add('任务丙')
-
-    // 完成第一条「任务甲」→ 沉底：未完成在前 [任务乙,任务丙]，已完成沉底 [任务甲]
-    fireEvent.click(screen.getByRole('checkbox', { name: '标记完成：任务甲' }))
-    await waitFor(() => {
-      const rows = screen.getAllByRole('checkbox')
-      expect(rows[0]).toHaveAttribute('aria-label', '标记完成：任务乙')
-      expect(rows[1]).toHaveAttribute('aria-label', '标记完成：任务丙')
-      expect(rows[2]).toHaveAttribute('aria-label', '取消完成：任务甲')
-    })
-
-    // 再完成「任务丙」→ 已完成组保持完成先后（甲先于丙）：[任务乙, 任务甲, 任务丙]
-    fireEvent.click(screen.getByRole('checkbox', { name: '标记完成：任务丙' }))
-    await waitFor(() => {
-      const rows = screen.getAllByRole('checkbox')
-      expect(rows[0]).toHaveAttribute('aria-label', '标记完成：任务乙')
-      expect(rows[1]).toHaveAttribute('aria-label', '取消完成：任务甲')
-      expect(rows[2]).toHaveAttribute('aria-label', '取消完成：任务丙')
-    })
+    await waitFor(() => expect(screen.getByText(/完成于/)).toBeInTheDocument())
+    expect(screen.getByText('2/2')).toBeInTheDocument()
+    // 下一位接任当前
+    await waitFor(() => expect(screen.getByText('进行中')).toBeInTheDocument())
+    expect(screen.getByText('已进入下一段')).toBeInTheDocument()
+    // 已完成阶段不再有 ＋子任务
+    const doneCard = screen.getByText('第一阶段 · 基础学习').closest('div')!
+    expect(within(doneCard).queryByText('＋子任务')).not.toBeInTheDocument()
   })
 
-  it('v8.32 完成情况：横向进度条下沉到每个子任务/阶段行内（进度描述上方，空条常显）', async () => {
-    await renderApp()
-    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
-    await waitFor(() => screen.getByText(/进行中的目标/))
+  it('删除阶段：子任务移入不分阶段；撤销后阶段与归属恢复', async () => {
+    const { store } = await renderApp()
+    await seedGoal(store)
+    await openGoalUI()
+    const s1 = await addStage(store, '基础学习')
+    await addSub(store, '做完教案', s1)
+    await waitFor(() => screen.getByText('做完教案'))
 
-    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
-    fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
-    fireEvent.click(screen.getByRole('button', { name: '创建' }))
-    await screen.findByText('复习考公')
+    fireEvent.click(screen.getByRole('button', { name: '编辑' }))
+    const card = screen.getByText('第一阶段 · 基础学习').closest('div')!
+    fireEvent.click(within(card).getByRole('button', { name: '删除' }))
+    await waitFor(() => expect(screen.queryByText('第一阶段 · 基础学习')).not.toBeInTheDocument())
+    expect(screen.getByText('已删除「第一阶段 · 基础学习」，1 个子任务移入不分阶段')).toBeInTheDocument()
+    // 子任务仍在，挂在不分阶段
+    expect(screen.getByText('做完教案')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByText('复习考公'))
-    await waitFor(() => screen.getByText(/还没有子任务/))
-
-    // 两条子任务（无进度）→ 行内进度条各显 0% 空条（位于「＋ 添加进度」上方）
-    for (const t of ['做完教案', '刷一套题']) {
-      fireEvent.click(screen.getByRole('button', { name: '＋ 添加子任务' }))
-      fireEvent.change(screen.getByPlaceholderText('如：做完教案第 3 章'), { target: { value: t } })
-      fireEvent.click(screen.getByRole('button', { name: '添加' }))
-      await waitFor(() => expect(screen.getAllByText(t).length).toBeGreaterThan(0))
-    }
-    expect(screen.getAllByText('0%')).toHaveLength(2)
-
-    // 勾选一条 → 该条按 done 口径记 100%
-    fireEvent.click(screen.getByRole('checkbox', { name: '标记完成：刷一套题' }))
-    await waitFor(() => expect(screen.getAllByText('100%').length).toBeGreaterThan(0))
-    expect(screen.getAllByText('0%')).toHaveLength(1)
-
-    // 阶段视图：无 pct 的阶段也显示空条（「进度 —」保留在行脚）
-    fireEvent.click(screen.getByRole('tab', { name: '阶段' }))
-    await waitFor(() => screen.getByText('阶段列表'))
-    fireEvent.click(screen.getByRole('button', { name: '＋ 添加阶段' }))
-    fireEvent.change(screen.getByPlaceholderText('如：刷题阶段'), { target: { value: '基础学习' } })
-    fireEvent.click(screen.getByRole('button', { name: '添加' }))
-    await waitFor(() => expect(screen.getAllByText('基础学习').length).toBeGreaterThan(0))
-    expect(screen.getByText(/^进度/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '撤销' }))
+    await waitFor(() => expect(screen.getByText('第一阶段 · 基础学习')).toBeInTheDocument())
+    const sub = store.getState().goalDetail!.subtasks.find((x) => x.title === '做完教案')!
+    expect(sub.stageId).toBe(s1)
   })
 
-  it('子任务描述 v8.9：无描述显占位 → 就地编辑 → 常驻显示在标题下方 → Escape 取消', async () => {
-    await renderApp()
-    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
-    await waitFor(() => screen.getByText(/进行中的目标/))
-
-    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
-    fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
-    fireEvent.click(screen.getByRole('button', { name: '创建' }))
-    await screen.findByText('复习考公')
-
-    fireEvent.click(screen.getByText('复习考公'))
-    await waitFor(() => screen.getByText(/还没有子任务/))
-    fireEvent.click(screen.getByRole('button', { name: '＋ 添加子任务' }))
-    fireEvent.change(screen.getByPlaceholderText('如：做完教案第 3 章'), { target: { value: '做题' } })
-    fireEvent.click(screen.getByRole('button', { name: '添加' }))
-    await waitFor(() => expect(screen.getAllByText('做题').length).toBeGreaterThan(0))
-
-    // 无描述 → 显示占位
-    expect(screen.getByText(/添加描述/)).toBeInTheDocument()
-
-    // 点占位 → textarea 就地编辑（多行）→ blur 保存 → 常驻显示在标题下方
-    fireEvent.click(screen.getByText('＋ 添加描述'))
-    const ta = screen.getByPlaceholderText('子任务描述')
-    fireEvent.change(ta, { target: { value: '每天 30 分钟\n先做 3 题' } })
-    fireEvent.blur(ta)
-    await waitFor(() => screen.getByText(/每天 30 分钟/))
-    expect(screen.getByText(/先做 3 题/)).toBeInTheDocument()
-    // 标题仍在
-    expect(screen.getAllByText('做题').length).toBeGreaterThan(0)
-
-    // 再点描述 → 改内容 → Escape 取消不保存
-    fireEvent.click(screen.getByText(/每天 30 分钟/))
-    const ta2 = screen.getByPlaceholderText('子任务描述')
-    fireEvent.change(ta2, { target: { value: '改掉的内容' } })
-    fireEvent.keyDown(ta2, { key: 'Escape' })
-    await waitFor(() => screen.getByText(/每天 30 分钟/))
-    expect(screen.queryByText('改掉的内容')).not.toBeInTheDocument()
-
-    // 描述清空 → 回到占位
-    fireEvent.click(screen.getByText(/每天 30 分钟/))
-    const ta3 = screen.getByPlaceholderText('子任务描述')
-    fireEvent.change(ta3, { target: { value: '' } })
-    await act(async () => {
-      fireEvent.blur(ta3)
-    })
-    await waitFor(() => screen.getByText(/添加描述/))
-  })
-
-  it('子任务当前进度 v8.10：无进度显占位 → 就地编辑（百分比+描述）→ 常驻显示在描述下方 → Escape 取消 → 清空回占位', async () => {
-    await renderApp()
-    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
-    await waitFor(() => screen.getByText(/进行中的目标/))
-
-    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
-    fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
-    fireEvent.click(screen.getByRole('button', { name: '创建' }))
-    await screen.findByText('复习考公')
-
-    fireEvent.click(screen.getByText('复习考公'))
-    await waitFor(() => screen.getByText(/还没有子任务/))
-    fireEvent.click(screen.getByRole('button', { name: '＋ 添加子任务' }))
-    fireEvent.change(screen.getByPlaceholderText('如：做完教案第 3 章'), { target: { value: '做题' } })
-    fireEvent.click(screen.getByRole('button', { name: '添加' }))
-    await waitFor(() => expect(screen.getAllByText('做题').length).toBeGreaterThan(0))
-
-    // 无进度 → 显示占位
-    expect(screen.getByText('＋ 添加进度')).toBeInTheDocument()
-
-    // 点占位 → 编辑态：pct 输入 + 描述 textarea → blur textarea 保存
-    fireEvent.click(screen.getByText('＋ 添加进度'))
-    const pct = screen.getByPlaceholderText('0-100')
-    const note = screen.getByPlaceholderText('进度描述')
-    fireEvent.change(pct, { target: { value: '40' } })
-    fireEvent.change(note, { target: { value: '做到一半' } })
-    await act(async () => {
-      fireEvent.blur(note)
-    })
-    await waitFor(() => expect(screen.getAllByText('40%').length).toBeGreaterThan(0))
-    expect(screen.getByText('做到一半')).toBeInTheDocument()
-    // 标题仍在
-    expect(screen.getAllByText('做题').length).toBeGreaterThan(0)
-
-    // 再点进度 → 改内容 → Escape 取消不保存
-    fireEvent.click(screen.getByText('做到一半'))
-    const pct2 = screen.getByPlaceholderText('0-100')
-    const note2 = screen.getByPlaceholderText('进度描述')
-    fireEvent.change(pct2, { target: { value: '90' } })
-    fireEvent.change(note2, { target: { value: '快完了' } })
-    fireEvent.keyDown(note2, { key: 'Escape' })
-    await waitFor(() => expect(screen.getAllByText('40%').length).toBeGreaterThan(0))
-    expect(screen.queryByText('快完了')).not.toBeInTheDocument()
-
-    // 清空 → 回到占位
-    fireEvent.click(screen.getByText('做到一半'))
-    const pct3 = screen.getByPlaceholderText('0-100')
-    const note3 = screen.getByPlaceholderText('进度描述')
-    fireEvent.change(pct3, { target: { value: '' } })
-    fireEvent.change(note3, { target: { value: '' } })
-    await act(async () => {
-      fireEvent.blur(note3)
-    })
-    await waitFor(() => screen.getByText('＋ 添加进度'))
-    expect(screen.queryByText('40%')).not.toBeInTheDocument()
-  })
-
-  it('子任务进度 v8.10.1 回归：填完百分比后点描述框不关闭编辑态，可继续输入文字', async () => {
-    await renderApp()
-    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
-    await waitFor(() => screen.getByText(/进行中的目标/))
-
-    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
-    fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
-    fireEvent.click(screen.getByRole('button', { name: '创建' }))
-    await screen.findByText('复习考公')
-
-    fireEvent.click(screen.getByText('复习考公'))
-    await waitFor(() => screen.getByText(/还没有子任务/))
-    fireEvent.click(screen.getByRole('button', { name: '＋ 添加子任务' }))
-    fireEvent.change(screen.getByPlaceholderText('如：做完教案第 3 章'), { target: { value: '做题' } })
-    fireEvent.click(screen.getByRole('button', { name: '添加' }))
-    await waitFor(() => expect(screen.getAllByText('做题').length).toBeGreaterThan(0))
-
-    // 进入编辑态，输入百分比
-    fireEvent.click(screen.getByText('＋ 添加进度'))
-    const pct = screen.getByPlaceholderText('0-100')
-    fireEvent.change(pct, { target: { value: '40' } })
-    // 焦点从百分比框移到描述框（relatedTarget 指向描述框）→ 编辑态必须保持
-    const note = screen.getByPlaceholderText('进度描述')
-    fireEvent.blur(pct, { relatedTarget: note })
-    expect(screen.getByPlaceholderText('进度描述')).toBeInTheDocument()
-    // 描述框仍可输入文字
-    fireEvent.change(note, { target: { value: '做到一半' } })
-    // 焦点离开编辑区 → 保存并退出编辑态
-    await act(async () => {
-      fireEvent.blur(note)
-    })
-    await waitFor(() => expect(screen.getAllByText('40%').length).toBeGreaterThan(0))
-    expect(screen.getByText('做到一半')).toBeInTheDocument()
-  })
-
-  it('目标当前进度 v8.10：详情页与阐述同级（阐述上、进度下）→ 编辑保存 → 只填百分比也可', async () => {
-    await renderApp()
-    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
-    await waitFor(() => screen.getByText(/进行中的目标/))
-
-    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
-    fireEvent.change(screen.getByPlaceholderText('如：复习考公'), { target: { value: '复习考公' } })
-    fireEvent.click(screen.getByRole('button', { name: '创建' }))
-    await screen.findByText('复习考公')
-
-    fireEvent.click(screen.getByText('复习考公'))
-    // 阐述区块 + 当前进度区块，空态只留标签与「编辑」，不再塞整段默认说明
-    await waitFor(() => screen.getByText('目标阐述'))
-    expect(screen.queryByText(/还没有写阐述/)).not.toBeInTheDocument()
-    expect(screen.getByText('当前进度')).toBeInTheDocument()
-    expect(screen.queryByText(/还没有写当前进度/)).not.toBeInTheDocument()
-
-    // 点「编辑」（当前进度行的按钮）→ pct + note → 保存 → 显示在阐述下方
-    fireEvent.click(screen.getAllByRole('button', { name: '编辑' })[1])
-    const pct = screen.getByPlaceholderText('0-100')
-    const note = screen.getByPlaceholderText('进度描述（可空）')
-    fireEvent.change(pct, { target: { value: '60' } })
-    fireEvent.change(note, { target: { value: '已完成框架' } })
+  it('时间范围：起止反了自动交换；保存与清除都有 toast', async () => {
+    const { store } = await renderApp()
+    await seedGoal(store)
+    await openGoalUI()
+    fireEvent.click(screen.getByText('时间范围未设'))
+    fireEvent.change(screen.getByLabelText('开始日期'), { target: { value: '2026-10-20' } })
+    fireEvent.change(screen.getByLabelText('结束日期'), { target: { value: '2026-10-01' } })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
-    await waitFor(() => screen.getByText('60%'))
-    expect(screen.getByText('已完成框架')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('10/01 – 10/20')).toBeInTheDocument())
+    expect(store.getState().goalDetail?.goal.startOn).toBe('2026-10-01')
+    expect(store.getState().goalDetail?.goal.endOn).toBe('2026-10-20')
+    expect(screen.getByText('目标时间范围已更新')).toBeInTheDocument()
 
-    // 只填百分比（note 可空）：再编辑只改 pct
-    fireEvent.click(screen.getAllByRole('button', { name: '编辑' })[1])
-    const pct2 = screen.getByPlaceholderText('0-100')
-    const note2 = screen.getByPlaceholderText('进度描述（可空）')
-    fireEvent.change(pct2, { target: { value: '80' } })
-    fireEvent.change(note2, { target: { value: '' } })
-    fireEvent.click(screen.getByRole('button', { name: '保存' }))
-    await waitFor(() => screen.getByText('80%'))
-    expect(screen.queryByText('已完成框架')).not.toBeInTheDocument()
-  })
-
-  it('v9.40 详情页点标题可直接重命名目标（标题、列表同步，进度不受影响）', async () => {
-    const { store } = await renderAppWrap()
-    await store.getState().createGoal('旧目标名', '阐述不动', null)
-    const gid = store.getState().goalList[0]!.goal.id
-    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
-    await waitFor(() => screen.getByText('旧目标名'))
-
-    // 详情页标题本身就是入口（此前标题只是纯文本，无法改名）
-    await store.getState().openGoal(gid)
-    const titleBtn = await screen.findByRole('button', { name: '重命名目标：旧目标名' })
-    fireEvent.click(titleBtn)
-
-    const input = screen.getByDisplayValue('旧目标名')
-    fireEvent.change(input, { target: { value: '新目标名' } })
-    fireEvent.click(screen.getByRole('button', { name: '保存' }))
-
-    await waitFor(() => expect(store.getState().goalDetail?.goal.title).toBe('新目标名'))
-    expect(store.getState().goalList[0]!.goal.title).toBe('新目标名')
-    expect(screen.getByRole('button', { name: '重命名目标：新目标名' })).toBeInTheDocument()
-    // 只改名称：阐述保持原样
-    expect(store.getState().goalDetail?.goal.note).toBe('阐述不动')
+    fireEvent.click(screen.getByText('10/01 – 10/20'))
+    fireEvent.click(screen.getByRole('button', { name: '清除' }))
+    await waitFor(() => expect(screen.getByText('时间范围未设')).toBeInTheDocument())
+    expect(screen.getByText('已清除目标时间范围')).toBeInTheDocument()
   })
 })
 
-// ===========================================================================
-// v9.14 目标文件夹（chips 区 / 新建选夹 / 卡片标签 / 详情移动 / 删夹移出未分类）
-// ===========================================================================
+describe('目标级三操作（… Sheet）', () => {
+  it('标记完成 / 恢复进行中：标题出现已完成胶囊，列表完成态同步', async () => {
+    const { store } = await renderApp()
+    await seedGoal(store)
+    await openGoalUI()
 
-describe('目标文件夹（v9.14）', () => {
-  it('v9.39 全部视图组头 ··· 可直接重命名文件夹（无需先切进该夹）', async () => {
-    const { store } = await renderAppWrap()
-    await store.getState().createFolder('旧名字')
-    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
-    await waitFor(() => expect(screen.getByText('旧名字（0）')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: '目标操作' }))
+    const sheet = screen.getByRole('dialog', { name: '目标操作' })
+    expect(within(sheet).getByText('标记完成')).toBeInTheDocument()
+    expect(within(sheet).getByText('移动到文件夹')).toBeInTheDocument()
+    expect(within(sheet).getByText('删除目标')).toBeInTheDocument()
+    fireEvent.click(within(sheet).getByText('标记完成'))
 
-    // 「全部」页组头上的 ··· 是唯一编辑入口（此前这里没有任何菜单）
-    fireEvent.click(screen.getByRole('button', { name: '文件夹菜单：旧名字' }))
-    fireEvent.click(await screen.findByRole('button', { name: /重命名文件夹/ }))
+    await waitFor(() => expect(screen.getByText('已完成')).toBeInTheDocument())
+    expect(store.getState().goalDetail?.goal.done).toBe(true)
+    expect(screen.getByText('目标已完成')).toBeInTheDocument()
 
-    // 表单预填当前名；改完保存 → 组头、chips 同步
-    const input = screen.getByDisplayValue('旧名字')
-    fireEvent.change(input, { target: { value: '新名字' } })
-    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    // 改名输入时隐藏完成胶囊（原型 renamingGoal 分支只渲染 input）
+    fireEvent.click(screen.getByRole('button', { name: '编辑' }))
+    fireEvent.click(screen.getByRole('button', { name: '重命名目标：复习考公' }))
+    expect(screen.queryByText('已完成')).not.toBeInTheDocument()
+    fireEvent.keyDown(screen.getByDisplayValue('复习考公'), { key: 'Escape' })
+    await waitFor(() => expect(screen.getByText('已完成')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: '完成' }))
 
-    await waitFor(() => expect(screen.getByText('新名字（0）')).toBeInTheDocument())
-    expect(screen.queryByText('旧名字（0）')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /新名字 0/ })).toBeInTheDocument()
-    expect(store.getState().folderList[0]!.folder.name).toBe('新名字')
+    fireEvent.click(screen.getByRole('button', { name: '目标操作' }))
+    fireEvent.click(within(screen.getByRole('dialog', { name: '目标操作' })).getByText('恢复进行中'))
+    await waitFor(() => expect(screen.queryByText('已完成')).not.toBeInTheDocument())
+    expect(screen.getByText('已恢复进行中')).toBeInTheDocument()
   })
 
-  it('v9.41 文件夹菜单「添加目标」→ 归属锁定该文件夹，创建后落在该组', async () => {
-    const { store } = await renderAppWrap()
+  it('移动到文件夹：列出真实文件夹 + 未分类，当前项打勾，成功后卡片标签更新', async () => {
+    const { store } = await renderApp()
     await store.getState().createFolder('学习')
-    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
-    await waitFor(() => expect(screen.getByText('学习（0）')).toBeInTheDocument())
+    const gid = await seedGoal(store)
+    await openGoalUI()
 
-    // 菜单里第一项就是添加目标
-    fireEvent.click(screen.getByRole('button', { name: '文件夹菜单：学习' }))
-    fireEvent.click(await screen.findByRole('button', { name: /添加目标/ }))
+    fireEvent.click(screen.getByRole('button', { name: '目标操作' }))
+    fireEvent.click(within(screen.getByRole('dialog', { name: '目标操作' })).getByText('移动到文件夹'))
+    const folderSheet = screen.getByRole('dialog', { name: '移动到文件夹' })
+    const uncat = within(folderSheet).getByRole('button', { name: /未分类/ })
+    expect(uncat).toHaveTextContent('✓')
+    const study = within(folderSheet).getByRole('button', { name: '学习' })
+    fireEvent.click(study)
 
-    // 表单弹出且归属锁定：没有文件夹 chips，只有只读说明
-    await waitFor(() => expect(screen.getByRole('dialog', { name: '新建目标' })).toBeInTheDocument())
-    expect(screen.queryByRole('button', { name: '未分类' })).not.toBeInTheDocument()
-    expect(screen.getByText(/将归入「学习」/)).toBeInTheDocument()
+    await waitFor(() => expect(store.getState().goalDetail?.goal.folderId).toBeTruthy())
+    expect(store.getState().goalDetail?.goal.folderId).not.toBeNull()
+    expect(screen.getByText('已移动到「学习」')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '返回目标列表' }))
+    await waitFor(() => expect(screen.getByLabelText('折叠文件夹「学习」')).toBeInTheDocument())
 
-    fireEvent.change(screen.getByPlaceholderText(/复习考公/), { target: { value: '背单词' } })
-    fireEvent.click(screen.getByRole('button', { name: '创建' }))
-
-    await waitFor(() => expect(screen.getByText('背单词')).toBeInTheDocument())
-    expect(store.getState().goalList[0]!.goal.folderId).toBe(store.getState().folderList[0]!.folder.id)
-    expect(screen.getByRole('button', { name: /学习 1/ })).toBeInTheDocument()
+    const goal = store.getState().goalList.find((x) => x.goal.id === gid)!
+    expect(goal.goal.folderId).toBe(store.getState().folderList[0]!.folder.id)
   })
 
-  it('v9.27 文件夹组头：点文件夹名本身也能折叠/展开（箭头+标题合并为一个按钮）', async () => {
-    const { store } = await renderAppWrap()
-    await store.getState().createFolder('学习')
-    const fid = store.getState().folderList[0].folder.id
-    await store.getState().createGoal('英语', '', fid)
-    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
-    await waitFor(() => expect(screen.getByText('英语')).toBeInTheDocument())
+  it('删除目标：取消不删；确认后软删、清详情、回列表，且阶段/子任务不残留', async () => {
+    const { store, bundle } = await renderApp()
+    const gid = await seedGoal(store)
+    await openGoalUI()
+    await addStage(store, '基础学习')
+    await addSub(store, '做完教案')
 
-    // 组头整体是一个按钮，语义为「折叠文件夹「学习」」；点它（不是箭头）就收起
-    const head = screen.getByRole('button', { name: '折叠文件夹「学习」' })
-    expect(head).toHaveAttribute('aria-expanded', 'true')
-    fireEvent.click(head)
-    await waitFor(() => expect(screen.queryByText('英语')).not.toBeInTheDocument())
-    expect(screen.getByRole('button', { name: '展开文件夹「学习」' })).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(screen.getByRole('button', { name: '目标操作' }))
+    fireEvent.click(within(screen.getByRole('dialog', { name: '目标操作' })).getByText('删除目标'))
+    const del = screen.getByRole('dialog', { name: '删除目标' })
+    expect(within(del).getByText('删除「复习考公」将同时删除它的全部阶段与子任务，此操作不可恢复。')).toBeInTheDocument()
+    fireEvent.click(within(del).getByRole('button', { name: '取消' }))
+    expect(store.getState().goalDetail?.goal.id).toBe(gid)
 
-    // 再点一次（展开态按钮）→ 卡片回来
-    fireEvent.click(screen.getByRole('button', { name: '展开文件夹「学习」' }))
-    await waitFor(() => expect(screen.getByText('英语')).toBeInTheDocument())
-  })
-
-  it('新建文件夹 → chips 出现；新建目标可选放入 → 卡片显示文件夹标签', async () => {
-    await renderApp()
-    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
-    await waitFor(() => expect(screen.getByText(/进行中的目标/)).toBeInTheDocument())
-
-    // 无文件夹时仍显示「新建文件夹」入口（v9.28 顶部工具条：新建文件夹 + 新建目标）
-    expect(screen.getByRole('button', { name: '新建文件夹' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '新建目标' })).toBeInTheDocument()
-
-    // 新建文件夹
-    fireEvent.click(screen.getByRole('button', { name: '新建文件夹' }))
-    fireEvent.change(screen.getByPlaceholderText(/2026 考证/), { target: { value: '2026 考证' } })
-    fireEvent.click(screen.getByRole('button', { name: '创建' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: '2026 考证 0' })).toBeInTheDocument())
-
-    // 新建目标（顶部工具条入口，默认未分类）→ 表单里选「放入文件夹」→ 卡片带标签
-    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
-    fireEvent.change(screen.getByPlaceholderText(/复习考公/), { target: { value: '考公刷题' } })
-    fireEvent.click(screen.getByRole('button', { name: '2026 考证' }))
-    fireEvent.click(screen.getByRole('button', { name: '创建' }))
-    await waitFor(() => expect(screen.getByText('考公刷题')).toBeInTheDocument())
-    expect(screen.getByRole('button', { name: '2026 考证 1' })).toBeInTheDocument()
-    // 分组视图：组头「2026 考证（1）」+ chips「2026 考证 1」均含文件夹名（卡片小标签已隐藏）
-    expect(screen.getAllByText(/2026 考证/).length).toBeGreaterThan(0)
-  })
-
-  it('详情页「移动到文件夹」：从未分类移入 → 卡片标签出现', async () => {
-    const { store } = await renderAppWrap()
-    const s = store.getState()
-    await s.createFolder('学习')
-    await s.createGoal('英语', '', null)
-    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
-    await waitFor(() => expect(screen.getByText('英语')).toBeInTheDocument())
-
-    fireEvent.click(screen.getByText('英语'))
-    await waitFor(() => expect(screen.getByRole('button', { name: '移动到文件夹' })).toBeInTheDocument())
-    fireEvent.click(screen.getByRole('button', { name: '移动到文件夹' }))
-    await waitFor(() => expect(screen.getByRole('dialog', { name: '移动到文件夹' })).toBeInTheDocument())
-    fireEvent.click(screen.getByRole('button', { name: '学习' }))
-    fireEvent.click(screen.getByRole('button', { name: '移动' }))
-    // 回列表，卡片带「学习」标签
-    await waitFor(() => expect(screen.getAllByText('学习').length).toBeGreaterThan(0))
-  })
-
-  it('过滤视图：组头折叠持久化 + 删除文件夹 → 目标自动移出到未分类', async () => {
-    const { store } = await renderAppWrap()
-    const s = store.getState()
-    await s.createFolder('工作')
-    const fid = store.getState().folderList[0]?.folder.id
-    expect(fid).toBeTruthy()
-    await s.createGoal('交付上线', '', fid)
-    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: /工作 \d/ })).toBeInTheDocument())
-
-    // 进过滤视图 → 组头出现 → 折叠（无占位行，目标隐藏、组头仍在）
-    fireEvent.click(screen.getByRole('button', { name: /工作 \d/ }))
-    await waitFor(() => expect(screen.getByText('工作（1）')).toBeInTheDocument())
-    fireEvent.click(screen.getByRole('button', { name: '折叠文件夹「工作」' }))
-    await waitFor(() => expect(screen.queryByText('交付上线')).not.toBeInTheDocument())
-    expect(screen.getByText('工作（1）')).toBeInTheDocument()
-
-    // 菜单 → 删除文件夹 → 确认
-    fireEvent.click(screen.getByRole('button', { name: '文件夹菜单' }))
-    await waitFor(() => expect(screen.getByText('删除文件夹')).toBeInTheDocument())
-    fireEvent.click(screen.getByText('删除文件夹'))
-    await waitFor(() => expect(screen.getByText(/自动移出到未分类/)).toBeInTheDocument())
-    fireEvent.click(screen.getByRole('button', { name: '删除文件夹' }))
-    // 回到「全部」，该夹 chip 消失，目标仍在（未分类）
-    await waitFor(() => expect(screen.getByText('交付上线')).toBeInTheDocument())
-    expect(screen.queryByRole('button', { name: /工作 \d/ })).not.toBeInTheDocument()
-  })
-
-  it('文件夹视图内新建目标 → 自动归属该文件夹（无需手动选夹）', async () => {
-    const { store } = await renderAppWrap()
-    const s = store.getState()
-    await s.createFolder('工作')
-    const fid = store.getState().folderList[0]?.folder.id
-    expect(fid).toBeTruthy()
-    await s.createGoal('既有目标', '', fid)
-    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: /工作 \d/ })).toBeInTheDocument())
-
-    // 进入文件夹视图 → 顶部「新建目标」默认归该夹（组头不再重复挂按钮）
-    fireEvent.click(screen.getByRole('button', { name: /工作 \d/ }))
-    await waitFor(() => expect(screen.getByText('文件夹中的目标（1）')).toBeInTheDocument())
-    expect(screen.queryByRole('button', { name: '在「工作」下新建目标' })).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
-    fireEvent.change(screen.getByPlaceholderText(/复习考公/), { target: { value: '文件夹内新建' } })
-    fireEvent.click(screen.getByRole('button', { name: '创建' }))
-    // 自动归属：文件夹视图计数 +1、新目标可见、chips 计数同步
-    await waitFor(() => expect(screen.getByText('文件夹中的目标（2）')).toBeInTheDocument())
-    expect(screen.getByText('文件夹内新建')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /工作 2/ })).toBeInTheDocument()
-  })
-
-  it('空文件夹视图：空态里提供「新建目标」入口，新建后自动归属', async () => {
-    const { store } = await renderAppWrap()
-    const s = store.getState()
-    await s.createFolder('空夹')
-    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: /空夹 \d/ })).toBeInTheDocument())
-    fireEvent.click(screen.getByRole('button', { name: /空夹 \d/ }))
-    await waitFor(() => expect(screen.getByText('这个文件夹还没有目标')).toBeInTheDocument())
-    // 空态框里保留一个作用域入口（aria-label 指明归哪个夹）
-    const btn = screen.getByRole('button', { name: '在「空夹」下新建目标' })
-    expect(btn).toBeInTheDocument()
-    fireEvent.click(btn)
-    fireEvent.change(screen.getByPlaceholderText(/复习考公/), { target: { value: '空夹首个目标' } })
-    fireEvent.click(screen.getByRole('button', { name: '创建' }))
-    // 自动归属：空态消失 → 文件夹视图出现该目标
-    await waitFor(() => expect(screen.getByText('文件夹中的目标（1）')).toBeInTheDocument())
-    expect(screen.getByText('空夹首个目标')).toBeInTheDocument()
-  })
-
-  it('全部视图分组：文件夹组顺序 + 折叠 + 未分类沉底 + 组内新建自动归属', async () => {
-    const { store } = await renderAppWrap()
-    const s = store.getState()
-    await s.createFolder('甲夹')
-    const fidA = store.getState().folderList.find((f) => f.folder.name === '甲夹')?.folder.id
-    await s.createFolder('乙夹')
-    const fidB = store.getState().folderList.find((f) => f.folder.name === '乙夹')?.folder.id
-    await s.createGoal('甲目标', '', fidA ?? null)
-    await s.createGoal('乙目标', '', fidB ?? null)
-    await s.createGoal('散目标', '', null)
-    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
-    // 分组组头：甲夹 → 乙夹 → 未分类（沉底）
-    await waitFor(() => expect(screen.getByText('甲夹（1）')).toBeInTheDocument())
-    const body = (): string => document.body.textContent ?? ''
-    expect(body().indexOf('乙夹（1）')).toBeGreaterThan(body().indexOf('甲夹（1）'))
-    expect(body().indexOf('未分类（1）')).toBeGreaterThan(body().indexOf('乙夹（1）'))
-    // 折叠乙夹 → 乙目标隐藏；组头仍在（▸ + 名称（N）），无占位行
-    fireEvent.click(screen.getByRole('button', { name: '折叠文件夹「乙夹」' }))
-    await waitFor(() => expect(screen.queryByText('乙目标')).not.toBeInTheDocument())
-    expect(screen.getByText('乙夹（1）')).toBeInTheDocument()
-    expect(screen.queryByText(/已折叠/)).not.toBeInTheDocument()
-    // 展开乙夹 → 目标回来
-    fireEvent.click(screen.getByRole('button', { name: '展开文件夹「乙夹」' }))
-    await waitFor(() => expect(screen.getByText('乙目标')).toBeInTheDocument())
-    // v9.31 组头不再挂「新建目标」：入口只在顶部工具条
-    expect(screen.queryByRole('button', { name: '在「甲夹」下新建目标' })).not.toBeInTheDocument()
-  })
-
-  it('v9.28 全部视图：空文件夹也入列 + 未分类常驻 + 顶部新建目标默认未分类', async () => {
-    const { store } = await renderAppWrap()
-    const s = store.getState()
-    await s.createFolder('有内容的夹')
-    const fid = store.getState().folderList.find((f) => f.folder.name === '有内容的夹')?.folder.id
-    await s.createGoal('夹内目标', '', fid ?? null)
-    await s.createFolder('空夹')
-    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
-
-    // 空文件夹也在列表里（组头 + 轻量提示）；未分类 0 条时也常驻
-    await waitFor(() => expect(screen.getByText('有内容的夹（1）')).toBeInTheDocument())
-    expect(screen.getByText('空夹（0）')).toBeInTheDocument()
-    expect(screen.getByText('这个文件夹还没有目标')).toBeInTheDocument()
-    expect(screen.getByText('未分类（0）')).toBeInTheDocument()
-    expect(screen.getByText('还没有未分类的目标')).toBeInTheDocument()
-
-    // 顶部「新建目标」：全部视图下默认归未分类，不用先借某个文件夹的按钮
-    fireEvent.click(screen.getByRole('button', { name: '新建目标' }))
-    fireEvent.change(screen.getByPlaceholderText(/复习考公/), { target: { value: '散落目标' } })
-    fireEvent.click(screen.getByRole('button', { name: '创建' }))
-    await waitFor(() => expect(screen.getByText('未分类（1）')).toBeInTheDocument())
-    expect(screen.getByText('散落目标')).toBeInTheDocument()
-    expect(screen.getByText('有内容的夹（1）')).toBeInTheDocument()
-
-    // 顶部「新建文件夹」：新建后立刻入列（0 目标也看得见，不再"建完消失"）
-    fireEvent.click(screen.getByRole('button', { name: '新建文件夹' }))
-    fireEvent.change(screen.getByPlaceholderText(/2026 考证/), { target: { value: '新建的夹' } })
-    fireEvent.click(screen.getByRole('button', { name: '创建' }))
-    await waitFor(() => expect(screen.getByText('新建的夹（0）')).toBeInTheDocument())
-  })
-
-  it('v9.31 入口去冗余：组头一律不挂「新建目标」，只留顶部一个', async () => {
-    const { store } = await renderAppWrap()
-    const s = store.getState()
-    await s.createFolder('学习')
-    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
-    await waitFor(() => expect(screen.getByText('学习（0）')).toBeInTheDocument())
-
-    // 顶部两个入口：文案去 + 号，全局唯二
-    expect(screen.getByRole('button', { name: '新建文件夹' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '新建目标' })).toBeInTheDocument()
-    expect(screen.queryByText(/＋ 新建目标/)).not.toBeInTheDocument()
-
-    // v9.31 文件夹组头也不再挂入口：全局只在顶部工具条
-    expect(screen.queryByRole('button', { name: '在「学习」下新建目标' })).not.toBeInTheDocument()
-
-    // 未分类组头：不再常驻新建按钮（顶部在全部视图默认就是未分类，属完全冗余）
-    expect(screen.getByText('未分类（0）')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '在「未分类」下新建目标' })).not.toBeInTheDocument()
-  })
-
-  it('删除目标二次确认：取消不删，确认后删除并回列表', async () => {
-    const { store } = await renderAppWrap()
-    const s = store.getState()
-    await s.createGoal('待删', '', null)
-    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
-    await waitFor(() => expect(screen.getByText('待删')).toBeInTheDocument())
-    fireEvent.click(screen.getByText('待删'))
-    await waitFor(() => screen.getByRole('tab', { name: '阶段' }))
-    fireEvent.click(screen.getByRole('button', { name: '删除目标' }))
-    const delDialog = await screen.findByRole('dialog', { name: '删除目标' })
-    // 取消 → 弹层关闭、目标仍在
-    fireEvent.click(within(delDialog).getByRole('button', { name: '取消' }))
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(screen.getByText('待删')).toBeInTheDocument()
-    // 再次删除并确认 → 删除成功回列表
-    fireEvent.click(screen.getByRole('button', { name: '删除目标' }))
-    const delDialog2 = await screen.findByRole('dialog', { name: '删除目标' })
-    fireEvent.click(within(delDialog2).getByRole('button', { name: '删除目标' }))
-    await waitFor(() => expect(screen.queryByText('待删')).not.toBeInTheDocument())
-    expect(screen.getByText(/还没有目标/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '目标操作' }))
+    fireEvent.click(within(screen.getByRole('dialog', { name: '目标操作' })).getByText('删除目标'))
+    fireEvent.click(within(screen.getByRole('dialog', { name: '删除目标' })).getByRole('button', { name: '删除目标' }))
+    await waitFor(() => expect(screen.getByText('已删除目标')).toBeInTheDocument())
+    expect(store.getState().goalDetail).toBeNull()
+    expect(store.getState().goalList.find((x) => x.goal.id === gid)).toBeUndefined()
+    expect(await bundle.repos.stages.byGoal(gid)).toHaveLength(0)
+    expect(await bundle.repos.subtasks.byGoal(gid)).toHaveLength(0)
   })
 })
-async function renderAppWrap() {
-  localStorage.clear()
-  const bundle = await initCore({ store: createMemoryStore(), skipLunar: true })
-  const store = createAppStore(bundle, { today: TODAY, isNarrow: () => false })
-  await store.getState().init()
-  render(<App store={store} />)
-  return { store }
-}

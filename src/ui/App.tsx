@@ -165,10 +165,10 @@ function Shell(): JSX.Element {
     return () => window.removeEventListener('popstate', onPopstate)
   }, [onPopstate])
 
-  // toast 1.9s 自动消失（与原型一致）
+  // toast 自动消失：普通 1.9s；带「撤销」的停留 5s（与文档一致）
   useEffect(() => {
     if (!toast) return
-    const t = setTimeout(clearToast, 1900)
+    const t = setTimeout(clearToast, toast.action ? 5000 : 1900)
     return () => clearTimeout(t)
   }, [toast, clearToast])
 
@@ -226,6 +226,18 @@ function Shell(): JSX.Element {
         aria-live="polite"
       >
         {toast?.msg ?? ''}
+        {toast?.action && (
+          <button
+            type="button"
+            className={styles.toastAction}
+            onClick={() => {
+              toast.action?.onClick()
+              clearToast()
+            }}
+          >
+            {toast.action.label}
+          </button>
+        )}
       </div>
       {annivOpen && <AnnivSettings />}
       {habitsOpen && <HabitsView />}

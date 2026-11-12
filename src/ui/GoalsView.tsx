@@ -12,8 +12,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX, ReactNode } from 'react'
-import { parsePct } from '@core'
-import type { FolderSummary, GoalRecord, ProgressField, StageInput, StageRecord, SubtaskRecord } from '@core'
+import type { DateKey, FolderSummary, GoalRecord, StageRecord, SubtaskRecord } from '@core'
 import { useApp } from '@/app/context'
 import styles from './GoalsView.module.css'
 
@@ -249,43 +248,6 @@ function DeleteFolderConfirm({
 }
 
 // ---------------------------------------------------------------------------
-// v9.14.3 删除目标确认弹层（明示：连带删除阶段/子任务，不可恢复）
-// ---------------------------------------------------------------------------
-
-function DeleteGoalConfirm({
-  goal,
-  onClose,
-  onDeleted,
-}: {
-  goal: GoalRecord
-  onClose: () => void
-  onDeleted?: () => void
-}): JSX.Element {
-  const deleteGoal = useApp((s) => s.deleteGoal)
-  return (
-    <Sheet title="删除目标" onCancel={onClose}>
-      <p className={styles.confirmText}>
-        删除「{goal.title}」将同时删除它的全部阶段与子任务，此操作不可恢复。
-      </p>
-      <div className={styles.act}>
-        <button className={styles.btnSoft} onClick={onClose}>取消</button>
-        <button
-          className={styles.btnDanger}
-          onClick={() => {
-            void deleteGoal(goal.id).then((ok) => {
-              if (ok) onDeleted?.()
-              onClose()
-            })
-          }}
-        >
-          删除目标
-        </button>
-      </div>
-    </Sheet>
-  )
-}
-
-// ---------------------------------------------------------------------------
 // v8.87 重命名文件夹（菜单入口；名称校验与新建同口径：必填、≤12 字）
 // ---------------------------------------------------------------------------
 
@@ -333,58 +295,6 @@ function RenameFolderSheet({
         <button
           className={styles.btnPrimary}
           disabled={!name.trim() || name.trim() === folder.folder.name}
-          onClick={() => void submit()}
-        >
-          保存
-        </button>
-      </div>
-    </Sheet>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// v9.40/v8.88 重命名目标（详情页标题入口；名称校验与新建同口径：必填、≤50 字）
-// ---------------------------------------------------------------------------
-
-function RenameGoalSheet({
-  goal,
-  onClose,
-}: {
-  goal: GoalRecord
-  onClose: () => void
-}): JSX.Element {
-  const renameGoal = useApp((s) => s.renameGoal)
-  const [title, setTitle] = useState(goal.title)
-
-  const submit = async (): Promise<void> => {
-    const trimmed = title.trim()
-    if (!trimmed || trimmed === goal.title) return
-    const ok = await renameGoal(goal.id, trimmed)
-    if (ok) onClose()
-  }
-
-  return (
-    <Sheet title="重命名目标" onCancel={onClose}>
-      <div className={styles.field}>
-        <label>目标名称</label>
-        <input
-          type="text"
-          placeholder="如：复习考公"
-          value={title}
-          maxLength={50}
-          autoFocus
-          onChange={(e) => setTitle(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') void submit()
-          }}
-        />
-        <div className={styles.hint}>改名只影响显示名称，阶段、子任务和进度都不受影响。</div>
-      </div>
-      <div className={styles.act}>
-        <button className={styles.btnSoft} onClick={onClose}>取消</button>
-        <button
-          className={styles.btnPrimary}
-          disabled={!title.trim() || title.trim() === goal.title}
           onClick={() => void submit()}
         >
           保存
@@ -449,548 +359,504 @@ function FolderMenuSheet({
 }
 
 // ---------------------------------------------------------------------------
-// v9.14 移动到文件夹（详情页入口；保持详情页其余结构原样）
+// v9.46 阶段 / 子任务渲染（按《阶段与待办联动原型》）
+// 阶段只存名称；「第N阶段 · 」由位置推导，读到旧前缀时剥离
 // ---------------------------------------------------------------------------
 
-function MoveGoalSheet({ goal, onClose }: { goal: GoalRecord; onClose: () => void }): JSX.Element {
-  const moveGoalToFolder = useApp((s) => s.moveGoalToFolder)
-  const folderList = useApp((s) => s.folderList)
-  const [pick, setPick] = useState<string | null>(goal.folderId ?? null)
-  const current = folderList.find((x) => x.folder.id === goal.folderId)
+const CN_NUM = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十']
+const LEGACY_STAGE_PREFIX = /^第[一二三四五六七八九十百0-9]+阶段\s*[·:：-]\s*/
 
-  const submit = async (): Promise<void> => {
-    const ok = await moveGoalToFolder(goal.id, pick)
-    if (ok) onClose()
-  }
-
-  return (
-    <Sheet title="移动到文件夹" onCancel={onClose}>
-      {current && (
-        <div className={styles.hint} style={{ marginBottom: 10 }}>
-          当前在「{current.folder.name}」
-        </div>
-      )}
-      <FolderPick value={pick} onChange={setPick} />
-      <div className={styles.act}>
-        <button className={styles.btnSoft} onClick={onClose}>取消</button>
-        <button className={styles.btnPrimary} onClick={() => void submit()}>移动</button>
-      </div>
-    </Sheet>
-  )
+function stagePrefix(index: number): string {
+  const n = index + 1
+  const cn = n <= 10 ? CN_NUM[n - 1] : n <= 99 ? `${CN_NUM[Math.floor(n / 10) - 1]}十${n % 10 ? CN_NUM[n % 10 - 1] : ''}` : String(n)
+  return `第${cn}阶段 · `
 }
 
-// ---------------------------------------------------------------------------
-// 添加/编辑阶段弹层（同一表单，editing 传入则为编辑模式）
-// ---------------------------------------------------------------------------
-
-function StageSheet({
-  editing,
-  onClose,
-}: {
-  /** null = 添加；非 null = 编辑该阶段 */
-  editing: StageRecord | null
-  onClose: () => void
-}): JSX.Element {
-  const goalDetail = useApp((s) => s.goalDetail)
-  const createStage = useApp((s) => s.createStage)
-  const updateStage = useApp((s) => s.updateStage)
-
-  const [title, setTitle] = useState(editing?.title ?? '')
-  const [pct, setPct] = useState<number | null>(editing?.pct ?? 0)
-  const [note, setNote] = useState(editing?.note ?? '')
-
-  const goalId = goalDetail?.goal.id ?? ''
-  const submit = async (): Promise<void> => {
-    if (!title.trim() || !goalId) return
-    // 滑杆无「清空」语义：pct 是 number；编辑时如果原无 pct 且用户没动滑杆，仍按 0 保存
-    const ok = editing
-      ? await updateStage(editing.id, { title: title.trim(), pct: pct ?? undefined, note: note.trim() })
-      : await createStage({ goalId, title: title.trim(), pct: pct ?? 0, note: note.trim() } as StageInput)
-    if (ok) onClose()
-  }
-
-  return (
-    <Sheet title={editing ? '编辑阶段' : '添加阶段'} onCancel={onClose}>
-      <div className={styles.field}>
-        <label>阶段名称</label>
-        <input
-          type="text"
-          placeholder="如：刷题阶段"
-          value={title}
-          maxLength={50}
-          autoFocus
-          onChange={(e) => setTitle(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') void submit()
-          }}
-        />
-      </div>
-      <div className={styles.field}>
-        <label>当前进度</label>
-        <div className={styles.pctRow}>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={pct ?? 0}
-            aria-label="进度百分比"
-            onChange={(e) => setPct(Number(e.target.value))}
-          />
-          <span className={styles.pctVal}>{pct ?? 0}%</span>
-        </div>
-      </div>
-      <div className={styles.field}>
-        <label>备注（可选）</label>
-        <textarea
-          placeholder="这个阶段的具体安排、复盘记录"
-          value={note}
-          maxLength={1000}
-          onChange={(e) => setNote(e.target.value)}
-        />
-      </div>
-      {!editing && (
-        <p className={styles.hint}>
-          第一个阶段会自动成为「当前」阶段；之后的新阶段默认为「未开始」，可在列表手动设为当前。
-        </p>
-      )}
-      <div className={styles.act}>
-        <button className={styles.btnSoft} onClick={onClose}>取消</button>
-        <button
-          className={styles.btnPrimary}
-          disabled={!title.trim()}
-          onClick={() => void submit()}
-        >
-          {editing ? '保存' : '添加'}
-        </button>
-      </div>
-    </Sheet>
-  )
+function cleanStageTitle(title: string): string {
+  return title.replace(LEGACY_STAGE_PREFIX, '').trim()
 }
 
-// ---------------------------------------------------------------------------
-// 子任务弹层（v8.5：单字段，最轻——只有标题）
-// ---------------------------------------------------------------------------
-
-function SubtaskSheet({ goalId, onClose }: { goalId: string; onClose: () => void }): JSX.Element {
-  const createSubtask = useApp((s) => s.createSubtask)
-  const [title, setTitle] = useState('')
-
-  const submit = async (): Promise<void> => {
-    const t = title.trim()
-    if (!t) return
-    const ok = await createSubtask({ goalId, title: t })
-    if (ok) onClose()
-  }
-
-  return (
-    <Sheet title="添加子任务" onCancel={onClose}>
-      <div className={styles.field}>
-        <label>子任务</label>
-        <input
-          type="text"
-          placeholder="如：做完教案第 3 章"
-          value={title}
-          maxLength={50}
-          autoFocus
-          onChange={(e) => setTitle(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              void submit()
-            }
-          }}
-        />
-      </div>
-      <div className={styles.act}>
-        <button className={styles.btnSoft} onClick={onClose}>取消</button>
-        <button className={styles.btnPrimary} disabled={!title.trim()} onClick={() => void submit()}>
-          添加
-        </button>
-      </div>
-    </Sheet>
-  )
+function stageDisplayTitle(title: string, index: number): string {
+  return `${stagePrefix(index)}${cleanStageTitle(title)}`
 }
 
-// ---------------------------------------------------------------------------
-// 阶段行
-// ---------------------------------------------------------------------------
-
-function StageRow({
-  stage,
-  onEdit,
-  onDelete,
-}: {
-  stage: StageRecord
-  onEdit: (s: StageRecord) => void
-  onDelete: (s: StageRecord) => void
-}): JSX.Element {
-  const setCurrentStage = useApp((s) => s.setCurrentStage)
-  const setStageDone = useApp((s) => s.setStageDone)
-  const [expanded, setExpanded] = useState(false)
-
-  const badge = stage.isCurrent
-    ? <span className={`${styles.badge} ${styles.badgeCur}`}>当前</span>
-    : stage.done
-      ? <span className={`${styles.badge} ${styles.badgeDone}`}>已完成</span>
-      : <span className={`${styles.badge} ${styles.badgePend}`}>未开始</span>
-
-  const status = stage.isCurrent ? '进行中' : stage.done ? '已完成' : '未开始'
-
-  const rowCls = [
-    styles.stageRow,
-    stage.isCurrent ? styles.current : '',
-    stage.done ? styles.done : '',
-  ].join(' ')
-
-  return (
-    <div
-      className={rowCls}
-      onClick={() => setExpanded((v) => !v)}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          setExpanded((v) => !v)
-        }
-      }}
-    >
-      <div className={styles.stageHead}>
-        <span className={styles.stageName}>{stage.title}</span>
-        {badge}
-      </div>
-      {/* v8.32 空条口径：无 pct 也显示 0% 空条；done 记 100 */}
-      <div className={styles.bar}>
-        <i style={{ width: `${stage.done ? 100 : (stage.pct ?? 0)}%` }} />
-      </div>
-      <div className={styles.stageFoot}>
-        <span>进度 {stage.pct !== undefined ? `${stage.pct}%` : '—'}</span>
-        <span className={styles.sp} />
-        <span>{status}</span>
-      </div>
-      {stage.note && (
-        <div className={styles.stageNote}>
-          <b>备注：</b>{stage.note}
-        </div>
-      )}
-      <div className={expanded ? `${styles.ops} ${styles.opsOn}` : styles.ops}>
-        {!stage.isCurrent && (
-          <button
-            className={styles.opPrimary}
-            onClick={(e) => {
-              e.stopPropagation()
-              void setCurrentStage(stage.id)
-            }}
-          >
-            设为当前
-          </button>
-        )}
-        {!stage.done && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              void setStageDone(stage.id, true)
-            }}
-          >
-            标记完成
-          </button>
-        )}
-        {stage.done && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              void setStageDone(stage.id, false)
-            }}
-          >
-            取消完成
-          </button>
-        )}
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            onEdit(stage)
-          }}
-        >
-          编辑
-        </button>
-        <button
-          className={styles.opDanger}
-          onClick={(e) => {
-            e.stopPropagation()
-            onDelete(stage)
-          }}
-        >
-          删除
-        </button>
-      </div>
-    </div>
-  )
+/** 从编辑框提交的完整名称里剥掉序号前缀，只把用户名称写入 stage.title */
+function stageTitleFromInput(value: string, index: number): string {
+  const prefix = stagePrefix(index)
+  let v = value.trim()
+  if (v.startsWith(prefix)) v = v.slice(prefix.length).trim()
+  v = cleanStageTitle(v)
+  return v
 }
 
-// ---------------------------------------------------------------------------
-// 子任务行（v8.5）：勾选 + 点文字就地编辑 + 删除；完成后沉底（aggregate 排序）
-// ---------------------------------------------------------------------------
+function fmtMD(key?: string | null): string {
+  if (!key || !/^\d{4}-\d{2}-\d{2}$/.test(key)) return ''
+  return `${key.slice(5, 7)}/${key.slice(8, 10)}`
+}
+
+function fmtTs(ts: number): string {
+  const d = new Date(ts)
+  return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** 子任务副行：打卡 N 天 [· MM/DD 完成 | · 已在今天] */
+function subtaskMeta(st: SubtaskRecord, inToday: boolean): string {
+  const days = Array.isArray(st.workDates) ? st.workDates.length : 0
+  const doneAt = st.done ? ` · ${fmtTs(st.updatedAt)} 完成` : inToday ? ' · 已在今天' : ''
+  return `打卡 ${days} 天${doneAt}`
+}
+
+function StageCheck({ done }: { done: boolean }): JSX.Element {
+  return <span className={done ? `${styles.taskCheck} ${styles.taskCheckOn}` : styles.taskCheck} aria-hidden="true" />
+}
+
+function Chevron({ open }: { open: boolean }): JSX.Element {
+  return (
+    <span className={open ? `${styles.stageChev} ${styles.stageChevOpen}` : styles.stageChev} aria-hidden="true">
+      <svg viewBox="0 0 12 12" width="12" height="12">
+        <path d="M3 4.5 L6 7.5 L9 4.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      </svg>
+    </span>
+  )
+}
 
 function SubtaskRow({
   subtask,
+  editing,
+  stageDone,
   onDelete,
 }: {
   subtask: SubtaskRecord
-  onDelete: (s: SubtaskRecord) => void
+  editing: boolean
+  stageDone: boolean
+  onDelete: (st: SubtaskRecord) => void
 }): JSX.Element {
-  const setSubtaskDone = useApp((s) => s.setSubtaskDone)
+  const setSubtaskDoneWithToday = useApp((s) => s.setSubtaskDoneWithToday)
   const updateSubtask = useApp((s) => s.updateSubtask)
-  const toggleSubtaskWork = useApp((s) => s.toggleSubtaskWork)
   const addSubtaskToToday = useApp((s) => s.addSubtaskToToday)
   const removeSubtaskFromToday = useApp((s) => s.removeSubtaskFromToday)
   const subtaskTodayIds = useApp((s) => s.subtaskTodayIds)
-  const today = useApp((s) => s.today)
-  const showToast = useApp((s) => s.showToast)
-  const [editing, setEditing] = useState(false)
+  const [renaming, setRenaming] = useState(false)
   const [draft, setDraft] = useState(subtask.title)
-  // v8.9：描述就地编辑（方案 A，常驻显示在标题下方）
-  const [descEditing, setDescEditing] = useState(false)
-  const [descDraft, setDescDraft] = useState(subtask.desc ?? '')
-  // v8.10：当前进度（C 形态：文本 + 百分比，描述在上、进度在下）
-  const [progEditing, setProgEditing] = useState(false)
-  const [progPctDraft, setProgPctDraft] = useState(subtask.progress?.pct !== undefined ? String(subtask.progress.pct) : '')
-  const [progNoteDraft, setProgNoteDraft] = useState(subtask.progress?.note ?? '')
-  // v8.45 打卡：当天是否已打卡（跨天自动重置）
-  const workedToday = Array.isArray(subtask.workDates) && subtask.workDates.includes(today)
-  // v8.63 加入今日待办：今天是否已加入（按钮两态；跨天自动重置）
+  const lock = useRef(false)
+
   const inToday = subtaskTodayIds.includes(subtask.id)
 
-  const save = async (): Promise<void> => {
-    const t = draft.trim()
-    if (t && t !== subtask.title) await updateSubtask(subtask.id, { title: t })
-    setEditing(false)
-  }
-
-  const saveDesc = async (): Promise<void> => {
-    const d = descDraft.trim()
-    const orig = subtask.desc ?? ''
-    if (d !== orig) await updateSubtask(subtask.id, { desc: d })
-    setDescEditing(false)
-  }
-
-  const saveProgress = async (): Promise<void> => {
-    const { p, err: e } = draftToProgress(progPctDraft, progNoteDraft)
-    if (e) {
-      showToast(e)
-      return
-    }
-    const origPct = subtask.progress?.pct
-    const origNote = subtask.progress?.note ?? ''
-    if ((p?.pct ?? undefined) !== origPct || (p?.note ?? '') !== origNote) {
-      await updateSubtask(subtask.id, { progress: p })
-    }
-    setProgEditing(false)
+  const commitRename = (): void => {
+    if (lock.current) return
+    const nextTitle = draft.trim()
+    setRenaming(false)
+    if (!nextTitle || nextTitle === subtask.title) return
+    lock.current = true
+    void updateSubtask(subtask.id, { title: nextTitle }).finally(() => {
+      lock.current = false
+    })
   }
 
   return (
-    <div className={[styles.subtaskRow, subtask.done ? styles.subtaskDone : ''].join(' ')}>
-      <button
-        className={subtask.done ? `${styles.subCheck} ${styles.subCheckOn}` : styles.subCheck}
-        role="checkbox"
-        aria-checked={subtask.done}
-        aria-label={subtask.done ? `取消完成：${subtask.title}` : `标记完成：${subtask.title}`}
-        onClick={() => void setSubtaskDone(subtask.id, !subtask.done)}
-      >
-        {subtask.done && (
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" aria-hidden="true">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-        )}
-      </button>
-      <div className={styles.subBody}>
+    <div className={styles.taskRow}>
+      {editing || stageDone ? (
+        <StageCheck done={subtask.done} />
+      ) : (
+        <button
+          type="button"
+          className={subtask.done ? `${styles.taskCheck} ${styles.taskCheckOn}` : styles.taskCheck}
+          role="checkbox"
+          aria-checked={subtask.done}
+          aria-label={subtask.done ? `取消完成：${subtask.title}` : `标记完成：${subtask.title}`}
+          onClick={() => void setSubtaskDoneWithToday(subtask.id, !subtask.done)}
+        />
+      )}
+      <div className={styles.taskBody}>
         {editing ? (
-          <input
-            className={styles.subInput}
-            value={draft}
-            maxLength={50}
-            autoFocus
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={() => void save()}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') void save()
-              if (e.key === 'Escape') {
-                setDraft(subtask.title)
-                setEditing(false)
-              }
-            }}
-          />
-        ) : (
-          <span
-            className={styles.subTitle}
-            title="点击编辑"
-            onClick={() => {
-              setDraft(subtask.title)
-              setEditing(true)
-            }}
-          >
-            {subtask.title}
-          </span>
-        )}
-        {descEditing ? (
-          <textarea
-            className={styles.subDescInput}
-            value={descDraft}
-            maxLength={500}
-            rows={2}
-            placeholder="子任务描述"
-            autoFocus
-            onChange={(e) => setDescDraft(e.target.value)}
-            onBlur={() => void saveDesc()}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
-                setDescDraft(subtask.desc ?? '')
-                setDescEditing(false)
-              }
-            }}
-          />
-        ) : (
-          <div
-            className={[styles.subDesc, !subtask.desc ? styles.subDescEmpty : ''].join(' ')}
-            title="点击编辑描述"
-            onClick={() => {
-              setDescDraft(subtask.desc ?? '')
-              setDescEditing(true)
-            }}
-          >
-            {subtask.desc || '＋ 添加描述'}
-          </div>
-        )}
-        {/* v8.32 行内横向进度条：进度描述上面一行（描述之下）。口径：勾选完成 100 / 手填 pct / 0 空条 */}
-        <div className={styles.subBarRow}>
-          <div className={styles.subBarTrack}>
-            <div
-              className={styles.subBarFill}
-              style={{ width: `${subtask.done ? 100 : (subtask.progress?.pct ?? 0)}%` }}
-            />
-          </div>
-          <span className={styles.subBarPct}>{subtask.done ? 100 : (subtask.progress?.pct ?? 0)}%</span>
-        </div>
-        {/* v8.10 当前进度：与描述同级，描述在上、进度在下（C 形态：文本 + 百分比） */}
-        {progEditing ? (
-          // 容器级失焦保存（v8.10.1 修复）：焦点在编辑区内移动（百分比→描述）不保存，
-          // 焦点完全离开编辑区才保存——避免点描述时百分比框失焦把整个编辑态关掉
-          <div
-            className={styles.subProgEdit}
-            onBlur={(e) => {
-              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) void saveProgress()
-            }}
-          >
+          renaming ? (
             <input
-              className={styles.subPctInput}
-              type="text"
-              inputMode="numeric"
-              value={progPctDraft}
-              placeholder="0-100"
-              maxLength={3}
+              className={styles.taskInput}
+              value={draft}
+              maxLength={50}
               autoFocus
-              onChange={(e) => setProgPctDraft(e.target.value)}
-            />
-            <textarea
-              className={styles.subProgNoteInput}
-              value={progNoteDraft}
-              maxLength={200}
-              rows={2}
-              placeholder="进度描述"
-              onChange={(e) => setProgNoteDraft(e.target.value)}
+              onFocus={(e) => e.currentTarget.select()}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={commitRename}
               onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  commitRename()
+                }
                 if (e.key === 'Escape') {
-                  setProgPctDraft(subtask.progress?.pct !== undefined ? String(subtask.progress.pct) : '')
-                  setProgNoteDraft(subtask.progress?.note ?? '')
-                  setProgEditing(false)
+                  setDraft(subtask.title)
+                  setRenaming(false)
                 }
               }}
             />
-          </div>
-        ) : subtask.progress && (subtask.progress.pct !== undefined || subtask.progress.note) ? (
-          <div
-            className={styles.subProg}
-            title="点击编辑当前进度"
-            onClick={() => {
-              setProgPctDraft(subtask.progress?.pct !== undefined ? String(subtask.progress.pct) : '')
-              setProgNoteDraft(subtask.progress?.note ?? '')
-              setProgEditing(true)
-            }}
-          >
-            {subtask.progress.pct !== undefined && <span className={styles.subPct}>{subtask.progress.pct}%</span>}
-            {subtask.progress.pct !== undefined && subtask.progress.note && <span className={styles.subProgSep}> · </span>}
-            {subtask.progress.note && <span className={styles.subProgNote}>{subtask.progress.note}</span>}
-          </div>
+          ) : (
+            <button
+              type="button"
+              className={subtask.done ? `${styles.taskTitleEdit} ${styles.taskTitleDone}` : styles.taskTitleEdit}
+              onClick={() => {
+                setDraft(subtask.title)
+                setRenaming(true)
+              }}
+            >
+              {subtask.title}
+            </button>
+          )
         ) : (
-          <div
-            className={[styles.subProg, styles.subProgEmpty].join(' ')}
-            title="点击编辑当前进度"
-            onClick={() => {
-              setProgPctDraft('')
-              setProgNoteDraft('')
-              setProgEditing(true)
-            }}
-          >
-            ＋ 添加进度
+          <div className={subtask.done ? `${styles.taskTitle} ${styles.taskTitleDone}` : styles.taskTitle}>
+            {subtask.title}
           </div>
         )}
-        {/* v8.45 子任务打卡：累计进行天数 + 打卡按钮（记录今天，可取消）；v8.63 加「加入今日待办」 */}
-        <div className={styles.subWorkRow}>
-          <span className={styles.subWorkCount}>
-            累计进行 <b>{Array.isArray(subtask.workDates) ? subtask.workDates.length : 0}</b> 天
-          </span>
-          <span style={{ flex: 1 }} />
-          <button
-            className={[styles.subCheckin, workedToday ? styles.subCheckinOn : ''].join(' ')}
-            aria-label={workedToday ? `取消今天的打卡：${subtask.title}` : `打卡：${subtask.title}`}
-            onClick={() => void toggleSubtaskWork(subtask.id)}
-          >
-            {workedToday ? '已打卡' : '打卡'}
-          </button>
-          {/* v8.63 加入今日待办：当天有效，明天要再点；已加入可再点取消 */}
-          <button
-            className={[styles.subToday, inToday ? styles.subTodayOn : ''].join(' ')}
-            aria-label={inToday ? `移出今日待办：${subtask.title}` : `加入今日待办：${subtask.title}`}
-            onClick={() => void (inToday ? removeSubtaskFromToday(subtask.id) : addSubtaskToToday(subtask.id))}
-          >
-            {inToday ? '已加入' : '＋ 加入今日待办'}
-          </button>
-        </div>
+        <div className={styles.taskMeta}>{subtaskMeta(subtask, inToday && !subtask.done)}</div>
       </div>
-      <button
-        className={styles.subDel}
-        aria-label={`删除子任务：${subtask.title}`}
-        title="删除"
-        onClick={() => onDelete(subtask)}
+      {editing ? (
+        <button
+          type="button"
+          className={styles.taskDel}
+          aria-label={`删除子任务：${subtask.title}`}
+          title="删除"
+          onClick={() => onDelete(subtask)}
+        >
+          ✕
+        </button>
+      ) : stageDone ? null : subtask.done ? (
+        <span className={styles.todayBtnDim}>已做</span>
+      ) : inToday ? (
+        <button type="button" className={`${styles.todayBtn} ${styles.todayBtnUndo}`} onClick={() => void removeSubtaskFromToday(subtask.id)}>
+          - 每日待办
+        </button>
+      ) : (
+        <button type="button" className={styles.todayBtn} onClick={() => void addSubtaskToToday(subtask.id)}>
+          ＋每日待办
+        </button>
+      )}
+    </div>
+  )
+}
+
+function StageCard({
+  stage,
+  index,
+  items,
+  editing,
+  open,
+  subFormOpen,
+  showFinish,
+  onToggle,
+  onAddSub,
+  onCancelSub,
+  onSubmitSub,
+  onDeleteSub,
+  onDeleteStage,
+  onRenameStage,
+  onFinish,
+  onLater,
+}: {
+  /** null = 不分阶段 */
+  stage: StageRecord | null
+  index: number
+  items: SubtaskRecord[]
+  editing: boolean
+  open: boolean
+  subFormOpen: boolean
+  showFinish: boolean
+  onToggle: () => void
+  onAddSub: () => void
+  onCancelSub: () => void
+  onSubmitSub: (title: string) => void
+  onDeleteSub: (st: SubtaskRecord) => void
+  onDeleteStage: (stage: StageRecord, index: number) => void
+  onRenameStage: (stage: StageRecord, index: number, fullTitle: string) => void
+  onFinish: (stage: StageRecord) => void
+  onLater: (stage: StageRecord) => void
+}): JSX.Element {
+  const [subName, setSubName] = useState('')
+  const [renaming, setRenaming] = useState(false)
+  const [nameDraft, setNameDraft] = useState(stage ? stageDisplayTitle(stage.title, index) : '')
+  const renameLock = useRef(false)
+
+  const loose = stage === null
+  const done = stage?.done ?? false
+  const isCurrent = stage?.isCurrent ?? false
+  const doneCount = items.filter((x) => x.done).length
+  const total = items.length
+  const display = loose ? '不分阶段' : stageDisplayTitle(stage.title, index)
+
+  const commitStageRename = (): void => {
+    if (!stage || renameLock.current) return
+    const nextTitle = stageTitleFromInput(nameDraft, index)
+    setRenaming(false)
+    if (!nextTitle || nextTitle === cleanStageTitle(stage.title)) return
+    renameLock.current = true
+    onRenameStage(stage, index, nextTitle)
+    renameLock.current = false
+  }
+
+  const headCls = [
+    styles.stageCardHead,
+    isCurrent ? styles.stageCardHeadCur : '',
+    done ? styles.stageCardHeadDone : '',
+  ].join(' ')
+
+  return (
+    <div className={[styles.stageCard, isCurrent ? styles.stageCardCur : ''].join(' ')}>
+      <div
+        className={headCls}
+        onClick={editing || (!loose && !total) || (!loose && done && !total) ? undefined : onToggle}
       >
-        ✕
-      </button>
+        {editing && stage && renaming ? (
+          <input
+            className={styles.stageNameInput}
+            value={nameDraft}
+            maxLength={60}
+            autoFocus
+            onFocus={(e) => e.currentTarget.select()}
+            onChange={(e) => setNameDraft(e.target.value)}
+            onBlur={commitStageRename}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                commitStageRename()
+              }
+              if (e.key === 'Escape') {
+                setNameDraft(stageDisplayTitle(stage.title, index))
+                setRenaming(false)
+              }
+            }}
+          />
+        ) : editing && stage ? (
+          <button
+            type="button"
+            className={styles.stageTitleButton}
+            onClick={() => {
+              setNameDraft(stageDisplayTitle(stage.title, index))
+              setRenaming(true)
+            }}
+          >
+            {display}
+          </button>
+        ) : (
+          <span className={styles.stageName}>{display}</span>
+        )}
+
+        {done && (
+          <span className={styles.stageDoneOn}>完成于 {stage?.doneOn ? fmtMD(stage.doneOn) : stage ? fmtTs(stage.updatedAt) : ''}</span>
+        )}
+        {!done && !loose && <span className={isCurrent ? `${styles.stageBadge} ${styles.stageBadgeCur}` : styles.stageBadge}>{isCurrent ? '进行中' : '未开始'}</span>}
+
+        {editing && stage ? (
+          <span className={styles.stageEdits}>
+            <button type="button" className={styles.stageMiniOp} onClick={() => {
+              setNameDraft(stageDisplayTitle(stage.title, index))
+              setRenaming(true)
+            }}>
+              改名
+            </button>
+            <button type="button" className={`${styles.stageMiniOp} ${styles.stageMiniOpDanger}`} onClick={() => onDeleteStage(stage, index)}>
+              删除
+            </button>
+          </span>
+        ) : editing && loose ? null : (
+          <>
+            {done ? (
+              <span className={styles.stageCount}>{doneCount}/{total}</span>
+            ) : (
+              <button
+                type="button"
+                className={styles.addSubInline}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onAddSub()
+                }}
+              >
+                <span className={styles.bracket}>「</span>＋子任务<span className={styles.bracket}>」</span>
+              </button>
+            )}
+            {total > 0 && (
+              <button
+                type="button"
+                className={styles.stageChevBtn}
+                aria-label={open ? '收起' : '展开'}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onToggle()
+                }}
+              >
+                <Chevron open={open} />
+              </button>
+            )}
+          </>
+        )}
+      </div>
+
+      {(editing || open) && (
+        <>
+          {items.map((st) => (
+            <SubtaskRow key={st.id} subtask={st} editing={editing} stageDone={done} onDelete={onDeleteSub} />
+          ))}
+          {!editing && subFormOpen && (
+            <div className={styles.subForm}>
+              <input
+                className={styles.subInput}
+                value={subName}
+                maxLength={50}
+                autoFocus
+                placeholder={loose ? '还没想好放哪一段？' : '这一阶段要做的下一件事'}
+                onChange={(e) => setSubName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    onSubmitSub(subName)
+                    setSubName('')
+                  }
+                  if (e.key === 'Escape') onCancelSub()
+                }}
+              />
+              <button
+                type="button"
+                className={styles.subSubmit}
+                onClick={() => {
+                  onSubmitSub(subName)
+                  setSubName('')
+                }}
+              >
+                添加
+              </button>
+              <button type="button" className={styles.subCancel} onClick={onCancelSub}>取消</button>
+            </div>
+          )}
+          {showFinish && stage && (
+            <div className={styles.finishBox}>
+              <p>这一段的事都做完了，要标完成并进入下一段吗？</p>
+              <div className={styles.finishRow}>
+                <button type="button" className={styles.finishBtn} onClick={() => onFinish(stage)}>标完成，进入下一段</button>
+                <button type="button" className={styles.finishLater} onClick={() => onLater(stage)}>先留着</button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }
 
 // ---------------------------------------------------------------------------
-// 目标详情页：阐述为主展示，阶段列表在下方
+// v9.46 目标级「…」操作 Sheet：一个 Sheet 三视图
 // ---------------------------------------------------------------------------
 
-/**
- * v8.10 把草稿（pct 文本 + note 文本）解析为 ProgressField。
- * pct 空 = 不填；非法 → 返回 { err }（调用方 toast 提示且不退出编辑）；
- * note 空 = 忽略。都空 → 空对象 {}（repo 层语义 = 清空进度）。
- */
-const draftToProgress = (pctTxt: string, noteTxt: string): { p?: ProgressField; err?: string } => {
-  const t = pctTxt.trim()
-  let pct: number | undefined
-  if (t) {
-    const r = parsePct(t)
-    if (!r.ok) return { err: r.message }
-    pct = r.value
-  }
-  const note = noteTxt.trim()
-  const p: ProgressField = {}
-  if (pct !== undefined) p.pct = pct
-  if (note) p.note = note
-  return { p }
+function GoalActionSheet({
+  goal,
+  onClose,
+  onDeleted,
+}: {
+  goal: GoalRecord
+  onClose: () => void
+  onDeleted: () => void
+}): JSX.Element {
+  const folderList = useApp((s) => s.folderList)
+  const setGoalDone = useApp((s) => s.setGoalDone)
+  const moveGoalToFolder = useApp((s) => s.moveGoalToFolder)
+  const deleteGoal = useApp((s) => s.deleteGoal)
+  const [view, setView] = useState<'actions' | 'folder' | 'delete'>('actions')
+
+  return (
+    <div
+      className={styles.goalSheetLayer}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div className={styles.goalSheet} role="dialog" aria-label={view === 'delete' ? '删除目标' : view === 'folder' ? '移动到文件夹' : '目标操作'}>
+        <div className={styles.goalSheetGrab} />
+        {view === 'actions' && (
+          <>
+            <div className={styles.goalSheetTitle}>目标操作</div>
+            <button
+              type="button"
+              className={styles.goalSheetRow}
+              onClick={() => {
+                onClose()
+                void setGoalDone(goal.id, !goal.done)
+              }}
+            >
+              {goal.done ? '恢复进行中' : '标记完成'}
+            </button>
+            <button type="button" className={styles.goalSheetRow} onClick={() => setView('folder')}>
+              移动到文件夹
+            </button>
+            <button type="button" className={`${styles.goalSheetRow} ${styles.goalSheetDanger}`} onClick={() => setView('delete')}>
+              删除目标
+            </button>
+            <button type="button" className={`${styles.goalSheetRow} ${styles.goalSheetCancel}`} onClick={onClose}>
+              取消
+            </button>
+          </>
+        )}
+
+        {view === 'folder' && (
+          <>
+            <div className={styles.goalSheetTitle}>移动到文件夹</div>
+            <button
+              type="button"
+              className={`${styles.goalSheetRow} ${styles.goalSheetOpt}`}
+              onClick={() => {
+                onClose()
+                void moveGoalToFolder(goal.id, null)
+              }}
+            >
+              <span>未分类</span>
+              {!goal.folderId && <span className={styles.goalSheetTick}>✓</span>}
+            </button>
+            {folderList.map(({ folder }) => (
+              <button
+                type="button"
+                key={folder.id}
+                className={`${styles.goalSheetRow} ${styles.goalSheetOpt}`}
+                onClick={() => {
+                  onClose()
+                  void moveGoalToFolder(goal.id, folder.id)
+                }}
+              >
+                <span>{folder.name}</span>
+                {goal.folderId === folder.id && <span className={styles.goalSheetTick}>✓</span>}
+              </button>
+            ))}
+            <button type="button" className={`${styles.goalSheetRow} ${styles.goalSheetCancel}`} onClick={onClose}>
+              取消
+            </button>
+          </>
+        )}
+
+        {view === 'delete' && (
+          <>
+            <div className={styles.goalSheetTitle}>删除目标</div>
+            <p className={styles.goalSheetText}>
+              删除「{goal.title}」将同时删除它的全部阶段与子任务，此操作不可恢复。
+            </p>
+            <div className={styles.goalSheetBtns}>
+              <button type="button" className={styles.goalSheetBtn} onClick={onClose}>取消</button>
+              <button
+                type="button"
+                className={`${styles.goalSheetBtn} ${styles.goalSheetBtnDanger}`}
+                onClick={() => {
+                  onClose()
+                  void deleteGoal(goal.id).then((ok) => {
+                    if (ok) onDeleted()
+                  })
+                }}
+              >
+                删除目标
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
 }
+
+// ---------------------------------------------------------------------------
+// 目标详情页（v9.46）：不分阶段 + 阶段列表、目标级操作层、编辑态
+// ---------------------------------------------------------------------------
 
 function GoalDetail({
   goal,
@@ -1002,274 +868,307 @@ function GoalDetail({
   subtasks: SubtaskRecord[]
 }): JSX.Element {
   const closeGoal = useApp((s) => s.closeGoal)
-  const updateGoal = useApp((s) => s.updateGoal)
-  const setGoalDone = useApp((s) => s.setGoalDone)
-  const deleteStage = useApp((s) => s.deleteStage)
-  const deleteSubtask = useApp((s) => s.deleteSubtask)
+  const renameGoal = useApp((s) => s.renameGoal)
+  const updateGoalRange = useApp((s) => s.updateGoalRange)
+  const clearGoalRange = useApp((s) => s.clearGoalRange)
+  const createStage = useApp((s) => s.createStage)
+  const renameStage = useApp((s) => s.renameStage)
+  const setStageDone = useApp((s) => s.setStageDone)
+  const createSubtask = useApp((s) => s.createSubtask)
+  const deleteSubtaskCascade = useApp((s) => s.deleteSubtaskCascade)
+  const restoreSubtaskCascade = useApp((s) => s.restoreSubtaskCascade)
+  const deleteStageCascade = useApp((s) => s.deleteStageCascade)
+  const restoreStageCascade = useApp((s) => s.restoreStageCascade)
   const showToast = useApp((s) => s.showToast)
 
-  const [noteEdit, setNoteEdit] = useState(false)
-  const [noteDraft, setNoteDraft] = useState(goal.note)
-  // v8.10 目标层级当前进度（与阐述同级，阐述上、进度下，独立手填）
-  const [progEdit, setProgEdit] = useState(false)
-  // v9.14.3 删除目标二次确认
-  const [delOpen, setDelOpen] = useState(false)
-  const [progPctDraft, setProgPctDraft] = useState(goal.progress?.pct !== undefined ? String(goal.progress.pct) : '')
-  const [progNoteDraft, setProgNoteDraft] = useState(goal.progress?.note ?? '')
-  const [stageSheet, setStageSheet] = useState<null | 'new' | StageRecord>(null)
-  const [subtaskSheet, setSubtaskSheet] = useState(false)
-  // v9.14 移动到文件夹（详情页唯一新增入口；其余结构保持原样）
-  const [moveSheet, setMoveSheet] = useState(false)
-  // v9.40/v8.88 目标重命名（详情页标题点击进入）
-  const [renameOpen, setRenameOpen] = useState(false)
-  // v8.5 双视图：阶段（时间维度）| 子任务（执行维度），各自进度独立
-  const [viewMode, setViewMode] = useState<'stages' | 'subtasks'>('subtasks') // v8.7 默认子任务视图
+  const [editMode, setEditMode] = useState(false)
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [renamingGoal, setRenamingGoal] = useState(false)
+  const [goalNameDraft, setGoalNameDraft] = useState(goal.title)
+  const goalRenameLock = useRef(false)
 
-  const saveNote = async (): Promise<void> => {
-    const ok = await updateGoal(goal.id, { note: noteDraft.trim() })
-    if (ok) setNoteEdit(false)
+  const [rangeEditing, setRangeEditing] = useState(false)
+  const [startDraft, setStartDraft] = useState(goal.startOn ?? '')
+  const [endDraft, setEndDraft] = useState(goal.endOn ?? '')
+
+  const [openMap, setOpenMap] = useState<Record<string, boolean>>({})
+  const [laterStages, setLaterStages] = useState<string[]>([])
+  const [subFormFor, setSubFormFor] = useState<string | null>(null)
+
+  const [newStageOpen, setNewStageOpen] = useState(false)
+  const [newStageName, setNewStageName] = useState('')
+
+  const looseItems = useMemo(() => {
+    const stageIds = new Set(stages.map((x) => x.id))
+    return subtasks.filter((x) => !x.stageId || !stageIds.has(x.stageId))
+  }, [stages, subtasks])
+
+  const itemsOfStage = (stageId: string): SubtaskRecord[] => subtasks.filter((x) => x.stageId === stageId)
+
+  const startGoalRename = (): void => {
+    setGoalNameDraft(goal.title)
+    setRenamingGoal(true)
   }
 
-  const saveProg = async (): Promise<void> => {
-    const { p, err: e } = draftToProgress(progPctDraft, progNoteDraft)
-    if (e) {
-      showToast(e)
+  const commitGoalRename = (): void => {
+    if (goalRenameLock.current) return
+    const nextTitle = goalNameDraft.trim()
+    setRenamingGoal(false)
+    if (!nextTitle || nextTitle === goal.title) return
+    goalRenameLock.current = true
+    void renameGoal(goal.id, nextTitle).finally(() => {
+      goalRenameLock.current = false
+    })
+  }
+
+  const toggleEdit = (): void => {
+    if (renamingGoal) commitGoalRename()
+    const next = !editMode
+    setEditMode(next)
+    setSubFormFor(null)
+    setNewStageOpen(false)
+    showToast(next ? '编辑模式：改名与删除立即生效' : '已退出编辑')
+  }
+
+  const saveRange = (): void => {
+    setRangeEditing(false)
+    void updateGoalRange(goal.id, startDraft ? (startDraft as DateKey) : null, endDraft ? (endDraft as DateKey) : null)
+  }
+
+  const clearRange = (): void => {
+    setRangeEditing(false)
+    setStartDraft('')
+    setEndDraft('')
+    void clearGoalRange(goal.id)
+  }
+
+  const submitNewStage = (): void => {
+    const name = cleanStageTitle(newStageName)
+    if (!name) {
+      showToast('先给这一段起个名字')
       return
     }
-    const origPct = goal.progress?.pct
-    const origNote = goal.progress?.note ?? ''
-    if ((p?.pct ?? undefined) !== origPct || (p?.note ?? '') !== origNote) {
-      const ok = await updateGoal(goal.id, { progress: p })
-      if (!ok) return
+    setNewStageName('')
+    setNewStageOpen(false)
+    void createStage({ goalId: goal.id, title: name })
+  }
+
+  const submitSubtask = (stageId: string | null, title: string): void => {
+    const t = title.trim()
+    if (!t) {
+      showToast('先写清楚要做的事')
+      return
     }
-    setProgEdit(false)
-  }
-
-  const removeGoal = (): void => {
-    // v9.14.3 删除目标二次确认（连带删除全部阶段/子任务由 repo 单事务保证）
-    setDelOpen(true)
-  }
-
-  const removeStage = (s: StageRecord): void => {
-    void deleteStage(s.id)
+    setSubFormFor(null)
+    void createSubtask({ goalId: goal.id, title: t, stageId })
   }
 
   const removeSubtask = (st: SubtaskRecord): void => {
-    void deleteSubtask(st.id)
+    void deleteSubtaskCascade(st.id).then((snapshot) => {
+      if (!snapshot) return
+      showToast('已删除子任务', {
+        label: '撤销',
+        onClick: () => {
+          void restoreSubtaskCascade(snapshot)
+        },
+      })
+    })
   }
 
-  const doneSubtaskCount = subtasks.filter((x) => x.done).length
+  const removeStage = (stage: StageRecord, index: number): void => {
+    const display = stageDisplayTitle(stage.title, index)
+    const moved = itemsOfStage(stage.id).length
+    void deleteStageCascade(stage.id).then((snapshot) => {
+      if (!snapshot) return
+      showToast(moved > 0 ? `已删除「${display}」，${moved} 个子任务移入不分阶段` : `已删除「${display}」`, {
+        label: '撤销',
+        onClick: () => {
+          void restoreStageCascade(snapshot)
+        },
+      })
+    })
+  }
 
-  // v8.60 已完成子任务沉底：未完成在前（原顺序）、已完成沉底（稳定排序保持彼此原顺序）
-  const sortedSubtasks = useMemo(
-    () => [...subtasks].sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0)),
-    [subtasks],
-  )
+  const finishStage = (stage: StageRecord): void => {
+    void setStageDone(stage.id, true)
+  }
+
+  const titleDone = goal.done ? <span className={styles.goalDonePill}>已完成</span> : null
 
   return (
-    <div className={styles.detail}>
-      <div className={styles.detailBar}>
-        <button className={styles.back} onClick={closeGoal} aria-label="返回目标列表" title="返回">
-          ←
+    <div className={styles.goalDetailPage}>
+      <div className={styles.goalTopbar}>
+        <button type="button" className={styles.goalBack} onClick={closeGoal} aria-label="返回目标列表">
+          ‹ 目标
         </button>
-        <button
-          className={styles.detailTitle}
-          onClick={() => setRenameOpen(true)}
-          aria-label={`重命名目标：${goal.title}`}
-          title="点击重命名"
-        >
-          {goal.title}
-          <span className={styles.detailTitleEdit} aria-hidden="true">✎</span>
-        </button>
-        <button
-          className={goal.done ? `${styles.doneGoalBtn} ${styles.doneGoalBtnOn}` : styles.doneGoalBtn}
-          onClick={() => void setGoalDone(goal.id, !goal.done)}
-          aria-label={goal.done ? '恢复进行中' : '标记完成'}
-        >
-          {goal.done ? '恢复进行中' : '标记完成'}
-        </button>
-        {/* v9.14 移动到文件夹：详情页唯一新增入口 */}
-        <button className={styles.moveGoalBtn} onClick={() => setMoveSheet(true)} aria-label="移动到文件夹">
-          移动到文件夹
-        </button>
-        <button className={styles.deleteGoal} onClick={removeGoal} aria-label="删除目标" title="删除目标">
-          删除
-        </button>
-      </div>
-      {moveSheet && <MoveGoalSheet goal={goal} onClose={() => setMoveSheet(false)} />}
-      {renameOpen && <RenameGoalSheet goal={goal} onClose={() => setRenameOpen(false)} />}
-      {delOpen && (
-        <DeleteGoalConfirm goal={goal} onClose={() => setDelOpen(false)} onDeleted={closeGoal} />
-      )}
-
-      {/* 目标阐述：详情页顶部主展示 */}
-      <div className={styles.noteBox}>
-        <div className={styles.noteTag}>
-          目标阐述
-          {!noteEdit && (
-            <button onClick={() => {
-              setNoteDraft(goal.note)
-              setNoteEdit(true)
-            }}>
-              编辑
-            </button>
-          )}
+        <div className={styles.goalTopActions}>
+          <button type="button" className={styles.goalMoreBtn} onClick={() => setSheetOpen(true)} aria-label="目标操作" title="目标操作">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+              <circle cx="5" cy="12" r="1.6" />
+              <circle cx="12" cy="12" r="1.6" />
+              <circle cx="19" cy="12" r="1.6" />
+            </svg>
+          </button>
+          <button type="button" className={styles.goalEditToggle} onClick={toggleEdit}>
+            {editMode ? '完成' : '编辑'}
+          </button>
         </div>
-        {!noteEdit ? (
-          goal.note ? (
-            <p>{goal.note}</p>
-          ) : null
-        ) : (
-          <div className={styles.noteEdit}>
-            <textarea
-              value={noteDraft}
-              maxLength={5000}
-              autoFocus
-              onChange={(e) => setNoteDraft(e.target.value)}
-            />
-            <div className={styles.noteActions}>
-              <button className={styles.btnGhost} onClick={() => setNoteEdit(false)}>取消</button>
-              <button className={styles.btnPrimary} onClick={() => void saveNote()}>保存</button>
-            </div>
-          </div>
-        )}
-
-        {/* v8.10 目标层级当前进度：与阐述同级（阐述上、进度下），独立手填，不自动聚合 */}
-        <div className={styles.progTag}>
-          当前进度
-          {!progEdit && (
-            <button
-              onClick={() => {
-                setProgPctDraft(goal.progress?.pct !== undefined ? String(goal.progress.pct) : '')
-                setProgNoteDraft(goal.progress?.note ?? '')
-                setProgEdit(true)
-              }}
-            >
-              编辑
-            </button>
-          )}
-        </div>
-        {!progEdit ? (
-          goal.progress && (goal.progress.pct !== undefined || goal.progress.note) ? (
-            <p>
-              {goal.progress.pct !== undefined && <span className={styles.goalPct}>{goal.progress.pct}%</span>}
-              {goal.progress.pct !== undefined && goal.progress.note && <span className={styles.progSep}> · </span>}
-              {goal.progress.note}
-            </p>
-          ) : null
-        ) : (
-          <div className={styles.progEdit}>
-            <div className={styles.progEditRow}>
-              <input
-                className={styles.progPctInput}
-                type="text"
-                inputMode="numeric"
-                value={progPctDraft}
-                placeholder="0-100"
-                maxLength={3}
-                onChange={(e) => setProgPctDraft(e.target.value)}
-              />
-              <span className={styles.progPctSuffix}>%</span>
-            </div>
-            <textarea
-              value={progNoteDraft}
-              maxLength={200}
-              rows={2}
-              placeholder="进度描述（可空）"
-              onChange={(e) => setProgNoteDraft(e.target.value)}
-            />
-            <div className={styles.noteActions}>
-              <button className={styles.btnGhost} onClick={() => setProgEdit(false)}>取消</button>
-              <button className={styles.btnPrimary} onClick={() => void saveProg()}>保存</button>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* v8.5 双视图切换：阐述之下、列表上方 */}
-      <div className={styles.seg} role="tablist" aria-label="目标视图">
-        <button
-          role="tab"
-          aria-selected={viewMode === 'subtasks'}
-          className={viewMode === 'subtasks' ? `${styles.segBtn} ${styles.segOn}` : styles.segBtn}
-          onClick={() => setViewMode('subtasks')}
-        >
-          子任务
-        </button>
-        <button
-          role="tab"
-          aria-selected={viewMode === 'stages'}
-          className={viewMode === 'stages' ? `${styles.segBtn} ${styles.segOn}` : styles.segBtn}
-          onClick={() => setViewMode('stages')}
-        >
-          阶段
-        </button>
-      </div>
-
-      {viewMode === 'stages' ? (
-        <>
-          {/* 阶段列表（时间维度，现状不变） */}
-          <div className={styles.stageTitle}>
-            阶段列表
-            <button
-              className={styles.addStageBtn}
-              onClick={() => setStageSheet('new')}
-            >
-              ＋ 添加阶段
-            </button>
-          </div>
-
-          {stages.length === 0 ? (
-            <div className={styles.stageEmpty}>
-              还没有阶段。添加第一个阶段（自动设为「当前」），再按阶段推进。
-            </div>
-          ) : (
-            stages.map((s) => (
-              <StageRow
-                key={s.id}
-                stage={s}
-                onEdit={(rec) => setStageSheet(rec)}
-                onDelete={removeStage}
-              />
-            ))
-          )}
-        </>
-      ) : (
-        <>
-          {/* 子任务列表（执行维度，v8.5） */}
-          <div className={styles.stageTitle}>
-            <span>子任务</span>
-            {subtasks.length > 0 && (
-              <span className={styles.subProgress}>已完成 {doneSubtaskCount}/{subtasks.length}</span>
-            )}
-            <button
-              className={styles.addStageBtn}
-              onClick={() => setSubtaskSheet(true)}
-            >
-              ＋ 添加子任务
-            </button>
-          </div>
-
-          {subtasks.length === 0 ? (
-            <div className={styles.stageEmpty}>
-              还没有子任务。把要做的事拆成一条条子任务，逐条勾选完成。
-            </div>
-          ) : (
-            sortedSubtasks.map((st) => (
-              <SubtaskRow key={st.id} subtask={st} onDelete={removeSubtask} />
-            ))
-          )}
-        </>
-      )}
-
-      {stageSheet !== null && (
-        <StageSheet
-          editing={stageSheet === 'new' ? null : stageSheet}
-          onClose={() => setStageSheet(null)}
+      {sheetOpen && (
+        <GoalActionSheet
+          goal={goal}
+          onClose={() => setSheetOpen(false)}
+          onDeleted={closeGoal}
         />
       )}
-      {subtaskSheet && (
-        <SubtaskSheet goalId={goal.id} onClose={() => setSubtaskSheet(false)} />
+
+      <div className={styles.goalTitleLine}>
+        {renamingGoal ? (
+          <input
+            className={styles.goalNameInput}
+            value={goalNameDraft}
+            maxLength={50}
+            autoFocus
+            autoComplete="off"
+            onFocus={(e) => e.currentTarget.select()}
+            onChange={(e) => setGoalNameDraft(e.target.value)}
+            onBlur={commitGoalRename}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                commitGoalRename()
+              }
+              if (e.key === 'Escape') {
+                setGoalNameDraft(goal.title)
+                setRenamingGoal(false)
+              }
+            }}
+          />
+        ) : editMode ? (
+          <button type="button" className={styles.goalTitleBtn} onClick={startGoalRename} aria-label={`重命名目标：${goal.title}`}>
+            {goal.title}
+            <span className={styles.titlePencil} aria-hidden="true">✎</span>
+          </button>
+        ) : (
+          <span className={styles.goalTitleText}>{goal.title}</span>
+        )}
+        {!renamingGoal && titleDone}
+      </div>
+
+      <div className={styles.goalRange}>
+        {rangeEditing ? (
+          <div className={styles.goalRangeForm}>
+            <input type="date" value={startDraft} onChange={(e) => setStartDraft(e.target.value)} aria-label="开始日期" />
+            <span className={styles.goalRangeDash}>至</span>
+            <input type="date" value={endDraft} onChange={(e) => setEndDraft(e.target.value)} aria-label="结束日期" />
+            <button type="button" className={styles.goalRangeSave} onClick={saveRange}>保存</button>
+            <button type="button" className={`${styles.goalRangeSave} ${styles.goalRangeClear}`} onClick={clearRange}>清除</button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className={styles.goalRangeText}
+            onClick={() => {
+              setStartDraft(goal.startOn ?? '')
+              setEndDraft(goal.endOn ?? '')
+              setRangeEditing(true)
+            }}
+            title={goal.startOn || goal.endOn ? '点击修改时间范围' : '点击设置时间范围'}
+          >
+            {goal.startOn || goal.endOn
+              ? `${goal.startOn ? fmtMD(goal.startOn) : '-'} – ${goal.endOn ? fmtMD(goal.endOn) : '-'}`
+              : '时间范围未设'}
+          </button>
+        )}
+      </div>
+
+      <StageCard
+        stage={null}
+        index={0}
+        items={looseItems}
+        editing={editMode}
+        open={openMap.loose ?? true}
+        subFormOpen={subFormFor === 'loose'}
+        showFinish={false}
+        onToggle={() => setOpenMap((m) => ({ ...m, loose: !(m.loose ?? true) }))}
+        onAddSub={() => setSubFormFor('loose')}
+        onCancelSub={() => setSubFormFor(null)}
+        onSubmitSub={(title) => submitSubtask(null, title)}
+        onDeleteSub={removeSubtask}
+        onDeleteStage={() => undefined}
+        onRenameStage={() => undefined}
+        onFinish={() => undefined}
+        onLater={() => undefined}
+      />
+
+      {stages.map((stage, index) => {
+        const items = itemsOfStage(stage.id)
+        const allDone = items.length > 0 && items.every((x) => x.done)
+        return (
+          <StageCard
+            key={stage.id}
+            stage={stage}
+            index={index}
+            items={items}
+            editing={editMode}
+            open={editMode ? true : (openMap[stage.id] ?? !stage.done)}
+            subFormOpen={subFormFor === stage.id}
+            showFinish={stage.isCurrent && !stage.done && allDone && !laterStages.includes(stage.id)}
+            onToggle={() => setOpenMap((m) => ({ ...m, [stage.id]: !(m[stage.id] ?? !stage.done) }))}
+            onAddSub={() => setSubFormFor(stage.id)}
+            onCancelSub={() => setSubFormFor(null)}
+            onSubmitSub={(title) => submitSubtask(stage.id, title)}
+            onDeleteSub={removeSubtask}
+            onDeleteStage={removeStage}
+            onRenameStage={(s, i, fullTitle) => {
+              const body = stageTitleFromInput(fullTitle, i)
+              if (body && body !== cleanStageTitle(s.title)) void renameStage(s.id, body)
+            }}
+            onFinish={finishStage}
+            onLater={(s) => setLaterStages((list) => [...list, s.id])}
+          />
+        )
+      })}
+
+      {!editMode && (
+        newStageOpen ? (
+          <div className={styles.stageForm}>
+            <div className={styles.stageFormRow}>
+              <span className={styles.stageFormLabel}>名称</span>
+              <input
+                value={newStageName}
+                maxLength={50}
+                autoFocus
+                placeholder="例如：上线前验收"
+                onChange={(e) => setNewStageName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    submitNewStage()
+                  }
+                  if (e.key === 'Escape') {
+                    setNewStageOpen(false)
+                    setNewStageName('')
+                  }
+                }}
+              />
+            </div>
+            <div className={styles.stageFormBtns}>
+              <button type="button" className={styles.stageFormCancel} onClick={() => {
+                setNewStageOpen(false)
+                setNewStageName('')
+              }}>
+                取消
+              </button>
+              <button type="button" className={styles.stageFormCreate} onClick={submitNewStage}>创建阶段</button>
+            </div>
+          </div>
+        ) : (
+          <button type="button" className={styles.addStage} onClick={() => setNewStageOpen(true)}>
+            ＋ 新建阶段
+          </button>
+        )
       )}
     </div>
   )
@@ -1349,7 +1248,7 @@ function GoalList(): JSX.Element {
             )}
             {!goal.done && current && (
               <span className={`${styles.badge} ${styles.badgeCur}`}>
-                当前 · {current.title}
+                当前 · {cleanStageTitle(current.title)}
               </span>
             )}
             <span className={styles.daysTag}>
@@ -1361,11 +1260,7 @@ function GoalList(): JSX.Element {
             {!hideFolderTag && folderNameOf(goal.folderId) && (
               <span className={styles.folderTag}>{folderNameOf(goal.folderId)}</span>
             )}
-            <span>进度</span>
-            <span className={styles.pct}>
-              {current?.pct !== undefined ? `${current.pct}%` : '—'}
-            </span>
-            <span>· {subtaskCount} 个子任务 · {stageCount} 个阶段</span>
+            <span>{subtaskCount} 个子任务 · {stageCount} 个阶段</span>
             <button
               className={goal.favorite ? `${styles.cardStar} ${styles.cardStarOn}` : styles.cardStar}
               aria-label={goal.favorite ? `取消收藏：${goal.title}` : `收藏：${goal.title}`}

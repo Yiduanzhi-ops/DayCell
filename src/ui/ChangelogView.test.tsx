@@ -37,15 +37,18 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v9.45')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v9.46')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v9.45')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v9.46')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v9.45，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v9.46，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+(\.\d+)+$/)
-    expect(vers[0].textContent).toBe('v9.45')
+    expect(vers[0].textContent).toBe('v9.46')
+    // v9.46
+    expect(screen.getByText(/目标详情页按「阶段与待办联动」原型重做/)).toBeInTheDocument()
+    expect(screen.getByText(/勾选子任务一步完成并记当天打卡/)).toBeInTheDocument()
     // v9.45
     expect(screen.getByText(/正文不再点一下就变成输入框/)).toBeInTheDocument()
     expect(screen.getByText(/回顾页里的长想法默认折 3 行/)).toBeInTheDocument()

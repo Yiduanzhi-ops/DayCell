@@ -1088,3 +1088,626 @@
   border-color: color-mix(in srgb, var(--accent) 32%, var(--line));
 }
 .subToday:active { opacity: 0.75; }
+
+/* ==========================================================================
+   v9.46 目标详情：严格对齐《阶段与待办联动原型》
+   阶段只作任务容器；单列「不分阶段 + 阶段卡」；目标级三操作收进「…」
+   ========================================================================== */
+.goalDetailPage {
+  max-width: 640px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 2px 18px 96px;
+  overflow-y: auto;
+}
+.goalTopbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0 8px;
+}
+.goalBack {
+  border: 0;
+  background: none;
+  padding: 2px 0;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.goalBack:hover { color: var(--ink); }
+.goalTopActions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.goalMoreBtn {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--ink-2);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+}
+.goalMoreBtn:hover { background: #F5F5F5; }
+.goalEditToggle {
+  border: 0;
+  background: none;
+  padding: 4px 2px;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+}
+.goalTitleLine {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+  margin-top: 2px;
+}
+.goalTitleText { min-width: 0; }
+.goalTitleBtn {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+  color: var(--ink);
+  text-align: left;
+  cursor: text;
+  text-decoration: underline dotted var(--ink-4);
+  text-underline-offset: 4px;
+}
+.titlePencil {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--ink-4);
+  margin-left: 3px;
+  vertical-align: 1px;
+}
+.goalNameInput {
+  width: 100%;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+  color: var(--ink);
+  border: 1px solid var(--accent-line, #C9D3EA);
+  border-radius: 8px;
+  padding: 3px 9px;
+  background: #fff;
+}
+.goalNameInput:focus { outline: none; border-color: var(--accent); }
+.goalDonePill {
+  flex: none;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #2E7D4F;
+  background: #F2F8F4;
+  border: 1px solid rgba(46, 125, 79, 0.22);
+  border-radius: 999px;
+  padding: 1px 6px;
+  line-height: 1.5;
+}
+.goalRange { margin-top: 8px; }
+.goalRangeText {
+  border: 0;
+  background: none;
+  padding: 2px 0;
+  margin: 0;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+  letter-spacing: 0.01em;
+  cursor: pointer;
+}
+.goalRangeText:hover { color: var(--accent); }
+.goalRangeForm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.goalRangeForm input {
+  flex: 1;
+  min-width: 0;
+  min-height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 7px;
+  font-size: 11px;
+  font-family: inherit;
+  color: var(--ink-2);
+}
+.goalRangeDash { font-size: 11px; color: var(--ink-3); flex: none; }
+.goalRangeSave {
+  flex: none;
+  border: 1px solid var(--accent-line, #C9D3EA);
+  background: #fff;
+  color: var(--accent);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.goalRangeClear { border-color: var(--line); color: var(--ink-3); }
+
+/* ---- 阶段卡 ---- */
+.stageCard {
+  border: 1px solid #EBEBEB;
+  border-radius: 12px;
+  margin-top: 12px;
+  overflow: hidden;
+  background: #fff;
+}
+.stageCardCur {
+  border-color: #C9D3EA;
+  background: #FCFDFF;
+}
+.stageCardHead {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 13px;
+  background: #FAFAFA;
+  cursor: pointer;
+}
+.stageCardHeadCur { background: #F5F8FE; }
+.stageCardHeadDone { cursor: default; }
+.stageName {
+  font-size: 13.5px;
+  font-weight: 600;
+  min-width: 0;
+}
+.stageTitleButton {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: underline dotted var(--ink-4);
+  text-underline-offset: 3px;
+  cursor: text;
+  text-align: left;
+  min-width: 0;
+}
+.stageDoneOn {
+  flex: none;
+  margin-left: 4px;
+  font-size: 11.5px;
+  color: #2E7D4F;
+  background: #F2F8F4;
+  border: 1px solid rgba(46, 125, 79, 0.22);
+  border-radius: 6px;
+  padding: 1px 6px;
+  line-height: 1.5;
+}
+.stageBadge {
+  flex: none;
+  font-size: 10.5px;
+  color: var(--ink-3);
+  background: #fff;
+  border: 1px solid #EBEBEB;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.stageBadgeCur {
+  color: var(--accent);
+  border-color: #C9D3EA;
+}
+.stageCount {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  flex: none;
+}
+.addSubInline {
+  margin-left: auto;
+  flex: none;
+  border: 0;
+  background: none;
+  padding: 2px 0 2px 8px;
+  font-family: inherit;
+  font-size: 11.5px;
+  color: var(--accent);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.addSubInline:hover { opacity: 0.75; }
+.bracket { color: var(--accent); }
+.stageChevBtn {
+  border: 0;
+  background: none;
+  padding: 2px;
+  margin-left: 2px;
+  color: var(--ink-3);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+.stageChev { display: inline-flex; transition: transform 0.15s; }
+.stageChevOpen { transform: rotate(180deg); }
+.stageEdits {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+.stageMiniOp {
+  border: 0;
+  background: none;
+  padding: 3px 5px;
+  font-family: inherit;
+  font-size: 11.5px;
+  color: var(--ink-2);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.stageMiniOpDanger { color: #C0392B; }
+.stageNameInput {
+  width: 158px;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  border: 1px solid #C9D3EA;
+  border-radius: 6px;
+  padding: 3px 7px;
+}
+.stageNameInput:focus { outline: none; border-color: var(--accent); }
+
+/* ---- 子任务行 ---- */
+.taskRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 9px 13px;
+  border-top: 1px solid #F2F2F4;
+}
+.taskCheck {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  margin-top: 1px;
+  padding: 0;
+  border: 1.6px solid #C4C4C4;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  position: relative;
+}
+.taskCheckOn {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.taskCheckOn::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 2px;
+  width: 4px;
+  height: 8px;
+  border-right: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: rotate(45deg);
+}
+.taskBody { flex: 1; min-width: 0; }
+.taskTitle {
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+.taskTitleDone {
+  color: var(--ink-3);
+  text-decoration: line-through;
+}
+.taskTitleEdit {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--ink);
+  text-align: left;
+  cursor: text;
+  text-decoration: underline dotted var(--ink-4);
+  text-underline-offset: 3px;
+}
+.taskInput {
+  width: 100%;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--ink);
+  border: 1px solid #C9D3EA;
+  border-radius: 6px;
+  padding: 2px 7px;
+  background: #fff;
+}
+.taskInput:focus { outline: none; border-color: var(--accent); }
+.taskMeta {
+  margin-top: 2px;
+  font-size: 10.5px;
+  color: var(--ink-3);
+}
+.taskDel {
+  flex: none;
+  border: 0;
+  background: none;
+  padding: 4px 7px;
+  font-size: 13px;
+  line-height: 1;
+  color: #C4C4C4;
+  cursor: pointer;
+}
+.taskDel:hover { color: #C0392B; }
+.todayBtn {
+  flex: none;
+  min-height: 28px;
+  border: 1px solid #C9D3EA;
+  border-radius: 7px;
+  background: #fff;
+  color: var(--accent);
+  padding: 4px 9px;
+  font-size: 11.5px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.todayBtn:hover { background: #F3F6FD; }
+.todayBtnUndo { color: var(--ink-3); border-color: #EBEBEB; }
+.todayBtnUndo:hover { background: #FAFAFA; color: var(--ink-2); }
+.todayBtnDim {
+  flex: none;
+  border: 1px solid #EBEBEB;
+  border-radius: 7px;
+  background: #FAFAFA;
+  color: var(--ink-3);
+  padding: 4px 9px;
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+/* ---- 新子任务 / 收尾 ---- */
+.subForm {
+  display: flex;
+  gap: 6px;
+  padding: 9px 13px;
+  border-top: 1px solid #F2F2F4;
+}
+.subInput {
+  flex: 1;
+  min-width: 0;
+  min-height: 32px;
+  border: 1px solid #EBEBEB;
+  border-radius: 7px;
+  padding: 6px 9px;
+  font-size: 12.5px;
+  font-family: inherit;
+}
+.subInput:focus { outline: none; border-color: var(--accent-line, #C9D3EA); }
+.subSubmit {
+  flex: none;
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  background: var(--accent);
+  color: #fff;
+  padding: 5px 10px;
+  font-size: 11.5px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.subCancel {
+  flex: none;
+  border: 1px solid #EBEBEB;
+  border-radius: 7px;
+  background: #fff;
+  color: var(--ink-3);
+  padding: 5px 10px;
+  font-size: 11.5px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.finishBox {
+  border-top: 1px solid #F2F2F4;
+  padding: 11px 13px;
+  background: #F7F9FE;
+}
+.finishBox p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.finishRow { display: flex; gap: 8px; margin-top: 9px; }
+.finishBtn {
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  background: var(--accent);
+  color: #fff;
+  padding: 5px 10px;
+  font-size: 11.5px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.finishLater {
+  border: 1px solid #EBEBEB;
+  border-radius: 7px;
+  background: #fff;
+  color: var(--ink-3);
+  padding: 5px 10px;
+  font-size: 11.5px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* ---- 新建阶段 ---- */
+.addStage {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 11px 0;
+  border: 1px dashed #D9D9DE;
+  border-radius: 11px;
+  background: #fff;
+  color: var(--ink-3);
+  font-size: 12.5px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.addStage:hover {
+  background: #FAFAFA;
+  border-color: #C9D3EA;
+  color: var(--accent);
+}
+.stageForm {
+  border: 1px solid #C9D3EA;
+  border-radius: 11px;
+  margin-top: 12px;
+  padding: 11px 13px;
+  background: #FCFDFF;
+}
+.stageFormRow { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+.stageFormLabel { flex: none; width: 28px; font-size: 11.5px; color: var(--ink-3); }
+.stageFormRow input {
+  flex: 1;
+  min-width: 0;
+  min-height: 32px;
+  border: 1px solid #EBEBEB;
+  border-radius: 7px;
+  padding: 6px 9px;
+  font-size: 12.5px;
+  font-family: inherit;
+  color: var(--ink);
+}
+.stageFormRow input:focus { outline: none; border-color: #C9D3EA; }
+.stageFormBtns { display: flex; justify-content: flex-end; gap: 8px; }
+.stageFormCancel {
+  border: 1px solid #EBEBEB;
+  border-radius: 7px;
+  background: #fff;
+  color: var(--ink-3);
+  padding: 5px 10px;
+  font-size: 11.5px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.stageFormCreate {
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  background: var(--accent);
+  color: #fff;
+  padding: 5px 10px;
+  font-size: 11.5px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* ---- 目标级操作 Sheet ---- */
+.goalSheetLayer {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: rgba(20, 22, 28, 0.32);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.goalSheet {
+  width: 100%;
+  max-width: 640px;
+  background: #fff;
+  border-radius: 14px 14px 0 0;
+  padding: 8px 14px calc(12px + env(safe-area-inset-bottom));
+  box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.1);
+}
+.goalSheetGrab {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: #E3E3E7;
+  margin: 0 auto 8px;
+}
+.goalSheetTitle {
+  font-size: 12px;
+  color: var(--ink-3);
+  text-align: center;
+  padding: 1px 0 8px;
+}
+.goalSheetRow {
+  width: 100%;
+  border: 0;
+  border-top: 1px solid #F0F0F2;
+  background: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  padding: 13px 4px;
+  text-align: center;
+  cursor: pointer;
+}
+.goalSheetRow:first-of-type { border-top: 0; }
+.goalSheetDanger { color: #C0392B; }
+.goalSheetCancel {
+  margin-top: 8px;
+  background: #F5F5F7;
+  border-radius: 10px;
+  border-top: 0;
+}
+.goalSheetOpt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+.goalSheetTick { color: var(--accent); font-size: 14px; font-weight: 600; }
+.goalSheetText {
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--ink-2);
+  padding: 2px 6px 12px;
+  text-align: left;
+  margin: 0;
+}
+.goalSheetBtns { display: flex; gap: 8px; padding: 0 2px; }
+.goalSheetBtn {
+  flex: 1;
+  border: 1px solid #EBEBEB;
+  border-radius: 10px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  padding: 11px 0;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.goalSheetBtnDanger {
+  background: #C0392B;
+  border-color: #C0392B;
+  color: #fff;
+  font-weight: 600;
+}

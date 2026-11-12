@@ -8,11 +8,20 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.45'
+const CURRENT_VERSION = 'v9.46'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.46',
+    date: '2026-11-12',
+    items: [
+      '目标详情页按「阶段与待办联动」原型重做：阶段改成任务容器，带「第N阶段 · 」中文序号、进行中 / 未开始徽标、完成于与 N/N 计数，可折叠；当前阶段全部做完会提示标完成并进入下一段',
+      '勾选子任务一步完成并记当天打卡；「＋每日待办」把子任务放进今天；编辑模式里改名、删除，删除可 5 秒撤销；删除阶段时子任务自动移入「不分阶段」',
+      '目标级操作收进右上角「…」：标记完成、移动到文件夹、删除目标；标题改名只在编辑模式；详情页不再显示目标阐述与旧进度百分比',
+    ],
+  },
   {
     version: 'v9.45',
     date: '2026-11-12',

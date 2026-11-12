@@ -158,7 +158,7 @@ export interface GoalSummary {
   /** 活子任务数（不含墓碑，v8.7） */
   subtaskCount: number
   /** 当前阶段（无则 null：目标建了但没阶段/当前阶段被删/已完成） */
-  current: { id: string; title: string; pct?: number } | null
+  current: { id: string; title: string } | null
   /** v8.45 目标已进行天数：该目标所有活子任务 workDates 的并集大小（去重） */
   activeDays: number
   /** v9.14 所属文件夹（活）。null = 未分类：
@@ -544,7 +544,7 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
         goal: { ...goal, done: goal.done ?? false, favorite: goal.favorite ?? false },
         stageCount: stages.length,
         subtaskCount: subtaskGroups.get(goal.id) ?? 0,
-        current: cur ? { id: cur.id, title: cur.title, pct: cur.pct } : null,
+        current: cur ? { id: cur.id, title: cur.title } : null,
         activeDays: activeDaySets.get(goal.id)?.size ?? 0,
         // v9.14 folderId 归一化：无字段/指向已删文件夹 → null（未分类）
         folder: goal.folderId ? (folderById.get(goal.folderId) ?? null) : null,
@@ -573,21 +573,15 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
   const stagesOfGoal = async (goalId: string): Promise<StageRecord[]> => {
     const all = await store.all<StageRecord>('stages')
     const live = all.filter((s) => s.goalId === goalId && !s.deleted)
-    // 当前置顶，其余按 createdAt 升序（列表即时间线）
-    return [...live].sort((a, b) => {
-      if (a.isCurrent !== b.isCurrent) return a.isCurrent ? -1 : 1
-      return a.createdAt - b.createdAt
-    })
+    // v9.46 阶段纯 createdAt 升序：当前阶段不置顶，列表顺序即时间线
+    return [...live].sort((a, b) => a.createdAt - b.createdAt)
   }
 
   const subtasksOfGoal = async (goalId: string): Promise<SubtaskRecord[]> => {
     const all = await store.all<SubtaskRecord>('subtasks')
     const live = all.filter((s) => s.goalId === goalId && !s.deleted)
-    // 未完成在前、完成后沉底，各组内按 createdAt 升序
-    return [...live].sort((a, b) => {
-      if (a.done !== b.done) return a.done ? 1 : -1
-      return a.createdAt - b.createdAt
-    })
+    // v9.46 子任务纯 createdAt 升序：完成不改变组内顺序，避免勾选后行跳动
+    return [...live].sort((a, b) => a.createdAt - b.createdAt)
   }
 
   /**

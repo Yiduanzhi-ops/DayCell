@@ -860,15 +860,15 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     await store.getState().createSubtask({ goalId: gid, title: '背单词' })
     await waitFor(() => expect(store.getState().goalList[0]!.subtaskCount).toBe(1))
 
-    // 目标 tab → 打开详情 → 子任务行出现「＋ 加入今日待办」
+    // 目标 tab → 打开详情 → 子任务行出现「＋每日待办」
     fireEvent.click(screen.getByRole('tab', { name: '目标' }))
     await waitFor(() => expect(screen.getByText('考研')).toBeInTheDocument())
     fireEvent.click(screen.getByText('考研'))
-    await waitFor(() => expect(screen.getByRole('button', { name: '加入今日待办：背单词' })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: '＋每日待办' })).toBeInTheDocument())
 
-    // 加入 → 按钮两态翻转（已加入）
-    fireEvent.click(screen.getByRole('button', { name: '加入今日待办：背单词' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: '移出今日待办：背单词' })).toBeInTheDocument())
+    // 加入 → 按钮翻成「- 每日待办」
+    fireEvent.click(screen.getByRole('button', { name: '＋每日待办' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: '- 每日待办' })).toBeInTheDocument())
     expect(store.getState().subtaskTodayIds).toHaveLength(1)
 
     // 今天 tab → 待办区出现「背单词」，且该行没有「编辑待办」入口（不可编辑文字）
@@ -878,26 +878,30 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     // v8.64 标注来源目标「· 考研」
     await waitFor(() => expect(screen.getByText('· 考研')).toBeInTheDocument())
 
-    // 勾选完成 → 目标详情里联动为当天已打卡（切回目标 tab 回列表，需重新点开详情）
+    // 勾选完成 → 目标详情里联动为当天已打卡 + 子任务已完成
     fireEvent.click(screen.getByRole('button', { name: '标记完成：背单词' }))
     fireEvent.click(screen.getByRole('tab', { name: '目标' }))
     await waitFor(() => expect(screen.getByText('考研')).toBeInTheDocument())
     fireEvent.click(screen.getByText('考研'))
-    await waitFor(() => expect(screen.getByRole('button', { name: '取消今天的打卡：背单词' })).toBeInTheDocument())
-    expect(screen.getByRole('button', { name: '移出今日待办：背单词' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: '标记完成：背单词' })).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: '- 每日待办' })).toBeInTheDocument()
+    expect(screen.getByText(/打卡 1 天/)).toBeInTheDocument()
 
-    // 删除今日待办 → 撤销加入 + 撤销当天打卡
+    // 删除今日待办 → 撤销加入 + 撤销当天打卡（子任务完成态保留）
     fireEvent.click(screen.getByRole('tab', { name: '今天' }))
     await waitFor(() => expect(screen.getByRole('button', { name: '删除待办：背单词' })).toBeInTheDocument())
     fireEvent.click(screen.getByRole('button', { name: '删除待办：背单词' }))
     await waitFor(() => expect(screen.queryByText('背单词')).not.toBeInTheDocument())
 
-    // 回目标详情：按钮恢复「加入今日待办」，打卡恢复未打卡（重新点开详情）
+    // 回目标详情：子任务本身未完成，当天打卡已撤销、今日待办已移除
     fireEvent.click(screen.getByRole('tab', { name: '目标' }))
     await waitFor(() => expect(screen.getByText('考研')).toBeInTheDocument())
     fireEvent.click(screen.getByText('考研'))
-    await waitFor(() => expect(screen.getByRole('button', { name: '加入今日待办：背单词' })).toBeInTheDocument())
-    expect(screen.getByRole('button', { name: '打卡：背单词' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: '标记完成：背单词' })).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: '＋每日待办' })).toBeInTheDocument()
+    const sub = store.getState().goalDetail!.subtasks.find((x) => x.title === '背单词')!
+    expect(sub.workDates ?? []).not.toContain('2026-09-29')
+    expect(store.getState().subtaskTodayIds).not.toContain(sub.id)
   })
 
   it('v9.2.2 待办排序：有具体时间的按时刻置顶，无时间沉底；行内显示时间标签', async () => {

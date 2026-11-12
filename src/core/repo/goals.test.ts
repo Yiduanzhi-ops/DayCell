@@ -225,7 +225,9 @@ describe('stages', () => {
     const done = await repos.stages.setDone(s.id, true)
     expect(done.done).toBe(true)
     expect(done.pct).toBe(100)
-    expect(done.isCurrent).toBe(true) // 标完成不清「当前」（repo 只做用户显式要的）
+    // v9.46：完成阶段退出「当前」，并写入完成日；取消完成清掉完成日
+    expect(done.isCurrent).toBe(false)
+    expect(done.doneOn).toBe('2023-11-15')
     const undo = await repos.stages.setDone(s.id, false)
     expect(undo.done).toBe(false)
   })
@@ -259,7 +261,6 @@ describe('aggregate.goals', () => {
     expect(a.stageCount).toBe(2)
     expect(a.subtaskCount).toBe(2)
     expect(a.current?.title).toBe('基础学习') // 第一个是当前
-    expect(a.current?.pct).toBe(100)
     const b = list.find((x) => x.goal.id === g2.id)!
     expect(b.stageCount).toBe(0)
     expect(b.subtaskCount).toBe(0)
@@ -293,7 +294,7 @@ describe('aggregate.goals', () => {
     expect(list.every((x) => typeof x.goal.done === 'boolean')).toBe(true)
   })
 
-  it('stagesOfGoal：当前置顶，其余 createdAt 升序', async () => {
+  it('stagesOfGoal：一律按 createdAt 升序，当前阶段不置顶', async () => {
     const g = await repos.goals.create({ title: 'x' })
     const s1 = await repos.stages.create({ goalId: g.id, title: '一' })
     clock.set(clock() + 1000)
@@ -303,11 +304,11 @@ describe('aggregate.goals', () => {
     await repos.stages.setCurrent(s3.id)
 
     const list = await agg.stagesOfGoal(g.id)
-    expect(list.map((x) => x.id)).toEqual([s3.id, s1.id, s2.id])
+    expect(list.map((x) => x.id)).toEqual([s1.id, s2.id, s3.id])
     // 只回活记录
     await repos.stages.softDelete(s2.id)
     const after = await agg.stagesOfGoal(g.id)
-    expect(after.map((x) => x.id)).toEqual([s3.id, s1.id])
+    expect(after.map((x) => x.id)).toEqual([s1.id, s3.id])
   })
 })
 
@@ -505,14 +506,14 @@ describe('subtasks', () => {
     expect(all.filter((s) => s.id === st1.id || s.id === st2.id).every((s) => s.deleted)).toBe(true)
   })
 
-  it('aggregate.subtasksOfGoal：未完成在前、完成后沉底，各组按 createdAt 升序', async () => {
+  it('aggregate.subtasksOfGoal：一律按 createdAt 升序，完成不沉底', async () => {
     const g = await repos.goals.create({ title: '目标' })
     await repos.subtasks.create({ goalId: g.id, title: 'a' })
     const b = await repos.subtasks.create({ goalId: g.id, title: 'b' })
     await repos.subtasks.create({ goalId: g.id, title: 'c' })
     await repos.subtasks.setDone(b.id, true)
     const list = await agg.subtasksOfGoal(g.id)
-    expect(list.map((x) => x.title)).toEqual(['a', 'c', 'b'])
+    expect(list.map((x) => x.title)).toEqual(['a', 'b', 'c'])
   })
 
   it('merge 的 added 统计含 subtasks 键（契约：RecordTable 八表对齐）', async () => {

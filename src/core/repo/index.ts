@@ -96,6 +96,8 @@ export interface TodoRepo {
   /** v8.87 翻转完成态；viewDate = 勾选时正在查看的日期，写入 doneOn（过去日期补勾时保留显示） */
   toggle(id: string, viewDate?: DateKey): Promise<TodoRecord>
   softDelete(id: string): Promise<void>
+  /** v9.46 撤销删除：显式恢复墓碑记录并保留原时间戳（仅供删除撤销快照使用） */
+  restore(id: string): Promise<TodoRecord>
   rollOver(from: DateKey, to: DateKey): Promise<RollOverResult>
   /** 是否有可顺延项；0 时 UI 不显示横幅（PRD E10） */
   rollableCount(date: DateKey): Promise<number>
@@ -244,10 +246,13 @@ export interface CategoryRepo {
 export interface GoalInput {
   title: string
   note?: string
-  /** v8.10 目标层级当前进度（可空；空对象 = 无进度） */
+  /** v8.10 目标层级当前进度（字段保留；详情页不再展示） */
   progress?: ProgressField
   /** v9.14 可选：所属文件夹（空/缺省 = 未分类，直接创建目标天然成立） */
   folderId?: string | null
+  /** v9.46 目标时间范围；null = 清除该侧，undefined = 不改 */
+  startOn?: DateKey | null
+  endOn?: DateKey | null
 }
 
 export interface GoalRepo {
@@ -295,14 +300,17 @@ export interface StageInput {
 
 export interface StageRepo {
   byGoal(goalId: string): Promise<StageRecord[]>
-  /** 目标必须存在；**第一个阶段自动成为当前阶段** */
+  /** 目标必须存在；**没有当前阶段时，新阶段自动成为当前** */
   create(input: StageInput): Promise<StageRecord>
-  /** pct 传 null 表示显式清空；undefined 表示不改 */
+  /** pct 传 null 表示显式清空；undefined 表示不改（字段保留，详情页不再展示） */
   update(id: string, patch: Partial<Omit<StageInput, 'goalId' | 'pct'>> & { pct?: number | null }): Promise<StageRecord>
   /** 设为当前：同目标其他阶段自动取消 current（互斥） */
   setCurrent(id: string): Promise<StageRecord>
+  /** 完成/取消：完成时写 doneOn（今天）并清 isCurrent；取消时清 doneOn */
   setDone(id: string, done: boolean): Promise<StageRecord>
   softDelete(id: string): Promise<void>
+  /** v9.46 撤销删除：显式恢复墓碑阶段并保留原时间戳 */
+  restore(id: string): Promise<StageRecord>
 }
 
 // ---------------------------------------------------------------------------
@@ -312,18 +320,20 @@ export interface StageRepo {
 export interface SubtaskInput {
   goalId: string
   title: string
-  /** v8.9 可选：子任务具体内容（空/缺省 = 无描述） */
+  /** v8.9 可选：子任务具体内容（字段保留；详情页不再展示） */
   desc?: string
-  /** v8.10 可选：子任务当前进度（空对象 = 无进度） */
+  /** v8.10 可选：子任务当前进度（字段保留；详情页不再展示） */
   progress?: ProgressField
+  /** v9.46 可选：所属阶段；缺省 = 不分阶段 */
+  stageId?: string | null
 }
 
 export interface SubtaskRepo {
   byGoal(goalId: string): Promise<SubtaskRecord[]>
   /** 目标必须存在 */
   create(input: SubtaskInput): Promise<SubtaskRecord>
-  /** v8.9 起支持改标题与描述；v8.10 支持改当前进度（字段轻，无日期备注） */
-  update(id: string, patch: { title?: string; desc?: string; progress?: ProgressField | undefined }): Promise<SubtaskRecord>
+  /** v8.9 起支持改标题与描述；v8.10 支持改当前进度；v9.46 支持改所属阶段（null = 移入不分阶段） */
+  update(id: string, patch: { title?: string; desc?: string; progress?: ProgressField | undefined; stageId?: string | null }): Promise<SubtaskRecord>
   setDone(id: string, done: boolean): Promise<SubtaskRecord>
   /**
    * v8.45 子任务打卡：把 date 加入（on=true）或移出（on=false）workDates。
@@ -331,6 +341,8 @@ export interface SubtaskRepo {
    */
   setWork(id: string, date: DateKey, on: boolean): Promise<SubtaskRecord>
   softDelete(id: string): Promise<void>
+  /** v9.46 撤销删除：显式恢复墓碑子任务并保留原时间戳 */
+  restore(id: string): Promise<SubtaskRecord>
 }
 
 // ---------------------------------------------------------------------------
@@ -511,6 +523,12 @@ export function createRepos(deps: RepoDeps): Repos {
     },
 
     softDelete: softDelete('todos'),
+
+    async restore(id) {
+      const rec = await store.get<TodoRecord>('todos', id)
+      if (!rec) throw new NotFoundError()
+      return store.put<TodoRecord>('todos', { ...rec, deleted: false }, { keepTimestamps: true })
+    },
 
     async rollOver(from, to) {
       unwrap(parseDateKey(from))
@@ -766,6 +784,22 @@ export function createRepos(deps: RepoDeps): Repos {
     },
   }
 
+  /** v9.46 目标时间范围单侧解析：undefined=键不存在（不改）；null=显式清空；字符串=严格日期 */
+  const parseRangeSide = (v: DateKey | null | undefined): DateKey | null | undefined => {
+    if (v === undefined) return undefined
+    if (v === null) return null
+    return unwrap(parseDateKey(v))
+  }
+
+  /** 同时写了起止时归一化：都非空且起点晚于终点 → 对调（与 UI 保存口径一致） */
+  const normalizeRange = (next: GoalRecord): void => {
+    if (next.startOn && next.endOn && next.startOn > next.endOn) {
+      const start = next.startOn
+      next.startOn = next.endOn
+      next.endOn = start
+    }
+  }
+
   const goals: GoalRepo = {
     all: () => store.all<GoalRecord>('goals'),
 
@@ -776,19 +810,25 @@ export function createRepos(deps: RepoDeps): Repos {
       const progress = parseProgress(input.progress)
       // v9.14 可选文件夹：空/缺省 = 未分类；显式给则写 folderId（id 合法性由 UI/聚合层兜底，这里只做截断）
       const folderId = input.folderId === undefined || input.folderId === null ? undefined : String(input.folderId).slice(0, 64)
+      const startOn = parseRangeSide(input.startOn)
+      const endOn = parseRangeSide(input.endOn)
       const ts = now()
-      return store.put<GoalRecord>('goals', {
+      const rec: GoalRecord = {
         id: idGen.next(),
         type: 'goal',
         title,
         note,
         ...(progress !== undefined ? { progress } : {}),
         ...(folderId ? { folderId } : {}),
+        ...(startOn !== undefined ? { startOn } : {}),
+        ...(endOn !== undefined ? { endOn } : {}),
         done: false,
         createdAt: ts,
         updatedAt: ts,
         deleted: false,
-      })
+      }
+      normalizeRange(rec)
+      return store.put<GoalRecord>('goals', rec)
     },
 
     async update(id, patch) {
@@ -808,6 +848,18 @@ export function createRepos(deps: RepoDeps): Repos {
         if (fid === undefined) delete next.folderId
         else next.folderId = fid
       }
+      // v9.46 时间范围：null = 写 null（显式清空该侧）；undefined 键 = 不改
+      if ('startOn' in patch) {
+        const v = parseRangeSide(patch.startOn)
+        if (v === undefined) delete next.startOn
+        else next.startOn = v
+      }
+      if ('endOn' in patch) {
+        const v = parseRangeSide(patch.endOn)
+        if (v === undefined) delete next.endOn
+        else next.endOn = v
+      }
+      normalizeRange(next)
       return store.put<GoalRecord>('goals', next)
     },
 
@@ -931,9 +983,10 @@ export function createRepos(deps: RepoDeps): Repos {
       const note = unwrap(parseStageNote(input.note ?? ''))
       if (input.pct !== undefined) assertPct(input.pct)
       const ts = now()
-      // 第一个阶段自动成为当前（用户口径：建完就有"当前"，无需再设）
+      // 没有当前阶段时自动成为当前（首个阶段、或前一个当前阶段已完成/删除后新建）
       const siblings = await stages.byGoal(input.goalId)
-      const isFirst = siblings.length === 0
+      const hasCurrent = siblings.some((s) => s.isCurrent && !s.done)
+      const isFirst = !hasCurrent
       return store.put<StageRecord>('stages', {
         id: idGen.next(),
         type: 'stage',
@@ -982,10 +1035,31 @@ export function createRepos(deps: RepoDeps): Repos {
 
     async setDone(id, done) {
       const rec = await mustGet<StageRecord>('stages', id)
-      return store.put<StageRecord>('stages', { ...rec, done })
+      // v9.46 完成写归属日；取消完成清 doneOn。完成时同时退出「当前」，
+      // 由 store 事务把当前交接给下一阶段（repo 保证单条记录一致）
+      const next: StageRecord = { ...rec, done, ...(done ? { doneOn: keyOf(now()) } : {}) }
+      if (done) {
+        next.isCurrent = false
+      } else if ('doneOn' in next) {
+        delete next.doneOn
+      }
+      return store.put<StageRecord>('stages', next)
     },
 
     softDelete: softDelete('stages'),
+
+    async restore(id) {
+      const rec = await store.get<StageRecord>('stages', id)
+      if (!rec) throw new NotFoundError()
+      return store.put<StageRecord>('stages', { ...rec, deleted: false }, { keepTimestamps: true })
+    },
+  }
+
+  /** v9.46 子任务归属阶段校验：必须存在、未删、且与子任务同目标 */
+  const assertSubtaskStage = async (goalId: string, stageId: string): Promise<string> => {
+    const stage = await mustGet<StageRecord>('stages', stageId)
+    if (stage.goalId !== goalId) throw new ValidationError('BAD_VALUE', '子任务的阶段不属于该目标')
+    return stageId
   }
 
   const subtasks: SubtaskRepo = {
@@ -1004,6 +1078,9 @@ export function createRepos(deps: RepoDeps): Repos {
       const desc = input.desc === undefined ? undefined : unwrap(parseSubtaskDesc(input.desc)) || undefined
       // v8.10 progress 可选：空对象/缺省不写入字段
       const progress = parseProgress(input.progress)
+      const stageId = input.stageId === undefined || input.stageId === null
+        ? undefined
+        : await assertSubtaskStage(input.goalId, String(input.stageId).slice(0, 64))
       const ts = now()
       return store.put<SubtaskRecord>('subtasks', {
         id: idGen.next(),
@@ -1011,6 +1088,7 @@ export function createRepos(deps: RepoDeps): Repos {
         goalId: input.goalId,
         title,
         done: false,
+        ...(stageId !== undefined ? { stageId } : {}),
         ...(desc !== undefined ? { desc } : {}),
         ...(progress !== undefined ? { progress } : {}),
         createdAt: ts,
@@ -1036,6 +1114,11 @@ export function createRepos(deps: RepoDeps): Repos {
         if (p === undefined) delete next.progress
         else next.progress = p
       }
+      // v9.46 阶段归属：null = 移入不分阶段；undefined = 不改
+      if ('stageId' in patch) {
+        if (patch.stageId === null || patch.stageId === undefined) delete next.stageId
+        else next.stageId = await assertSubtaskStage(next.goalId, String(patch.stageId).slice(0, 64))
+      }
       return store.put<SubtaskRecord>('subtasks', next)
     },
 
@@ -1057,6 +1140,12 @@ export function createRepos(deps: RepoDeps): Repos {
     },
 
     softDelete: softDelete('subtasks'),
+
+    async restore(id) {
+      const rec = await store.get<SubtaskRecord>('subtasks', id)
+      if (!rec) throw new NotFoundError()
+      return store.put<SubtaskRecord>('subtasks', { ...rec, deleted: false }, { keepTimestamps: true })
+    },
   }
 
   const habits: HabitRepo = {

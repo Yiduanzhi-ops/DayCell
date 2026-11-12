@@ -126,6 +126,20 @@
   text-overflow: ellipsis;
 }
 .toast.on {
+  pointer-events: auto;
+}
+.toastAction {
+  margin-left: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #A9C0FF;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.toast.on {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }

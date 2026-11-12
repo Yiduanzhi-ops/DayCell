@@ -56,6 +56,7 @@ import {
   type StageRecord,
   type SubtaskInput,
   type SubtaskRecord,
+  type TodoRecord,
   type WeekDay,
   type WeekTotal,
   type SyncEngine,
@@ -97,6 +98,31 @@ export interface ToastState {
   msg: string
   /** 每次 +1，让相同文案也能重新触发 Toast 的动画/计时 */
   seq: number
+  /** v9.46 带操作按钮的 toast（删除撤销用）；无按钮 = 普通 1.9s toast */
+  action?: { label: string; onClick: () => void }
+}
+
+/** v9.46 删除子任务的撤销快照（单条，后一次覆盖前一次） */
+export interface SubtaskDeleteSnapshot {
+  subtask: SubtaskRecord
+  /** 删除前在同组（阶段/不分阶段）里的顺序位置 */
+  index: number
+  goalTitle: string
+  /** 删除前今天对应的待办（如有） */
+  todayTodo: TodoRecord | null
+  /** 删除前今天是否已打卡 */
+  workedToday: boolean
+}
+
+/** v9.46 删除阶段的撤销快照 */
+export interface StageDeleteSnapshot {
+  stage: StageRecord
+  /** 删除前在阶段列表里的位置 */
+  index: number
+  /** 被迁入不分阶段的子任务（含删除前 stageId） */
+  moved: SubtaskRecord[]
+  /** 删除时接任当前阶段的阶段 id（无接任 = null） */
+  nextCurrentId: string | null
 }
 
 /** v8.19：dayCache 条目 = 聚合结果 + 聚合时的数据版本（dataVer）。ver < 当前 dataVer 视为过期 */
@@ -311,7 +337,7 @@ export interface AppState {
   deleteExpense(id: string): Promise<void>
   rollOver(): Promise<void>
   dismissRoll(): void
-  showToast(msg: string): void
+  showToast(msg: string, action?: { label: string; onClick: () => void }): void
   clearToast(): void
 
   // ---- v7.5：菜单 / 主题 / 备份 / 纪念日 ----
@@ -342,6 +368,10 @@ export interface AppState {
   closeGoal(): void
   createGoal(title: string, note: string, folderId?: string | null): Promise<boolean>
   updateGoal(id: string, patch: { title?: string; note?: string; progress?: ProgressField | undefined; folderId?: string | null }): Promise<boolean>
+  /** v9.46 设/改目标时间范围（任一侧可空；两侧都空也会落库并提示留空） */
+  updateGoalRange(id: string, startOn: DateKey | null, endOn: DateKey | null): Promise<boolean>
+  /** v9.46 清除目标时间范围（两键写 null） */
+  clearGoalRange(id: string): Promise<boolean>
   /** v9.40/v8.88 重命名已存在的目标（只改显示标题，阶段/子任务/进度都不动；上限与新建同口径 50 字） */
   renameGoal(id: string, title: string): Promise<boolean>
   /** 目标整体完成/取消完成（完成的目标沉底到「已完成」列表） */
@@ -362,15 +392,27 @@ export interface AppState {
   moveGoalToFolder(goalId: string, folderId: string | null): Promise<boolean>
   createStage(input: StageInput): Promise<boolean>
   updateStage(id: string, patch: Partial<Omit<StageInput, 'goalId' | 'pct'>> & { pct?: number | null }): Promise<boolean>
+  /** v9.46 阶段改名（成功提示「阶段名已更新」） */
+  renameStage(id: string, title: string): Promise<boolean>
   /** 设为当前（同目标互斥） */
   setCurrentStage(id: string): Promise<boolean>
   setStageDone(id: string, done: boolean): Promise<boolean>
   deleteStage(id: string): Promise<boolean>
+  /** v9.46 删除阶段：子任务迁入不分阶段、当前阶段交接；返回撤销快照 */
+  deleteStageCascade(id: string): Promise<StageDeleteSnapshot | null>
+  /** v9.46 撤销删除阶段：恢复阶段、迁出子任务挂回、当前标记还原 */
+  restoreStageCascade(snapshot: StageDeleteSnapshot): Promise<boolean>
   // ---- v8.5：子任务（阶段/子任务双视图） ----
   createSubtask(input: SubtaskInput): Promise<boolean>
   updateSubtask(id: string, patch: { title?: string; desc?: string; progress?: ProgressField | undefined }): Promise<boolean>
   setSubtaskDone(id: string, done: boolean): Promise<boolean>
+  /** v9.46 勾选子任务 = 完成 + 今天打卡 + 复盘自动句（单一事务语义，禁止拆两次调用） */
+  setSubtaskDoneWithToday(id: string, done: boolean): Promise<boolean>
   deleteSubtask(id: string): Promise<boolean>
+  /** v9.46 删除子任务：同事务移除今日待办、撤销当天打卡；返回撤销快照 */
+  deleteSubtaskCascade(id: string): Promise<SubtaskDeleteSnapshot | null>
+  /** v9.46 撤销删除子任务：恢复记录、今日待办与当天打卡 */
+  restoreSubtaskCascade(snapshot: SubtaskDeleteSnapshot): Promise<boolean>
   /** v8.45 子任务打卡切换（记录今天 + 复盘自动写入/移除自动句） */
   toggleSubtaskWork(id: string): Promise<boolean>
   /** v8.63 子任务「加入今日待办」：今天生成一条该子任务的待办（当天有效、防重复） */
@@ -505,6 +547,27 @@ export function createAppStore(
   /** 并发保护：快速翻页时旧响应不得覆盖新状态 */
   let loadSeq = 0
   let toastSeq = 0
+
+  /** v9.46 复盘自动句：追加/去重（当天无复盘则新建） */
+  const addReviewSentence = async (date: DateKey, sentence: string): Promise<void> => {
+    const existing = await repos.reviews.byDate(date)
+    if (!existing) {
+      await repos.reviews.upsert(date, sentence)
+      return
+    }
+    if (existing.text.split('\n').includes(sentence)) return
+    const base = existing.text.endsWith('\n') ? existing.text : existing.text + '\n'
+    await repos.reviews.upsert(date, base + sentence)
+  }
+
+  /** v9.46 复盘自动句：按行移除；复盘变空则软删当天 */
+  const removeReviewSentence = async (date: DateKey, sentence: string): Promise<void> => {
+    const existing = await repos.reviews.byDate(date)
+    if (!existing) return
+    const kept = existing.text.split('\n').filter((l) => l !== sentence)
+    if (kept.join('\n').trim() === '') await repos.reviews.softDeleteByDate(date)
+    else await repos.reviews.upsert(date, kept.join('\n'))
+  }
 
   const canHistory = (): boolean => typeof globalThis.history?.pushState === 'function'
 
@@ -980,6 +1043,10 @@ export function createAppStore(
           }
         }
         await repos.todos.softDelete(id)
+        // 立即摘除今日标记，避免详情页按钮在 refresh 完成前仍显示「- 每日待办」
+        if (t.subtaskId) {
+          set((s) => ({ subtaskTodayIds: s.subtaskTodayIds.filter((x) => x !== t.subtaskId) }))
+        }
         set({ dataVer: get().dataVer + 1 })
         await get().refresh()
         get().showToast('已删除')
@@ -1006,7 +1073,7 @@ export function createAppStore(
         await repos.todos.create(date, subtask.title, undefined, undefined, subtaskId, d.goal.title)
         set({ dataVer: get().dataVer + 1 })
         await get().refresh()
-        get().showToast('已加入今日待办')
+        get().showToast('已加入今天的待办')
         return true
       } catch (e) {
         get().showToast(errMsg(e))
@@ -1023,18 +1090,22 @@ export function createAppStore(
           get().showToast('不在今日待办里')
           return
         }
-        if (todo.done) {
-          const next = await repos.subtasks.setWork(subtaskId, date, false)
-          set((s) =>
-            s.goalDetail
-              ? { goalDetail: { ...s.goalDetail, subtasks: s.goalDetail.subtasks.map((x) => (x.id === subtaskId ? next : x)) } }
-              : s,
-          )
+        // v9.46：移除今日待办时一并撤销当天打卡（无论这条待办是否已勾）
+        const d = get().goalDetail
+        const subtask = d?.subtasks.find((x) => x.id === subtaskId)
+        const next = await repos.subtasks.setWork(subtaskId, date, false)
+        set((s) =>
+          s.goalDetail
+            ? { goalDetail: { ...s.goalDetail, subtasks: s.goalDetail.subtasks.map((x) => (x.id === subtaskId ? next : x)) } }
+            : s,
+        )
+        if (d && subtask) {
+          await removeReviewSentence(date, `[目标打卡] 今日进行了目标「${d.goal.title}」的子目标「${subtask.title}」工作`)
         }
         await repos.todos.softDelete(todo.id)
         set({ dataVer: get().dataVer + 1 })
         await get().refresh()
-        get().showToast('已移出今日待办')
+        get().showToast('已从今天移除')
       } catch (e) {
         get().showToast(errMsg(e))
       }
@@ -1532,11 +1603,22 @@ export function createAppStore(
     async moveGoalToFolder(goalId, folderId) {
       try {
         await repos.goals.update(goalId, { folderId })
+        const folderName = folderId
+          ? (get().folderList.find((f) => f.folder.id === folderId)?.folder.name ?? '未分类')
+          : '未分类'
         const [goalList, folderList] = await Promise.all([
           aggregates.goalSummaries(),
           aggregates.foldersAll(),
         ])
-        set({ goalList, folderList })
+        set((s) => {
+          const base = { goalList, folderList }
+          if (s.goalDetail?.goal.id !== goalId) return base
+          return {
+            ...base,
+            goalDetail: { ...s.goalDetail, goal: { ...s.goalDetail.goal, folderId: folderId ?? undefined } },
+          }
+        })
+        get().showToast(`已移动到「${folderName}」`)
         return true
       } catch (e) {
         get().showToast(errMsg(e))
@@ -1597,6 +1679,34 @@ export function createAppStore(
     },
 
     // v9.40/v8.88 目标重命名：只改标题，其余字段与归属全部保持
+    async updateGoalRange(id, startOn, endOn) {
+      try {
+        const goal = await repos.goals.update(id, { startOn, endOn })
+        set({ dataVer: get().dataVer + 1 })
+        set((s) => (s.goalDetail && s.goalDetail.goal.id === id ? { goalDetail: { ...s.goalDetail, goal } } : s))
+        await get().refreshGoals()
+        get().showToast(!startOn && !endOn ? '目标时间范围留空' : '目标时间范围已更新')
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async clearGoalRange(id) {
+      try {
+        const goal = await repos.goals.update(id, { startOn: null, endOn: null })
+        set({ dataVer: get().dataVer + 1 })
+        set((s) => (s.goalDetail && s.goalDetail.goal.id === id ? { goalDetail: { ...s.goalDetail, goal } } : s))
+        await get().refreshGoals()
+        get().showToast('已清除目标时间范围')
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
     async renameGoal(id, title) {
       try {
         const goal = await repos.goals.update(id, { title })
@@ -1663,7 +1773,7 @@ export function createAppStore(
             : s,
         )
         await get().refreshGoals()
-        get().showToast('已添加阶段')
+        get().showToast('新阶段已建，接下来往里加子任务')
         return true
       } catch (e) {
         get().showToast(errMsg(e))
@@ -1681,6 +1791,24 @@ export function createAppStore(
             : s,
         )
         await get().refreshGoals()
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async renameStage(id, title) {
+      try {
+        const stage = await repos.stages.update(id, { title })
+        set({ dataVer: get().dataVer + 1 })
+        set((s) =>
+          s.goalDetail
+            ? { goalDetail: { ...s.goalDetail, stages: s.goalDetail.stages.map((x) => (x.id === id ? stage : x)) } }
+            : s,
+        )
+        await get().refreshGoals()
+        get().showToast('阶段名已更新')
         return true
       } catch (e) {
         get().showToast(errMsg(e))
@@ -1715,14 +1843,40 @@ export function createAppStore(
 
     async setStageDone(id, done) {
       try {
+        const before = get().goalDetail?.stages.find((x) => x.id === id)
         const stage = await repos.stages.setDone(id, done)
+        let nextCurrentId: string | null = null
+        if (done && before?.isCurrent) {
+          // 完成当前阶段：按 createdAt 顺序，把「当前」交给之后的第一个未完成阶段
+          const d = get().goalDetail
+          if (d) {
+            const ordered = d.stages.filter((x) => x.id !== id && !x.done)
+            const after = ordered.find((x) => x.createdAt > stage.createdAt) ?? null
+            if (after) {
+              await repos.stages.setCurrent(after.id)
+              nextCurrentId = after.id
+            }
+          }
+        }
         set({ dataVer: get().dataVer + 1 })
         set((s) =>
           s.goalDetail
-            ? { goalDetail: { ...s.goalDetail, stages: s.goalDetail.stages.map((x) => (x.id === id ? stage : x)) } }
+            ? {
+                goalDetail: {
+                  ...s.goalDetail,
+                  stages: s.goalDetail.stages.map((x) =>
+                    x.id === id
+                      ? stage
+                      : nextCurrentId && x.id === nextCurrentId
+                        ? { ...x, isCurrent: true }
+                        : x,
+                  ),
+                },
+              }
             : s,
         )
         await get().refreshGoals()
+        if (done) get().showToast(nextCurrentId ? '已进入下一段' : '全部完成')
         return true
       } catch (e) {
         get().showToast(errMsg(e))
@@ -1760,7 +1914,7 @@ export function createAppStore(
             : s,
         )
         await get().refreshGoals()
-        get().showToast('已添加子任务')
+        get().showToast('已加到这一阶段')
         return true
       } catch (e) {
         get().showToast(errMsg(e))
@@ -1843,6 +1997,150 @@ export function createAppStore(
         )
         await get().refreshGoals()
         get().showToast(workedToday ? '已取消今天的打卡' : '已记录今天进行了该子任务')
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async setSubtaskDoneWithToday(id, done) {
+      try {
+        const d = get().goalDetail
+        const subtask = d?.subtasks.find((x) => x.id === id)
+        if (!subtask || !d) return false
+        const date = get().today
+        const sentence = `[目标打卡] 今日进行了目标「${d.goal.title}」的子目标「${subtask.title}」工作`
+        let next = await repos.subtasks.setDone(id, done)
+        if (done) {
+          next = await repos.subtasks.setWork(id, date, true)
+          await addReviewSentence(date, sentence)
+        } else {
+          next = await repos.subtasks.setWork(id, date, false)
+          await removeReviewSentence(date, sentence)
+        }
+        set({ dataVer: get().dataVer + 1 })
+        set((s) =>
+          s.goalDetail
+            ? { goalDetail: { ...s.goalDetail, subtasks: s.goalDetail.subtasks.map((x) => (x.id === id ? next : x)) } }
+            : s,
+        )
+        await get().refreshGoals()
+        await get().refresh()
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async deleteSubtaskCascade(id) {
+      try {
+        const d = get().goalDetail
+        const subtask = d?.subtasks.find((x) => x.id === id)
+        if (!subtask || !d) return null
+        const date = get().today
+        const sameGroup = d.subtasks.filter((x) => (x.stageId ?? null) === (subtask.stageId ?? null))
+        const index = sameGroup.findIndex((x) => x.id === id)
+        const todayTodo = (await repos.todos.byDate(date)).find((t) => t.subtaskId === id) ?? null
+        const workedToday = Array.isArray(subtask.workDates) && subtask.workDates.includes(date)
+        const sentence = `[目标打卡] 今日进行了目标「${d.goal.title}」的子目标「${subtask.title}」工作`
+        // 先撤销打卡/复盘，再删待办与子任务（软删后 mustGet 不再可取）
+        if (workedToday) await repos.subtasks.setWork(id, date, false)
+        if (workedToday) await removeReviewSentence(date, sentence)
+        if (todayTodo) await repos.todos.softDelete(todayTodo.id)
+        await repos.subtasks.softDelete(id)
+        set({ dataVer: get().dataVer + 1 })
+        set((s) =>
+          s.goalDetail
+            ? { goalDetail: { ...s.goalDetail, subtasks: s.goalDetail.subtasks.filter((x) => x.id !== id) } }
+            : s,
+        )
+        await get().refresh()
+        return { subtask, index, goalTitle: d.goal.title, todayTodo, workedToday }
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return null
+      }
+    },
+
+    async restoreSubtaskCascade(snapshot) {
+      try {
+        const date = get().today
+        await repos.subtasks.restore(snapshot.subtask.id)
+        if (snapshot.todayTodo) await repos.todos.restore(snapshot.todayTodo.id)
+        if (snapshot.workedToday) {
+          await repos.subtasks.setWork(snapshot.subtask.id, date, true)
+          const sentence = `[目标打卡] 今日进行了目标「${snapshot.goalTitle}」的子目标「${snapshot.subtask.title}」工作`
+          await addReviewSentence(date, sentence)
+        }
+        set({ dataVer: get().dataVer + 1 })
+        await get().openGoal(snapshot.subtask.goalId)
+        await get().refresh()
+        get().showToast('已撤销')
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async deleteStageCascade(id) {
+      try {
+        const d = get().goalDetail
+        const stage = d?.stages.find((x) => x.id === id)
+        if (!stage || !d) return null
+        const index = d.stages.findIndex((x) => x.id === id)
+        const moved = d.subtasks.filter((x) => x.stageId === id)
+        let nextCurrentId: string | null = null
+        if (stage.isCurrent) {
+          const after = d.stages.filter((x) => x.id !== id && !x.done && x.createdAt > stage.createdAt)[0]
+            ?? d.stages.filter((x) => x.id !== id && !x.done)[0]
+          if (after) {
+            await repos.stages.setCurrent(after.id)
+            nextCurrentId = after.id
+          }
+        }
+        for (const m of moved) {
+          await repos.subtasks.update(m.id, { stageId: null })
+        }
+        await repos.stages.softDelete(id)
+        set({ dataVer: get().dataVer + 1 })
+        set((s) =>
+          s.goalDetail
+            ? {
+                goalDetail: {
+                  ...s.goalDetail,
+                  stages: s.goalDetail.stages.filter((x) => x.id !== id).map((x) =>
+                    nextCurrentId && x.id === nextCurrentId ? { ...x, isCurrent: true } : x,
+                  ),
+                  subtasks: s.goalDetail.subtasks.map((x) =>
+                    x.stageId === id ? { ...x, stageId: undefined } : x,
+                  ),
+                },
+              }
+            : s,
+        )
+        await get().refreshGoals()
+        return { stage, index, moved, nextCurrentId }
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return null
+      }
+    },
+
+    async restoreStageCascade(snapshot) {
+      try {
+        await repos.stages.restore(snapshot.stage.id)
+        for (const m of snapshot.moved) {
+          await repos.subtasks.update(m.id, { stageId: snapshot.stage.id })
+        }
+        // 删除时若改过当前阶段，恢复原当前阶段（setCurrent 会互斥清掉接任者）
+        if (snapshot.stage.isCurrent) await repos.stages.setCurrent(snapshot.stage.id)
+        set({ dataVer: get().dataVer + 1 })
+        await get().openGoal(snapshot.stage.goalId)
+        await get().refresh()
+        get().showToast('已撤销')
         return true
       } catch (e) {
         get().showToast(errMsg(e))
@@ -2127,9 +2425,9 @@ export function createAppStore(
       set({ onboardingOpen: false })
     },
 
-    showToast(msg) {
+    showToast(msg, action) {
       if (!msg) return
-      set({ toast: { msg, seq: ++toastSeq } })
+      set({ toast: { msg, seq: ++toastSeq, ...(action ? { action } : {}) } })
     },
 
     clearToast() {
