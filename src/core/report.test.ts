@@ -2,7 +2,7 @@
  * core/report 测试——每周/每月报告统计层。
  *
  * 重点：
- *  1. **算得对**：完成率口径（doneAt 在区间）、rolledTo 排除、顺延/逾期口径、
+ *  1. **算得对**：完成率口径（doneOn 在区间）、rolledTo 排除、顺延/逾期口径、
  *     特殊日命中（yearly/monthly/weekly + 勾选）、习惯 due/done/streak、
  *     目标子任务统计、活跃天数、最忙一天、周一到周日聚合
  *  2. **形状稳**：周恒 7 天、月按自然月天数、排序确定
@@ -49,12 +49,12 @@ beforeEach(async () => {
   agg = createAggregates({ store, repos, lunar: fakeLunar(LUNAR) })
 })
 
-/** 把时钟拨到 date 的中午再勾掉待办——让 doneAt 落到指定日期 */
+/** 把时钟拨到 date 的中午再勾掉待办——让完成归属日 doneOn 落到指定日期 */
 async function doneOn(id: string, date: string): Promise<void> {
   const target = new Date(`${date}T12:00:00`).getTime()
   const base = new Date('2026-10-26T12:00:00').getTime()
   clock.set(BASE_MS + Math.round((target - base) / 86_400_000) * 86_400_000)
-  await repos.todos.toggle(id)
+  await repos.todos.toggle(id, date as DateKey)
 }
 
 // ===========================================================================
@@ -159,7 +159,7 @@ describe('buildReport · 月报', () => {
     expect(rm.period.label).toBe('2026 年 10 月')
   })
 
-  it('date 在区间外、doneAt 落区间的完成计入当月（10-29 建、11-02 勾）', async () => {
+  it('date 在区间外、doneOn 落区间的完成计入当月（10-29 建、11-02 勾）', async () => {
     // 造在 10 月底的待办，11-02 才勾掉 → 完成算 11 月，总待办也含它
     const t = await repos.todos.create(k('2026-10-29'), '十月建的待办')
     await doneOn(t.id, '2026-11-02')
@@ -170,10 +170,24 @@ describe('buildReport · 月报', () => {
     expect(r.overview.completionRate).toBe(100)
     expect(r.todoStats.busiestDay).toEqual({ date: '2026-11-02', done: 1 })
 
-    // 10 月那边：date 在 10 月但完成在 11 月 → 10 月完成 0、总待办含它
     const ro = await agg.buildReport('month', k('2026-10-15'))
     expect(ro.overview.todoDone).toBe(0)
     expect(ro.overview.todoTotal).toBe(1)
+  })
+
+  it('v8.95 过去补勾按 doneOn 归属，不因 doneAt 计入今天', async () => {
+    clock.set(new Date(2026, 10, 15, 12).getTime())
+    const t = await repos.todos.create(k('2026-10-29'), '前天忘交的周报')
+    // 真实点击发生在 11-15，但用户翻回 10-29 补勾 → 完成归属 10-29
+    await repos.todos.toggle(t.id, k('2026-10-29'))
+
+    const oct = await agg.buildReport('month', k('2026-10-15'))
+    expect(oct.overview.todoDone).toBe(1)
+    expect(oct.overview.todoTotal).toBe(1)
+
+    const nov = await agg.buildReport('month', k('2026-11-15'))
+    expect(nov.overview.todoDone).toBe(0)
+    expect(nov.overview.todoTotal).toBe(0)
   })
 })
 
