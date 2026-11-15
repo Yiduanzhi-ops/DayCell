@@ -370,6 +370,29 @@ describe('App 冒烟', () => {
     }
   })
 
+  it('v8.99 提醒型：过去的提醒日未完成显示灰标；今天未完成不提前标', async () => {
+    const store = await renderApp()
+
+    // 9/28（昨天）建一条提醒型，未勾 → 日视图/周视图都应有历史状态标
+    await store.getState().selectFromCalendar('2026-09-28' as DateKey)
+    await waitFor(() => expect(store.getState().detail?.date).toBe('2026-09-28'))
+    await store.getState().createTodo('昨天的提醒', '2026-09-28', undefined, 'at')
+    await waitFor(() =>
+      expect(within(screen.getByTestId('day-center')).getByText('提醒日未完成')).toBeInTheDocument(),
+    )
+
+    store.getState().setView('week')
+    await waitFor(() => expect(screen.getByTestId('week-scroll')).toBeInTheDocument())
+    expect(document.body.textContent).toContain('提醒日未完成')
+
+    // 今天（9/29）的提醒还没到点，不能提前标「提醒日未完成」
+    await store.getState().selectFromCalendar('2026-09-29' as DateKey)
+    await waitFor(() => expect(store.getState().detail?.date).toBe('2026-09-29'))
+    await store.getState().createTodo('今天的提醒', '2026-09-29', undefined, 'at')
+    await waitFor(() => expect(store.getState().detail?.date).toBe('2026-09-29'))
+    expect(within(screen.getByTestId('day-center')).queryByText('提醒日未完成')).toBeNull()
+  })
+
   it('v8.34 周视图滑动：左滑下一周、右滑回本周、短滑回弹不翻（箭头仍可用）', async () => {    const store = await renderApp()
     fireEvent.click(screen.getByRole('tab', { name: '周' }))
     const scroller = screen.getByTestId('week-scroll')

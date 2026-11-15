@@ -103,6 +103,18 @@
   border-radius: 4px;
   line-height: 1.5;
 }
+/* v8.99 提醒型：提醒日已过、当天没勾。接在原条目后面，不另起痕迹、不改计数 */
+.wremindMissed {
+  flex: 0 0 auto;
+  font-size: 10.5px;
+  color: var(--ink-3);
+  background: var(--bg-hover);
+  border: 1px solid var(--line);
+  padding: 0 5px;
+  border-radius: 4px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
 .woverdueItem .wtxt { flex: 1; min-width: 0; color: var(--ink-2); }
 .wlateMeta { flex: 0 0 auto; font-size: 10.5px; color: var(--ink-3); white-space: nowrap; }
 

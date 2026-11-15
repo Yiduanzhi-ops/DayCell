@@ -78,6 +78,12 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .otraceMeta { flex: 0 0 auto; font-size: 10.5px; color: var(--ink-3); white-space: nowrap; }
+/* v8.99 提醒型历史状态：提醒日已过、当天没勾。接在原条目后面，不另起痕迹、不改计数 */
+.remindMissed {
+  flex: 0 0 auto; font-size: 10.5px; color: var(--ink-3);
+  background: var(--bg-hover); border: 1px solid var(--line);
+  padding: 1px 6px; border-radius: 4px; line-height: 1.5; white-space: nowrap;
+}
 /* v8.27：纪念日当作待办展示在当天（可勾选，v8.29 起与普通待办同款圆圈勾选态） */
 .anniItem { align-items: center; }
 .anniTag {
