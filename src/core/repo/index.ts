@@ -152,6 +152,14 @@ export function isOverdueDone(rec: Pick<TodoRecord, 'done' | 'doneOn' | 'doneAt'
 }
 
 /**
+ * v8.99 提醒型判定：显式 `timeType='at'`；旧数据没有 timeType 时按「有 deadline = 截止型，
+ * 无 deadline = 提醒型」推导，与创建表单、TimePill 的口径一致。
+ */
+export function isReminderTodo(rec: Pick<TodoRecord, 'timeType' | 'deadline'>): boolean {
+  return (rec.timeType ?? (rec.deadline ? 'due' : 'at')) === 'at'
+}
+
+/**
  * 可顺延的判定：未完成、且没有被顺延出去过。
  * v8.53：**带截止日的 DDL 待办不参与顺延**（到期未完成即逾期，留在原地由每天注入提醒，
  * 不该被顺延机制拖走）

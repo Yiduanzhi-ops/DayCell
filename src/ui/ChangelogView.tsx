@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.52'
+const CURRENT_VERSION = 'v9.53'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.53',
+    date: '2026-11-15',
+    items: [
+      '截止型待办在截止日之后完成时，周/日视图的截止日都留一条「截止日未完成」灰色痕迹，右侧标出实际完成日；不计数、不带勾选框',
+      '提醒型待办在提醒日已经过去、当天还没勾时，日/周视图给原条目加一枚「提醒日未完成」灰标；今天和未来的提醒不提前标，补勾后灰标消失',
+    ],
+  },
   {
     version: 'v9.52',
     date: '2026-11-15',
