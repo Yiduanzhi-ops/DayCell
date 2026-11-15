@@ -99,8 +99,8 @@ export interface WeekTotal {
   costCents: number
 }
 
-/** v8.95 周视图的逾期完成痕迹：截止日当天“当时还没做完”的历史快照，不计入待办统计。 */
-export interface WeekOverdueTrace {
+/** v8.95 逾期完成痕迹：截止日当天“当时还没做完”的历史快照，不计入待办统计。 */
+export interface OverdueTrace {
   id: string
   text: string
   /** 实际完成日（doneOn 优先，旧数据回退 doneAt） */
@@ -122,7 +122,7 @@ export interface WeekDay extends DayAggregate {
    * 只在 `doneOn > deadline` 时生成；**不进入 todoDone/todoTotal**，避免同一条任务
    * 在完成日与截止日各统计一次。UI 以灰色痕迹渲染，不带勾选框。
    */
-  overdueTrace: WeekOverdueTrace[]
+  overdueTrace: OverdueTrace[]
   /** 想法的前 2 条（UI 负责每条 2 行截断） */
   notePreview: NoteRecord[]
   /** v8.52 当日复盘正文（一天一条；没写为 null）——周视图格子直接展示 */
@@ -143,6 +143,11 @@ export interface DayDetail {
    * v8.79 起**不含 rolledTo 项**（顺延出去的源记录不再显示）与「已完成且非完成日的截止型」
    */
   todos: TodoRecord[]
+  /**
+   * v8.98 日视图的逾期完成痕迹：截止日当天「当时未完成、后来完成」的历史快照。
+   * 不进入 `summary.todoTotal/todoDone`，UI 以灰色痕迹渲染，不带勾选框。
+   */
+  overdueTrace: OverdueTrace[]
   notes: NoteRecord[]
   expenses: ExpenseRecord[]
   anniversaries: AnniversaryRecord[]
@@ -322,6 +327,27 @@ function mergeDdlTodos(local: TodoRecord[], active: TodoRecord[], date: DateKey)
     if (a.deadline && b.deadline && a.deadline !== b.deadline) return a.deadline < b.deadline ? -1 : 1
     return (a.createdAt ?? 0) - (b.createdAt ?? 0)
   })
+}
+
+/**
+ * v8.98 某一天的「逾期完成」历史痕迹（日视图用）。
+ *
+ * 只取：截止日 = 当天、截止型、已完成、且完成归属日晚于截止日的记录。
+ * 这一条在日视图的 todos 里已经被 visibleTodos 排掉（它只属于完成日），
+ * 所以单独返回，供截止日渲染一条“当时未完成”的灰色痕迹。
+ * 不参与任何计数，提醒型不参与。
+ */
+function overdueTracesOn(records: readonly TodoRecord[], date: DateKey): OverdueTrace[] {
+  const out: OverdueTrace[] = []
+  for (const t of records) {
+    if (!t.done || t.rolledTo) continue
+    if ((t.timeType ?? 'due') !== 'due') continue
+    if (!t.deadline || t.deadline !== date) continue
+    const doneOn = todoDoneDay(t)
+    if (!doneOn || doneOn <= t.deadline) continue
+    out.push({ id: t.id, text: t.text, doneOn })
+  }
+  return out.sort((a, b) => (a.doneOn !== b.doneOn ? (a.doneOn < b.doneOn ? -1 : 1) : a.id < b.id ? -1 : 1))
 }
 
 /** buildRangeDetailed 的中间产物：指示器 + 原始记录 + 农历（周行预览要用后两个） */
@@ -716,7 +742,7 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
       // 未完成 / 逾期未完成的截止任务不额外注入，仍只在截止日那一行。
       // 提醒型没有截止语义：不参与完成日归位，也绝不生成逾期痕迹。
       const completedByDoneDay = new Map<DateKey, TodoRecord[]>()
-      const overdueByDeadline = new Map<DateKey, WeekOverdueTrace[]>()
+      const overdueByDeadline = new Map<DateKey, OverdueTrace[]>()
       for (const t of ddl) {
         if (!t.done || t.rolledTo) continue
         if ((t.timeType ?? 'due') !== 'due') continue
@@ -820,14 +846,18 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
       const cats = makeCatResolver(catMap)
       const info = lunar?.lunarOf(date) ?? null
       const titles = annivTitles.get(date) ?? []
+      const summary = buildDay(date, today, titles, info, cats, review)
+      const overdueTrace = overdueTracesOn(ddl, date)
 
       return {
         date,
-        summary: buildDay(date, today, titles, info, cats, review),
+        // v8.98 只有逾期痕迹也算「有内容」，否则日视图会误显示「这一天还什么都没有」。
+        summary: overdueTrace.length > 0 ? { ...summary, isEmpty: false } : summary,
         // v8.53：todos = 当天本地待办 + 注入的活跃 DDL（截止日当天去重）。
         // 排序：带截止日的 DDL 置顶（截止日升序，逾期自然最前），普通待办保持 createdAt 升序。
         // ⚠️ 进度（todoTotal/todoDone）**不含**注入的 DDL 项——DDL 是跨天任务，不稀释每天的进度。
         todos: mergeDdlTodos(today.todos, ddl, date),
+        overdueTrace,
         notes: today.notes,
         expenses: today.expenses,
         anniversaries: annivRecs,

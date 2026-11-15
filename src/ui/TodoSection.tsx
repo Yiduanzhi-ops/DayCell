@@ -98,6 +98,7 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
   // v8.29：可勾选——勾选态存 annivchecks（annivDones），划线置灰，与普通待办同款圆圈
   const annis = (cached ?? detail)?.anniversaries ?? []
   const annivDones = new Set((cached ?? detail)?.annivDones ?? [])
+  const overdueTrace = (cached ?? detail)?.overdueTrace ?? []
   const { done, total } = todoProgress(sorted)
   /** 正在就地编辑的待办 id（v7 / US-13）。同一时刻最多一条 */
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -118,7 +119,7 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
         </button>
       </div>
       <div className={styles.tlist}>
-        {sorted.length > 0 || annis.length > 0 ? (
+        {sorted.length > 0 || annis.length > 0 || overdueTrace.length > 0 ? (
           <>
           {annis.map((a) => {
             const aDone = annivDones.has(a.id)
@@ -202,6 +203,15 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
               <button className={styles.tdel} aria-label={`删除待办：${t.text}`} onClick={() => void deleteTodo(t.id)}>
                 ×
               </button>
+            </div>
+          ))}
+          {/* v8.98 截止日历史痕迹：当时没做完、后来在别的日子完成。
+              不进入 0/1 计数，不带勾选框；只作为“这一天当时的状态”留档。 */}
+          {overdueTrace.map((t) => (
+            <div key={`overdue-${t.id}`} className={styles.otraceItem}>
+              <span className={styles.otraceTag}>截止日未完成</span>
+              <span className={styles.otraceText}>{t.text}</span>
+              <span className={styles.otraceMeta}>{md(t.doneOn)} 完成</span>
             </div>
           ))}
           </>

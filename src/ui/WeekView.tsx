@@ -170,7 +170,7 @@ function WeekPage({ weekKey, role }: { weekKey: DateKey; role: 'center' | 'side'
                       const done = fromKey(t.doneOn)
                       return (
                         <div key={t.id} className={styles.woverdueItem}>
-                          <span className={styles.wlateTag}>逾期未完成</span>
+                          <span className={styles.wlateTag}>截止日未完成</span>
                           <span className={styles.wtxt}>{t.text}</span>
                           <span className={styles.wlateMeta}>{done.m}/{done.d} 完成</span>
                         </div>

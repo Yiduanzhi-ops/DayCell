@@ -315,6 +315,45 @@ describe('aggregateWeek — 恒 7 行', () => {
     expect(total.todoTotal).toBe(1)
   })
 
+  it('v8.98 日视图：截止日显示「截止日未完成」痕迹，完成日显示已完成', async () => {
+    const t = await repos.todos.create(k('2026-09-28'), '逾期交报告', '2026-09-28')
+    clock.advance(1000)
+    await repos.todos.toggle(t.id, k('2026-10-02'))
+
+    // 截止日：任务已被完成日吸走，todos 为空；只留一条历史痕迹，不进 0/1
+    const mon = await agg.aggregateDayDetail(k('2026-09-28'))
+    expect(mon.todos).toHaveLength(0)
+    expect(mon.overdueTrace).toEqual([
+      { id: t.id, text: '逾期交报告', doneOn: '2026-10-02' },
+    ])
+    expect(mon.summary.todoDone).toBe(0)
+    expect(mon.summary.todoTotal).toBe(0)
+    expect(mon.summary.isEmpty).toBe(false) // 有痕迹不算“这一天还什么都没有”
+
+    // 完成日：正常已完成，不再重复留痕迹
+    const fri = await agg.aggregateDayDetail(k('2026-10-02'))
+    expect(fri.todos.map((x) => x.text)).toEqual(['逾期交报告'])
+    expect(fri.todos[0]!.done).toBe(true)
+    expect(fri.overdueTrace).toEqual([])
+  })
+
+  it('v8.98 提醒型不生成日视图逾期痕迹：即使完成日晚于提醒日', async () => {
+    const t = await repos.todos.create(
+      k('2026-09-28'),
+      '提醒喝水',
+      '2026-09-28',
+      '18:00',
+      undefined,
+      undefined,
+      'at',
+    )
+    clock.advance(1000)
+    await repos.todos.toggle(t.id, k('2026-10-02'))
+
+    const mon = await agg.aggregateDayDetail(k('2026-09-28'))
+    expect(mon.overdueTrace).toEqual([])
+  })
+
   it('按时完成的截止任务只在完成日显示，截止日不留痕迹', async () => {
     const t = await repos.todos.create(k('2026-09-29'), '按时交报告', '2026-09-29')
     clock.advance(1000)
@@ -700,9 +739,11 @@ describe('v8.53 活跃 DDL 待办注入（每天出现）', () => {
     expect(onDone.todos).toHaveLength(1)
     expect(onDone.todos[0]!.done).toBe(true)
 
-    // 截止日 10-25 历史格不再挂着这条已完成的待办
+    // 截止日 10-25 历史格不再挂着这条已完成的待办，但 v8.98 起会留一条截止日痕迹
     expect((await agg.aggregateDayDetail(k('2026-10-25'))).todos).toHaveLength(0)
-    expect((await agg.aggregateDayDetail(k('2026-10-25'))).summary.isEmpty).toBe(true)
+    const mon = await agg.aggregateDayDetail(k('2026-10-25'))
+    expect(mon.overdueTrace).toEqual([{ id: t.id, text: '还书', doneOn: '2026-10-28' }])
+    expect(mon.summary.isEmpty).toBe(false)
 
     // 中间日 10-26 / 10-27 也不显示
     expect((await agg.aggregateDayDetail(k('2026-10-26'))).todos).toHaveLength(0)

@@ -86,6 +86,7 @@
   transform: translateY(1px);
 }
 .witems .done .wchk { background: var(--accent-strong); border-color: var(--accent-strong); }
+.witems .wtxt { flex: 1; min-width: 0; }
 .wtxt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wmore { font-size: 11px; color: var(--ink-3); }
 
@@ -95,9 +96,9 @@
 .wlateTag {
   flex: 0 0 auto;
   font-size: 10.5px;
-  color: var(--danger, #e5484d);
-  background: rgba(229, 72, 77, 0.07);
-  border: 1px solid rgba(229, 72, 77, 0.22);
+  color: var(--ink-3);
+  background: var(--bg-hover);
+  border: 1px solid var(--line);
   padding: 0 5px;
   border-radius: 4px;
   line-height: 1.5;
