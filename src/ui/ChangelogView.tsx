@@ -8,11 +8,21 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.93'
+const CURRENT_VERSION = 'v8.94'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.94',
+    date: '2026-11-15',
+    items: [
+      '目标详情页重做：标题、目标阐述、时间范围、阶段与子任务一条链；阶段和子任务都能直接勾完成，当前进度滑杆下线（旧进度数据保留）',
+      '阶段里的子任务全部勾完会自动完成本阶段并交接下一段；已完成阶段可以「＋ 补一条」，阶段会重开，补完自动回到原来的阶段',
+      '勾选子任务会同时记今天的打卡，＋/－ 按钮可直接加入或移出今日待办；删除子任务或阶段会同时清理今日待办，并给 5 秒撤销',
+      '目标的完成 / 移动文件夹 / 删除收进「…」菜单，标题改名只在编辑态；目标时间范围支持只填一侧，起点晚于终点会自动对调',
+    ],
+  },
   {
     version: 'v8.93',
     date: '2026-11-12',
