@@ -397,6 +397,8 @@ export interface AppState {
   /** 设为当前（同目标互斥） */
   setCurrentStage(id: string): Promise<boolean>
   setStageDone(id: string, done: boolean): Promise<boolean>
+  /** v9.49 已完成阶段补一条：子任务留在原阶段，阶段重开为当前，并记录被打断阶段的回跳目标 */
+  addSupplementToStage(stageId: string, title: string): Promise<boolean>
   deleteStage(id: string): Promise<boolean>
   /** v9.46 删除阶段：子任务迁入不分阶段、当前阶段交接；返回撤销快照 */
   deleteStageCascade(id: string): Promise<StageDeleteSnapshot | null>
@@ -1639,6 +1641,11 @@ export function createAppStore(
         }
         // done 归一化（旧记录/旧备份无此字段）
         set({ goalDetail: { goal: { ...goal, done: goal.done ?? false }, stages, subtasks } })
+        // v9.49 回跳目标失效（已完成/已删除/已变成当前）就清掉，避免补完误跳
+        if (goal.resumeStageId && !stages.some((x) => x.id === goal.resumeStageId && !x.done && !x.isCurrent)) {
+          const fixed = await repos.goals.setResumeStage(goal.id, null)
+          set((s) => (s.goalDetail ? { goalDetail: { ...s.goalDetail, goal: fixed } } : s))
+        }
         // v9.47 兼容历史数据：打开详情时，当前阶段若已全部完成但没标完成，补一次自动收尾
         if (!(goal.done ?? false)) {
           const current = stages.find((x) => x.isCurrent && !x.done)
@@ -1826,13 +1833,18 @@ export function createAppStore(
 
     async setCurrentStage(id) {
       try {
+        const beforeGoal = get().goalDetail?.goal
         const stage = await repos.stages.setCurrent(id)
+        // v9.49 手动改当前阶段 = 放弃正在进行的补漏回跳，避免补完后又跳回旧阶段
+        const goal =
+          beforeGoal?.resumeStageId ? await repos.goals.setResumeStage(beforeGoal.id, null) : beforeGoal
         set({ dataVer: get().dataVer + 1 })
         set((s) =>
           s.goalDetail
             ? {
                 goalDetail: {
                   ...s.goalDetail,
+                  goal: goal ?? s.goalDetail.goal,
                   stages: s.goalDetail.stages.map((x) =>
                     x.goalId === stage.goalId ? { ...x, isCurrent: x.id === id, done: x.id === id ? false : x.done } : x,
                   ),
@@ -1854,15 +1866,34 @@ export function createAppStore(
         const before = get().goalDetail?.stages.find((x) => x.id === id)
         const stage = await repos.stages.setDone(id, done)
         let nextCurrentId: string | null = null
+        let returnedToResume = false
+        let nextGoal: GoalRecord | undefined
         if (done && before?.isCurrent) {
-          // 完成当前阶段：按 createdAt 顺序，把「当前」交给之后的第一个未完成阶段
           const d = get().goalDetail
           if (d) {
-            const ordered = d.stages.filter((x) => x.id !== id && !x.done)
-            const after = ordered.find((x) => x.createdAt > stage.createdAt) ?? null
-            if (after) {
-              await repos.stages.setCurrent(after.id)
-              nextCurrentId = after.id
+            // v9.49 优先回到补漏前被打断的阶段；它失效时才按 createdAt 顺延
+            const resumeId = d.goal.resumeStageId
+            const resume = resumeId
+              ? d.stages.find((x) => x.id === resumeId && x.id !== id && !x.done) ?? null
+              : null
+            if (resume) {
+              await repos.stages.setCurrent(resume.id)
+              nextCurrentId = resume.id
+              returnedToResume = true
+              // 已经回到目标阶段，回跳字段用完即清
+              nextGoal = await repos.goals.setResumeStage(d.goal.id, null)
+            } else if (resumeId) {
+              // 回跳目标已被完成/删除：清掉，避免下次再误跳
+              nextGoal = await repos.goals.setResumeStage(d.goal.id, null)
+            }
+            if (!nextCurrentId) {
+              // 原逻辑：按 createdAt 顺序，把「当前」交给之后的第一个未完成阶段
+              const ordered = d.stages.filter((x) => x.id !== id && !x.done)
+              const after = ordered.find((x) => x.createdAt > stage.createdAt) ?? null
+              if (after) {
+                await repos.stages.setCurrent(after.id)
+                nextCurrentId = after.id
+              }
             }
           }
         }
@@ -1872,6 +1903,7 @@ export function createAppStore(
             ? {
                 goalDetail: {
                   ...s.goalDetail,
+                  goal: nextGoal ?? s.goalDetail.goal,
                   stages: s.goalDetail.stages.map((x) =>
                     x.id === id
                       ? stage
@@ -1884,7 +1916,59 @@ export function createAppStore(
             : s,
         )
         await get().refreshGoals()
-        if (done) get().showToast(nextCurrentId ? '已进入下一段' : '全部完成')
+        if (done) {
+          get().showToast(
+            returnedToResume ? '已回到之前的阶段' : nextCurrentId ? '已进入下一段' : '全部完成',
+          )
+        }
+        return true
+      } catch (e) {
+        get().showToast(errMsg(e))
+        return false
+      }
+    },
+
+    async addSupplementToStage(stageId, title) {
+      try {
+        const d = get().goalDetail
+        const stage = d?.stages.find((x) => x.id === stageId)
+        const t = title.trim()
+        if (!d || !stage) return false
+        if (!t) {
+          get().showToast('先写清楚要做的事')
+          return false
+        }
+        if (d.goal.done) {
+          get().showToast('目标已完成，先恢复进行中再补')
+          return false
+        }
+        if (!stage.done) {
+          get().showToast('这个阶段还没完成')
+          return false
+        }
+        // 补漏前的当前阶段（若存在）：补完之后优先回到它
+        const interrupted = d.stages.find((x) => x.isCurrent && !x.done && x.id !== stage.id) ?? null
+        const subtask = await repos.subtasks.create({ goalId: d.goal.id, title: t, stageId: stage.id })
+        const reopened = await repos.stages.setCurrent(stage.id)
+        const goal = await repos.goals.setResumeStage(d.goal.id, interrupted?.id ?? null)
+        set({ dataVer: get().dataVer + 1 })
+        set((s) => {
+          if (!s.goalDetail) return s
+          return {
+            goalDetail: {
+              ...s.goalDetail,
+              goal,
+              stages: s.goalDetail.stages.map((x) =>
+                x.id === stage.id
+                  ? { ...reopened, isCurrent: true, done: false }
+                  : { ...x, isCurrent: false },
+              ),
+              subtasks: [...s.goalDetail.subtasks, subtask],
+            },
+          }
+        })
+        await get().refreshGoals()
+        get().showToast('已补一条，阶段重新开始')
         return true
       } catch (e) {
         get().showToast(errMsg(e))
@@ -2119,6 +2203,11 @@ export function createAppStore(
             nextCurrentId = after.id
           }
         }
+        // v9.49 删掉正在进行的补漏阶段或回跳目标：清掉回跳字段，避免补完又跳向已删除阶段
+        let goal = d.goal
+        if (goal.resumeStageId && (stage.isCurrent || goal.resumeStageId === id)) {
+          goal = await repos.goals.setResumeStage(goal.id, null)
+        }
         for (const m of moved) {
           await repos.subtasks.update(m.id, { stageId: null })
         }
@@ -2129,6 +2218,7 @@ export function createAppStore(
             ? {
                 goalDetail: {
                   ...s.goalDetail,
+                  goal,
                   stages: s.goalDetail.stages.filter((x) => x.id !== id).map((x) =>
                     nextCurrentId && x.id === nextCurrentId ? { ...x, isCurrent: true } : x,
                   ),

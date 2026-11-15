@@ -540,10 +540,15 @@ function StageCard({
   editing,
   open,
   subFormOpen,
+  supplementOpen,
+  paused,
+  allowSupplement,
   onToggle,
   onAddSub,
   onCancelSub,
   onSubmitSub,
+  onOpenSupplement,
+  onSubmitSupplement,
   onDeleteSub,
   onDeleteStage,
   onRenameStage,
@@ -555,10 +560,18 @@ function StageCard({
   editing: boolean
   open: boolean
   subFormOpen: boolean
+  /** v9.49 已完成阶段展开后的「补一条」内联表单 */
+  supplementOpen: boolean
+  /** v9.49 被补漏打断、等待回跳的阶段 */
+  paused: boolean
+  /** 目标已完成时不提供补漏入口 */
+  allowSupplement: boolean
   onToggle: () => void
   onAddSub: () => void
   onCancelSub: () => void
   onSubmitSub: (title: string) => void
+  onOpenSupplement: () => void
+  onSubmitSupplement: (title: string) => void
   onDeleteSub: (st: SubtaskRecord) => void
   onDeleteStage: (stage: StageRecord, index: number) => void
   onRenameStage: (stage: StageRecord, index: number, fullTitle: string) => void
@@ -635,7 +648,19 @@ function StageCard({
         {done && (
           <span className={styles.stageDoneOn}>完成于 {stage?.doneOn ? fmtMD(stage.doneOn) : stage ? fmtTs(stage.updatedAt) : ''}</span>
         )}
-        {!done && !loose && <span className={isCurrent ? `${styles.stageBadge} ${styles.stageBadgeCur}` : styles.stageBadge}>{isCurrent ? '进行中' : '未开始'}</span>}
+        {!done && !loose && (
+          <span
+            className={
+              isCurrent
+                ? `${styles.stageBadge} ${styles.stageBadgeCur}`
+                : paused
+                  ? `${styles.stageBadge} ${styles.stageBadgePause}`
+                  : styles.stageBadge
+            }
+          >
+            {isCurrent ? '进行中' : paused ? '待继续' : '未开始'}
+          </span>
+        )}
 
         {editing && stage ? (
           <span className={styles.stageEdits}>
@@ -653,6 +678,24 @@ function StageCard({
           <>
             {done ? (
               <span className={styles.stageCount}>{doneCount}/{total}</span>
+            ) : paused ? (
+              <>
+                {total > 0 && (
+                  <span className={`${styles.stageCount} ${styles.stageCountInline}`}>
+                    {doneCount}/{total}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  className={styles.addSubInline}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onAddSub()
+                  }}
+                >
+                  <span className={styles.bracket}>「</span>＋子任务<span className={styles.bracket}>」</span>
+                </button>
+              </>
             ) : (
               <button
                 type="button"
@@ -717,6 +760,52 @@ function StageCard({
               </button>
               <button type="button" className={styles.subCancel} onClick={onCancelSub}>取消</button>
             </div>
+          )}
+          {!editing && done && allowSupplement && total > 0 && (
+            supplementOpen ? (
+              <div className={styles.subForm}>
+                <input
+                  className={styles.subInput}
+                  value={subName}
+                  maxLength={50}
+                  autoFocus
+                  placeholder="补一条漏掉的子任务"
+                  onChange={(e) => setSubName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      onSubmitSupplement(subName)
+                      setSubName('')
+                    }
+                    if (e.key === 'Escape') onCancelSub()
+                  }}
+                />
+                <button
+                  type="button"
+                  className={styles.subSubmit}
+                  onClick={() => {
+                    onSubmitSupplement(subName)
+                    setSubName('')
+                  }}
+                >
+                  添加
+                </button>
+                <button type="button" className={styles.subCancel} onClick={onCancelSub}>取消</button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className={styles.supplementRow}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onOpenSupplement()
+                }}
+              >
+                <span className={styles.supplementPlus}>＋</span>
+                <span>补一条</span>
+                <span className={styles.supplementHint}>会重开本阶段</span>
+              </button>
+            )
           )}
         </>
       )}
@@ -859,6 +948,7 @@ function GoalDetail({
   const createStage = useApp((s) => s.createStage)
   const renameStage = useApp((s) => s.renameStage)
   const createSubtask = useApp((s) => s.createSubtask)
+  const addSupplementToStage = useApp((s) => s.addSupplementToStage)
   const deleteSubtaskCascade = useApp((s) => s.deleteSubtaskCascade)
   const restoreSubtaskCascade = useApp((s) => s.restoreSubtaskCascade)
   const deleteStageCascade = useApp((s) => s.deleteStageCascade)
@@ -877,6 +967,7 @@ function GoalDetail({
 
   const [openMap, setOpenMap] = useState<Record<string, boolean>>({})
   const [subFormFor, setSubFormFor] = useState<string | null>(null)
+  const [supplementFor, setSupplementFor] = useState<string | null>(null)
 
   const [newStageOpen, setNewStageOpen] = useState(false)
   const [newStageName, setNewStageName] = useState('')
@@ -909,8 +1000,14 @@ function GoalDetail({
     const next = !editMode
     setEditMode(next)
     setSubFormFor(null)
+    setSupplementFor(null)
     setNewStageOpen(false)
     showToast(next ? '编辑模式：改名与删除立即生效' : '已退出编辑')
+  }
+
+  const closeSubForms = (): void => {
+    setSubFormFor(null)
+    setSupplementFor(null)
   }
 
   const saveRange = (): void => {
@@ -944,6 +1041,18 @@ function GoalDetail({
     }
     setSubFormFor(null)
     void createSubtask({ goalId: goal.id, title: t, stageId })
+  }
+
+  const submitSupplement = (stageId: string, title: string): void => {
+    const t = title.trim()
+    if (!t) {
+      showToast('先写清楚要做的事')
+      return
+    }
+    setSubFormFor(null)
+    setSupplementFor(null)
+    setOpenMap((m) => ({ ...m, [stageId]: true }))
+    void addSupplementToStage(stageId, t)
   }
 
   const removeSubtask = (st: SubtaskRecord): void => {
@@ -1076,10 +1185,18 @@ function GoalDetail({
         editing={editMode}
         open={openMap.loose ?? true}
         subFormOpen={subFormFor === 'loose'}
+        supplementOpen={false}
+        paused={false}
+        allowSupplement={false}
         onToggle={() => setOpenMap((m) => ({ ...m, loose: !(m.loose ?? true) }))}
-        onAddSub={() => setSubFormFor('loose')}
-        onCancelSub={() => setSubFormFor(null)}
+        onAddSub={() => {
+          setSupplementFor(null)
+          setSubFormFor('loose')
+        }}
+        onCancelSub={closeSubForms}
         onSubmitSub={(title) => submitSubtask(null, title)}
+        onOpenSupplement={() => undefined}
+        onSubmitSupplement={() => undefined}
         onDeleteSub={removeSubtask}
         onDeleteStage={() => undefined}
         onRenameStage={() => undefined}
@@ -1087,6 +1204,7 @@ function GoalDetail({
 
       {stages.map((stage, index) => {
         const items = itemsOfStage(stage.id)
+        const paused = Boolean(goal.resumeStageId === stage.id && !stage.isCurrent && !stage.done)
         return (
           <StageCard
             key={stage.id}
@@ -1096,10 +1214,25 @@ function GoalDetail({
             editing={editMode}
             open={editMode ? true : (openMap[stage.id] ?? !stage.done)}
             subFormOpen={subFormFor === stage.id}
-            onToggle={() => setOpenMap((m) => ({ ...m, [stage.id]: !(m[stage.id] ?? !stage.done) }))}
-            onAddSub={() => setSubFormFor(stage.id)}
-            onCancelSub={() => setSubFormFor(null)}
+            supplementOpen={supplementFor === stage.id}
+            paused={paused}
+            allowSupplement={!goal.done}
+            onToggle={() => {
+              if (supplementFor === stage.id) setSupplementFor(null)
+              setOpenMap((m) => ({ ...m, [stage.id]: !(m[stage.id] ?? !stage.done) }))
+            }}
+            onAddSub={() => {
+              setSupplementFor(null)
+              setSubFormFor(stage.id)
+            }}
+            onCancelSub={closeSubForms}
             onSubmitSub={(title) => submitSubtask(stage.id, title)}
+            onOpenSupplement={() => {
+              setSubFormFor(null)
+              setSupplementFor(stage.id)
+              setOpenMap((m) => ({ ...m, [stage.id]: true }))
+            }}
+            onSubmitSupplement={(title) => submitSupplement(stage.id, title)}
             onDeleteSub={removeSubtask}
             onDeleteStage={removeStage}
             onRenameStage={(s, i, fullTitle) => {

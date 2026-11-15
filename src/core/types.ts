@@ -139,7 +139,7 @@ export interface ProgressField {
 export interface GoalRecord extends CoreRecord {
   type: 'goal'
   title: string
-  /** 目标阐述 / 总结沉淀（字段保留；v9.46 详情页不再展示） */
+  /** 目标阐述 / 总结沉淀（v9.48 起详情页在标题与时间范围下方展示） */
   note: string
   /** v8.10 目标层级当前进度（字段保留；v9.46 详情页不再展示） */
   progress?: ProgressField
@@ -158,6 +158,9 @@ export interface GoalRecord extends CoreRecord {
   /** v9.14 目标所属文件夹（可空 = 未分类，直接创建目标天然成立）。
    *  旧记录/旧备份无此字段 → 读路径一律按 null 归一化；删除文件夹后目标自动归入未分类（读路径归一化，不改记录） */
   folderId?: string
+  /** v9.49 补漏回跳目标：已完成阶段「补一条」后被暂时打断的当前阶段 id。
+   *  补漏阶段再次完成时优先回到它；无补漏/目标失效 = 不写字段（undefined） */
+  resumeStageId?: string
 }
 
 /** v9.14 目标文件夹：一层扁平，不嵌套。文件夹可创建/删除/收藏/折叠；

@@ -264,6 +264,8 @@ export interface GoalRepo {
   setDone(id: string, done: boolean): Promise<GoalRecord>
   /** v8.43 目标收藏/取消收藏：收藏时写 favoritedAt（列表置顶按它倒序）；取消时两字段一起清掉 */
   setFavorite(id: string, favorite: boolean): Promise<GoalRecord>
+  /** v9.49 补漏回跳：记录/清除被补漏打断的当前阶段（null = 清除字段） */
+  setResumeStage(id: string, stageId: string | null): Promise<GoalRecord>
   /** 软删目标，**连带软删其全部阶段**（单事务） */
   softDelete(id: string): Promise<void>
 }
@@ -876,6 +878,14 @@ export function createRepos(deps: RepoDeps): Repos {
         favorite: favorite ? true : undefined,
         favoritedAt: favorite ? now() : undefined,
       })
+    },
+
+    async setResumeStage(id, stageId) {
+      const rec = await mustGet<GoalRecord>('goals', id)
+      const next: GoalRecord = { ...rec }
+      if (stageId) next.resumeStageId = String(stageId).slice(0, 64)
+      else delete next.resumeStageId
+      return store.put<GoalRecord>('goals', next)
     },
 
     async softDelete(id) {

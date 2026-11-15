@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.48'
+const CURRENT_VERSION = 'v9.49'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.49',
+    date: '2026-11-15',
+    items: [
+      '已完成阶段展开后底部新增「＋ 补一条」：发现前面阶段漏了事，可以直接补回原阶段，不用另开新阶段',
+      '提交补一条会重开本阶段并设为当前，原当前阶段显示「待继续」；补漏阶段再次完成后自动回到补漏前的当前阶段',
+    ],
+  },
   {
     version: 'v9.48',
     date: '2026-11-15',

@@ -37,15 +37,18 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v9.48')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v9.49')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v9.48')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v9.49')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v9.48，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v9.49，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+(\.\d+)+$/)
-    expect(vers[0].textContent).toBe('v9.48')
+    expect(vers[0].textContent).toBe('v9.49')
+    // v9.49
+    expect(screen.getByText(/已完成阶段展开后底部新增「＋ 补一条」/)).toBeInTheDocument()
+    expect(screen.getByText(/提交补一条会重开本阶段并设为当前/)).toBeInTheDocument()
     // v9.48
     expect(screen.getByText(/目标详情页补回「目标阐述」/)).toBeInTheDocument()
     expect(screen.getByText(/阐述按原文保留换行、完整展示/)).toBeInTheDocument()

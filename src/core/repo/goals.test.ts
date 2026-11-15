@@ -114,6 +114,17 @@ describe('goals', () => {
     expect(unfav.favoritedAt).toBeUndefined()
   })
 
+  it('setResumeStage：补漏回跳目标可写可清，不影响目标其他字段（v9.49）', async () => {
+    const g = await repos.goals.create({ title: '复习考公', note: '按周推进' })
+    const set = await repos.goals.setResumeStage(g.id, 'stage-2')
+    expect(set.resumeStageId).toBe('stage-2')
+    expect(set.title).toBe('复习考公')
+    expect(set.note).toBe('按周推进')
+    const cleared = await repos.goals.setResumeStage(g.id, null)
+    expect(cleared.resumeStageId).toBeUndefined()
+    expect(cleared.title).toBe('复习考公')
+  })
+
   it('goalSummaries：收藏置顶、收藏内部新收藏在前、完成不参与置顶（v8.43）', async () => {
     const a = await repos.goals.create({ title: '先建 A' })
     clock.set(clock() + 1000)

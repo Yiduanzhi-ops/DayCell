@@ -289,6 +289,69 @@ describe('目标详情（v9.46 原型口径）', () => {
     expect(within(doneCard).queryByText('＋子任务')).not.toBeInTheDocument()
   })
 
+  it('已完成阶段补一条：重开原阶段，原当前阶段待继续；补完自动回到原阶段', async () => {
+    const { store } = await renderApp()
+    await seedGoal(store)
+    await openGoalUI()
+    const s1 = await addStage(store, '基础学习')
+    const subA = await addSub(store, '任务 A', s1)
+    await store.getState().setSubtaskDoneWithToday(subA, true)
+    await waitFor(() => expect(screen.getByText('1/1')).toBeInTheDocument())
+
+    const s2 = await addStage(store, '刷题阶段')
+    await addSub(store, '任务 B', s2)
+    await waitFor(() => expect(screen.getByText('进行中')).toBeInTheDocument())
+
+    // 已完成阶段默认收起；展开后才露出补漏入口
+    fireEvent.click(screen.getByText('第一阶段 · 基础学习'))
+    await waitFor(() => expect(screen.getByRole('button', { name: /补一条/ })).toBeInTheDocument())
+    expect(screen.getByText('会重开本阶段')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /补一条/ }))
+
+    const input = screen.getByPlaceholderText('补一条漏掉的子任务')
+    fireEvent.change(input, { target: { value: '补：确认字段变更的兼容范围' } })
+    fireEvent.click(screen.getByRole('button', { name: '添加' }))
+
+    await waitFor(() => expect(store.getState().goalDetail!.stages.find((x) => x.id === s1)?.isCurrent).toBe(true))
+    expect(store.getState().goalDetail!.stages.find((x) => x.id === s1)?.done).toBe(false)
+    expect(store.getState().goalDetail!.goal.resumeStageId).toBe(s2)
+    expect(screen.getByText('待继续')).toBeInTheDocument()
+    expect(screen.getByText('进行中')).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('补一条漏掉的子任务')).not.toBeInTheDocument()
+
+    // 补漏项完成 → 第一阶段再次完成 → 自动回到第二阶段
+    fireEvent.click(screen.getByRole('checkbox', { name: '标记完成：补：确认字段变更的兼容范围' }))
+    await waitFor(() => expect(store.getState().goalDetail!.stages.find((x) => x.id === s2)?.isCurrent).toBe(true))
+    expect(store.getState().goalDetail!.goal.resumeStageId).toBeUndefined()
+    await waitFor(() => expect(screen.getByText('已回到之前的阶段')).toBeInTheDocument())
+    expect(screen.queryByText('待继续')).not.toBeInTheDocument()
+  })
+
+  it('回跳目标已被完成时，补漏完成后顺延到后面第一个未完成阶段', async () => {
+    const { store } = await renderApp()
+    await seedGoal(store)
+    await openGoalUI()
+    const s1 = await addStage(store, '基础学习')
+    const s2 = await addStage(store, '刷题阶段')
+    const s3 = await addStage(store, '模考阶段')
+    const subA = await addSub(store, '任务 A', s1)
+    await store.getState().setSubtaskDoneWithToday(subA, true)
+    expect(store.getState().goalDetail!.stages.find((x) => x.id === s2)?.isCurrent).toBe(true)
+
+    await store.getState().addSupplementToStage(s1, '补漏项')
+    const supplement = store.getState().goalDetail!.subtasks.find((x) => x.title === '补漏项')!
+    expect(store.getState().goalDetail!.goal.resumeStageId).toBe(s2)
+    expect(store.getState().goalDetail!.stages.find((x) => x.id === s1)?.isCurrent).toBe(true)
+    expect(store.getState().goalDetail!.stages.find((x) => x.id === s2)?.isCurrent).toBe(false)
+    await store.getState().setStageDone(s2, true)
+    expect(store.getState().goalDetail!.stages.find((x) => x.id === s1)?.isCurrent).toBe(true)
+
+    await store.getState().setSubtaskDoneWithToday(supplement.id, true)
+    await waitFor(() => expect(store.getState().goalDetail!.stages.find((x) => x.id === s3)?.isCurrent).toBe(true))
+    expect(store.getState().goalDetail!.goal.resumeStageId).toBeUndefined()
+    expect(store.getState().goalDetail!.stages.find((x) => x.id === s2)?.done).toBe(true)
+  })
+
   it('删除阶段：子任务移入不分阶段；撤销后阶段与归属恢复', async () => {
     const { store } = await renderApp()
     await seedGoal(store)

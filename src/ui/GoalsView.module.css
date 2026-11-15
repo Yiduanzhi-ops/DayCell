@@ -1335,12 +1335,18 @@
   color: var(--accent);
   border-color: #C9D3EA;
 }
+.stageBadgePause {
+  color: #5A6B8C;
+  background: #F7F9FD;
+  border-color: #DCE3F2;
+}
 .stageCount {
   margin-left: auto;
   font-size: 11.5px;
   color: var(--ink-3);
   flex: none;
 }
+.stageCountInline { margin-left: 0; }
 .addSubInline {
   margin-left: auto;
   flex: none;
@@ -1550,6 +1556,35 @@
   font-size: 11.5px;
   font-family: inherit;
   cursor: pointer;
+}
+
+/* v9.49 已完成阶段展开后的补漏入口（只加这一行，不改阶段卡结构） */
+.supplementRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  padding: 9px 13px;
+  border: 0;
+  border-top: 1px solid #F2F2F4;
+  background: #fff;
+  color: var(--ink-2);
+  font-family: inherit;
+  font-size: 11.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.supplementRow:hover { background: #FAFAFA; }
+.supplementPlus {
+  flex: none;
+  color: var(--accent);
+  font-size: 12px;
+}
+.supplementHint {
+  margin-left: auto;
+  flex: none;
+  color: var(--ink-4);
+  font-size: 10.5px;
 }
 
 /* ---- 新建阶段 ---- */
