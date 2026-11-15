@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.47'
+const CURRENT_VERSION = 'v9.48'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.48',
+    date: '2026-11-15',
+    items: [
+      '目标详情页补回「目标阐述」：创建目标时填写的内容会展示在标题与时间范围下方，不再只写不读',
+      '阐述按原文保留换行、完整展示；没有填写时不占位',
+    ],
+  },
   {
     version: 'v9.47',
     date: '2026-11-12',

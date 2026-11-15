@@ -1035,6 +1035,13 @@ function GoalDetail({
         {!renamingGoal && titleDone}
       </div>
 
+      {goal.note.trim() && (
+        <section className={styles.goalNote} aria-label="目标阐述">
+          <div className={styles.goalNoteLabel}>目标阐述</div>
+          <p className={styles.goalNoteText}>{goal.note.trim()}</p>
+        </section>
+      )}
+
       <div className={styles.goalRange}>
         {rangeEditing ? (
           <div className={styles.goalRangeForm}>

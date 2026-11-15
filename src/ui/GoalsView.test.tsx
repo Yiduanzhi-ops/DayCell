@@ -1,6 +1,6 @@
 /**
  * v9.46 目标详情页 UI 测试（严格对齐《阶段与待办联动原型》）：
- *  - 详情页只保留标题 / 时间范围 / 不分阶段 / 阶段卡；阐述与进度下线
+ *  - 详情页保留标题 / 已填写的目标阐述 / 时间范围 / 不分阶段 / 阶段卡；当前进度下线
  *  - 目标级三操作收进「…」：完成、移动文件夹、删除
  *  - 标题改名只在编辑态；阶段/子任务改名、删除也在编辑态
  *  - 勾选子任务 = 完成 + 今天打卡；＋/－每日待办
@@ -32,8 +32,8 @@ async function renderApp(): Promise<{ store: ReturnType<typeof createAppStore>; 
 }
 
 /** 建一个目标并返回 id（不打开详情） */
-async function seedGoal(store: ReturnType<typeof createAppStore>, title = '复习考公'): Promise<string> {
-  await store.getState().createGoal(title, '')
+async function seedGoal(store: ReturnType<typeof createAppStore>, title = '复习考公', note = ''): Promise<string> {
+  await store.getState().createGoal(title, note)
   const id = store.getState().goalList[0]?.goal.id
   if (!id) throw new Error('目标创建失败')
   return id
@@ -63,9 +63,10 @@ async function addSub(store: ReturnType<typeof createAppStore>, title: string, s
 }
 
 describe('目标详情（v9.46 原型口径）', () => {
-  it('详情页结构：顶栏「‹ 目标」+「…／编辑」、时间范围、不分阶段卡；阐述/进度/旧 tab 下线', async () => {
+  it('详情页结构：顶栏「‹ 目标」+「…／编辑」、时间范围、不分阶段卡；已填阐述展示、进度/旧 tab 下线', async () => {
     const { store } = await renderApp()
-    await seedGoal(store)
+    const note = '先打基础，再刷题，最后按周模考。'
+    await seedGoal(store, '复习考公', note)
     await openGoalUI()
 
     expect(screen.getByText('复习考公')).toBeInTheDocument()
@@ -73,10 +74,19 @@ describe('目标详情（v9.46 原型口径）', () => {
     expect(screen.getByRole('button', { name: '编辑' })).toBeInTheDocument()
     expect(screen.getByText('时间范围未设')).toBeInTheDocument()
     expect(screen.getByText('不分阶段')).toBeInTheDocument()
-    expect(screen.queryByText('目标阐述')).not.toBeInTheDocument()
+    expect(screen.getByText('目标阐述')).toBeInTheDocument()
+    expect(screen.getByText(note)).toBeInTheDocument()
     expect(screen.queryByText('当前进度')).not.toBeInTheDocument()
     expect(screen.queryByRole('tab', { name: '阶段' })).not.toBeInTheDocument()
     expect(screen.queryByText('＋ 添加阶段')).not.toBeInTheDocument()
+  })
+
+  it('目标阐述为空时，详情页不渲染空占位', async () => {
+    const { store } = await renderApp()
+    await seedGoal(store)
+    await openGoalUI()
+
+    expect(screen.queryByText('目标阐述')).not.toBeInTheDocument()
   })
 
   it('阶段与子任务：第N阶段前缀、当前徽标、排序不加「第X阶段」重复前缀', async () => {
