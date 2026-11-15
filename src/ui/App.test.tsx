@@ -345,10 +345,19 @@ describe('App 冒烟', () => {
     await waitFor(() => expect(store.getState().detail?.date).toBe('2026-10-02'))
     await store.getState().toggleTodo(id)
 
+    // v8.98 日视图回看截止日：任务已归到完成日，但截止日仍保留“当时未完成”的痕迹
+    await store.getState().selectFromCalendar('2026-09-28' as DateKey)
+    await waitFor(() => expect(store.getState().detail?.date).toBe('2026-09-28'))
+    expect(within(screen.getByTestId('day-center')).getByText('截止日未完成')).toBeInTheDocument()
+    expect(within(screen.getByTestId('day-center')).getByText('10/2 完成')).toBeInTheDocument()
+    expect(within(screen.getByTestId('day-center')).queryByText(/这一天还什么都没有/)).toBeNull()
+
     store.getState().setView('week')
     await waitFor(() => expect(screen.getByTestId('week-scroll')).toBeInTheDocument())
-    await waitFor(() => expect(document.body.textContent).toContain('逾期未完成'))
+    await waitFor(() => expect(document.body.textContent).toContain('截止日未完成'))
     expect(document.body.textContent).toContain('10/2 完成')
+    // 完成日不再额外加标识：截止日那条痕迹已经带上了完成日期
+    expect(document.body.textContent).not.toContain('逾期完成')
 
     await store.getState().selectFromCalendar('2026-11-01' as DateKey)
     await waitFor(() => expect(document.body.textContent).toContain('10/26'))
