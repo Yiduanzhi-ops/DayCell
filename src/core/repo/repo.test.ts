@@ -204,14 +204,32 @@ describe('todos.deadline（v8.53 DDL 待办）', () => {  it('create 带截止�
     expect(ddl.every((t) => t.deadline !== undefined)).toBe(true)
   })
 
-  it('v8.61 isOverdueDone：完成日期 > 截止日期才算逾期完成', () => {
+  it('v8.61 isOverdueDone：完成归属日 > 截止日期才算逾期完成', () => {
     // 完成日晚于截止日 → 逾期完成
     expect(isOverdueDone({ done: true, doneAt: new Date(2026, 9, 1, 9).getTime(), deadline: k('2026-09-30') })).toBe(true)
     // 截止日当天完成 → 不算逾期
     expect(isOverdueDone({ done: true, doneAt: new Date(2026, 8, 30, 23).getTime(), deadline: k('2026-09-30') })).toBe(false)
     // 完成日早于截止日 → 不算
     expect(isOverdueDone({ done: true, doneAt: new Date(2026, 8, 28, 9).getTime(), deadline: k('2026-09-30') })).toBe(false)
-    // 未完成 / 无截止日 / 无 doneAt → 不算
+    // doneOn 优先：过去视图补勾在截止日当天，即使真实点击在今天，也不算逾期
+    expect(
+      isOverdueDone({
+        done: true,
+        doneOn: k('2026-09-30'),
+        doneAt: new Date(2026, 9, 1, 9).getTime(),
+        deadline: k('2026-09-30'),
+      }),
+    ).toBe(false)
+    // doneOn 晚于截止日 → 即使真实点击更晚，也按 doneOn 判逾期
+    expect(
+      isOverdueDone({
+        done: true,
+        doneOn: k('2026-10-01'),
+        doneAt: new Date(2026, 9, 2, 9).getTime(),
+        deadline: k('2026-09-30'),
+      }),
+    ).toBe(true)
+    // 未完成 / 无截止日 / 无完成日 → 不算
     expect(isOverdueDone({ done: false, doneAt: undefined, deadline: k('2026-09-30') })).toBe(false)
     expect(isOverdueDone({ done: true, doneAt: new Date(2026, 9, 1, 9).getTime(), deadline: undefined })).toBe(false)
     expect(isOverdueDone({ done: true, doneAt: undefined, deadline: k('2026-09-30') })).toBe(false)

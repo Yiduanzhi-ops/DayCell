@@ -118,11 +118,23 @@ export function todoProgress(recs: TodoRecord[]): { done: number; total: number 
 }
 
 /**
- * v8.61 逾期完成判定：已完成 && 有截止日 && 完成日期 > 截止日期。
- * 截止日当天完成（doneAt == deadline）不算逾期；未完成由 UI 按 v8.53 红色「已逾期」处理。
+ * 完成归属日：只认 doneOn（勾选时正在查看的那一天），旧数据回退 doneAt 的日期。
+ *
+ * 这是显示、统计、逾期判定的唯一日期口径。doneAt 仅保留真实点击时刻做审计，
+ * 不允许再把「今天点了一下」泄漏成「今天完成」。
  */
-export function isOverdueDone(rec: Pick<TodoRecord, 'done' | 'doneAt' | 'deadline'>): boolean {
-  return !!rec.done && !!rec.deadline && rec.doneAt !== undefined && keyOf(rec.doneAt) > rec.deadline
+export function todoDoneDay(rec: Pick<TodoRecord, 'doneOn' | 'doneAt'>): DateKey | null {
+  if (rec.doneOn) return rec.doneOn
+  return rec.doneAt !== undefined ? keyOf(rec.doneAt) : null
+}
+
+/**
+ * v8.61 逾期完成判定：已完成 && 有截止日 && 完成归属日 > 截止日期。
+ * 截止日当天完成（doneOn == deadline）不算逾期；未完成由 UI 按 v8.53 红色「已逾期」处理。
+ */
+export function isOverdueDone(rec: Pick<TodoRecord, 'done' | 'doneOn' | 'doneAt' | 'deadline'>): boolean {
+  const doneOn = todoDoneDay(rec)
+  return !!rec.done && !!rec.deadline && doneOn !== null && doneOn > rec.deadline
 }
 
 /**
@@ -515,8 +527,8 @@ export function createRepos(deps: RepoDeps): Repos {
     async toggle(id, viewDate) {
       const rec = await mustGet<TodoRecord>('todos', id)
       const done = !rec.done
-      // v8.87：doneOn 记「勾选时在看的那一天」，doneAt 仍是真实时刻。
-      // 只传 doneAt 时，翻回过去日期勾完成会因 doneAt≠查看日被 visibleTodos 判为不可见 → 待办凭空消失。
+      // v8.87：doneOn 是完成归属日（勾选时正在查看的那一天），doneAt 仅审计真实时刻。
+      // 翻回过去勾完成 → 只属于过去那天；不再让 doneAt 把记录拖回今天。
       return store.put<TodoRecord>('todos', {
         ...rec,
         done,
