@@ -37,15 +37,18 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v8.96')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v8.97')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v8.96')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v8.97')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v8.96，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v8.97，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v8.96')
+    expect(vers[0].textContent).toBe('v8.97')
+    // v8.97
+    expect(screen.getByText(/提醒型改期只算新提醒日/)).toBeInTheDocument()
+    expect(screen.getByText(/提醒型不再和截止型共用/)).toBeInTheDocument()
     // v8.96
     expect(screen.getByText(/只算那一天/)).toBeInTheDocument()
     expect(screen.getByText(/截止型逾期未完成继续留在今天/)).toBeInTheDocument()
