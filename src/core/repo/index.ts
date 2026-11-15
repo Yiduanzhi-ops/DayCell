@@ -93,6 +93,12 @@ export interface TodoRepo {
   setDeadline(id: string, deadline: string | null): Promise<TodoRecord>
   /** v9.2.2 设/清具体时间（null = 清除）；v9.2.3 可同时设 timeType（null = 清除）；非法格式抛 BAD_VALUE */
   setTime(id: string, time: string | null, timeType?: 'due' | 'at' | null): Promise<TodoRecord>
+  /**
+   * v8.97：把历史错位的提醒型记录归位。
+   * 提醒型（timeType='at'）有 deadline 时，date 必须等于 deadline；返回修正条数。
+   * 只修 date≠deadline 的活跃记录，幂等。
+   */
+  normalizeReminderDates(): Promise<number>
   /** v8.87 翻转完成态；viewDate = 勾选时正在查看的日期，写入 doneOn（过去日期补勾时保留显示） */
   toggle(id: string, viewDate?: DateKey): Promise<TodoRecord>
   softDelete(id: string): Promise<void>
@@ -126,6 +132,14 @@ export function todoProgress(recs: TodoRecord[]): { done: number; total: number 
 export function todoDoneDay(rec: Pick<TodoRecord, 'doneOn' | 'doneAt'>): DateKey | null {
   if (rec.doneOn) return rec.doneOn
   return rec.doneAt !== undefined ? keyOf(rec.doneAt) : null
+}
+
+/**
+ * v8.97 提醒型归属日：`at` 且有 deadline 时只属于 deadline；其余仍按 date。
+ * 提醒型是单日事件，不能同时挂在创建日和提醒日两天。
+ */
+export function todoOccurrenceDay(rec: Pick<TodoRecord, 'date' | 'deadline' | 'timeType'>): DateKey {
+  return rec.timeType === 'at' && rec.deadline ? rec.deadline : rec.date
 }
 
 /**
@@ -440,7 +454,7 @@ export function createRepos(deps: RepoDeps): Repos {
     byDate: (date) => store.byDate<TodoRecord>('todos', date, date),
 
     async create(date, text, deadline, time, subtaskId, subtaskGoalTitle, timeType) {
-      unwrap(parseDateKey(date))
+      const day = unwrap(parseDateKey(date))
       const t = unwrap(parseTodoText(text))
       // v8.53 可选截止日：空串/null/undefined = 普通待办；非空必须合法日期
       const ddl = deadline === undefined || deadline === null ? undefined : unwrap(parseDeadline(deadline))
@@ -453,10 +467,12 @@ export function createRepos(deps: RepoDeps): Repos {
       // v8.64 可选来源目标标题快照：待办行标注「· 目标名」用；同样截 64 字符
       const stGoal = subtaskGoalTitle === undefined || subtaskGoalTitle === null ? undefined : String(subtaskGoalTitle).slice(0, 64)
       const ts = now()
+      // v8.97：提醒型有 deadline 时，date 必须跟 deadline 一致（单日事件只有一个归属日）
+      const bucket = ttp === 'at' && ddl ? ddl : day
       return store.put<TodoRecord>('todos', {
         id: idGen.next(),
         type: 'todo',
-        date,
+        date: bucket,
         text: t,
         done: false,
         ...(ddl ? { deadline: ddl } : {}),
@@ -488,7 +504,13 @@ export function createRepos(deps: RepoDeps): Repos {
         const { deadline: _drop, ...rest } = rec
         return store.put<TodoRecord>('todos', rest)
       }
-      return store.put<TodoRecord>('todos', { ...rec, deadline: unwrap(parseDeadline(deadline)) })
+      const ddl = unwrap(parseDeadline(deadline))
+      // v8.97：提醒型改期是「移动」而不是「复制」——date 跟随 deadline，旧日期不再保留
+      return store.put<TodoRecord>('todos', {
+        ...rec,
+        deadline: ddl,
+        ...(rec.timeType === 'at' ? { date: ddl } : {}),
+      })
     },
 
     /** v9.2.2 设/清待办具体时间：null/undefined = 清除 */
@@ -503,13 +525,34 @@ export function createRepos(deps: RepoDeps): Repos {
         }
         const ttp = unwrap(parseTodoTimeType(timeType))
         const { time: _drop, ...rest } = rec
-        return store.put<TodoRecord>('todos', { ...rest, timeType: ttp })
+        // v8.97：切成提醒型且已有 deadline 时，归属日同步到 deadline
+        return store.put<TodoRecord>('todos', {
+          ...rest,
+          timeType: ttp,
+          ...(ttp === 'at' && rest.deadline ? { date: rest.deadline } : {}),
+        })
       }
       const tm = unwrap(parseTodoTime(time))
       // timeType：null/undefined = 清除该语义（沿用展示推导）；显式传 'due'/'at' 则写入；非法抛 BAD_VALUE
       let ttp: 'due' | 'at' | undefined
       if (timeType !== null && timeType !== undefined) ttp = unwrap(parseTodoTimeType(timeType))
-      return store.put<TodoRecord>('todos', { ...rec, time: tm, ...(ttp ? { timeType: ttp } : { timeType: undefined }) })
+      return store.put<TodoRecord>('todos', {
+        ...rec,
+        time: tm,
+        ...(ttp ? { timeType: ttp } : { timeType: undefined }),
+        ...(ttp === 'at' && rec.deadline ? { date: rec.deadline } : {}),
+      })
+    },
+
+    async normalizeReminderDates() {
+      const all = await store.all<TodoRecord>('todos')
+      let changed = 0
+      for (const t of all) {
+        if (t.timeType !== 'at' || !t.deadline || t.date === t.deadline) continue
+        await store.put<TodoRecord>('todos', { ...t, date: t.deadline })
+        changed += 1
+      }
+      return changed
     },
 
     /** v8.53 活跃 DDL 待办（未完成、未删除、带截止日）——聚合层注入"每天出现"用 */

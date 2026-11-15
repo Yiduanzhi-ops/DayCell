@@ -747,7 +747,7 @@ describe('v8.53 活跃 DDL 待办注入（每天出现）', () => {
     expect((await agg.aggregateDayDetail(k('2026-10-25'))).todos.map((t) => t.text)).toContain('取快递提醒')
   })
 
-  it('v9.16 提醒型编辑改日期后（date≠deadline）在 deadline 当天注入显示', async () => {
+  it('v8.97 提醒型编辑改日期后只属于新提醒日：旧日消失、新日出现', async () => {
     // 模拟：10-25 创建的截止型待办，编辑切成提醒型并把提醒日期改到 10-28
     const t = await repos.todos.create(k('2026-10-25'), '改期提醒', '2026-10-25', '18:00', undefined, undefined, 'due')
     await repos.todos.setDeadline(t.id, '2026-10-28')
@@ -755,10 +755,27 @@ describe('v8.53 活跃 DDL 待办注入（每天出现）', () => {
     // 中间两天（10-26/10-27）：提醒型不逐日注入，不出现
     expect((await agg.aggregateDayDetail(k('2026-10-26'))).todos.map((x) => x.text)).not.toContain('改期提醒')
     expect((await agg.aggregateDayDetail(k('2026-10-27'))).todos.map((x) => x.text)).not.toContain('改期提醒')
-    // 原创建日（本地 date 桶）：仍在
-    expect((await agg.aggregateDayDetail(k('2026-10-25'))).todos.map((x) => x.text)).toContain('改期提醒')
-    // 新提醒日期 10-28：v9.16 起注入显示（旧实现 date≠deadline 会从当天消失）
+    // 旧创建日：改期即移动，旧日不再保留，也不计入当天进度
+    const old = await agg.aggregateDayDetail(k('2026-10-25'))
+    expect(old.todos.map((x) => x.text)).not.toContain('改期提醒')
+    expect(old.summary.todoTotal).toBe(0)
+    // 新提醒日期 10-28：只在当天出现
     expect((await agg.aggregateDayDetail(k('2026-10-28'))).todos.map((x) => x.text)).toContain('改期提醒')
+    expect((await repos.todos.byId(t.id)).date).toBe(k('2026-10-28'))
+  })
+
+  it('v8.97 历史错位提醒记录读取时只在 deadline 显示，并可归位', async () => {
+    // 直接造一条旧数据：date=10-25，deadline=10-28，timeType='at'
+    const t = await repos.todos.create(k('2026-10-25'), '旧错位提醒', '2026-10-28', '18:00', undefined, undefined, 'at')
+    await store.put('todos', { ...t, date: k('2026-10-25') })
+    // 旧日期不显示、不计数；新日期显示
+    const old = await agg.aggregateDayDetail(k('2026-10-25'))
+    expect(old.todos.map((x) => x.text)).not.toContain('旧错位提醒')
+    expect(old.summary.todoTotal).toBe(0)
+    expect((await agg.aggregateDayDetail(k('2026-10-28'))).todos.map((x) => x.text)).toContain('旧错位提醒')
+    // 归一化后 date 跟随 deadline
+    expect(await repos.todos.normalizeReminderDates()).toBe(1)
+    expect((await repos.todos.byId(t.id)).date).toBe(k('2026-10-28'))
   })
 
   it('v8.63 子任务「加入今日待办」的待办不参与顺延（当天有效）', async () => {

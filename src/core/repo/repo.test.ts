@@ -132,19 +132,30 @@ describe('todos.subtaskId（v8.63 子任务加入今日待办）', () => {
     })
   })
 
+  it('v8.97 提醒型归属日跟随 deadline：创建与改期只移动 date，不复制', async () => {
+    const a = await repos.todos.create(k('2026-10-20'), '提醒改期', '2026-10-28', '09:00', undefined, undefined, 'at')
+    expect(a.date).toBe(k('2026-10-28'))
+    await repos.todos.setDeadline(a.id, '2026-10-30')
+    expect((await repos.todos.byId(a.id)).date).toBe(k('2026-10-30'))
+    // 截止型保持原归桶日：改截止日不等于改创建日
+    const b = await repos.todos.create(k('2026-10-20'), '截止改期', '2026-10-28', '09:00', undefined, undefined, 'due')
+    await repos.todos.setDeadline(b.id, '2026-10-30')
+    expect((await repos.todos.byId(b.id)).date).toBe(k('2026-10-20'))
+  })
+
   it('v9.2.3 setTime 带 timeType：设 type 写入、显式清除、清 time 连带清除 type', async () => {
     const t = await repos.todos.create(k('2026-10-20'), '开会', '2026-10-28', '14:00', undefined, undefined, 'due')
-    // 显式设 'at' 覆盖
+    // 显式设 'at' 覆盖（v8.97 起提醒型 date 会跟随 deadline，故用 byId 断言字段）
     await repos.todos.setTime(t.id, '15:00', 'at')
-    expect((await repos.todos.byDate(k('2026-10-20')))[0]!.timeType).toBe('at')
+    expect((await repos.todos.byId(t.id)).timeType).toBe('at')
     // 清 time → type 一并移除
     await repos.todos.setTime(t.id, null)
-    const rec = (await repos.todos.byDate(k('2026-10-20')))[0]!
+    const rec = await repos.todos.byId(t.id)
     expect(rec.time).toBeUndefined()
     expect('timeType' in rec).toBe(false)
     // v9.15：清 time 但显式传 timeType → 仅删 time、保留类型（修复「只切类型不设时间」保存后被还原）
     await repos.todos.setTime(t.id, null, 'at')
-    const rec2 = (await repos.todos.byDate(k('2026-10-20')))[0]!
+    const rec2 = await repos.todos.byId(t.id)
     expect('time' in rec2).toBe(false)
     expect(rec2.timeType).toBe('at')
     // 非法 type 抛 BAD_VALUE
