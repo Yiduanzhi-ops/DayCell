@@ -35,7 +35,7 @@ import {
 } from '../date'
 import { cellLabel, type CellLabel } from '../label'
 import type { LunarApi, LunarInfo } from '../lunar'
-import { isRollable, todoDoneDay, todoProgress, type Repos } from '../repo'
+import { isRollable, todoDoneDay, todoOccurrenceDay, todoProgress, type Repos } from '../repo'
 import { buildReport, type ReportData, type ReportKind } from '../report'
 import { sortHabits, type RecordStore } from '../store/types'
 import type {
@@ -281,7 +281,11 @@ const emptyBucket = (): DayBucket => ({ todos: [], notes: [], expenses: [] })
  */
 function visibleTodos(todos: readonly TodoRecord[], date: DateKey): TodoRecord[] {
   return todos.filter(
-    (t) => !t.rolledTo && !(t.deadline && t.done && todoDoneDay(t) !== date),
+    (t) =>
+      !t.rolledTo &&
+      // v8.97：提醒型是单日事件——历史 date 未跟随 deadline 时，旧日期也不再显示
+      todoOccurrenceDay(t) === date &&
+      !(t.deadline && t.done && todoDoneDay(t) !== date),
   )
 }
 

@@ -664,6 +664,12 @@ export function createAppStore(
       const pushWeeklyEnabled = (await repos.settings.get('pushWeeklyEnabled', false)) as boolean
       const pushWeeklyTime = (await repos.settings.get('pushWeeklyTime', null)) as string | null
       set({ pushMorningEnabled, pushMorningTime, pushEveningEnabled, pushEveningTime, pushWeeklyEnabled, pushWeeklyTime })
+      // v8.97：修复历史上提醒型 date≠deadline 的错位记录，保证报告/月周统计也用唯一归属日
+      try {
+        await repos.todos.normalizeReminderDates()
+      } catch (e) {
+        get().showToast(errMsg(e))
+      }
       await get().refresh()
     },
 
