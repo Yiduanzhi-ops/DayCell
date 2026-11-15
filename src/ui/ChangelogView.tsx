@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.51'
+const CURRENT_VERSION = 'v9.52'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.52',
+    date: '2026-11-15',
+    items: [
+      '提醒型改期只算新提醒日：把今天的提醒改到后天，今天不再保留，后天只出现一次',
+      '提醒型不再和截止型共用“到期注入”：今日进度、周/月计数和报告都只按提醒日算',
+    ],
+  },
   {
     version: 'v9.51',
     date: '2026-11-15',
