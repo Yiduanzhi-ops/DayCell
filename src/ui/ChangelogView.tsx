@@ -8,11 +8,20 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.50'
+const CURRENT_VERSION = 'v9.51'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.51',
+    date: '2026-11-15',
+    items: [
+      '翻回过去某天勾完成，只算那一天：今天页、今日进度和报告都不再把它算进今天',
+      '截止型逾期未完成继续留在今天；今天勾完成才算今天，过去补勾只归过去',
+      '提醒型只出现在提醒日当天，不进入今天、不生成逾期痕迹',
+    ],
+  },
   {
     version: 'v9.50',
     date: '2026-11-15',
