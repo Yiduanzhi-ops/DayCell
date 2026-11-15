@@ -8,8 +8,8 @@
  * ## 统计口径（写死在这里，UI / AI 都不得另起）
  *
  * - **区间**：周 = 周一起 7 天（weekStartsOn）；月 = 自然月天数。
- * - **待办完成**：doneAt 落在区间内的完成（date 在不在区间都算——10-29 建、
- *   11-2 勾掉的待办计入 11 月完成），老数据无 doneAt 时按 done && date 在区间；
+ * - **待办完成**：完成归属日 doneOn 落在区间内的完成（date 在不在区间都算——10-29 建、
+ *   11-2 勾掉的待办计入 11 月完成），老数据无 doneOn 时回退 doneAt 的日期；
  *   记录 date 在区间、非 rolledTo（顺延出去的不算，同 aggregate）。
  *   总待办 = date 在区间的记录 ∪ 区间内完成（去重）。
  * - **顺延**：rolledFrom 落在区间的条数（= 区间内被顺延出去的次数）。
@@ -35,7 +35,7 @@ import { annivHitsOn } from './aggregate'
 import { compareKey, daysBetween, dowOf, fromKey, keyOf, monthKeys, startOfWeek, weekKeys, type WeekStartsOn } from './date'
 import type { LunarApi } from './lunar'
 import type { RecordStore } from './store/types'
-import type { Repos } from './repo'
+import { todoDoneDay, type Repos } from './repo'
 import type {
   AnnivCheckRecord,
   CheckinRecord,
@@ -224,18 +224,15 @@ export function buildReport(input: BuildReportInput): Promise<ReportData> {
         store.all<AnnivCheckRecord>('annivchecks'),
       ])
 
-    // 口径：完成数按 doneAt 落区间，不要求 date 也在区间——
+    // 口径：完成数按完成归属日 doneOn 落区间，不要求 date 也在区间——
     // 「10-29 建的待办、11-2 才勾掉」要算进 11 月完成（否则完成分布漏人）。
-    // 做法：byDate 之外，再从全量 todo 补 date 在区间外但 doneAt 在区间内的完成。
+    // 旧数据无 doneOn 时回退 doneAt；doneAt 只是审计时刻，不再拿来归属到今天。
+    // 做法：byDate 之外，再从全量 todo 补 date 在区间外但完成归属日在区间内的完成。
     const allTodos = await store.all<TodoRecord>('todos')
-    const extraDone = allTodos.filter(
-      (t) =>
-        t.done &&
-        t.doneAt !== undefined &&
-        keyOf(t.doneAt) >= from &&
-        keyOf(t.doneAt) <= to &&
-        !t.rolledTo,
-    )
+    const extraDone = allTodos.filter((t) => {
+      const doneOn = todoDoneDay(t)
+      return t.done && doneOn !== null && doneOn >= from && doneOn <= to && !t.rolledTo
+    })
     const seen = new Set(todosByDate.map((t) => t.id))
     for (const t of extraDone) {
       if (!seen.has(t.id)) {
@@ -255,9 +252,9 @@ export function buildReport(input: BuildReportInput): Promise<ReportData> {
     }
     const todosInRange = todos.filter((t) => !t.rolledTo)
     const todoDone = todosInRange.filter((t) => {
-      if (t.doneAt === undefined) return t.done
-      const d = keyOf(t.doneAt)
-      return d >= from && d <= to
+      const doneOn = todoDoneDay(t)
+      if (doneOn === null) return t.done
+      return doneOn >= from && doneOn <= to
     }).length
     const todoTotal = todosInRange.length
     const todayKey = keyOf(Date.now())
@@ -274,7 +271,7 @@ export function buildReport(input: BuildReportInput): Promise<ReportData> {
     const doneByDate = new Map<DateKey, number>()
     for (const t of todosInRange) {
       if (!t.done) continue
-      const d = t.doneAt !== undefined ? keyOf(t.doneAt) : t.date
+      const d = todoDoneDay(t) ?? t.date
       if (d < from || d > to) continue
       doneByDate.set(d, (doneByDate.get(d) ?? 0) + 1)
     }

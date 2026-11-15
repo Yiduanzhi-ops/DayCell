@@ -629,7 +629,23 @@ describe('v8.53 活跃 DDL 待办注入（每天出现）', () => {
     expect((await agg.aggregateDayDetail(k('2026-10-24'))).todos).toHaveLength(0)
   })
 
-  it('v8.87 翻回过去某天勾完成：待办留在那一天显示为已完成，不再凭空消失', async () => {
+  it('v8.95 截止型逾期未完成：今天仍可见；今天勾完成只算今天', async () => {
+    clock.set(new Date(2026, 10, 9).getTime())
+    const t = await repos.todos.create(k('2026-11-05'), '还书', '2026-11-05')
+    // 11-09 今天：未完成，按 DDL 每日注入
+    const todayBefore = await agg.aggregateDayDetail(k('2026-11-09'))
+    expect(todayBefore.todos.map((x) => x.text)).toContain('还书')
+    expect(todayBefore.todos.find((x) => x.id === t.id)!.done).toBe(false)
+
+    // 今天勾完成：完成归属今天
+    await repos.todos.toggle(t.id, k('2026-11-09'))
+    const todayAfter = await agg.aggregateDayDetail(k('2026-11-09'))
+    expect(todayAfter.todos.find((x) => x.id === t.id)!.done).toBe(true)
+    // 原截止日不再显示（已完成只归完成日）
+    expect((await agg.aggregateDayDetail(k('2026-11-05'))).todos.map((x) => x.text)).not.toContain('还书')
+  })
+
+  it('v8.95 翻回过去某天勾完成：只留在那一天，今天不再因 doneAt 出现', async () => {
     // 今天 = 11-09，待办归属 11-05（带截止日 → 每天注入）
     clock.set(new Date(2026, 10, 9).getTime())
     const t = await repos.todos.create(k('2026-11-05'), '补交周报', '2026-11-05')
@@ -639,16 +655,15 @@ describe('v8.53 活跃 DDL 待办注入（每天出现）', () => {
     await repos.todos.toggle(t.id, k('2026-11-05'))
     expect((await repos.todos.byId(t.id)).doneOn).toBe(k('2026-11-05'))
 
-    // 11-05 当天：保留显示、已完成（旧实现按 doneAt=今天 判定 → 这里会是 0 条）
+    // 11-05 当天：保留显示、已完成（完成归属日命中）
     const past = await agg.aggregateDayDetail(k('2026-11-05'))
     expect(past.todos).toHaveLength(1)
     expect(past.todos[0]!.done).toBe(true)
 
-    // 今天 11-09（真实勾选日）：也保留为已完成，不再"既不在过去、也不在今天"
+    // 今天 11-09（doneAt 真实点击日）：完成归属是 11-05，今天不得出现，也不得计入今天
     const today = await agg.aggregateDayDetail(k('2026-11-09'))
-    expect(today.todos).toHaveLength(1)
-    expect(today.todos[0]!.done).toBe(true)
-    // 但其他日子（11-06）不注入
+    expect(today.todos).toHaveLength(0)
+    // 其他日子（11-06）同样不注入
     expect((await agg.aggregateDayDetail(k('2026-11-06'))).todos).toHaveLength(0)
 
     // 回到 11-05 取消完成 → 重新每天出现
@@ -707,6 +722,18 @@ describe('v8.53 活跃 DDL 待办注入（每天出现）', () => {
     // 对比：同日创建的截止型在提醒日前一天仍注入
     await repos.todos.create(k('2026-10-25'), '交作业', '2026-10-25', '18:00', undefined, undefined, 'due')
     expect((await agg.aggregateDayDetail(k('2026-10-24'))).todos.map((t) => t.text)).toContain('交作业')
+  })
+
+  it('v8.95 提醒型只属于提醒日：过去补勾也不进今天', async () => {
+    clock.set(new Date(2026, 10, 9).getTime())
+    const t = await repos.todos.create(k('2026-11-05'), '吃药提醒', '2026-11-05', '18:00', undefined, undefined, 'at')
+    // 提醒日之后（今天 11-09）：不注入
+    expect((await agg.aggregateDayDetail(k('2026-11-09'))).todos.map((x) => x.text)).not.toContain('吃药提醒')
+    // 翻回 11-05 补勾：只留在提醒日
+    await repos.todos.toggle(t.id, k('2026-11-05'))
+    const past = await agg.aggregateDayDetail(k('2026-11-05'))
+    expect(past.todos.find((x) => x.id === t.id)!.done).toBe(true)
+    expect((await agg.aggregateDayDetail(k('2026-11-09'))).todos).toHaveLength(0)
   })
 
   it('v8.75 提醒型只选类型不填时刻：timeType 也落库，未来日提醒不会提前出现', async () => {
