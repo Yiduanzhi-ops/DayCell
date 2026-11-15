@@ -139,10 +139,15 @@ export interface ProgressField {
 export interface GoalRecord extends CoreRecord {
   type: 'goal'
   title: string
-  /** 目标阐述 / 总结沉淀（可空；详情页顶部主展示区） */
+  /** 目标阐述 / 总结沉淀（v9.48 起详情页在标题与时间范围下方展示） */
   note: string
-  /** v8.10 目标层级当前进度（与阐述同级展示，独立手填，不自动聚合子任务/阶段） */
+  /** v8.10 目标层级当前进度（字段保留；v9.46 详情页不再展示） */
   progress?: ProgressField
+  /** v9.46 目标时间范围起始（'YYYY-MM-DD' 本地日期）。
+   *  键不存在 = 从未设置；键存在且为 null = 已设置但该侧为空 */
+  startOn?: DateKey | null
+  /** v9.46 目标时间范围截止；可只填一侧 */
+  endOn?: DateKey | null
   /** 目标整体是否完成（v7.9 补：完成的目标沉底到「已完成」列表，可回看/取消）。
    *  旧记录/旧备份无此字段 → 读路径一律按 false 归一化（见 aggregate.goalSummaries / store.openGoal） */
   done: boolean
@@ -153,6 +158,9 @@ export interface GoalRecord extends CoreRecord {
   /** v9.14 目标所属文件夹（可空 = 未分类，直接创建目标天然成立）。
    *  旧记录/旧备份无此字段 → 读路径一律按 null 归一化；删除文件夹后目标自动归入未分类（读路径归一化，不改记录） */
   folderId?: string
+  /** v9.49 补漏回跳目标：已完成阶段「补一条」后被暂时打断的当前阶段 id。
+   *  补漏阶段再次完成时优先回到它；无补漏/目标失效 = 不写字段（undefined） */
+  resumeStageId?: string
 }
 
 /** v9.14 目标文件夹：一层扁平，不嵌套。文件夹可创建/删除/收藏/折叠；
@@ -172,6 +180,8 @@ export interface StageRecord extends CoreRecord {
   type: 'stage'
   /** 所属目标。目标删除时连带软删（repo 维护） */
   goalId: string
+  /** v9.46 阶段完成归属日（'YYYY-MM-DD'）；done=false 时不写入 */
+  doneOn?: DateKey
   title: string
   /** 进度 0–100 整数；不填为 undefined（未开始/无百分比语义，如账单总结阶段） */
   pct?: number
@@ -194,6 +204,8 @@ export interface SubtaskRecord extends CoreRecord {
   type: 'subtask'
   /** 所属目标。目标删除时连带软删（repo 维护） */
   goalId: string
+  /** v9.46 所属阶段；缺省 = 不分阶段。必须指向同目标下未删除阶段 */
+  stageId?: string
   title: string
   /** 完成勾选（用户拍板：子任务要有完成勾选） */
   done: boolean
