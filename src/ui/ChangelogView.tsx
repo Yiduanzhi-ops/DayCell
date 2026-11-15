@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.94'
+const CURRENT_VERSION = 'v8.95'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.95',
+    date: '2026-11-15',
+    items: [
+      '周视图不再把跨月的整周压灰：10/26~11/1 这种跨月周，每一天都按正常亮度显示',
+      '截止型待办完成后回到完成日那一行；如果完成日晚于截止日，截止日还会留一条「逾期未完成」的灰色痕迹，周汇总不会重复计数',
+    ],
+  },
   {
     version: 'v8.94',
     date: '2026-11-15',

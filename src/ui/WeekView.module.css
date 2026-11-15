@@ -31,7 +31,6 @@
   cursor: pointer;
 }
 .wrow:hover { background: var(--bg-hover); }
-.wrow.out { opacity: 0.4; }
 .wrow.sel { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
 
 .wdate {
@@ -89,6 +88,22 @@
 .witems .done .wchk { background: var(--accent-strong); border-color: var(--accent-strong); }
 .wtxt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wmore { font-size: 11px; color: var(--ink-3); }
+
+/* v8.95 逾期完成痕迹：截止日当天保留“当时未完成”的一条记录，不占 0/1 计数、无勾选框 */
+.woverdue { display: flex; flex-direction: column; gap: 1px; margin-top: 2px; }
+.woverdueItem { display: flex; gap: 6px; align-items: baseline; font-size: 12px; color: var(--ink-3); min-width: 0; }
+.wlateTag {
+  flex: 0 0 auto;
+  font-size: 10.5px;
+  color: var(--danger, #e5484d);
+  background: rgba(229, 72, 77, 0.07);
+  border: 1px solid rgba(229, 72, 77, 0.22);
+  padding: 0 5px;
+  border-radius: 4px;
+  line-height: 1.5;
+}
+.woverdueItem .wtxt { flex: 1; min-width: 0; color: var(--ink-2); }
+.wlateMeta { flex: 0 0 auto; font-size: 10.5px; color: var(--ink-3); white-space: nowrap; }
 
 /* v8.62 周视图习惯预览（设置开关开启时）：该日应打卡的习惯名 + 打卡态，仿待办条目 */
 .whabits {

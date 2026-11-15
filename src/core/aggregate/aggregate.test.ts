@@ -290,6 +290,73 @@ describe('aggregateWeek — 恒 7 行', () => {
     expect(tue.todoPreview.map((t) => t.rolledFrom)).toEqual(['2026-09-28', '2026-09-28'])
   })
 
+  it('★ 逾期完成的截止任务：归位完成日，截止日留痕迹，周汇总只算一次', async () => {
+    const t = await repos.todos.create(k('2026-09-28'), '逾期交报告', '2026-09-28')
+    clock.advance(1000)
+    await repos.todos.toggle(t.id, k('2026-10-02'))
+
+    const { days, total } = await agg.aggregateWeek(k('2026-09-29'))
+    const mon = days[0]! // 09-28：截止日，任务是后来才完成的
+    const fri = days[4]! // 10-02：完成日
+
+    expect(mon.todoTotal).toBe(0)
+    expect(mon.overdueTrace).toEqual([
+      { id: t.id, text: '逾期交报告', doneOn: '2026-10-02' },
+    ])
+    expect(mon.isEmpty).toBe(false) // 有痕迹不算空白的一天
+
+    expect(fri.todoDone).toBe(1)
+    expect(fri.todoTotal).toBe(1)
+    expect(fri.todoPreview.map((x) => x.text)).toEqual(['逾期交报告'])
+    expect(fri.todoPreview[0]!.done).toBe(true)
+
+    // 同一周内：截止日痕迹不计数，只有完成日计入 → 不是 1/2 或 2/2
+    expect(total.todoDone).toBe(1)
+    expect(total.todoTotal).toBe(1)
+  })
+
+  it('按时完成的截止任务只在完成日显示，截止日不留痕迹', async () => {
+    const t = await repos.todos.create(k('2026-09-29'), '按时交报告', '2026-09-29')
+    clock.advance(1000)
+    await repos.todos.toggle(t.id, k('2026-09-29'))
+
+    const { days, total } = await agg.aggregateWeek(k('2026-09-29'))
+    const tue = days[1]!
+    expect(tue.todoPreview.map((x) => x.text)).toEqual(['按时交报告'])
+    expect(tue.todoPreview[0]!.done).toBe(true)
+    expect(tue.overdueTrace).toEqual([])
+    expect(total).toMatchObject({ todoDone: 1, todoTotal: 1 })
+  })
+
+  it('未完成的截止任务只留在截止日那一行，不逐日注入', async () => {
+    await repos.todos.create(k('2026-09-30'), '未完成报告', '2026-09-30')
+    const { days, total } = await agg.aggregateWeek(k('2026-09-29'))
+    const wed = days[2]!
+    expect(wed.todoPreview.map((x) => x.text)).toEqual(['未完成报告'])
+    expect(wed.todoDone).toBe(0)
+    expect(wed.todoTotal).toBe(1)
+    expect(days.filter((d) => d.todoTotal > 0).map((d) => d.date)).toEqual(['2026-09-30'])
+    expect(total).toMatchObject({ todoDone: 0, todoTotal: 1 })
+  })
+
+  it('截止日在上一周、完成日在本周：上一周留痕迹，本周显示已完成', async () => {
+    const t = await repos.todos.create(k('2026-09-28'), '跨周完成', '2026-09-28')
+    clock.advance(1000)
+    await repos.todos.toggle(t.id, k('2026-10-05'))
+
+    const prev = await agg.aggregateWeek(k('2026-09-29'))
+    const prevMon = prev.days[0]!
+    expect(prevMon.overdueTrace.map((x) => x.id)).toEqual([t.id])
+    expect(prevMon.todoTotal).toBe(0)
+
+    const next = await agg.aggregateWeek(k('2026-10-05'))
+    const nextMon = next.days[0]!
+    expect(nextMon.todoDone).toBe(1)
+    expect(nextMon.todoTotal).toBe(1)
+    expect(nextMon.todoPreview.map((x) => x.text)).toEqual(['跨周完成'])
+    expect(next.total).toMatchObject({ todoDone: 1, todoTotal: 1 })
+  })
+
   it('lunarDay 给 UI 拼「中秋节 · 十五」（label 被节日占用时的副标签）', async () => {
     const { days } = await agg.aggregateWeek(k('2026-09-25'))
     const fri = days.find((d) => d.date === '2026-09-25')!

@@ -334,6 +334,30 @@ describe('App 冒烟', () => {
     expect(within(screen.getByTestId('day-center')).queryByText('不该保存')).toBeNull()
   })
 
+  it('v8.95 周视图：逾期完成在截止日留痕迹；跨月周不再整体置灰', async () => {
+    const store = await renderApp()
+
+    await store.getState().selectFromCalendar('2026-09-28' as DateKey)
+    await waitFor(() => expect(store.getState().detail?.date).toBe('2026-09-28'))
+    await store.getState().createTodo('逾期交报告', '2026-09-28')
+    const id = store.getState().detail!.todos.find((t) => t.text === '逾期交报告')!.id
+    await store.getState().selectFromCalendar('2026-10-02' as DateKey)
+    await waitFor(() => expect(store.getState().detail?.date).toBe('2026-10-02'))
+    await store.getState().toggleTodo(id)
+
+    store.getState().setView('week')
+    await waitFor(() => expect(screen.getByTestId('week-scroll')).toBeInTheDocument())
+    await waitFor(() => expect(document.body.textContent).toContain('逾期未完成'))
+    expect(document.body.textContent).toContain('10/2 完成')
+
+    await store.getState().selectFromCalendar('2026-11-01' as DateKey)
+    await waitFor(() => expect(document.body.textContent).toContain('10/26'))
+    const rows = within(screen.getByTestId('week-scroll')).getAllByRole('button')
+    for (const row of rows) {
+      expect(Array.from(row.classList).some((c) => c.toLowerCase().includes('out'))).toBe(false)
+    }
+  })
+
   it('v8.34 周视图滑动：左滑下一周、右滑回本周、短滑回弹不翻（箭头仍可用）', async () => {
     const store = await renderApp()
     fireEvent.click(screen.getByRole('tab', { name: '周' }))

@@ -99,6 +99,14 @@ export interface WeekTotal {
   costCents: number
 }
 
+/** v8.95 周视图的逾期完成痕迹：截止日当天“当时还没做完”的历史快照，不计入待办统计。 */
+export interface WeekOverdueTrace {
+  id: string
+  text: string
+  /** 实际完成日（doneOn 优先，旧数据回退 doneAt） */
+  doneOn: DateKey
+}
+
 /**
  * 周视图的一行 = 指示器 + **正文预览**（PRD US-08：待办前 3 条、想法前 2 条）。
  *
@@ -109,6 +117,12 @@ export interface WeekTotal {
 export interface WeekDay extends DayAggregate {
   /** 活跃待办（已排 rolledTo）的前 3 条；「+N 项待办」= todoTotal - todoPreview.length */
   todoPreview: TodoRecord[]
+  /**
+   * v8.95 逾期完成痕迹：截止日当天留下的「当时未完成」记录。
+   * 只在 `doneOn > deadline` 时生成；**不进入 todoDone/todoTotal**，避免同一条任务
+   * 在完成日与截止日各统计一次。UI 以灰色痕迹渲染，不带勾选框。
+   */
+  overdueTrace: WeekOverdueTrace[]
   /** 想法的前 2 条（UI 负责每条 2 行截断） */
   notePreview: NoteRecord[]
   /** v8.52 当日复盘正文（一天一条；没写为 null）——周视图格子直接展示 */
@@ -703,19 +717,63 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
       // v8.62 周行习惯预览（形态 B）：每日该做习惯 + 打卡态，与日详情/今日区块同口径
       // （buildHabitItems：排除删除/暂停，只从设定那天起出现，freq 命中才列出）。
       // 数据层无条件带，UI 按「周视图显示习惯」开关渲染。
-      const [habits, dones] = await Promise.all([
+      const [habits, dones, ddl] = await Promise.all([
         store.all<HabitRecord>('habits'),
         Promise.all(keys.map((k) => repos.checkins.doneOn(k))),
+        repos.todos.ddlAll(),
       ])
-      const days: WeekDay[] = built.map(({ agg, bucket, info, review }, i) => ({
-        ...agg,
-        // 周行只展示活跃待办（v8.79：与日详情同一口径——顺延源记录、已完成且非完成日的 DDL 都不占周行）
-        todoPreview: visibleTodos(bucket.todos, agg.date).slice(0, 3),
-        notePreview: bucket.notes.slice(0, 2),
-        reviewPreview: review ? { id: review.id, text: review.text } : null,
-        habitPreview: buildHabitItems(habits, dones[i] ?? new Set<string>(), keys[i]!),
-        lunarDay: info?.lunarDay,
-      }))
+
+      // v8.95 截止任务在周视图的两种落点：
+      //  1) 已完成：归位到完成日（日期行只显示它，不吞掉）；
+      //  2) 逾期完成：截止日再留一条「当时未完成」的痕迹（不计入 0/1，避免同周重复统计）。
+      // 未完成 / 逾期未完成的截止任务不额外注入，仍只在截止日那一行。
+      const completedByDoneDay = new Map<DateKey, TodoRecord[]>()
+      const overdueByDeadline = new Map<DateKey, WeekOverdueTrace[]>()
+      for (const t of ddl) {
+        if (!t.done || t.rolledTo) continue
+        const deadline = t.deadline
+        if (!deadline) continue
+        const doneOn = doneDayOf(t)
+        if (!doneOn) continue
+
+        if (doneOn !== t.date && keys.includes(doneOn)) {
+          const list = completedByDoneDay.get(doneOn) ?? []
+          list.push(t)
+          completedByDoneDay.set(doneOn, list)
+        }
+
+        // doneSeenOn 认 doneOn/doneAt 两天；只要截止日当天已算完成，就不再造逾期痕迹。
+        if (doneOn > deadline && !doneSeenOn(t, deadline) && keys.includes(deadline)) {
+          const list = overdueByDeadline.get(deadline) ?? []
+          list.push({ id: t.id, text: t.text, doneOn })
+          overdueByDeadline.set(deadline, list)
+        }
+      }
+      for (const list of overdueByDeadline.values()) {
+        list.sort((a, b) => (a.doneOn !== b.doneOn ? (a.doneOn < b.doneOn ? -1 : 1) : a.id < b.id ? -1 : 1))
+      }
+
+      const days: WeekDay[] = built.map(({ agg, bucket, info, review }, i) => {
+        const date = keys[i]!
+        const completed = completedByDoneDay.get(date) ?? []
+        const trace = overdueByDeadline.get(date) ?? []
+        // mergeDdlTodos 负责：按 id 去重、按 doneSeenOn 过滤、DDL 置顶排序。
+        // 完成日传入当天归位的已完成 DDL，于是计数与预览同时正确。
+        const visible = mergeDdlTodos(bucket.todos, completed, date)
+        return {
+          ...agg,
+          todoDone: visible.filter((t) => t.done).length,
+          todoTotal: visible.length,
+          todoPreview: visible.slice(0, 3),
+          overdueTrace: trace,
+          notePreview: bucket.notes.slice(0, 2),
+          reviewPreview: review ? { id: review.id, text: review.text } : null,
+          habitPreview: buildHabitItems(habits, dones[i] ?? new Set<string>(), date),
+          lunarDay: info?.lunarDay,
+          // 只有逾期痕迹也算「有内容」，否则会被误判成「空白的一天」
+          isEmpty: agg.isEmpty && visible.length === 0 && trace.length === 0,
+        }
+      })
 
       const total: WeekTotal = { todoDone: 0, todoTotal: 0, daysWithNotes: 0, costCents: 0 }
       for (const d of days) {
