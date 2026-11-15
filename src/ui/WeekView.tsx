@@ -10,7 +10,7 @@
  */
 import { useEffect, useRef } from 'react'
 import type { JSX } from 'react'
-import { addDays, dowOf, fromKey, isSameMonth, startOfWeek } from '@core'
+import { addDays, dowOf, fromKey, startOfWeek } from '@core'
 import type { DateKey, WeekDay } from '@core'
 import { useApp } from '@/app/context'
 import { Check } from './icons'
@@ -108,7 +108,6 @@ function WeekPage({ weekKey, role }: { weekKey: DateKey; role: 'center' | 'side'
           const { m, d: dd } = fromKey(d.date)
           const isSel = d.date === selected
           const isToday = d.date === today
-          const out = !isSameMonth(d.date, selected)
           const sub = subLabel(d)
           const moreCount = d.todoTotal - d.todoPreview.length
           return (
@@ -116,8 +115,8 @@ function WeekPage({ weekKey, role }: { weekKey: DateKey; role: 'center' | 'side'
               key={d.date}
               role="button"
               tabIndex={0}
-              aria-label={`${m}月${dd}日 周${DOW[dowOf(d.date)]}${sub ? ' ' + sub : ''}${d.todoTotal ? ` 待办${d.todoDone}/${d.todoTotal}` : ''}`}
-              className={[styles.wrow, isSel ? styles.sel : '', isToday ? styles.today : '', out ? styles.out : ''].filter(Boolean).join(' ')}
+              aria-label={`${m}月${dd}日 周${DOW[dowOf(d.date)]}${sub ? ' ' + sub : ''}${d.todoTotal ? ` 待办${d.todoDone}/${d.todoTotal}` : ''}${d.overdueTrace.length ? ` 有${d.overdueTrace.length}条逾期完成记录` : ''}`}
+              className={[styles.wrow, isSel ? styles.sel : '', isToday ? styles.today : ''].filter(Boolean).join(' ')}
               onClick={() => selectFromCalendar(d.date, scrollRef.current?.scrollTop ?? 0)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
@@ -163,6 +162,22 @@ function WeekPage({ weekKey, role }: { weekKey: DateKey; role: 'center' | 'side'
                 ) : d.label.emphasis && d.label.kind === 'festival' ? (
                   <div className={styles.wempty}>假日，没有待办</div>
                 ) : null}
+                {/* v8.95 逾期完成痕迹：截止日当天记录“当时未完成”，不计入上面的 0/1。
+                    不带勾选框，避免被误读成现在仍欠着；完成日行另有一条正常已完成待办。 */}
+                {d.overdueTrace.length > 0 && (
+                  <div className={styles.woverdue}>
+                    {d.overdueTrace.map((t) => {
+                      const done = fromKey(t.doneOn)
+                      return (
+                        <div key={t.id} className={styles.woverdueItem}>
+                          <span className={styles.wlateTag}>逾期未完成</span>
+                          <span className={styles.wtxt}>{t.text}</span>
+                          <span className={styles.wlateMeta}>{done.m}/{done.d} 完成</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
                 {/* v8.62 周视图显示习惯（设置开关，默认关；形态 B：该日习惯名+打卡态，仿待办预览，
                     整周统一不特殊化今天；数据层已带 habitPreview，开关只控制渲染） */}
                 {weekViewHabits && d.habitPreview.length > 0 && (
