@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.97'
+const CURRENT_VERSION = 'v8.98'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.98',
+    date: '2026-11-15',
+    items: [
+      '截止型待办在截止日之后完成时，周/日视图的截止日都留一条「截止日未完成」灰色痕迹，右侧标出实际完成日；不计数、不带勾选框',
+      '周视图只在截止日留这一条痕迹，完成日不再额外加「逾期完成」标识；日视图完成日原有「逾期完成 · 截止 M/D」保持不变',
+    ],
+  },
   {
     version: 'v8.97',
     date: '2026-11-15',

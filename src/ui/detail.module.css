@@ -63,6 +63,21 @@
 }
 .tedit:focus { box-shadow: 0 0 0 3px var(--accent-soft); }
 .done .ttxt { color: var(--ink-3); text-decoration: line-through; text-decoration-color: var(--ink-4); }
+/* v8.98 日视图截止日历史痕迹：当时未完成、后来完成。中性灰，不带勾选框，不进 0/1 */
+.otraceItem {
+  display: flex; align-items: baseline; gap: 7px;
+  padding: 6px 0; font-size: 12px; color: var(--ink-3); min-width: 0;
+}
+.otraceTag {
+  flex: 0 0 auto; font-size: 10.5px; color: var(--ink-3);
+  background: var(--bg-hover); border: 1px solid var(--line);
+  padding: 1px 6px; border-radius: 4px; line-height: 1.5; white-space: nowrap;
+}
+.otraceText {
+  flex: 1; min-width: 0; color: var(--ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.otraceMeta { flex: 0 0 auto; font-size: 10.5px; color: var(--ink-3); white-space: nowrap; }
 /* v8.27：纪念日当作待办展示在当天（可勾选，v8.29 起与普通待办同款圆圈勾选态） */
 .anniItem { align-items: center; }
 .anniTag {
