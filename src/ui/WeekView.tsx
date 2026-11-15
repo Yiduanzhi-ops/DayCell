@@ -10,7 +10,7 @@
  */
 import { useEffect, useRef } from 'react'
 import type { JSX } from 'react'
-import { addDays, dowOf, fromKey, startOfWeek } from '@core'
+import { addDays, compareKey, dowOf, fromKey, isReminderTodo, startOfWeek } from '@core'
 import type { DateKey, WeekDay } from '@core'
 import { useApp } from '@/app/context'
 import { Check } from './icons'
@@ -154,6 +154,9 @@ function WeekPage({ weekKey, role }: { weekKey: DateKey; role: 'center' | 'side'
                         <div key={t.id} className={t.done ? styles.done : undefined}>
                           <span className={styles.wchk}>{t.done && <Check size={8} />}</span>
                           <span className={styles.wtxt}>{t.text}</span>
+                          {!t.done && isReminderTodo(t) && compareKey(d.date, today) < 0 && (
+                            <span className={styles.wremindMissed}>提醒日未完成</span>
+                          )}
                         </div>
                       ))}
                       {moreCount > 0 && <div className={styles.wmore}>+{moreCount} 项待办</div>}

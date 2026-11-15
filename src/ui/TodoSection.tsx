@@ -8,7 +8,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { JSX } from 'react'
-import { todoProgress, isOverdueDone, type TodoRecord } from '@core'
+import { todoProgress, isOverdueDone, isReminderTodo, type TodoRecord } from '@core'
 import { compareKey, type DateKey } from '@core'
 import { useApp } from '@/app/context'
 import { Check } from './icons'
@@ -168,6 +168,10 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
                 >
                   <span className={styles.ttxt}>{t.text}</span>
                 </button>
+              )}
+              {/* v8.99 提醒型：提醒日已经过去且没勾，补一个灰标；今天/未来不标，计数不变 */}
+              {!t.done && isReminderTodo(t) && compareKey(k, today) < 0 && (
+                <span className={styles.remindMissed}>提醒日未完成</span>
               )}
               {/* v8.79：顺延源记录不再进入日详情，只剩今天这条「顺延自 M/D」 */}
               {t.rolledFrom && <span className={styles.rolled}>顺延自 {md(t.rolledFrom)}</span>}
