@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.99'
+const CURRENT_VERSION = 'v8.100'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.100',
+    date: '2026-11-16',
+    items: [
+      '目标列表的文件夹里，已完成目标默认收进一行「已完成 N」，不再一张张占满列表',
+      '点「已完成 N」展开查看，再点收起；每个文件夹各自记住展开状态',
+    ],
+  },
   {
     version: 'v8.99',
     date: '2026-11-15',
