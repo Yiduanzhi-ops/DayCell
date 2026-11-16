@@ -19,6 +19,24 @@ import styles from './GoalsView.module.css'
 /** v9.14.3 全部视图「未分类」组折叠持久化 key（'1' = 折叠） */
 const UNCAT_COLLAPSED_KEY = 'daycell.goalUncategorizedCollapsed'
 
+/** 文件夹内「已完成」子分组折叠记忆：key = 文件夹 id / 'uncat'，缺省折叠 */
+const DONE_COLLAPSED_KEY = 'daycell.goalDoneCollapsed'
+
+function readDoneCollapsed(): Record<string, boolean> {
+  if (typeof localStorage === 'undefined') return {}
+  try {
+    const raw = localStorage.getItem(DONE_COLLAPSED_KEY)
+    if (!raw) return {}
+    const parsed: unknown = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+    return Object.fromEntries(
+      Object.entries(parsed).filter(([, value]) => typeof value === 'boolean'),
+    ) as Record<string, boolean>
+  } catch {
+    return {}
+  }
+}
+
 // ---------------------------------------------------------------------------
 // 弹层通用骨架（与 AnnivSettings 一致的 overlay/sheet 模式）
 // ---------------------------------------------------------------------------
@@ -1304,6 +1322,8 @@ function GoalList(): JSX.Element {
   const [uncatCollapsed, setUncatCollapsedState] = useState(
     () => typeof localStorage !== 'undefined' && localStorage.getItem(UNCAT_COLLAPSED_KEY) === '1',
   )
+  // 每个文件夹的「已完成」子分组默认收起；只记用户手动展开过的 key
+  const [doneCollapsed, setDoneCollapsed] = useState<Record<string, boolean>>(readDoneCollapsed)
   const setUncatCollapsed = (v: boolean): void => {
     setUncatCollapsedState(v)
     if (typeof localStorage !== 'undefined') {
@@ -1400,6 +1420,52 @@ function GoalList(): JSX.Element {
     </>
   )
 
+  const toggleDoneCollapsed = (key: string): void => {
+    setDoneCollapsed((prev) => {
+      const next = { ...prev, [key]: !(prev[key] ?? true) }
+      try {
+        localStorage.setItem(DONE_COLLAPSED_KEY, JSON.stringify(next))
+      } catch {
+        // 本地存储不可用时只失去折叠记忆，不阻塞列表
+      }
+      return next
+    })
+  }
+
+  // 文件夹内：进行中先显示；已完成收进一行「已完成 N」，默认不展开
+  const renderFolderCards = (
+    items: typeof goalList,
+    folderKey: string,
+    hideFolderTag = true,
+  ): JSX.Element => {
+    const activeItems = items.filter((x) => !x.goal.done)
+    const doneItems = items.filter((x) => x.goal.done)
+    const collapsed = doneCollapsed[folderKey] ?? true
+    return (
+      <>
+        {activeItems.length > 0 && renderCards(activeItems, false, hideFolderTag)}
+        {doneItems.length > 0 && (
+          <div className={styles.doneBlock}>
+            <button
+              type="button"
+              className={styles.doneToggle}
+              aria-expanded={!collapsed}
+              aria-label={`${collapsed ? '展开' : '折叠'}已完成目标：${doneItems.length} 个`}
+              onClick={() => toggleDoneCollapsed(folderKey)}
+            >
+              <span className={styles.doneChevron} aria-hidden="true">
+                {collapsed ? '▸' : '▾'}
+              </span>
+              <span>已完成 {doneItems.length}</span>
+              <span className={styles.doneRule} aria-hidden="true" />
+            </button>
+            {!collapsed && renderCards(doneItems, true, hideFolderTag)}
+          </div>
+        )}
+      </>
+    )
+  }
+
   // v9.29 组头不再挂「新建目标」——全局入口固定在顶部工具条
   // v9.31 文件夹组头那枚也去掉：只留顶部一个入口，表单里可选文件夹
   const renderGroup = (
@@ -1464,7 +1530,7 @@ function GoalList(): JSX.Element {
             <span className={styles.emptyHint}>自动归入此文件夹，或在详情页移动进来</span>
           </div>
         ) : (
-          renderGroup('文件夹中的目标', items, false, true)
+          renderFolderCards(items, fs.folder.id, true)
         )}
       </section>
     )
@@ -1509,7 +1575,7 @@ function GoalList(): JSX.Element {
               {collapsed ? null : items.length === 0 ? (
                 <div className={styles.groupEmpty}>这个文件夹还没有目标</div>
               ) : (
-                renderCards(items, false, true)
+                renderFolderCards(items, folder.id, true)
               )}
             </section>
           )
@@ -1531,7 +1597,7 @@ function GoalList(): JSX.Element {
           {uncatCollapsed ? null : uncategorized.length === 0 ? (
             <div className={styles.groupEmpty}>还没有未分类的目标</div>
           ) : (
-            renderCards(uncategorized, false, true)
+            renderFolderCards(uncategorized, 'uncat', true)
           )}
         </section>
       </>
