@@ -449,6 +449,28 @@ describe('目标级三操作（… Sheet）', () => {
     expect(goal.goal.folderId).toBe(store.getState().folderList[0]!.folder.id)
   })
 
+  it('文件夹里的已完成目标默认折叠，点「已完成 N」才展开', async () => {
+    const { store } = await renderApp()
+    await store.getState().createFolder('学习')
+    const folderId = store.getState().folderList[0]!.folder.id
+    await store.getState().createGoal('进行中目标', '', folderId)
+    await store.getState().createGoal('已完成目标', '', folderId)
+    const doneId = store.getState().goalList.find((x) => x.goal.title === '已完成目标')!.goal.id
+    await store.getState().setGoalDone(doneId, true)
+
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => expect(screen.getByLabelText('折叠文件夹「学习」')).toBeInTheDocument())
+
+    expect(screen.getByText('进行中目标')).toBeInTheDocument()
+    expect(screen.queryByText('已完成目标')).not.toBeInTheDocument()
+    const toggle = screen.getByRole('button', { name: '展开已完成目标：1 个' })
+    expect(toggle).toHaveTextContent('已完成 1')
+
+    fireEvent.click(toggle)
+    await waitFor(() => expect(screen.getByText('已完成目标')).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: '折叠已完成目标：1 个' })).toBeInTheDocument()
+  })
+
   it('删除目标：取消不删；确认后软删、清详情、回列表，且阶段/子任务不残留', async () => {
     const { store, bundle } = await renderApp()
     const gid = await seedGoal(store)
