@@ -10,6 +10,10 @@
   <a href="https://yiduanzhi-ops.github.io/DayCell/"><b>在线使用 →</b></a>
 </p>
 
+> **当前文档入口**：产品介绍与使用方法见 [`docs/DayCell-产品说明与使用手册.md`](docs/DayCell-产品说明与使用手册.md)；架构、API、数据库、部署与分支差异见 [`docs/DayCell-开发文档.md`](docs/DayCell-开发文档.md)。
+>
+> 下方“功能特性 / 版本历史”是历史介绍，版本表停在 v8.65，且仍按“纯前端、无账号”口径写；当前事实以两份新文档为准。
+
 ---
 
 ## 功能特性
