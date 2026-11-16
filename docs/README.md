@@ -1,27 +1,34 @@
 # DayCell 文档索引
 
-## 文档全景
+## 当前文档（先读这两份）
+
+| 文档 | 角色 | 适用对象 |
+|---|---|---|
+| [`DayCell-产品说明与使用手册.md`](DayCell-产品说明与使用手册.md) | 产品介绍 + 使用说明：网页免费版 / v9 云端版 / macOS 桌面版 | 使用者、产品、运营 |
+| [`DayCell-开发文档.md`](DayCell-开发文档.md) | 架构、数据模型、core / 前端 / v9 后端 / 桌面实现、API、数据库、部署、测试、分支差异 | 开发者、维护者 |
+
+> 两份文档都按 as-built 写，事实来自当前源码 / 配置 / 线上产物。下方旧文档保留为历史资料，**不再作为当前功能事实来源**。
+
+## 历史文档全景
 
 | 文档 | 角色 | 状态 | 何时读 |
 |---|---|---|---|
-| [`../README.md`](../README.md) | **GitHub 首页 README**——项目简介、功能特性、部署与同步说明 | 持续维护 | 想快速了解项目是什么 |
-| [`../SPEC.md`](../SPEC.md) | **决策日志**——记录每次改了什么、为什么改，含完整变更轨迹 | 持续维护 | 想知道"当初为什么这么定" |
-| [`PRD.md`](PRD.md) | **需求定稿**——做什么、做到什么程度算做完，修订记录为唯一权威版本轨迹（当前 v2.5 / v8.6） | 持续维护 | 开发前、验收时 |
-| [`CORE-API.md`](CORE-API.md) | **接口契约**——core 层暴露给 UI 的唯一边界 | 持续维护 | 写 core 或 UI 代码时 |
+| [`../README.md`](../README.md) | **GitHub 首页 README**——项目简介、功能特性、部署与同步说明 | 历史介绍（版本表停在 v8.65） | 想快速了解项目是什么 |
+| [`../SPEC.md`](../SPEC.md) | **决策日志**——记录每次改了什么、为什么改，含完整变更轨迹 | 历史轨迹 | 想知道"当初为什么这么定" |
+| [`PRD.md`](PRD.md) | **需求定稿**——做什么、做到什么程度算做完，修订记录为唯一权威版本轨迹（当前 v2.5 / v8.6） | 历史需求 | 开发前、验收时 |
+| [`CORE-API.md`](CORE-API.md) | **接口契约**——core 层暴露给 UI 的唯一边界 | 历史接口（最后更新 v8.5） | 写 core 或 UI 代码时 |
 | [`adr/`](adr/README.md) | **架构决策记录**——9 条错了代价很大的决策 | 持续追加 | 想推翻某个技术选择时 |
 
-## 三者的分工（重要）
+## 旧文档内部的分工（仅适用于历史资料）
 
 ```
 SPEC.md      →  为什么改（历史，append-only，读起来像 changelog）
-PRD.md       →  做什么（现在，v0 的唯一需求真相）
-CORE-API.md  →  怎么接（边界，UI 与 core 的契约）
-adr/         →  怎么做的关键选择（可单独推翻，不改 PRD）
+PRD.md       →  旧需求基线（头部仍写 v0；不是当前功能事实）
+CORE-API.md  →  旧 core 接口契约（最后更新 v8.5）
+adr/         →  当初怎么做的关键选择（可单独推翻，不改 PRD）
 ```
 
-**冲突时的优先级**：`PRD.md` > `CORE-API.md` > `adr/` > `SPEC.md`
-
-发现不一致时的处理：改上游文档，并在 `SPEC.md` 追加一条变更记录。**不要只改代码不改文档。**
+旧文档冲突时的优先级：`PRD.md` > `CORE-API.md` > `adr/` > `SPEC.md`。**当前功能 / API / 数据库 / 部署事实，一律以两份当前文档为准。**
 
 ## 已知的文档债务
 
@@ -31,40 +38,31 @@ adr/         →  怎么做的关键选择（可单独推翻，不改 PRD）
 | `SPEC.md` §6 | 技术栈曾写 Tailwind / dayjs / 手写 manifest | 已回写，理由见 ADR-0007 / 0008 / 0002 |
 | `SPEC.md` 整体 | 读起来像 changelog，同一主题的新旧决策并存 | **有意保留**——它的价值就是变更轨迹。定稿信息一律查 PRD |
 | `prototype/` + `smoke.cjs` | 都是**过渡产物**：真 UI 落地后应一并删除。⚠️ **真 UI 自 v7 起已领先原型**（原型停在 v6.1：仍有翻日/滑动，无就地编辑），smoke.cjs 只守原型、不再代表真 UI 行为 | ⚠️ 但 `src/prototype-parity.test.ts` **依赖 `prototype/index.html` 存在**（用 `import.meta.glob ?raw` 读它），删原型时必须连这个测试一起删 |
-| `docs/PROGRESS.md` | 会话交接快照（     676 行），非需求文档 | 上下文被压缩后**先读这份**。它不进 PRD > CORE-API > adr > SPEC 的优先级链 |
+| `docs/PROGRESS.md` | 会话交接快照（旧索引写 676 行，实际 1029 行，最后更新 v8.24） | 只作历史快照；v9 全部迭代未进入 |
 
-## 尚未编写
+## 旧索引里的“尚未编写”计划（均已被当前文档覆盖）
 
-| 文档 | 计划 |
+| 旧计划 | 当前落点 |
 |---|---|
-| 云端 REST API 文档 | **v1 再做**。v0 无后端，没有 API 可写（见 PRD Q5） |
-| 部署与运维手册 | 部署平台定了之后写（PRD Q4，6 条门槛待核对） |
-| 测试计划 | 验收清单已在 PRD §10，详细用例随代码写 |
-| 用户手册 | v0 面向自己与少量亲友，先用首启引导代替 |
+| 云端 REST API 文档 | [`DayCell-开发文档.md`](DayCell-开发文档.md) §6.2 |
+| 部署与运维手册 | [`DayCell-开发文档.md`](DayCell-开发文档.md) §9、§10 |
+| 测试计划 | [`DayCell-开发文档.md`](DayCell-开发文档.md) §5.4 |
+| 用户手册 | [`DayCell-产品说明与使用手册.md`](DayCell-产品说明与使用手册.md) |
 
-## 目录结构
+## 目录结构（当前关键文件）
 
 ```
 DayCell/
-├── README.md                  GitHub 首页 README（     83 行）
-├── SPEC.md                    决策日志（     425 行）
+├── README.md                  首页说明 + 两份当前文档入口
+├── SPEC.md                    历史决策日志（最后停在桌面壳 v1.0.0）
 ├── docs/
 │   ├── README.md              本文件
-│   ├── PRD.md                 产品需求文档（修订记录 v2.5 / v8.6，     612 行）
-│   ├── CORE-API.md            core 层接口契约（     799 行）
-│   ├── PROGRESS.md            迭代进度快照（     676 行）
-│   └── adr/
-│       ├── README.md          ADR 索引与约定
-│       ├── 0001-local-storage-indexeddb.md
-│       ├── 0002-service-worker-strategy.md
-│       ├── 0003-money-as-integer-cents.md
-│       ├── 0004-lunar-lib-lazy-load.md
-│       ├── 0005-responsive-sheet-layout.md
-│       ├── 0006-core-no-react-no-dom.md
-│       ├── 0007-css-modules-not-tailwind.md
-│       ├── 0008-date-module-not-dayjs.md
-│       └── 0009-webdav-sync.md  同步通道演进 → Gitee 私有仓库（BYOB）
+│   ├── DayCell-产品说明与使用手册.md
+│   ├── DayCell-开发文档.md
+│   ├── PRD.md                 历史需求（663 行）
+│   ├── CORE-API.md            历史接口契约（799 行）
+│   ├── PROGRESS.md            历史进度快照（1029 行）
+│   └── adr/                   0001–0009；索引缺 0009
 └── prototype/
-    └── index.html             可点击原型 v6.1（`node smoke.cjs` 218 项断言通过）
-                               ⚠️ 纯静态单文件，**不需要服务器**，直接 open 即可
+    └── index.html             可点击原型 v6.1（`node smoke.cjs` 依赖）
 ```
