@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.100'
+const CURRENT_VERSION = 'v8.101'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.101',
+    date: '2026-11-16',
+    items: [
+      '文件夹里的「已完成 N」改成左对齐、无框的轻入口，虚线向右淡出，不再和文件夹组头抢层级',
+      '默认仍收起，点开在原位置展开已完成卡片；每个文件夹独立记住状态',
+    ],
+  },
   {
     version: 'v8.100',
     date: '2026-11-16',

@@ -37,15 +37,18 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v8.100')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v8.101')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v8.100')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v8.101')).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v8.100，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本 v8.101，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v8.100')
+    expect(vers[0].textContent).toBe('v8.101')
+    // v8.101
+    expect(screen.getByText(/左对齐、无框的轻入口/)).toBeInTheDocument()
+    expect(screen.getByText(/虚线向右淡出/)).toBeInTheDocument()
     // v8.100
     expect(screen.getByText(/默认收进一行/)).toBeInTheDocument()
     expect(screen.getByText(/每个文件夹各自记住展开状态/)).toBeInTheDocument()

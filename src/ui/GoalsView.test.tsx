@@ -464,7 +464,7 @@ describe('目标级三操作（… Sheet）', () => {
     expect(screen.getByText('进行中目标')).toBeInTheDocument()
     expect(screen.queryByText('已完成目标')).not.toBeInTheDocument()
     const toggle = screen.getByRole('button', { name: '展开已完成目标：1 个' })
-    expect(toggle).toHaveTextContent('已完成 1')
+    expect(toggle).toHaveTextContent(/已完成\s*1/)
 
     fireEvent.click(toggle)
     await waitFor(() => expect(screen.getByText('已完成目标')).toBeInTheDocument())
