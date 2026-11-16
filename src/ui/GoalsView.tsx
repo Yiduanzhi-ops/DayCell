@@ -1453,10 +1453,14 @@ function GoalList(): JSX.Element {
               aria-label={`${collapsed ? '展开' : '折叠'}已完成目标：${doneItems.length} 个`}
               onClick={() => toggleDoneCollapsed(folderKey)}
             >
+              <span className={styles.doneCheck} aria-hidden="true">
+                ✓
+              </span>
+              <span className={styles.doneLabel}>已完成</span>
+              <span className={styles.doneCount}>{doneItems.length}</span>
               <span className={styles.doneChevron} aria-hidden="true">
                 {collapsed ? '▸' : '▾'}
               </span>
-              <span>已完成 {doneItems.length}</span>
               <span className={styles.doneRule} aria-hidden="true" />
             </button>
             {!collapsed && renderCards(doneItems, true, hideFolderTag)}
