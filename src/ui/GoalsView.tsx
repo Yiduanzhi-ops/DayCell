@@ -1630,41 +1630,39 @@ function GoalList(): JSX.Element {
     setNewGoalFolder(filter === 'all' ? null : filter)
     setNewOpen(true)
   }
-  const folderBar = folderList.length > 0 ? (
-    <div className={styles.folderBar}>
-      <button className={styles.folderNew} aria-label="新建文件夹" onClick={() => setFolderSheet(true)}>
-        新建文件夹
-      </button>
-      <div ref={chipsRef} className={styles.folderChips}>
-        <button
-          className={filter === 'all' ? `${styles.folderChip} ${styles.folderChipOn}` : styles.folderChip}
-          onClick={() => setFilter('all')}
-        >
-          全部
+  const folderBar = (
+    <>
+      {folderList.length > 0 && (
+        <div className={styles.filterRow}>
+          <span className={styles.filterLabel}>文件夹</span>
+          <div ref={chipsRef} className={styles.folderChips}>
+            <button
+              className={filter === 'all' ? `${styles.folderChip} ${styles.folderChipOn}` : styles.folderChip}
+              onClick={() => setFilter('all')}
+            >
+              全部
+            </button>
+            {folderList.map(({ folder, count }) => (
+              <button
+                key={folder.id}
+                className={filter === folder.id ? `${styles.folderChip} ${styles.folderChipOn}` : styles.folderChip}
+                onClick={() => setFilter(folder.id)}
+              >
+                {folder.favorite ? '★ ' : ''}{folder.name} {count}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className={styles.actionRow}>
+        <button className={styles.folderNew} aria-label="新建文件夹" onClick={() => setFolderSheet(true)}>
+          <span className={styles.plus}>＋</span>新建文件夹
         </button>
-        {folderList.map(({ folder, count }) => (
-          <button
-            key={folder.id}
-            className={filter === folder.id ? `${styles.folderChip} ${styles.folderChipOn}` : styles.folderChip}
-            onClick={() => setFilter(folder.id)}
-          >
-            {folder.favorite ? '★ ' : ''}{folder.name} {count}
-          </button>
-        ))}
+        <button className={styles.folderNewGoal} aria-label="新建目标" onClick={openNewGoal}>
+          <span className={styles.plus}>＋</span>新建目标
+        </button>
       </div>
-      <button className={styles.folderNewGoal} aria-label="新建目标" onClick={openNewGoal}>
-        新建目标
-      </button>
-    </div>
-  ) : (
-    <div className={styles.folderBar}>
-      <button className={styles.folderNew} aria-label="新建文件夹" onClick={() => setFolderSheet(true)}>
-        新建文件夹
-      </button>
-      <button className={styles.folderNewGoal} aria-label="新建目标" onClick={openNewGoal}>
-        新建目标
-      </button>
-    </div>
+    </>
   )
 
   return (
