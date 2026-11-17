@@ -408,14 +408,14 @@ export interface AppState {
   createSubtask(input: SubtaskInput): Promise<boolean>
   updateSubtask(id: string, patch: { title?: string; desc?: string; progress?: ProgressField | undefined }): Promise<boolean>
   setSubtaskDone(id: string, done: boolean): Promise<boolean>
-  /** v9.46 勾选子任务 = 完成 + 今天打卡 + 复盘自动句（单一事务语义，禁止拆两次调用） */
+  /** v9.46 勾选子任务 = 完成 + 今天打卡（单一事务语义，禁止拆两次调用；v9.57 起不再写复盘） */
   setSubtaskDoneWithToday(id: string, done: boolean): Promise<boolean>
   deleteSubtask(id: string): Promise<boolean>
   /** v9.46 删除子任务：同事务移除今日待办、撤销当天打卡；返回撤销快照 */
   deleteSubtaskCascade(id: string): Promise<SubtaskDeleteSnapshot | null>
   /** v9.46 撤销删除子任务：恢复记录、今日待办与当天打卡 */
   restoreSubtaskCascade(snapshot: SubtaskDeleteSnapshot): Promise<boolean>
-  /** v8.45 子任务打卡切换（记录今天 + 复盘自动写入/移除自动句） */
+  /** v8.45 子任务打卡切换（只记录今天；v9.57 起不再写复盘，取消时清理旧自动句） */
   toggleSubtaskWork(id: string): Promise<boolean>
   /** v8.63 子任务「加入今日待办」：今天生成一条该子任务的待办（当天有效、防重复） */
   addSubtaskToToday(subtaskId: string): Promise<boolean>
@@ -550,19 +550,7 @@ export function createAppStore(
   let loadSeq = 0
   let toastSeq = 0
 
-  /** v9.46 复盘自动句：追加/去重（当天无复盘则新建） */
-  const addReviewSentence = async (date: DateKey, sentence: string): Promise<void> => {
-    const existing = await repos.reviews.byDate(date)
-    if (!existing) {
-      await repos.reviews.upsert(date, sentence)
-      return
-    }
-    if (existing.text.split('\n').includes(sentence)) return
-    const base = existing.text.endsWith('\n') ? existing.text : existing.text + '\n'
-    await repos.reviews.upsert(date, base + sentence)
-  }
-
-  /** v9.46 复盘自动句：按行移除；复盘变空则软删当天 */
+  /** v9.46 复盘自动句：按行移除；复盘变空则软删当天（v9.57 已不再写入，只留清理） */
   const removeReviewSentence = async (date: DateKey, sentence: string): Promise<void> => {
     const existing = await repos.reviews.byDate(date)
     if (!existing) return
@@ -2055,9 +2043,9 @@ export function createAppStore(
     },
 
     /**
-     * v8.45 子任务打卡（切换）：当天已打卡 → 取消；未打卡 → 记录今天。
-     * 联动复盘：打卡时当天复盘自动追加「[目标打卡] 今日进行了目标「X」的子目标「Y」工作」；
-     * 当天无复盘则自动创建；取消打卡时按行移除该句，复盘因此变空则删除当天复盘。
+     * 子任务打卡（切换）：当天已打卡 → 取消；未打卡 → 记录今天。
+     * v9.57 起打卡只记日期，不再往当天复盘里自动写「[目标打卡] 今日进行了…」的固定句子。
+     * 取消打卡时仍按行移除旧版本留下的自动句（幂等清理），复盘因此变空则删除当天复盘。
      */
     async toggleSubtaskWork(id) {
       try {
@@ -2068,18 +2056,9 @@ export function createAppStore(
         const date = get().today
         const workedToday = Array.isArray(subtask.workDates) && subtask.workDates.includes(date)
         const next = await repos.subtasks.setWork(id, date, !workedToday)
-        const sentence = `[目标打卡] 今日进行了目标「${d.goal.title}」的子目标「${subtask.title}」工作`
-        if (!workedToday) {
-          // 打卡：追加到当天复盘；无则创建
-          const existing = await repos.reviews.byDate(date)
-          if (existing) {
-            const base = existing.text.endsWith('\n') ? existing.text : existing.text + '\n'
-            await repos.reviews.upsert(date, base + sentence)
-          } else {
-            await repos.reviews.upsert(date, sentence)
-          }
-        } else {
-          // 取消打卡：按行移除该句；复盘因此为空则删除
+        if (workedToday) {
+          // 取消打卡：清掉旧版本可能留下的自动句；复盘因此为空则删除
+          const sentence = `[目标打卡] 今日进行了目标「${d.goal.title}」的子目标「${subtask.title}」工作`
           const existing = await repos.reviews.byDate(date)
           if (existing) {
             const kept = existing.text.split('\n').filter((l) => l !== sentence)
@@ -2111,8 +2090,8 @@ export function createAppStore(
         const sentence = `[目标打卡] 今日进行了目标「${d.goal.title}」的子目标「${subtask.title}」工作`
         let next = await repos.subtasks.setDone(id, done)
         if (done) {
+          // v9.57 勾完成只记当天打卡，不再往复盘写固定句子
           next = await repos.subtasks.setWork(id, date, true)
-          await addReviewSentence(date, sentence)
         } else {
           next = await repos.subtasks.setWork(id, date, false)
           await removeReviewSentence(date, sentence)
@@ -2178,9 +2157,8 @@ export function createAppStore(
         await repos.subtasks.restore(snapshot.subtask.id)
         if (snapshot.todayTodo) await repos.todos.restore(snapshot.todayTodo.id)
         if (snapshot.workedToday) {
+          // v9.57 恢复打卡只恢复打卡日期，不再补写复盘句子
           await repos.subtasks.setWork(snapshot.subtask.id, date, true)
-          const sentence = `[目标打卡] 今日进行了目标「${snapshot.goalTitle}」的子目标「${snapshot.subtask.title}」工作`
-          await addReviewSentence(date, sentence)
         }
         set({ dataVer: get().dataVer + 1 })
         await get().openGoal(snapshot.subtask.goalId)

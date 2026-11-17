@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.56'
+const CURRENT_VERSION = 'v9.57'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.57',
+    date: '2026-11-17',
+    items: [
+      '子任务打卡不再自动往当天复盘里写一句「今日进行了目标「X」的子目标「Y」工作」——复盘只放你自己写的东西',
+      '打卡只记录「已进行 N 天」；取消打卡时会顺手清掉以前自动留下的那句话，复盘因此变空就连同当天复盘一起删除',
+    ],
+  },
   {
     version: 'v9.56',
     date: '2026-11-17',
