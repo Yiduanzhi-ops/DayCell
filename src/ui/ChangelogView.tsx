@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.58'
+const CURRENT_VERSION = 'v9.59'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.59',
+    date: '2026-11-17',
+    items: [
+      '待办的具体时间挪到文字前面，行尾只留「提醒」/「截止」——一眼先看到几点，再看做什么',
+      '截止型待办在截止日之前的每一天，日期和时刻一起留在行尾（9/30 09:00 截止），不在行首凭空造一个「今天 9 点」',
+    ],
+  },
   {
     version: 'v9.58',
     date: '2026-11-17',

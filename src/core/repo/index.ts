@@ -152,6 +152,20 @@ export function isOverdueDone(rec: Pick<TodoRecord, 'done' | 'doneOn' | 'doneAt'
 }
 
 /**
+ * v9.59 时刻归属日：这条待办的 `time` 属于哪一天。
+ *
+ * 提醒型 → 提醒日（`todoOccurrenceDay`）；截止型 → 截止日（无截止日时回退创建日）。
+ * 只有「当前查看日 === 归属日」时，行首才把时刻显示出来——截止型待办在截止日之前
+ * 会被注入到每一天，那些天行首写 09:00 会被读成「今天 9 点要做」，而它实际是
+ * 「9/30 9 点截止」。判据收敛在这里，日视图与周视图共用同一口径。
+ */
+export function todoTimeAnchorDay(
+  rec: Pick<TodoRecord, 'date' | 'deadline' | 'timeType'>,
+): DateKey {
+  return isReminderTodo(rec) ? todoOccurrenceDay(rec) : (rec.deadline ?? rec.date)
+}
+
+/**
  * v8.99 提醒型判定：显式 `timeType='at'`；旧数据没有 timeType 时按「有 deadline = 截止型，
  * 无 deadline = 提醒型」推导，与创建表单、TimePill 的口径一致。
  */
