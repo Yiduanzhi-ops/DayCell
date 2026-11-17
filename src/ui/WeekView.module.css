@@ -88,6 +88,11 @@
 .witems .done .wchk { background: var(--accent-strong); border-color: var(--accent-strong); }
 .witems .wtxt { flex: 1; min-width: 0; }
 .wtxt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* v8.104 待办时刻：行首淡色等宽数字，紧贴勾选框；没有时间的条目不渲染、不占位 */
+.witems .wtime {
+  flex: 0 0 auto; font-size: 10.5px; color: var(--ink-3);
+  font-variant-numeric: tabular-nums; letter-spacing: 0.2px;
+}
 .wmore { font-size: 11px; color: var(--ink-3); }
 
 /* v8.95 逾期完成痕迹：截止日当天保留“当时未完成”的一条记录，不占 0/1 计数、无勾选框 */

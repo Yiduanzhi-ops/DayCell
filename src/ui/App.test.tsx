@@ -334,11 +334,9 @@ describe('App 冒烟', () => {
     expect(within(screen.getByTestId('day-center')).queryByText('不该保存')).toBeNull()
   })
 
-
   it('v8.95 周视图：逾期完成在截止日留痕迹；跨月周不再整体置灰', async () => {
     const store = await renderApp()
 
-    // 9/28 建一条截止任务，10/2 才勾完成
     await store.getState().selectFromCalendar('2026-09-28' as DateKey)
     await waitFor(() => expect(store.getState().detail?.date).toBe('2026-09-28'))
     await store.getState().createTodo('逾期交报告', '2026-09-28')
@@ -361,13 +359,33 @@ describe('App 冒烟', () => {
     // 完成日不再额外加标识：截止日那条痕迹已经带上了完成日期
     expect(document.body.textContent).not.toContain('逾期完成')
 
-    // 选中 11/1：本周是 10/26~11/1，跨月 6 天不应再被整体降透明度
     await store.getState().selectFromCalendar('2026-11-01' as DateKey)
     await waitFor(() => expect(document.body.textContent).toContain('10/26'))
     const rows = within(screen.getByTestId('week-scroll')).getAllByRole('button')
     for (const row of rows) {
       expect(Array.from(row.classList).some((c) => c.toLowerCase().includes('out'))).toBe(false)
     }
+  })
+
+  it('v8.104 周视图待办行带时间：有时间的按时间在前、没时间的沉底', async () => {
+    const store = await renderApp()
+    await store.getState().selectFromCalendar('2026-09-29' as DateKey)
+    await waitFor(() => expect(store.getState().detail?.date).toBe('2026-09-29'))
+    // 先建没时间的（原序在前），排序必须能把有时间的提到它前面
+    await store.getState().createTodo('没时间的事')
+    await store.getState().createTodo('下午开会', undefined, '15:00')
+    await store.getState().createTodo('早上跑步', undefined, '07:00')
+
+    store.getState().setView('week')
+    await waitFor(() => expect(screen.getByTestId('week-scroll')).toBeInTheDocument())
+    const row = screen.getByRole('button', { name: /9月29日/ })
+    const txt = row.textContent ?? ''
+    // 时间标签可见，且按时间升序排在无时间的条目之前
+    expect(txt).toContain('07:00')
+    expect(txt).toContain('15:00')
+    expect(txt.indexOf('07:00')).toBeGreaterThan(-1)
+    expect(txt.indexOf('07:00')).toBeLessThan(txt.indexOf('15:00'))
+    expect(txt.indexOf('15:00')).toBeLessThan(txt.indexOf('没时间的事'))
   })
 
   it('v8.99 提醒型：过去的提醒日未完成显示灰标；今天未完成不提前标', async () => {
@@ -393,7 +411,8 @@ describe('App 冒烟', () => {
     expect(within(screen.getByTestId('day-center')).queryByText('提醒日未完成')).toBeNull()
   })
 
-  it('v8.34 周视图滑动：左滑下一周、右滑回本周、短滑回弹不翻（箭头仍可用）', async () => {    const store = await renderApp()
+  it('v8.34 周视图滑动：左滑下一周、右滑回本周、短滑回弹不翻（箭头仍可用）', async () => {
+    const store = await renderApp()
     fireEvent.click(screen.getByRole('tab', { name: '周' }))
     const scroller = screen.getByTestId('week-scroll')
     // 本周（2026-09-28 ~ 10-04，TODAY=09-29）：中间屏含 9/29

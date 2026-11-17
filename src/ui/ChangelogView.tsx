@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.103'
+const CURRENT_VERSION = 'v8.104'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.104',
+    date: '2026-11-17',
+    items: [
+      '周视图的待办行开始显示时间，并按时钟顺序排：09:00 在 15:00 前面，没写时间的事沉到当天最后',
+      '截止型待办仍排在当天最前（不漏掉 DDL），只是它所在的那一组也按时间升序',
+    ],
+  },
   {
     version: 'v8.103',
     date: '2026-11-17',
