@@ -969,8 +969,8 @@ describe('v8.13 想法 tab（notesList / 分页 / 来源栈）', () => {
 // v8.45 子任务打卡 → 复盘自动联动
 // ---------------------------------------------------------------------------
 
-describe('v8.45 子任务打卡与复盘联动', () => {
-  it('打卡：当天无复盘 → 自动创建一条含自动句', async () => {
+describe('子任务打卡与复盘', () => {
+  it('打卡：不再往复盘写自动句（当天无复盘 → 复盘仍为空）', async () => {
     const { app, bundle } = await makeApp()
     const s = S(app)
     await s.createGoal('学 TS', '')
@@ -983,12 +983,11 @@ describe('v8.45 子任务打卡与复盘联动', () => {
     const subtaskId = S(app).goalDetail!.subtasks[0]!.id
     const ok = await S(app).toggleSubtaskWork(subtaskId)
     expect(ok).toBe(true)
-    // 复盘自动创建，含自动句
-    const review = await bundle.repos.reviews.byDate(TODAY)
-    expect(review?.text).toBe('[目标打卡] 今日进行了目标「学 TS」的子目标「类型体操」工作')
+    // v8.103：打卡只记日期，不再自动生成复盘
+    expect(await bundle.repos.reviews.byDate(TODAY)).toBeNull()
   })
 
-  it('打卡：当天已有复盘 → 追加到末尾；再打卡取消 → 自动句移除', async () => {
+  it('打卡与取消打卡都不动已有复盘', async () => {
     const { app, bundle } = await makeApp()
     const s = S(app)
     await s.createGoal('健身', '')
@@ -1003,17 +1002,14 @@ describe('v8.45 子任务打卡与复盘联动', () => {
     const subtaskId = S(app).goalDetail!.subtasks[0]!.id
     await S(app).toggleSubtaskWork(subtaskId)
     let review = await bundle.repos.reviews.byDate(TODAY)
-    expect(review?.text).toBe(
-      '今天练了肩\n[目标打卡] 今日进行了目标「健身」的子目标「深蹲」工作',
-    )
+    expect(review?.text).toBe('今天练了肩')
 
-    // 取消打卡 → 自动句移除，原复盘保留
     await S(app).toggleSubtaskWork(subtaskId)
     review = await bundle.repos.reviews.byDate(TODAY)
     expect(review?.text).toBe('今天练了肩')
   })
 
-  it('取消打卡且复盘只剩自动句 → 删除当天复盘', async () => {
+  it('取消打卡时清掉旧版本留下的自动句，复盘空了就删', async () => {
     const { app, bundle } = await makeApp()
     const s = S(app)
     await s.createGoal('读书', '')
@@ -1024,9 +1020,13 @@ describe('v8.45 子任务打卡与复盘联动', () => {
     await S(app).openGoal(gid)
 
     const subtaskId = S(app).goalDetail!.subtasks[0]!.id
-    await S(app).toggleSubtaskWork(subtaskId)
-    expect(await bundle.repos.reviews.byDate(TODAY)).not.toBeNull()
-    // 取消 → 复盘只剩自动句 → 删除
+    // 模拟历史数据：旧版本自动写下的句子
+    await bundle.repos.reviews.upsert(TODAY, '[目标打卡] 今日进行了目标「读书」的子目标「第 3 章」工作')
+    await S(app).toggleSubtaskWork(subtaskId) // 打卡：不再追加句子
+    expect((await bundle.repos.reviews.byDate(TODAY))?.text).toBe(
+      '[目标打卡] 今日进行了目标「读书」的子目标「第 3 章」工作',
+    )
+    // 取消 → 旧句被清掉，复盘变空则删除
     await S(app).toggleSubtaskWork(subtaskId)
     expect(await bundle.repos.reviews.byDate(TODAY)).toBeNull()
   })
