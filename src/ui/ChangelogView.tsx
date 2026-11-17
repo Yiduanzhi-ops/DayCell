@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.101'
+const CURRENT_VERSION = 'v8.102'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.102',
+    date: '2026-11-17',
+    items: [
+      '目标页顶部工具条拆成两层：第一行只做文件夹筛选，第二行只做创建动作，不再把两个新建按钮和可横滑的文件夹挤在同一行',
+      '「新建文件夹」降为文字弱入口，只保留「新建目标」这一个主按钮；筛选行前加「文件夹」小标签说明这一行在筛什么',
+    ],
+  },
   {
     version: 'v8.101',
     date: '2026-11-16',
