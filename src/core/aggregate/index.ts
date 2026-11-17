@@ -330,6 +330,32 @@ function mergeDdlTodos(local: TodoRecord[], active: TodoRecord[], date: DateKey)
 }
 
 /**
+ * v8.104 周视图待办预览排序。
+ *
+ * 截止型仍整体置顶（既有语义：截止任务先看到，避免漏 DDL），组内再按时间：
+ * 有时间的按 `HH:mm` 升序，无时间的保持原序沉到组内末尾。
+ * 只在「取前 3 条预览」这一步生效，不影响 todoDone/todoTotal 计数。
+ */
+function sortPreviewByTime(list: TodoRecord[]): TodoRecord[] {
+  return list
+    .map((t, i) => ({ t, i }))
+    .sort((a, b) => {
+      // 1) 截止型在前（与原 mergeDdlTodos 一致）
+      const da = a.t.deadline !== undefined ? 0 : 1
+      const db = b.t.deadline !== undefined ? 0 : 1
+      if (da !== db) return da - db
+      // 2) 组内：有时间的在前，按时间升序
+      const ta = a.t.time
+      const tb = b.t.time
+      if (!!ta !== !!tb) return ta ? -1 : 1
+      if (ta && tb && ta !== tb) return ta < tb ? -1 : 1
+      // 3) 同样没时间 / 同时刻：保持原序
+      return a.i - b.i
+    })
+    .map((x) => x.t)
+}
+
+/**
  * v8.98 某一天的「逾期完成」历史痕迹（日视图用）。
  *
  * 只取：截止日 = 当天、截止型、已完成、且完成归属日晚于截止日的记录。
@@ -779,7 +805,8 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
           ...agg,
           todoDone: visible.filter((t) => t.done).length,
           todoTotal: visible.length,
-          todoPreview: visible.slice(0, 3),
+          // v8.104 预览按时间排：截止型置顶，组内有时间升序、无时间沉底
+          todoPreview: sortPreviewByTime(visible).slice(0, 3),
           overdueTrace: trace,
           notePreview: bucket.notes.slice(0, 2),
           reviewPreview: review ? { id: review.id, text: review.text } : null,

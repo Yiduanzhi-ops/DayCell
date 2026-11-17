@@ -153,6 +153,8 @@ function WeekPage({ weekKey, role }: { weekKey: DateKey; role: 'center' | 'side'
                       {d.todoPreview.map((t) => (
                         <div key={t.id} className={t.done ? styles.done : undefined}>
                           <span className={styles.wchk}>{t.done && <Check size={8} />}</span>
+                          {/* v8.104 有时间就标在行首；没时间不占位（排序已把无时间的沉到下面） */}
+                          {t.time && <span className={styles.wtime}>{t.time}</span>}
                           <span className={styles.wtxt}>{t.text}</span>
                           {!t.done && isReminderTodo(t) && compareKey(d.date, today) < 0 && (
                             <span className={styles.wremindMissed}>提醒日未完成</span>

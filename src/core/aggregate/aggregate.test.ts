@@ -279,6 +279,24 @@ describe('aggregateWeek — 恒 7 行', () => {
     expect(tue.notePreview.map((n) => n.text)).toEqual(['2026-09-29 想法1', '2026-09-29 想法2'])
   })
 
+  it('v9.58 预览按时间排：有时间的升序在前、没时间的沉底，截止型仍置顶', async () => {
+    const d = k('2026-09-29')
+    // 先造没时间的（原序在前），再造有时间的：排序必须能把有时间的提到前面
+    await repos.todos.create(d, '没时间的事')
+    clock.advance(1000)
+    await repos.todos.create(d, '下午开会', null, '15:00')
+    clock.advance(1000)
+    await repos.todos.create(d, '早上跑步', null, '07:00')
+    clock.advance(1000)
+    // 截止型即使没时间也排最前（既有 DDL 置顶语义）
+    await repos.todos.create(d, '交周报', d)
+
+    const { days } = await agg.aggregateWeek(k('2026-09-29'))
+    const tue = days[1]!
+    expect(tue.todoPreview.map((t) => t.text)).toEqual(['交周报', '早上跑步', '下午开会'])
+    expect(tue.todoTotal).toBe(4) // 排序只改预览取样，不动计数
+  })
+
   it('预览排除已顺延出去的待办；来源日不再显示痕迹（v9.31 连痕迹也不留）', async () => {
     await seedDay('2026-09-28', { todos: 2 })
     await repos.todos.rollOver(k('2026-09-28'), k('2026-09-29'))
