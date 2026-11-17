@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.59'
+const CURRENT_VERSION = 'v9.60'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.60',
+    date: '2026-11-17',
+    items: [
+      '没设具体时间的待办不用再看那块旧灰框了：行尾统一成两枚短标「提醒」/「截止」，日期只在需要时出现（11/19 截止）',
+      '行首时刻和「早上跑步」这类文字落在同一条基线上——「9 点」不再歪在字的半腰上',
+    ],
+  },
   {
     version: 'v9.59',
     date: '2026-11-17',

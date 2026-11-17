@@ -24,40 +24,25 @@ const nowHm = (): string => {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-/**
- * v9.2.3 行内时间标签：due 截止蓝（逾期红、逾期完成淡红）/ at 提醒绿（当天过点置灰）。
- * v9.43：日期等于**当前查看日**时的措辞区分——真实今天视图写「今天」，
- *        未来日 / 过去日视图写「当天」，避免把查看日误读成真实今天。
- */
-function sameDayWord(k: DateKey, today: DateKey): string {
-  return k === today ? '今天' : '当天'
-}
-
-function TimePill({
-  t,
-  k,
-  lead,
-}: {
-  t: TodoRecord
-  k: DateKey
-  /** 时刻是否已前置到行首（本行 = 时刻归属日） */
-  lead: boolean
-}): JSX.Element {
+function TimePill({ t, k }: { t: TodoRecord; k: DateKey }): JSX.Element {
   const isDue = (t.timeType ?? (t.deadline ? 'due' : 'at')) === 'due'
   const late = isDue && !!t.deadline && compareKey(t.deadline, k) < 0
   const overdueDone = isDue && isOverdueDone(t)
-  // v9.59：时刻已前置到行首（本行就是时刻归属日）时，尾部只留「截止」/「提醒」；
-  // 其余情况（截止日之前、逾期回看、完成日归位）时刻跟着日期留在尾部，避免制造当天并不存在的钟点。
-  // v8.75：at 型可能只有日期没有具体时刻（类型独立于时刻落库）——按存在项拼接，避免多余空格
-  const label = lead
+  // v9.60：本行就是时刻归属日（提醒日 / 截止日）时，尾标只留语义词「提醒」/「截止」，
+  // 日期和时刻都在行内已经交代过；其余日子（截止型被提前看到、逾期回看、完成日归位）
+  // 把日期与时刻一起放进尾标，避免在行首造一个当天并不存在的钟点。
+  // 没设具体时间的待办走同一套：归位日只写「提醒」/「截止」，其余日子写「9/30 截止」。
+  const onAnchor = todoTimeAnchorDay(t) === k
+  const when = [t.deadline ? md(t.deadline) : '', t.time].filter(Boolean).join(' ')
+  const label = onAnchor
     ? isDue
       ? '截止'
       : '提醒'
     : isDue
-      ? `${overdueDone ? '逾期完成 · ' : late && !t.done ? '已逾期 · ' : ''}${t.deadline ? md(t.deadline) : ''} ${t.time} 截止`
+      ? `${overdueDone ? '逾期完成 · ' : late && !t.done ? '已逾期 · ' : ''}${when} 截止`
           .replace(/\s{2,}/g, ' ')
           .trim()
-      : [t.deadline ? md(t.deadline) : '', t.time, '提醒'].filter(Boolean).join(' ')
+      : `${when} 提醒`.replace(/\s{2,}/g, ' ').trim()
   // at 型仅提醒日当天比较时刻（未来日不置灰）
   const past = !isDue && !!t.time && (!t.deadline || t.deadline === k) && t.time <= nowHm()
   const cls = isDue
@@ -194,34 +179,10 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
               )}
               {/* v8.79：顺延源记录不再进入日详情，只剩今天这条「顺延自 M/D」 */}
               {t.rolledFrom && <span className={styles.rolled}>顺延自 {md(t.rolledFrom)}</span>}
-              {/* v9.2.3 时间标签合并为单枚语义 pill：截止蓝（逾期红）/ 提醒绿（过点灰），今天只写「今天」 */}
-              {t.time ? (
-                <TimePill t={t} k={k} lead={lead} />
-              ) : t.deadline ? (
-                // v9.16：无具体时间的提醒型（timeType='at'）也按语义显示「… 提醒」绿标，
-                // 不再一律显示「截止 …」（旧实现让提醒型看起来像没改成功）
-                (t.timeType ?? 'due') === 'at' ? (
-                  <span className={styles.tat}>
-                    {md(t.deadline)}
-                    {t.deadline === k ? `（${sameDayWord(k, today)}）` : ''} 提醒
-                  </span>
-                ) : (
-                  <span
-                    className={`${styles.ddlBadge} ${
-                      !t.done && compareKey(t.deadline, k) < 0 ? styles.ddlLate : ''
-                    } ${isOverdueDone(t) ? styles.ddlLateDone : ''}`}
-                  >
-                    {isOverdueDone(t)
-                      ? '逾期完成 · '
-                      : !t.done && compareKey(t.deadline, k) < 0
-                        ? '已逾期 · '
-                        : ''}
-                    {/* v9.2.2：截止日恰为查看日时标注（今天 / 当天） */}
-                    截止 {md(t.deadline)}
-                    {t.deadline === k ? `（${sameDayWord(k, today)}）` : ''}
-                  </span>
-                )
-              ) : null}
+              {/* v9.60 行内尾标：只有「提醒」/「截止」两个语义词在最常见的位置上出现；
+                  日期与时刻在需要时（提前看到截止任务、逾期、完成日归位）一起放进尾标。
+                  没设具体时间的待办不再单独走旧徽标，统一这一套。 */}
+              {(t.time || t.deadline) && <TimePill t={t} k={k} />}
               {/* v8.79：源记录不再渲染，删除按钮对所有行可见（不再有删不掉的待办） */}
               <button className={styles.tdel} aria-label={`删除待办：${t.text}`} onClick={() => void deleteTodo(t.id)}>
                 ×

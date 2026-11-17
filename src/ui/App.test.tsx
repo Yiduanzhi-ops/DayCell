@@ -757,7 +757,7 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     await waitFor(() => expect(within(screen.getByTestId('day-center')).getByText('十月无时刻')).toBeInTheDocument())
 
     const center = screen.getByTestId('day-center')
-    expect(center.textContent).toContain('10/1（当天） 提醒')
+    expect(center.textContent).not.toContain('（当天）')
     // v9.59：时刻挪到行首，尾部只留「提醒」
     expect(center.textContent).toContain('14:00')
     expect(center.textContent).toContain('提醒')
@@ -770,7 +770,7 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     await waitFor(() => expect(store.getState().selected).toBe('2026-09-29'))
     void store.getState().createTodo('今天无时刻', '2026-09-29', undefined, 'at')
     await waitFor(() => expect(within(screen.getByTestId('day-center')).getByText('今天无时刻')).toBeInTheDocument())
-    expect(screen.getByTestId('day-center').textContent).toContain('9/29（今天） 提醒')
+    expect(screen.getByTestId('day-center').textContent).not.toContain('（今天）')
   })
 
   it('v9.43 就地编辑待办有「保存 / 取消」：保存写回、取消不写', async () => {
@@ -801,19 +801,19 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     fireEvent.change(input, { target: { value: '交作业' } })
     fireEvent.keyDown(input, { key: 'Enter' })
     await waitFor(() => expect(screen.queryByLabelText('新待办')).not.toBeInTheDocument())
-    expect(within(screen.getByTestId('day-center')).getByText(/截止 9\/29/)).toBeInTheDocument()
+    expect(within(screen.getByTestId('day-center')).getByText('截止')).toBeInTheDocument()
 
     // 切到明天：未完成的 DDL 每天出现（注入置顶）
     store.getState().shiftDay(1)
     await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 30 日'))
-    expect(within(screen.getByTestId('day-center')).getByText(/截止 9\/29/)).toBeInTheDocument()
+    expect(within(screen.getByTestId('day-center')).getByText(/9\/29 截止/)).toBeInTheDocument()
 
     // v9.39 完成 → 不再从明天凭空消失，留在明天显示为已完成（此前勾完就看不到这条）
     fireEvent.click(within(screen.getByTestId('day-center')).getByRole('button', { name: '标记完成：交作业' }))
     await waitFor(() =>
       expect(within(screen.getByTestId('day-center')).getByRole('button', { name: '标记未完成：交作业' })).toBeInTheDocument(),
     )
-    expect(within(screen.getByTestId('day-center')).getByText(/截止 9\/29/)).toBeInTheDocument()
+    expect(within(screen.getByTestId('day-center')).getByText(/9\/29 截止/)).toBeInTheDocument()
   })
 
   it('v8.61 逾期完成标注：完成后把截止日改成过去日期 → 徽标「逾期完成」；截止日当天完成不标', async () => {
@@ -837,7 +837,7 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     fireEvent.change(screen.getByLabelText('自定义截止日'), { target: { value: '2026-09-28' } })
     fireEvent.keyDown(screen.getByLabelText('编辑待办'), { key: 'Enter' })
     await waitFor(() =>
-      expect(within(screen.getByTestId('day-center')).getByText(/逾期完成 · 截止 9\/28/)).toBeInTheDocument(),
+      expect(within(screen.getByTestId('day-center')).getByText(/逾期完成 · 9\/28 截止/)).toBeInTheDocument(),
     )
   })
 
@@ -850,14 +850,14 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     fireEvent.change(input, { target: { value: '交作业' } })
     fireEvent.keyDown(input, { key: 'Enter' })
     await waitFor(() => expect(screen.queryByLabelText('新待办')).not.toBeInTheDocument())
-    expect(screen.getByText(/截止 9\/29/)).toBeInTheDocument()
+    expect(screen.getByText('截止')).toBeInTheDocument()
 
     // 点文字进编辑 → 自定义截止日（明天 = 注入时钟 +1）→ 徽标更新
     fireEvent.click(screen.getByLabelText('编辑待办：交作业'))
     const edit = await screen.findByLabelText('编辑待办')
     fireEvent.change(screen.getByLabelText('自定义截止日'), { target: { value: addDays(TODAY, 1) } })
     fireEvent.keyDown(edit, { key: 'Enter' })
-    await waitFor(() => expect(screen.getByText(/截止 9\/30/)).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText(/9\/30 截止/)).toBeInTheDocument())
   })
 
   it('v8.55 编辑态点「自定义日期」不关闭表单：焦点转移到截止行不触发 blur 保存，改完离开才保存', async () => {
@@ -882,7 +882,7 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     // 改完回车保存退出 → 行徽标更新为新日期
     fireEvent.keyDown(edit, { key: 'Enter' })
     await waitFor(() => expect(screen.queryByLabelText('编辑待办')).not.toBeInTheDocument())
-    expect(screen.getByText(/截止 9\/30/)).toBeInTheDocument()
+    expect(screen.getByText(/9\/30 截止/)).toBeInTheDocument()
   })
 
   it('v8.56 安装引导：iOS 手机显示苹果文案，展开步骤，点关闭后记住不再显示', async () => {
@@ -1072,7 +1072,7 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     const store = await renderApp()
     await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
     await store.getState().createTodo('交作业', TODAY)
-    await waitFor(() => expect(screen.getByText(/截止 9\/29（今天）/)).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('截止')).toBeInTheDocument())
 
     // 进编辑态
     fireEvent.click(screen.getByLabelText('编辑待办：交作业'))
