@@ -16,7 +16,7 @@ import { createFakeClock, type FakeClock } from '../clock'
 import { createSeqIdGen } from '../id'
 import { NotFoundError, ValidationError } from '../errors'
 import {
-  createRepos, todoProgress, isRollable, isOverdueDone, toYuan, toCents,
+  createRepos, todoProgress, isRollable, isOverdueDone, todoTimeAnchorDay, toYuan, toCents,
   DEFAULT_CATEGORIES, type Repos,
 } from './index'
 
@@ -791,5 +791,26 @@ describe('store 层没有被绕过', () => {
     await repos.categories.seedDefaults()
     const all = await store.all<CategoryRecord>('categories')
     expect(all.every((c) => typeof c.order === 'number')).toBe(true)
+  })
+})
+
+describe('todoTimeAnchorDay（v8.105 时刻归属日）', () => {
+  it('提醒型：时刻属于提醒日（deadline），不是创建日', async () => {
+    const t = await repos.todos.create(
+      k('2026-09-25'), '早上跑步', '2026-09-30', '09:00', undefined, undefined, 'at',
+    )
+    expect(todoTimeAnchorDay(t)).toBe('2026-09-30')
+  })
+
+  it('截止型：时刻属于截止日', async () => {
+    const t = await repos.todos.create(k('2026-09-25'), '交周报', '2026-09-30', '09:00')
+    expect(todoTimeAnchorDay(t)).toBe('2026-09-30')
+  })
+
+  it('没有截止日时回退创建日（当天定时的提醒）', async () => {
+    const t = await repos.todos.create(
+      k('2026-09-28'), '下午开会', undefined, '15:00', undefined, undefined, 'at',
+    )
+    expect(todoTimeAnchorDay(t)).toBe('2026-09-28')
   })
 })

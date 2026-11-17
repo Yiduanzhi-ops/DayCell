@@ -305,7 +305,10 @@ describe('App 冒烟', () => {
 
     const center = screen.getByTestId('day-center')
     expect(center.textContent).toContain('10/1（当天） 提醒')
-    expect(center.textContent).toContain('当天 14:00 提醒')
+    // v8.105：时刻前置，尾部只留「提醒」——不再出现「当天 14:00 提醒」连写
+    expect(center.textContent).toContain('14:00')
+    expect(center.textContent).toContain('提醒')
+    expect(center.textContent).not.toContain('当天 14:00')
     expect(center.textContent).not.toContain('（今天）')
     expect(center.textContent).not.toContain('今天 14:00')
 
@@ -386,6 +389,53 @@ describe('App 冒烟', () => {
     expect(txt.indexOf('07:00')).toBeGreaterThan(-1)
     expect(txt.indexOf('07:00')).toBeLessThan(txt.indexOf('15:00'))
     expect(txt.indexOf('15:00')).toBeLessThan(txt.indexOf('没时间的事'))
+  })
+
+  it('v8.105 时刻前置：截止型在截止日之前不把 09:00 摆到行首，到期日当天才前置', async () => {
+    const store = await renderApp()
+    await store.getState().createTodo('交周报', '2026-09-30', '09:00')
+
+    // 9/29（今天）只是「明天到期」：行首没有时刻块，时刻跟着日期留在尾标里
+    const center = screen.getByTestId('day-center')
+    const row = (await within(center).findByLabelText('标记完成：交周报')).parentElement as HTMLElement
+    expect(row.querySelector('[class*="timeLead"]')).toBeNull()
+    expect(row.textContent).toContain('9/30 09:00 截止')
+
+    // 9/30 到期当天：时刻前置到行首，尾部只留「截止」
+    await store.getState().selectFromCalendar('2026-09-30' as DateKey)
+    await waitFor(() => expect(store.getState().detail?.date).toBe('2026-09-30'))
+    const row2 = (await within(screen.getByTestId('day-center')).findByLabelText('标记完成：交周报'))
+      .parentElement as HTMLElement
+    expect(row2.querySelector('[class*="timeLead"]')?.textContent).toBe('09:00')
+    expect(row2.textContent).toContain('截止')
+    expect(row2.textContent).not.toContain('9/30')
+  })
+
+  it('v8.105 时刻前置：提醒型当天行首即时刻，尾部只写「提醒」', async () => {
+    const store = await renderApp()
+    await store.getState().createTodo('早上跑步', undefined, '09:00', 'at')
+    const row = (await within(screen.getByTestId('day-center')).findByLabelText('标记完成：早上跑步'))
+      .parentElement as HTMLElement
+    expect(row.querySelector('[class*="timeLead"]')?.textContent).toBe('09:00')
+    expect(row.textContent).toContain('提醒')
+    // 旧形态里的「今天 09:00 提醒」不再出现
+    expect(row.textContent).not.toContain('今天')
+  })
+
+  it('v8.105 周视图同口径：截止型提前日不标时刻，到期日才标', async () => {
+    const store = await renderApp()
+    await store.getState().createTodo('交周报', '2026-09-30', '09:00')
+
+    store.getState().setView('week')
+    await waitFor(() => expect(screen.getByTestId('week-scroll')).toBeInTheDocument())
+    // v8.95 既有语义：未完成的截止任务只在截止日那一行，不逐日注入；
+    // v8.105 到期日这一行带时刻，且时刻属于本行（归属日判定不会把它挪走）
+    const early = screen.getByRole('button', { name: /9月29日/ }).textContent ?? ''
+    const due = screen.getByRole('button', { name: /9月30日/ }).textContent ?? ''
+    expect(early).not.toContain('交周报')
+    expect(early).not.toContain('09:00')
+    expect(due).toContain('交周报')
+    expect(due).toContain('09:00')
   })
 
   it('v8.99 提醒型：过去的提醒日未完成显示灰标；今天未完成不提前标', async () => {
