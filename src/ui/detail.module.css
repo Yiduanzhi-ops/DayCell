@@ -48,7 +48,7 @@
 .ttxtBtn {
   flex: 1; min-width: 0; text-align: left; cursor: text;
   border-radius: 6px; margin: -2px -4px; padding: 2px 4px;
-  display: flex;
+  display: flex; align-self: baseline;
 }
 .ttxtBtn:hover { background: var(--bg-hover); }
 /* 编辑输入框：字号行高与正文一致，避免进入编辑时行高跳动 */
@@ -142,8 +142,8 @@
 /* v8.105 时刻前置到行首（勾选框之后、文字之前）：只有本行 = 时刻归属日才出现。
    没有时刻的行不占位，文字直接回贴勾选框——这是用户看过的原型形态，不要改成固定空列。 */
 .timeLead {
-  flex: 0 0 auto; min-width: 31px; margin-top: 3px;
-  font-size: 11px; font-weight: 700; letter-spacing: .2px;
+  flex: 0 0 auto; align-self: baseline; min-width: 31px;
+  font-size: 11px; line-height: inherit; font-weight: 700; letter-spacing: .2px;
   color: var(--accent); font-variant-numeric: tabular-nums;
 }
 .done .timeLead { color: var(--ink-3); }

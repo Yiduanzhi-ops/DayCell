@@ -37,15 +37,18 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v8.105')).toBeInTheDocument()
+    expect(screen.getByText('当前版本 v8.106')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v8.105')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前版本 v8.106')).not.toBeInTheDocument()
   })
 
   it('列表倒序：第一条是最新版本 v8.104，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v8.105')
+    expect(vers[0].textContent).toBe('v8.106')
+    // v8.106
+    expect(screen.getByText(/行尾统一成两枚短标/)).toBeInTheDocument()
+    expect(screen.getByText(/同一条基线上/)).toBeInTheDocument()
     // v8.105
     expect(screen.getByText(/待办的具体时间挪到文字前面/)).toBeInTheDocument()
     expect(screen.getByText(/日期和时刻一起留在行尾/)).toBeInTheDocument()
