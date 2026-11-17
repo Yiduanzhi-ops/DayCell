@@ -10,7 +10,7 @@
  */
 import { useEffect, useRef } from 'react'
 import type { JSX } from 'react'
-import { addDays, compareKey, dowOf, fromKey, isReminderTodo, startOfWeek } from '@core'
+import { addDays, compareKey, dowOf, fromKey, isReminderTodo, startOfWeek, todoTimeAnchorDay } from '@core'
 import type { DateKey, WeekDay } from '@core'
 import { useApp } from '@/app/context'
 import { Check } from './icons'
@@ -153,8 +153,12 @@ function WeekPage({ weekKey, role }: { weekKey: DateKey; role: 'center' | 'side'
                       {d.todoPreview.map((t) => (
                         <div key={t.id} className={t.done ? styles.done : undefined}>
                           <span className={styles.wchk}>{t.done && <Check size={8} />}</span>
-                          {/* v8.104 有时间就标在行首；没时间不占位（排序已把无时间的沉到下面） */}
-                          {t.time && <span className={styles.wtime}>{t.time}</span>}
+                          {/* v8.104 有时间就标在行首；没时间不占位（排序已把无时间的沉到下面）
+                              v8.105 只有本行 = 时刻归属日时才标：截止型在截止日之前的日子里
+                              不把 09:00 摆到行首（那会被读成当天 9 点的事） */}
+                          {t.time && todoTimeAnchorDay(t) === d.date && (
+                            <span className={styles.wtime}>{t.time}</span>
+                          )}
                           <span className={styles.wtxt}>{t.text}</span>
                           {!t.done && isReminderTodo(t) && compareKey(d.date, today) < 0 && (
                             <span className={styles.wremindMissed}>提醒日未完成</span>

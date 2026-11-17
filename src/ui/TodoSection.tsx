@@ -8,7 +8,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { JSX } from 'react'
-import { todoProgress, isOverdueDone, isReminderTodo, type TodoRecord } from '@core'
+import { todoProgress, isOverdueDone, isReminderTodo, todoTimeAnchorDay, type TodoRecord } from '@core'
 import { compareKey, type DateKey } from '@core'
 import { useApp } from '@/app/context'
 import { Check } from './icons'
@@ -33,17 +33,31 @@ function sameDayWord(k: DateKey, today: DateKey): string {
   return k === today ? '今天' : '当天'
 }
 
-function TimePill({ t, k, today }: { t: TodoRecord; k: DateKey; today: DateKey }): JSX.Element {
+function TimePill({
+  t,
+  k,
+  lead,
+}: {
+  t: TodoRecord
+  k: DateKey
+  /** 时刻是否已前置到行首（本行 = 时刻归属日） */
+  lead: boolean
+}): JSX.Element {
   const isDue = (t.timeType ?? (t.deadline ? 'due' : 'at')) === 'due'
   const late = isDue && !!t.deadline && compareKey(t.deadline, k) < 0
   const overdueDone = isDue && isOverdueDone(t)
-  const day = t.deadline ? (t.deadline === k ? sameDayWord(k, today) : md(t.deadline)) : ''
+  // v8.105：时刻已前置到行首（本行就是时刻归属日）时，尾部只留「截止」/「提醒」；
+  // 其余情况（截止日之前、逾期回看、完成日归位）时刻跟着日期留在尾部，避免制造当天并不存在的钟点。
   // v8.75：at 型可能只有日期没有具体时刻（类型独立于时刻落库）——按存在项拼接，避免多余空格
-  const label = isDue
-    ? `${overdueDone ? '逾期完成 · ' : late && !t.done ? '已逾期 · ' : ''}截止 ${day} ${t.time}`
-        .replace(/\s{2,}/g, ' ')
-        .trim()
-    : [day, t.time, '提醒'].filter(Boolean).join(' ')
+  const label = lead
+    ? isDue
+      ? '截止'
+      : '提醒'
+    : isDue
+      ? `${overdueDone ? '逾期完成 · ' : late && !t.done ? '已逾期 · ' : ''}${t.deadline ? md(t.deadline) : ''} ${t.time} 截止`
+          .replace(/\s{2,}/g, ' ')
+          .trim()
+      : [t.deadline ? md(t.deadline) : '', t.time, '提醒'].filter(Boolean).join(' ')
   // at 型仅提醒日当天比较时刻（未来日不置灰）
   const past = !isDue && !!t.time && (!t.deadline || t.deadline === k) && t.time <= nowHm()
   const cls = isDue
@@ -138,7 +152,11 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
               </div>
             )
           })}
-          {sorted.map((t) => (
+          {sorted.map((t) => {
+            // v8.105 时刻前置：只有本行就是时刻归属日（提醒日 / 截止日）时才把时刻提到行首，
+            // 截止型在截止日之前的日子里行首留空，时刻跟着日期留在尾标里。
+            const lead = !!t.time && todoTimeAnchorDay(t) === k
+            return (
             <div
               key={t.id}
               className={[styles.titem, t.done ? styles.done : ''].filter(Boolean).join(' ')}
@@ -151,6 +169,7 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
               >
                 {t.done && <Check />}
               </button>
+              {lead && <span className={styles.timeLead}>{t.time}</span>}
               {editingId === t.id ? (
                 <TodoEdit todo={t} day={k} onDone={() => setEditingId(null)} />
               ) : t.subtaskId ? (
@@ -177,7 +196,7 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
               {t.rolledFrom && <span className={styles.rolled}>顺延自 {md(t.rolledFrom)}</span>}
               {/* v9.2.3 时间标签合并为单枚语义 pill：截止蓝（逾期红）/ 提醒绿（过点灰），今天只写「今天」 */}
               {t.time ? (
-                <TimePill t={t} k={k} today={today} />
+                <TimePill t={t} k={k} lead={lead} />
               ) : t.deadline ? (
                 // v9.16：无具体时间的提醒型（timeType='at'）也按语义显示「… 提醒」绿标，
                 // 不再一律显示「截止 …」（旧实现让提醒型看起来像没改成功）
@@ -208,7 +227,8 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
                 ×
               </button>
             </div>
-          ))}
+            )
+          })}
           {/* v8.98 截止日历史痕迹：当时没做完、后来在别的日子完成。
               不进入 0/1 计数，不带勾选框；只作为“这一天当时的状态”留档。 */}
           {overdueTrace.map((t) => (

@@ -139,6 +139,14 @@
   position: absolute; inset: 0; opacity: 0; cursor: pointer;
   width: 100%; height: 100%; border: none; background: transparent; outline: none;
 }
+/* v8.105 时刻前置到行首（勾选框之后、文字之前）：只有本行 = 时刻归属日才出现。
+   没有时刻的行不占位，文字直接回贴勾选框——这是用户看过的原型形态，不要改成固定空列。 */
+.timeLead {
+  flex: 0 0 auto; min-width: 31px; margin-top: 3px;
+  font-size: 11px; font-weight: 700; letter-spacing: .2px;
+  color: var(--accent); font-variant-numeric: tabular-nums;
+}
+.done .timeLead { color: var(--ink-3); }
 /* v9.2.2 待办具体时间：行内时间 pill——due 截止蓝（ttime）/ 逾期红（ttimeLate）/ 逾期完成淡红（ttimeLateDone），at 提醒绿（tat）/ 过点灰（tatPast） */
 .ttime {
   flex: 0 0 auto; font-size: 10.5px; font-weight: 700;
