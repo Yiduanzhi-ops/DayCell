@@ -95,7 +95,7 @@ DayCell 不是一套后端、三个前端。它是：
 | `src/core/` | 领域模型、校验、仓储、聚合、报告、备份、同步引擎、IndexedDB 适配 | `src/` 全部源码（不含测试）17,269 行；core 未单独拆行数 |
 | `src/app/` | Zustand store、启动装配、Gitee 同步接线；v9 分支另有 `cloudSync.ts` | `feat/desktop-shell` 无 `cloudSync.ts` |
 | `src/ui/` | 全部视图与样式；CSS Modules | `feat/desktop-shell` 29 个测试文件 |
-| `src-tauri/` | macOS 桌面壳（Tauri 2） | `feat/desktop-shell` 版本 1.4.3 |
+| `src-tauri/` | macOS 桌面壳（Tauri 2） | `feat/desktop-shell` 版本 1.4.4 |
 | `cloudbase/functions/` | v9 云函数：`daycell-api`、`daycell-push-worker` | 仅 `v9-backend` 分支 |
 | `cloudbase/migrations/` | v9 PostgreSQL 迁移 | 仅 4 份，未覆盖全部代码引用表 |
 | `functions/` | v9 旧副本 / 早期函数目录 | 仅 `v9-backend`；`feat/desktop-shell` 不存在；与 `cloudbase/functions` 双副本，不是唯一事实源 |
@@ -448,7 +448,7 @@ DayCell 不是一套后端、三个前端。它是：
 
 `src-tauri/tauri.conf.json`：
 
-- `productName: DayCell`，`identifier: com.yiduanzhi.daycell`，`version: 1.4.3`。
+- `productName: DayCell`，`identifier: com.yiduanzhi.daycell`，`version: 1.4.4`。
 - `main` 窗口：414×896、`resizable: false`、`decorations: false`、默认隐藏。
 - `ball` 窗口：80×80、透明、置顶、`skipTaskbar: true`、默认隐藏。
 - 构建命令：`beforeBuildCommand` 注入 `VITE_BASE=./` 与 `VITE_TAURI=1`；前端从本地加载，不生成 PWA。
@@ -475,11 +475,11 @@ DayCell 不是一套后端、三个前端。它是：
 ### 7.4 签名与安装包
 
 - 当前为 ad-hoc 深度签名，不是 Apple 公证签名；首次打开会被 Gatekeeper 拦，按安装指引放行。
-- `codesign --verify --deep --strict` 已通过；`CFBundleShortVersionString = 1.4.3`。
+- `codesign --verify --deep --strict` 已通过；`CFBundleShortVersionString = 1.4.4`。
 - 最终交付包（通用二进制，x86_64 + arm64）：
-  - `release/DayCell_1.4.3_universal.dmg`：10.4 MB，SHA256 `cd366fbf6439bd4793b50d602b4165ff1d6da3758a50b62b86cea3db91891f45`；
-  - `release/DayCell-1.4.3-mac.zip`：9.7 MB，SHA256 `a4ccac3c21d7243bb18934e2cdd113b6b8114312fab475cdf86e6b28c2df0768`。
-- Tauri 原始打包目录 `src-tauri/target/universal-apple-darwin/release/bundle/dmg/DayCell_1.4.3_universal.dmg` 内的 App 未重新签名，**不要直接交付**；交付用 `release/` 中替换过 App 的 DMG。
+  - `release/DayCell_1.4.4_universal.dmg`：10.4 MB，SHA256 `1fb113856ff68e4c9d66109db53895f559748edc0bf8679c5fe9bc205972e192`；
+  - `release/DayCell-1.4.4-mac.zip`：9.7 MB，SHA256 `f06735575573cd57559887d10fd3636fa0b626077f2447870add85f933d85d10`。
+- Tauri 原始打包目录 `src-tauri/target/universal-apple-darwin/release/bundle/dmg/DayCell_1.4.4_universal.dmg` 内的 App 未重新签名，**不要直接交付**；交付用 `release/` 中替换过 App 的 DMG。
 - 安装指引：`release/DayCell-Mac安装指引.md`。其中“设置 → 导出备份”与实际顶部菜单“导出备份”不完全对应，以应用内右上角菜单为准。
 
 ## 8. 分支差异

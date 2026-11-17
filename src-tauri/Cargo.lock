@@ -539,7 +539,7 @@ dependencies = [
 
 [[package]]
 name = "daycell"
-version = "1.4.3"
+version = "1.4.4"
 dependencies = [
  "log",
  "objc2",
