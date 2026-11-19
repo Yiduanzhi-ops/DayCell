@@ -93,7 +93,7 @@ DayCell 目前有三个实际可用的形态。它们共用同一套前端界面
 
 ### macOS 桌面版
 
-1. 双击 `DayCell_1.4.9_universal.dmg`，把 DayCell 拖进“应用程序”；DMG 打不开时用 ZIP。
+1. 双击 `DayCell_1.4.10_universal.dmg`，把 DayCell 拖进“应用程序”；DMG 打不开时用 ZIP。
 2. 第一次双击会被 macOS 拦一次，这是个人开发者签名的正常拦截：
    - 弹窗点“完成”；
    - 打开“系统设置 → 隐私与安全性”，在“安全性”区域点“仍要打开”；
@@ -393,8 +393,8 @@ v9 云端版的报告额外有“AI 深度复盘”段：会员可生成六段�
 
 ### 安装
 
-- 推荐 DMG：`DayCell_1.4.9_universal.dmg`（10.5 MB）。
-- 备用 ZIP：`DayCell-1.4.9-mac.zip`（9.7 MB）。
+- 推荐 DMG：`DayCell_1.4.10_universal.dmg`（10.5 MB）。
+- 备用 ZIP：`DayCell-1.4.10-mac.zip`（9.7 MB）。
 - 当前是 ad-hoc 深度签名，不是 Apple 公证签名；第一次打开会被 Gatekeeper 拦，按安装指引放行即可。
 - 如果提示“已损坏”，在终端执行 `xattr -cr /Applications/DayCell.app` 后再打开。
 
@@ -502,7 +502,7 @@ v9 云端版的报告额外有“AI 深度复盘”段：会员可生成六段�
 |---|---|---|
 | 网页免费版 | v8.106 | `https://yiduanzhi-ops.github.io/DayCell/` |
 | v9 云端版 | v9.60 | 当前 CloudBase 部署地址；入口以实际发给你的地址为准 |
-| macOS 桌面版 | 1.4.9 | `release/DayCell_1.4.9_universal.dmg` / `release/DayCell-1.4.9-mac.zip` |
+| macOS 桌面版 | 1.4.10 | `release/DayCell_1.4.10_universal.dmg` / `release/DayCell-1.4.10-mac.zip` |
 
 > 版本号可以在应用内“右上角菜单 → 版本更新”查看。本文不承诺未在代码或线上产物中出现的功能；如果界面与本文不一致，以当前应用内实际显示为准。
 
