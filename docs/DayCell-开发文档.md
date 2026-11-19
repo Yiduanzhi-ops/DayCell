@@ -189,6 +189,7 @@ DayCell 不是一套后端、三个前端。它是：
   - `core/pinned.ts` 的 `planPinnedTodos(subtasks, goals, existing)` 是唯一规划入口：未删 + `pinned===true` + 未完成 + 目标存在 + 当天已有同 `subtaskId` 行（非墓碑）则跳过，按子任务 `createdAt` 升序。
   - `store.materializePinned(date)` 只在 `selected === today` 时由 `refresh()` 触发（`pinnedLock` 串行锁防重入），逐条 `todos.create(date, text, …, subtaskId, goalTitle)`；多设备同日首开靠 `subtaskId` 幂等去重，不回填历史。
   - 勾完成子任务会自动 `setPinned(false)`；移出“每天推进”会软删当天行并撤销今天这次打卡（历史日期不动）。
+  - 行尾点阵 `item.recent` 是 6 格「今天 + 过去 5 天」（`addDays(date,-5..0)`），最右格为今天，打卡后立即点亮；空格子用 `color-mix(--ink-3 24%, --bg)` 保证 hover 下可辨。
   - 今日「目标推进」组头 `stageTitle` 由 `aggregate.buildProgress` 产出：同目标未删阶段按 `createdAt` 升序编号，`stageDisplayTitle(title, index)` 拼成「第N阶段 · 名字」，与目标详情页口径一致。
 - 目标完成/取消完成要维护阶段、子任务状态与 `doneOn`；删除目标级联删除阶段与子任务（通过级联快照支持恢复）。
 - 文件夹：

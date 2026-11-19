@@ -8,11 +8,18 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.62'
+const CURRENT_VERSION = 'v9.63'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.63',
+    date: '2026-11-19',
+    items: [
+      '打卡后热力图马上有反应：行尾 6 格改成「今天 + 过去 5 天」，最右一格就是今天，点完立刻变蓝',
+    ],
+  },
   {
     version: 'v9.62',
     date: '2026-11-19',

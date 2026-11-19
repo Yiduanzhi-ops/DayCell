@@ -7,7 +7,8 @@
  * 口径（用户已拍板，不要擅自改）：
  *  - 行首是「打卡 / 已打卡」文字胶囊：打卡 ≠ 子任务完成，只是「今天在它上面动过」
  *    （写进 subtasks.workDates，由 store 的 toggleTodo 完成，这里只发一个动作）。
- *  - 行尾 6 格 = **过去 6 天**，不含今天；今天的打卡态由胶囊本身表达。
+ *  - 行尾 6 格 = **最近 6 天，最右一格是今天**（v8.109 起）：打卡后这一格立刻变蓝，
+ *    不再出现「点了打卡但右侧没有一格亮」的错觉；左边 5 格是历史。
  *  - 今天的打卡键必须露在行内，不藏在别处（用户明确否掉过藏起来的版本）。
  *  - 点组头 / 组内空白 / 行间 → 跳到「目标」tab 并打开这个目标的详情页；
  *    点文字、天数、点阵不响应。
@@ -89,7 +90,7 @@ export function ProgressSection({ date }: { date?: DateKey }): JSX.Element {
                 <span
                   className={styles.pdots}
                   aria-hidden="true"
-                  title="过去 6 天（不含今天）"
+                  title="最近 6 天（最右一格为今天）"
                   onClick={(e) => e.stopPropagation()}
                 >
                   {it.recent.map((on, i) => (
