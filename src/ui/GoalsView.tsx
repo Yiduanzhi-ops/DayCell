@@ -418,9 +418,15 @@ function fmtTs(ts: number): string {
 }
 
 /** 子任务副行：打卡 N 天 [· MM/DD 完成 | · 已在今天] */
-function subtaskMeta(st: SubtaskRecord, inToday: boolean): string {
+function subtaskMeta(st: SubtaskRecord, pinned: boolean, inToday: boolean): string {
   const days = Array.isArray(st.workDates) ? st.workDates.length : 0
-  const doneAt = st.done ? ` · ${fmtTs(st.updatedAt)} 完成` : inToday ? ' · 已在今天' : ''
+  const doneAt = st.done
+    ? ` · ${fmtTs(st.updatedAt)} 完成`
+    : pinned
+      ? ' · 每天推进中'
+      : inToday
+        ? ' · 已在今天'
+        : ''
   return `打卡 ${days} 天${doneAt}`
 }
 
@@ -451,14 +457,16 @@ function SubtaskRow({
 }): JSX.Element {
   const setSubtaskDoneWithToday = useApp((s) => s.setSubtaskDoneWithToday)
   const updateSubtask = useApp((s) => s.updateSubtask)
-  const addSubtaskToToday = useApp((s) => s.addSubtaskToToday)
-  const removeSubtaskFromToday = useApp((s) => s.removeSubtaskFromToday)
+  const pinSubtaskToDaily = useApp((s) => s.pinSubtaskToDaily)
+  const unpinSubtaskFromDaily = useApp((s) => s.unpinSubtaskFromDaily)
   const subtaskTodayIds = useApp((s) => s.subtaskTodayIds)
   const [renaming, setRenaming] = useState(false)
   const [draft, setDraft] = useState(subtask.title)
   const lock = useRef(false)
 
   const inToday = subtaskTodayIds.includes(subtask.id)
+  // v8.108 常驻推进：按钮状态看 pinned（旧数据无此字段 → 不推进）
+  const pinned = subtask.pinned === true
 
   const commitRename = (): void => {
     if (lock.current) return
@@ -524,7 +532,7 @@ function SubtaskRow({
             {subtask.title}
           </div>
         )}
-        <div className={styles.taskMeta}>{subtaskMeta(subtask, inToday && !subtask.done)}</div>
+        <div className={styles.taskMeta}>{subtaskMeta(subtask, pinned, inToday)}</div>
       </div>
       {editing ? (
         <button
@@ -538,17 +546,17 @@ function SubtaskRow({
         </button>
       ) : stageDone ? null : subtask.done ? (
         <span className={styles.todayBtnDim}>已做</span>
-      ) : inToday ? (
+      ) : pinned ? (
         <button
           type="button"
           className={`${styles.todayBtn} ${styles.todayBtnUndo}`}
-          title="已在今日视图里，点一下撤回"
-          onClick={() => void removeSubtaskFromToday(subtask.id)}
+          title="每天都会出现在今日视图，点一下移出"
+          onClick={() => void unpinSubtaskFromDaily(subtask.id)}
         >
-          已在今日
+          每天推进中
         </button>
       ) : (
-        <button type="button" className={styles.todayBtn} onClick={() => void addSubtaskToToday(subtask.id)}>
+        <button type="button" className={styles.todayBtn} onClick={() => void pinSubtaskToDaily(subtask.id)}>
           ＋ 目标推进
         </button>
       )}

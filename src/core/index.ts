@@ -41,6 +41,9 @@ export type { IdbDeps } from './store/idb'
 export * from './repo/index'
 export * from './aggregate/index'
 
+// ---- 常驻推进（v8.108：每日补建 pinned 子任务） ----
+export * from './pinned'
+
 // ---- 每周/每月报告（v9.10） ----
 export * from './report'
 
