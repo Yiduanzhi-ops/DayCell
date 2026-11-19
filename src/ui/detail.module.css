@@ -421,9 +421,12 @@
   word-break: break-word;
 }
 .pdays { flex: none; font-size: 10.5px; color: var(--ink-3); white-space: nowrap; }
-/* 过去 6 天点阵（不含今天）：9px、圆角 2.5、间距 3 */
+/* 过去 6 天点阵（不含今天）：9px、圆角 2.5、间距 3
+ * v8.108 空格子用 --line：组卡 hover 时背景变 --bg-hover（#F5F5F5 / #24272C），
+ * 原来是 --line-2（#F4F4F4 / #23262B）与之一线之差，浅灰格在 hover 下等于隐形，
+ * 看起来像"打了卡点阵就消失"。--line 在浅/暗两套下都与 hover 底色有可见差异。 */
 .pdots { flex: none; display: flex; gap: 3px; }
-.pdot { width: 9px; height: 9px; border-radius: 2.5px; background: var(--line-2); }
+.pdot { width: 9px; height: 9px; border-radius: 2.5px; background: color-mix(in srgb, var(--ink-3) 24%, var(--bg)); }
 .pdotOn { background: var(--accent-strong); }
 /* 空态第二行「点这里去目标里挑」：唯一强调色，告诉用户入口在哪 */
 .pcEmptyGo { color: var(--accent); }

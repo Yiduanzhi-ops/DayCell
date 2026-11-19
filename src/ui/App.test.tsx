@@ -972,7 +972,7 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     await waitFor(() => expect(within(cal).getAllByText('跑步').length).toBeGreaterThan(0))
   })
 
-  it('v8.107 目标推进：加入 → 今日「目标推进」出现且待办不再双显 → 胶囊打卡 → 撤回', async () => {
+  it('v8.107/108 目标推进：加入即常驻 → 今日出现且不双显 → 胶囊打卡 → 移出', async () => {
     const store = await renderApp()
     await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
 
@@ -989,9 +989,13 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     fireEvent.click(screen.getByText('考研'))
     await waitFor(() => expect(screen.getByRole('button', { name: '＋ 目标推进' })).toBeInTheDocument())
 
-    // 加入 → 按钮翻成「已在今日」（再点一下可撤回）
+    // 加入 → 按钮翻成「每天推进中」（再点一下可移出）
     fireEvent.click(screen.getByRole('button', { name: '＋ 目标推进' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: '已在今日' })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: '每天推进中' })).toBeInTheDocument())
+    expect(store.getState().subtaskTodayIds).toHaveLength(1)
+    // v8.108 幂等：反复 refresh 也不会给同一子任务补出第二条今天的行
+    await store.getState().refresh()
+    await store.getState().refresh()
     expect(store.getState().subtaskTodayIds).toHaveLength(1)
 
     // 今天 tab：它出现在「目标推进」区（组头 = 目标名），待办区里没有它
@@ -1018,17 +1022,25 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     await waitFor(() => expect(screen.getByText(/打卡 1 天/)).toBeInTheDocument())
     // 子任务本身仍未完成（打卡不等于完成）
     expect(screen.getByRole('checkbox', { name: '标记完成：背单词' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '已在今日' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '每天推进中' })).toBeInTheDocument()
 
-    // 从目标详情撤回 → 今日推进回到空态，当天打卡一并撤销
-    fireEvent.click(screen.getByRole('button', { name: '已在今日' }))
+    // 移出每天推进 → 今日推进回到空态，当天打卡一并撤销
+    fireEvent.click(screen.getByRole('button', { name: '每天推进中' }))
     fireEvent.click(screen.getByRole('tab', { name: '今天' }))
     await waitFor(() =>
       expect(within(mid('progress-section')).getByText(/今天还没挑要推进的子任务/)).toBeInTheDocument(),
     )
+    expect(store.getState().subtaskTodayIds).not.toContain(
+      store.getState().goalDetail?.subtasks.find((x) => x.title === '背单词')?.id,
+    )
+    // 回目标详情核对：今天这次打卡已撤销（was 打卡 1 天）
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    await waitFor(() => expect(screen.getByText('考研')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('考研'))
+    await waitFor(() => expect(screen.getByText(/打卡 0 天/)).toBeInTheDocument())
     const sub = store.getState().goalDetail!.subtasks.find((x) => x.title === '背单词')!
     expect(sub.workDates ?? []).not.toContain('2026-09-29')
-    expect(store.getState().subtaskTodayIds).not.toContain(sub.id)
+    expect(sub.pinned).toBeUndefined()
   })
 
   it('v9.2.2 待办排序：有具体时间的按时刻置顶，无时间沉底；行内显示时间标签', async () => {

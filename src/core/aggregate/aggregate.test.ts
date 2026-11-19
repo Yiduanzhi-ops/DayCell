@@ -1140,7 +1140,9 @@ describe('v8.107 目标推进（DayDetail.progress）', () => {
     expect(d.progress).toHaveLength(1)
     const grp = d.progress[0]!
     expect(grp.goalTitle).toBe('考研')
-    expect(grp.stageTitle).toBe('第二阶段')
+    // v8.108 组头按位置补序号：这条阶段是老数据里存死「第二阶段」但实际是唯一阶段，
+    // 序号以位置为准（与详情页 stageDisplayTitle(title, index) 同规则）
+    expect(grp.stageTitle).toBe('第一阶段')
     expect(grp.items).toHaveLength(1)
     const item = grp.items[0]!
     expect(item.text).toBe('背单词')
@@ -1178,10 +1180,38 @@ describe('v8.107 目标推进（DayDetail.progress）', () => {
     await repos.todos.create(D, '刷行测', undefined, undefined, st.id, g.title)
 
     const d1 = await agg.aggregateDayDetail(D)
-    expect(d1.progress[0]!.stageTitle).toBe('基础')
+    // v8.108 组头补阶段序号（唯一阶段 → 第一阶段）
+    expect(d1.progress[0]!.stageTitle).toBe('第一阶段 · 基础')
 
     await repos.subtasks.softDelete(st.id)
     const d2 = await agg.aggregateDayDetail(D)
     expect(d2.progress).toHaveLength(0)
+  })
+
+  it('v8.108 组头带「第N阶段」：序号按同目标阶段 createdAt 升序，名字前面拼回来', async () => {
+    const g = await repos.goals.create({ title: '考研', note: '' })
+    const s1 = await repos.stages.create({ goalId: g.id, title: '打基础' })
+    const s2 = await repos.stages.create({ goalId: g.id, title: '第二阶段 · 刷真题' })
+    const st1 = await repos.subtasks.create({ goalId: g.id, title: '背单词', stageId: s1.id })
+    const st2 = await repos.subtasks.create({ goalId: g.id, title: '做套卷', stageId: s2.id })
+    await repos.todos.create(D, '背单词', undefined, undefined, st1.id, g.title)
+    await repos.todos.create(D, '做套卷', undefined, undefined, st2.id, g.title)
+
+    const d = await agg.aggregateDayDetail(D)
+    expect(d.progress).toHaveLength(1)
+    const items = d.progress[0]!.items.map((x) => x.text)
+    expect(items).toEqual(['背单词', '做套卷'])
+    // 老数据里存死的「第二阶段 · 」不重复叠加
+    const titles = new Map(d.progress[0]!.items.map((x) => [x.text, x]))
+    expect(titles.size).toBe(2)
+    expect(d.progress[0]!.stageTitle).toBe('第一阶段 · 打基础')
+
+    const st2Todo = (await repos.todos.byDate(D)).find((t) => t.subtaskId === st2.id)!
+    expect(st2Todo).toBeTruthy()
+    // 单独把第二条挑进今天（另一目标分组会分开，所以这里直接查另一天）
+    const D2 = k('2026-09-30')
+    await repos.todos.create(D2, '做套卷', undefined, undefined, st2.id, g.title)
+    const d2 = await agg.aggregateDayDetail(D2)
+    expect(d2.progress[0]!.stageTitle).toBe('第二阶段 · 刷真题')
   })
 })

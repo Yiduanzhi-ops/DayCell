@@ -8,11 +8,20 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.61'
+const CURRENT_VERSION = 'v9.62'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.62',
+    date: '2026-11-19',
+    items: [
+      '「＋ 目标推进」改成一次点好、每天自动：挑中后每天都出现在今天的「目标推进」里，直到做完或再点「每天推进中」移出',
+      '今日「目标推进」的组头补上「第N阶段 · 阶段名」，跟目标详情里看到的是同一段',
+      '修掉打卡后热力图浅灰格看不见的问题（悬停时格子底色和卡片底色只差 1 级，几乎隐身）',
+    ],
+  },
   {
     version: 'v9.61',
     date: '2026-11-19',

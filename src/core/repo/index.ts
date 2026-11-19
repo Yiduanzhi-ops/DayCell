@@ -380,6 +380,8 @@ export interface SubtaskInput {
 
 export interface SubtaskRepo {
   byGoal(goalId: string): Promise<SubtaskRecord[]>
+  /** v8.108 全部子任务（含墓碑；调用方自行按 deleted 过滤），常驻推进补建用 */
+  all(): Promise<SubtaskRecord[]>
   /** 目标必须存在 */
   create(input: SubtaskInput): Promise<SubtaskRecord>
   /** v8.9 起支持改标题与描述；v8.10 支持改当前进度；v9.46 支持改所属阶段（null = 移入不分阶段） */
@@ -390,6 +392,11 @@ export interface SubtaskRepo {
    * 幂等：加入时去重；移出时不存在则原样返回。返回写入后的记录。
    */
   setWork(id: string, date: DateKey, on: boolean): Promise<SubtaskRecord>
+  /**
+   * v8.108 常驻推进开关：on=true 标记为「每天推进」，on=false 清除标记。
+   * 幂等：值未变时原样返回（不产生写入）。
+   */
+  setPinned(id: string, on: boolean): Promise<SubtaskRecord>
   softDelete(id: string): Promise<void>
   /** v9.46 撤销删除：显式恢复墓碑子任务并保留原时间戳 */
   restore(id: string): Promise<SubtaskRecord>
@@ -1157,6 +1164,8 @@ export function createRepos(deps: RepoDeps): Repos {
       })()
     },
 
+    all: () => store.all<SubtaskRecord>('subtasks'),
+
     async create(input) {
       // 目标必须存在且未删——否则会出现"挂在幽灵目标下的子任务"
       await mustGet<GoalRecord>('goals', input.goalId)
@@ -1224,6 +1233,16 @@ export function createRepos(deps: RepoDeps): Repos {
       if (!on && has) nextDates = cur.filter((d) => d !== date)
       if (nextDates.length === cur.length && has === on) return rec // 状态未变，原样返回
       return store.put<SubtaskRecord>('subtasks', { ...rec, workDates: nextDates })
+    },
+
+    async setPinned(id, on) {
+      const rec = await mustGet<SubtaskRecord>('subtasks', id)
+      const cur = rec.pinned === true
+      if (cur === on) return rec // 状态未变，原样返回
+      if (on) return store.put<SubtaskRecord>('subtasks', { ...rec, pinned: true })
+      const next: SubtaskRecord = { ...rec }
+      delete next.pinned
+      return store.put<SubtaskRecord>('subtasks', next)
     },
 
     softDelete: softDelete('subtasks'),
