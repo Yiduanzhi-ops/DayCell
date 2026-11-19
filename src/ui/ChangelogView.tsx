@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.106'
+const CURRENT_VERSION = 'v8.107'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.107',
+    date: '2026-11-19',
+    items: [
+      '目标里点「＋ 目标推进」挑中的子任务，会按目标分组出现在今天的「目标推进」里；待办列表不再重复出现，0/4 的计数也不把它算进去',
+      '行首「打卡 / 已打卡」只记今天在它上面动过，不等于完成；行尾 6 格是过去 6 天，今天不在里面',
+    ],
+  },
   {
     version: 'v8.106',
     date: '2026-11-17',
