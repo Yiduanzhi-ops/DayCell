@@ -181,6 +181,11 @@ export interface AppState {
   folderList: FolderSummary[]
   /** v7.9：打开中的目标详情（null = 目标列表页）。v8.5 加 subtasks（阶段/子任务双视图） */
   goalDetail: { goal: GoalRecord; stages: StageRecord[]; subtasks: SubtaskRecord[] } | null
+  /**
+   * v9.66 从「今日/周视图的目标推进」跳进目标详情时记住来路：
+   * 详情点返回回到原视图与日期，而不是落到目标列表。
+   */
+  goalReturn: { view: View; selected: DateKey } | null
   /** v8.0：今日习惯（selected 日该做的习惯 + 打卡状态） */
   habitDay: HabitDay | null
   /** v8.0：习惯设置页列表（全部活习惯，含暂停的） */
@@ -373,6 +378,8 @@ export interface AppState {
   refreshGoals(): Promise<void>
   /** 进入目标详情：加载目标 + 其全部阶段 */
   openGoal(id: string): Promise<void>
+  /** v9.66 从今日/周视图的推进模块进入：返回时回到原视图；不传 id 则进目标列表挑子任务 */
+  openGoalFromProgress(id?: string): Promise<void>
   closeGoal(): void
   createGoal(title: string, note: string, folderId?: string | null): Promise<boolean>
   updateGoal(id: string, patch: { title?: string; note?: string; progress?: ProgressField | undefined; folderId?: string | null }): Promise<boolean>
@@ -561,6 +568,8 @@ export function createAppStore(
   const syncEngine = opts.sync ?? null
   /** 并发保护：快速翻页时旧响应不得覆盖新状态 */
   let loadSeq = 0
+  /** v9.66 跨天监听只挂一次 */
+  let rolloverBound = false
   let toastSeq = 0
 
   /** v9.46 复盘自动句：按行移除；复盘变空则软删当天（v9.57 已不再写入，只留清理） */
@@ -613,6 +622,7 @@ export function createAppStore(
 
     detail: null,
     detailDate: null,
+    goalReturn: null,
     dayCache: new Map(),
     weekCache: new Map(),
     monthCache: new Map(),
@@ -720,6 +730,34 @@ export function createAppStore(
         get().showToast(errMsg(e))
       }
       await get().refresh()
+      // v9.66 跨天：挂着的 App / 桌面端过了零点必须自己换天，否则 pinned 永远补建不到新的一天。
+      // 每分钟 + 回到前台各查一次；变了就换天、清缓存并重刷（refresh 会补齐当天的推进行）。
+      if (!rolloverBound) {
+        rolloverBound = true
+        const syncTodayIfChanged = async (): Promise<void> => {
+          const real = todayKey()
+          const prev = get().today
+          if (real === prev) return
+          const onToday = get().selected === prev
+          set({
+            today: real,
+            selected: onToday ? real : get().selected,
+            detail: onToday ? null : get().detail,
+            detailDate: onToday ? null : get().detailDate,
+            dayCache: new Map(),
+            weekCache: new Map(),
+            monthCache: new Map(),
+            dataVer: get().dataVer + 1,
+          })
+          await get().refresh()
+        }
+        setInterval(() => void syncTodayIfChanged(), 60_000)
+        if (typeof document !== 'undefined') {
+          document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) void syncTodayIfChanged()
+          })
+        }
+      }
     },
 
     async refresh() {
@@ -757,8 +795,8 @@ export function createAppStore(
         }
         // detail 恒加载（桌面分栏右栏 / 手机日视图都要）；日历数据按当前视图加载
         const [dayDetail, week, monthDays, monthSum, habitDay] = await Promise.all([
-          aggregates.aggregateDayDetail(selected),
-          view === 'week' ? aggregates.aggregateWeek(selected) : Promise.resolve(null),
+          aggregates.aggregateDayDetail(selected, { today: get().today }),
+          view === 'week' ? aggregates.aggregateWeek(selected, { today: get().today }) : Promise.resolve(null),
           view === 'month' ? aggregates.aggregateMonth(selected) : Promise.resolve(null),
           view === 'month' ? aggregates.monthSummary(selected) : Promise.resolve(null),
           // v8.0：习惯按选中日显示（今天视图 = 今天该做的习惯）
@@ -820,6 +858,7 @@ export function createAppStore(
         wantFocus: false,
         // 切回目标 tab 一律回列表（详情页不跨 tab 保持）
         goalDetail: v === 'goals' ? null : s.goalDetail,
+        goalReturn: null,
         // v8.13：切走想法 tab 再回来，列表回到第 1 页
         notesPage: 1,
         // v8.42：回顾页内列表与页码也随 tab 重置
@@ -864,14 +903,14 @@ export function createAppStore(
       // 视图/设备改过数据），滑动途中侧页显示旧数据、松手刷成最新 → 内容跳变。
       // 本地聚合 ~20ms，touchstart/翻页时后台执行，滑动途中即就绪；每次滑动聚合 1~2 次无感。
       // 无清空竞态：refresh 只写 selected，prefetch 写相邻日，各自 key 互不覆盖。
-      const d = await aggregates.aggregateDayDetail(k)
+      const d = await aggregates.aggregateDayDetail(k, { today: get().today })
       set({ dayCache: new Map(get().dayCache).set(k, { detail: d, ver: get().dataVer }) })
     },
 
     async prefetchWeek(k) {
       // v8.34：周视图滑动预取。总是重新聚合（同 prefetchDay 的 v8.18 理由：缓存可能陈旧）。
       // key 归一 startOfWeek（周一起始，与 store 换周/聚合口径一致），入参为该周内任意日期。
-      const d = await aggregates.aggregateWeek(k)
+      const d = await aggregates.aggregateWeek(k, { today: get().today })
       set({ weekCache: new Map(get().weekCache).set(startOfWeek(k), { detail: d, ver: get().dataVer }) })
     },
 
@@ -1599,6 +1638,38 @@ export function createAppStore(
       }
     },
 
+    closeGoal() {
+      const ret = get().goalReturn
+      if (!ret) {
+        set({ goalDetail: null })
+        void get().refreshGoals()
+        return
+      }
+      // v9.66 从今日/周视图进来的：退回原视图原日期（详情页不留痕）
+      set({
+        goalDetail: null,
+        goalReturn: null,
+        view: ret.view,
+        selected: ret.selected,
+        edit: null,
+        wantFocus: false,
+      })
+      void get().refresh()
+    },
+
+    async openGoalFromProgress(id) {
+      const s = get()
+      set({
+        goalReturn: { view: s.view, selected: s.selected },
+        view: 'goals',
+        goalDetail: null,
+        edit: null,
+        wantFocus: false,
+      })
+      if (id) await get().openGoal(id)
+      else await get().refresh()
+    },
+
     // ---- v9.14 目标文件夹 ----
 
     async refreshFolders() {
@@ -1730,11 +1801,6 @@ export function createAppStore(
       } catch (e) {
         get().showToast(errMsg(e))
       }
-    },
-
-    closeGoal() {
-      set({ goalDetail: null })
-      void get().refreshGoals()
     },
 
     async createGoal(title, note, folderId) {

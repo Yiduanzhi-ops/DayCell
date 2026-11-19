@@ -31,6 +31,7 @@ import {
   monthGrid,
   monthKeys,
   rangeKeys,
+  today as systemToday,
   weekKeys,
   type WeekStartsOn,
 } from '../date'
@@ -143,9 +144,14 @@ export interface WeekDay extends DayAggregate {
  * 让今日视图不必自己去查 goals/stages/subtasks。
  */
 export interface ProgressItem {
-  /** 对应的待办记录 id（勾选 / 撤销都走 todos，不新增数据表） */
+  /** 对应的待办记录 id（勾选 / 撤销都走 todos，不新增数据表）；虚拟行为空串 */
   todoId: string
   subtaskId: string
+  /**
+   * v9.66 未来日期的投影行：这一天的待办还没建，行是算出来的（只读）。
+   * 到那天首次打开才会物化成真实待办；之前不响应打卡。
+   */
+  virtual?: boolean
   /** 子任务标题（实时值；改名后以子任务为准，不用待办里的标题快照） */
   text: string
   /** 累计打卡天数 = workDates 长度 */
@@ -247,6 +253,8 @@ export interface HabitDay {
 
 export interface ViewOpts {
   weekStartsOn?: WeekStartsOn
+  /** v9.66 真实今天：周视图里 date > today 的格子会预览 pinned 子任务（只读投影） */
+  today?: DateKey
 }
 
 export interface AggregateDeps {
@@ -266,7 +274,11 @@ export interface Aggregates {
   aggregateWeek(cursor: DateKey, opts?: ViewOpts): Promise<{ days: WeekDay[]; total: WeekTotal }>
   aggregateMonth(cursor: DateKey, opts?: ViewOpts): Promise<DayAggregate[]>
   monthSummary(cursor: DateKey): Promise<MonthSummary>
-  aggregateDayDetail(date: DateKey): Promise<DayDetail>
+  /**
+   * v9.66 `opts.today` 是「真实的今天」：未来日期（date > today）会把 pinned 子任务
+   * 投影成只读行。生产环境不传则取系统日期；测试可显式注入。
+   */
+  aggregateDayDetail(date: DateKey, opts?: { today?: DateKey }): Promise<DayDetail>
   /** v7.9 目标列表：全部活目标 + 阶段数 + 当前阶段 */
   goalSummaries(): Promise<GoalSummary[]>
   /** v9.14 目标文件夹列表（chips/分组用）：活文件夹，收藏置顶 + createdAt 升序 */
@@ -381,6 +393,7 @@ function buildProgress(
   stages: readonly StageRecord[],
   subtasks: readonly SubtaskRecord[],
   date: DateKey,
+  opts?: { includeVirtual?: boolean },
 ): ProgressGroup[] {
   const goalMap = new Map(goals.filter((g) => !g.deleted).map((g) => [g.id, g]))
   const stageMap = new Map(stages.filter((s) => !s.deleted).map((s) => [s.id, s]))
@@ -402,37 +415,67 @@ function buildProgress(
   }
   const groups = new Map<string, ProgressGroup>()
 
-  for (const t of todos) {
-    if (!t.subtaskId) continue
-    const sub = subMap.get(t.subtaskId)
-    if (!sub) continue
+  const recentOf = (sub: SubtaskRecord): boolean[] => {
+    const workDates = Array.isArray(sub.workDates) ? sub.workDates : []
+    const recent: boolean[] = []
+    for (let i = 5; i >= 0; i -= 1) recent.push(workDates.includes(addDays(date, -i)))
+    return recent
+  }
+
+  const ensureGroup = (sub: SubtaskRecord, fallbackTitle: string): ProgressGroup => {
+    let group = groups.get(sub.goalId)
+    if (group) return group
     const goal = goalMap.get(sub.goalId)
     // 阶段：优先子任务自己的阶段；没有归属时退到目标的「当前」阶段
     const stage = sub.stageId
       ? stageMap.get(sub.stageId)
       : stages.find((s) => !s.deleted && s.goalId === sub.goalId && s.isCurrent)
-    let group = groups.get(sub.goalId)
-    if (!group) {
-      group = {
-        goalId: sub.goalId,
-        // 目标记录没了（理论上不会：删目标会连带墓碑子任务）→ 用待办里的标题快照兜底
-        goalTitle: goal?.title ?? t.subtaskGoalTitle ?? '目标',
-        stageTitle: stage ? stageDisplayTitle(stage.title, stageIndex.get(stage.id) ?? 0) : null,
-        items: [],
-      }
-      groups.set(sub.goalId, group)
+    group = {
+      goalId: sub.goalId,
+      // 目标记录没了（理论上不会：删目标会连带墓碑子任务）→ 用待办里的标题快照兜底
+      goalTitle: goal?.title ?? fallbackTitle,
+      stageTitle: stage ? stageDisplayTitle(stage.title, stageIndex.get(stage.id) ?? 0) : null,
+      items: [],
     }
-    const workDates = Array.isArray(sub.workDates) ? sub.workDates : []
-    const recent: boolean[] = []
-    for (let i = 5; i >= 0; i -= 1) recent.push(workDates.includes(addDays(date, -i)))
+    groups.set(sub.goalId, group)
+    return group
+  }
+
+  const inDay = new Set<string>()
+  for (const t of todos) {
+    if (!t.subtaskId) continue
+    const sub = subMap.get(t.subtaskId)
+    if (!sub) continue
+    inDay.add(sub.id)
+    const group = ensureGroup(sub, t.subtaskGoalTitle ?? '目标')
     group.items.push({
       todoId: t.id,
       subtaskId: sub.id,
       text: sub.title,
-      days: workDates.length,
+      days: Array.isArray(sub.workDates) ? sub.workDates.length : 0,
       done: !!t.done,
-      recent,
+      recent: recentOf(sub),
     })
+  }
+
+  // v9.66 未来日期投影：pinned 子任务在那天还没有实体待办，按「每天自动加入」的承诺
+  // 先算出一行只读行，打卡/勾选仍要等到那天打开后落地成真实待办。
+  // 已被真实待办覆盖的（同一 subtaskId）不重复加入，保证今天不会出现两条。
+  if (opts?.includeVirtual) {
+    for (const sub of subtasks) {
+      if (sub.deleted || sub.done || sub.pinned !== true || inDay.has(sub.id)) continue
+      if (!goalMap.has(sub.goalId)) continue
+      const group = ensureGroup(sub, '目标')
+      group.items.push({
+        todoId: '',
+        subtaskId: sub.id,
+        text: sub.title,
+        days: Array.isArray(sub.workDates) ? sub.workDates.length : 0,
+        done: false,
+        recent: recentOf(sub),
+        virtual: true,
+      })
+    }
   }
 
   // 顺序：todos 是按 id（uuid）索引取出的，天然乱序。这里统一按**子任务在目标里的
@@ -904,15 +947,41 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
 
     async aggregateWeek(cursor, opts) {
       const keys = weekKeys(cursor, opts?.weekStartsOn ?? 1)
+      // v9.66 未来格子要预览 pinned 子任务（只读），先拿真实今天划界
+      const todayKey = opts?.today ?? systemToday()
+      const futureKeys = keys.filter((k) => k > todayKey)
       const built = await buildRangeDetailed(keys)
       // v8.62 周行习惯预览（形态 B）：每日该做习惯 + 打卡态，与日详情/今日区块同口径
       // （buildHabitItems：排除删除/暂停，只从设定那天起出现，freq 命中才列出）。
       // 数据层无条件带，UI 按「周视图显示习惯」开关渲染。
-      const [habits, dones, ddl] = await Promise.all([
+      const [habits, dones, ddl, goalsP, subsP] = await Promise.all([
         store.all<HabitRecord>('habits'),
         Promise.all(keys.map((k) => repos.checkins.doneOn(k))),
         repos.todos.ddlAll(),
+        futureKeys.length ? store.all<GoalRecord>('goals') : Promise.resolve([] as GoalRecord[]),
+        futureKeys.length ? store.all<SubtaskRecord>('subtasks') : Promise.resolve([] as SubtaskRecord[]),
       ])
+      // v9.66 未来日期的投影行：与日视图同口径（pinned、未完成、目标还在），不写库
+      const goalLive = new Map(goalsP.filter((g) => !g.deleted).map((g) => [g.id, g]))
+      const pinnedLive = subsP.filter((x) => !x.deleted && !x.done && x.pinned === true && goalLive.has(x.goalId))
+      const virtualPinned = (date: DateKey, existing: readonly TodoRecord[]): TodoRecord[] => {
+        if (!futureKeys.includes(date)) return []
+        const have = new Set(existing.filter((t) => t.subtaskId).map((t) => t.subtaskId as string))
+        return pinnedLive
+          .filter((sub) => !have.has(sub.id))
+          .map((sub) => ({
+            id: `virtual-${sub.id}-${date}`,
+            type: 'todo' as const,
+            date,
+            createdAt: sub.createdAt,
+            updatedAt: sub.createdAt,
+            deleted: false,
+            text: sub.title,
+            done: false,
+            subtaskId: sub.id,
+            subtaskGoalTitle: goalLive.get(sub.goalId)?.title,
+          }))
+      }
 
       // v8.95 截止任务在周视图的两种落点：
       //  1) 已完成：归位到完成归属日（日期行只显示它，不吞掉）；
@@ -952,11 +1021,14 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
         const trace = overdueByDeadline.get(date) ?? []
         // mergeDdlTodos 负责：按 id 去重、按完成归属日过滤、DDL 置顶排序。
         // 完成日传入当天归位的已完成 DDL，于是计数与预览同时正确。
-        const visible = mergeDdlTodos(bucket.todos, completed, date)
+        // v9.66 未来日期只做「计划预览」：虚拟行进预览、不算合计，否则会稀释完成率
+        const projected = virtualPinned(date, bucket.todos)
+        const counted = mergeDdlTodos(bucket.todos, completed, date)
+        const visible = mergeDdlTodos([...bucket.todos, ...projected], completed, date)
         return {
           ...agg,
-          todoDone: visible.filter((t) => t.done).length,
-          todoTotal: visible.length,
+          todoDone: counted.filter((t) => t.done).length,
+          todoTotal: counted.length,
           // v8.104 预览按时间排：截止型置顶，组内有时间升序、无时间沉底
           todoPreview: sortPreviewByTime(visible).slice(0, 3),
           overdueTrace: trace,
@@ -996,7 +1068,8 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
       return { daysWithRecords, costCents }
     },
 
-    async aggregateDayDetail(date) {
+    async aggregateDayDetail(date, opts) {
+      const todayKey = opts?.today ?? systemToday()
       const prev = addDays(date, -1)
 
       // ⚠️ 区间开成 [date-1, date]：一次查询同时拿到「今天的内容」和
@@ -1043,7 +1116,10 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
       const cats = makeCatResolver(catMap)
       const info = lunar?.lunarOf(date) ?? null
       const titles = annivTitles.get(date) ?? []
-      const progress = buildProgress(today.todos, goalsAll, stagesAll, subtasksAll, date)
+      // v9.66 未来日期：pinned 子任务以虚拟行出现（只读），到那天打开才落地成待办
+      const progress = buildProgress(today.todos, goalsAll, stagesAll, subtasksAll, date, {
+        includeVirtual: date > todayKey,
+      })
       // v8.107 子任务来源的待办已挪进「目标推进」：待办列表与 0/3 计数都不再含它们（同一件事不双显）
       const plainTodos = today.todos.filter((t) => !t.subtaskId)
       const base = buildDay(date, { ...today, todos: plainTodos }, titles, info, cats, review)

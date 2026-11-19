@@ -418,16 +418,20 @@ function fmtTs(ts: number): string {
 }
 
 /** 子任务副行：打卡 N 天 [· MM/DD 完成 | · 已在今天] */
+/**
+ * v9.66 副行只描述事实，「每日推进」是一个开关：
+ * 今天已加入 = 今天有行但还没开常驻；每天自动加入 = 开关已开。
+ */
 function subtaskMeta(st: SubtaskRecord, pinned: boolean, inToday: boolean): string {
   const days = Array.isArray(st.workDates) ? st.workDates.length : 0
-  const doneAt = st.done
+  const tail = st.done
     ? ` · ${fmtTs(st.updatedAt)} 完成`
     : pinned
-      ? ' · 每天推进中'
+      ? ' · 每天自动加入'
       : inToday
-        ? ' · 已在今天'
+        ? ' · 今天已加入'
         : ''
-  return `打卡 ${days} 天${doneAt}`
+  return `打卡 ${days} 天${tail}`
 }
 
 function StageCheck({ done }: { done: boolean }): JSX.Element {
@@ -546,29 +550,30 @@ function SubtaskRow({
         </button>
       ) : stageDone ? null : subtask.done ? (
         <span className={styles.todayBtnDim}>已做</span>
-      ) : pinned ? (
-        <button
-          type="button"
-          className={`${styles.todayBtn} ${styles.todayBtnUndo}`}
-          title="每天都会出现在今日视图，点一下移出"
-          onClick={() => void unpinSubtaskFromDaily(subtask.id)}
-        >
-          每天推进中
-        </button>
-      ) : inToday ? (
-        // v8.110：今天已经有这条（旧版手动加入今日 / 从别处带过来），别再给「＋」，否则像是没加过
-        <button
-          type="button"
-          className={styles.todayBtn}
-          title="今天已有这一条，点一下改成每天推进"
-          aria-label={`已在今天，点一下改成每天推进：${subtask.title}`}
-          onClick={() => void pinSubtaskToDaily(subtask.id)}
-        >
-          已在今天
-        </button>
       ) : (
-        <button type="button" className={styles.todayBtn} onClick={() => void pinSubtaskToDaily(subtask.id)}>
-          ＋ 目标推进
+        // v9.66 单一开关：开 = 每天自动加入今日；关 = 只在今天出现（或都不出现）
+        <button
+          type="button"
+          className={pinned ? `${styles.todayBtn} ${styles.todayBtnUndo}` : styles.todayBtn}
+          aria-pressed={pinned}
+          aria-label={`每日推进：${subtask.title}`}
+          title={
+            pinned
+              ? '每天自动加入今日视图，点一下关闭'
+              : inToday
+                ? '今天已经加入；打开后每天自动加入'
+                : '打开后每天自动加入今日视图'
+          }
+          onClick={() => void (pinned ? unpinSubtaskFromDaily(subtask.id) : pinSubtaskToDaily(subtask.id))}
+        >
+          {pinned ? (
+            <>
+              <span className={styles.todayBtnDot} aria-hidden="true" />
+              每日推进
+            </>
+          ) : (
+            '每日推进'
+          )}
         </button>
       )}
     </div>
@@ -984,6 +989,9 @@ function GoalDetail({
   subtasks: SubtaskRecord[]
 }): JSX.Element {
   const closeGoal = useApp((s) => s.closeGoal)
+  const goalReturn = useApp((s) => s.goalReturn)
+  // v9.66 从今日/周视图的推进模块进来的：返回是回原视图，不是回目标列表
+  const backLabel = goalReturn ? (goalReturn.view === 'day' ? '返回今日' : '返回日历') : '返回目标列表'
   const renameGoal = useApp((s) => s.renameGoal)
   const updateGoalRange = useApp((s) => s.updateGoalRange)
   const clearGoalRange = useApp((s) => s.clearGoalRange)
@@ -1128,8 +1136,14 @@ function GoalDetail({
   return (
     <div className={styles.goalDetailPage}>
       <div className={styles.goalTopbar}>
-        <button type="button" className={styles.goalBack} onClick={closeGoal} aria-label="返回目标列表">
-          ‹ 目标
+        <button
+          type="button"
+          className={styles.goalBack}
+          onClick={closeGoal}
+          aria-label={backLabel}
+          title={backLabel}
+        >
+          {goalReturn ? '‹ 返回' : '‹ 目标'}
         </button>
         <div className={styles.goalTopActions}>
           <button type="button" className={styles.goalMoreBtn} onClick={() => setSheetOpen(true)} aria-label="目标操作" title="目标操作">

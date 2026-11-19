@@ -1015,15 +1015,17 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     await store.getState().createSubtask({ goalId: gid, title: '背单词' })
     await waitFor(() => expect(store.getState().goalList[0]!.subtaskCount).toBe(1))
 
-    // 目标 tab → 打开详情 → 子任务行出现「＋ 目标推进」
+    // 目标 tab → 打开详情 → 子任务行出现「每日推进」开关
     fireEvent.click(screen.getByRole('tab', { name: '目标' }))
     await waitFor(() => expect(screen.getByText('考研')).toBeInTheDocument())
     fireEvent.click(screen.getByText('考研'))
-    await waitFor(() => expect(screen.getByRole('button', { name: '＋ 目标推进' })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: '每日推进：背单词' })).toBeInTheDocument())
 
-    // 加入 → 按钮翻成「每天推进中」（再点一下可移出）
-    fireEvent.click(screen.getByRole('button', { name: '＋ 目标推进' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: '每天推进中' })).toBeInTheDocument())
+    // 打开开关 → 同一个按钮进入按下态（再点一下关闭）
+    fireEvent.click(screen.getByRole('button', { name: '每日推进：背单词' }))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '每日推进：背单词' })).toHaveAttribute('aria-pressed', 'true'),
+    )
     expect(store.getState().subtaskTodayIds).toHaveLength(1)
     // v8.108 幂等：反复 refresh 也不会给同一子任务补出第二条今天的行
     await store.getState().refresh()
@@ -1054,10 +1056,10 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     await waitFor(() => expect(screen.getByText(/打卡 1 天/)).toBeInTheDocument())
     // 子任务本身仍未完成（打卡不等于完成）
     expect(screen.getByRole('checkbox', { name: '标记完成：背单词' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '每天推进中' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '每日推进：背单词' })).toHaveAttribute('aria-pressed', 'true')
 
     // 移出每天推进 → 今日推进回到空态，当天打卡一并撤销
-    fireEvent.click(screen.getByRole('button', { name: '每天推进中' }))
+    fireEvent.click(screen.getByRole('button', { name: '每日推进：背单词' }))
     fireEvent.click(screen.getByRole('tab', { name: '今天' }))
     await waitFor(() =>
       expect(within(mid('progress-section')).getByText(/今天还没挑要推进的子任务/)).toBeInTheDocument(),
@@ -1168,5 +1170,56 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     fireEvent.click(screen.getByText('✕'))
     expect(screen.queryByTestId('local-hint')).not.toBeInTheDocument()
     expect(sessionStorage.getItem('daycell_dismiss_login_hint')).toBe('1')
+  })
+
+  it('v9.66 从今日「目标推进」进目标详情，返回回到今日视图而不是目标列表', async () => {
+    const store = await renderApp()
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
+    await store.getState().createGoal('考研', '')
+    await waitFor(() => expect(store.getState().goalList).toHaveLength(1))
+    const gid = store.getState().goalList[0]!.goal.id
+    await store.getState().createSubtask({ goalId: gid, title: '背单词' })
+    await store.getState().openGoal(gid)
+    const sid = store.getState().goalDetail!.subtasks[0]!.id
+    await store.getState().pinSubtaskToDaily(sid)
+    await store.getState().closeGoal()
+    await store.getState().refresh()
+
+    const mid = (id: string): HTMLElement => {
+      const all = screen.getAllByTestId(id)
+      return all.length === 1 ? all[0]! : all[1]!
+    }
+    const prog = mid('progress-section')
+    await waitFor(() => expect(within(prog).getByText('背单词')).toBeInTheDocument())
+    fireEvent.click(within(prog).getByText('考研'))
+    await waitFor(() => expect(store.getState().goalDetail).not.toBeNull())
+    expect(store.getState().view).toBe('goals')
+
+    fireEvent.click(screen.getByRole('button', { name: '返回今日' }))
+    await waitFor(() => expect(store.getState().view).toBe('day'))
+    expect(store.getState().selected).toBe('2026-09-29')
+    expect(store.getState().goalDetail).toBeNull()
+  })
+
+  it('v9.66 翻到明天：每日推进以只读行预览，不能打卡', async () => {
+    const store = await renderApp()
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
+    await store.getState().createGoal('考研', '')
+    await waitFor(() => expect(store.getState().goalList).toHaveLength(1))
+    const gid = store.getState().goalList[0]!.goal.id
+    await store.getState().createSubtask({ goalId: gid, title: '背单词' })
+    await store.getState().openGoal(gid)
+    const sid = store.getState().goalDetail!.subtasks[0]!.id
+    await store.getState().pinSubtaskToDaily(sid)
+
+    await store.getState().shiftDay(1)
+    await waitFor(() => expect(store.getState().detail?.progress[0]?.items[0]?.virtual).toBe(true))
+    const mid = (id: string): HTMLElement => {
+      const all = screen.getAllByTestId(id)
+      return all.length === 1 ? all[0]! : all[1]!
+    }
+    const prog = mid('progress-section')
+    expect(within(prog).getByText('未开始')).toBeInTheDocument()
+    expect(within(prog).queryByRole('button', { name: '今天打卡：背单词' })).not.toBeInTheDocument()
   })
 })
