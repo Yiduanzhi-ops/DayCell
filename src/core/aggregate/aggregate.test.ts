@@ -1106,3 +1106,80 @@ describe('reviewsAll + hasReview — v8.42 复盘', () => {
     expect(await agg.reviewsAll()).toEqual([])
   })
 })
+
+// ---------------------------------------------------------------------------
+// v8.107 今日「目标推进」
+// ---------------------------------------------------------------------------
+
+describe('v8.107 目标推进（DayDetail.progress）', () => {
+  const D = k('2026-09-29')
+
+  /** 建一个目标 + 阶段 + 子任务，并把子任务「挑进今天」 */
+  async function seedProgress(title = '背单词', stageTitle = '第二阶段') {
+    const g = await repos.goals.create({ title: '考研', note: '' })
+    const s = await repos.stages.create({ goalId: g.id, title: stageTitle })
+    const st = await repos.subtasks.create({ goalId: g.id, title, stageId: s.id })
+    const todo = await repos.todos.create(D, title, undefined, undefined, st.id, g.title)
+    return { g, s, st, todo }
+  }
+
+  it('按目标分组；待办列表与计数不再含它；过去 6 天只认 workDates', async () => {
+    const { st } = await seedProgress()
+    await repos.todos.create(D, '买牛奶')
+    await repos.subtasks.setWork(st.id, k('2026-09-28'), true)
+    await repos.subtasks.setWork(st.id, k('2026-09-25'), true)
+
+    const d = await agg.aggregateDayDetail(D)
+    // 不双显：待办里只剩普通待办，0/1 计数也不再含推进项
+    expect(d.todos.map((t) => t.text)).toEqual(['买牛奶'])
+    expect(d.summary.todoTotal).toBe(1)
+    expect(d.summary.todoDone).toBe(0)
+
+    expect(d.progress).toHaveLength(1)
+    const grp = d.progress[0]!
+    expect(grp.goalTitle).toBe('考研')
+    expect(grp.stageTitle).toBe('第二阶段')
+    expect(grp.items).toHaveLength(1)
+    const item = grp.items[0]!
+    expect(item.text).toBe('背单词')
+    expect(item.days).toBe(2)
+    expect(item.done).toBe(false)
+    // 过去 6 天 = 9/23 9/24 9/25 9/26 9/27 9/28，**不含今天**
+    expect(item.recent).toEqual([false, false, true, false, false, true])
+  })
+
+  it('只有推进项时不算空日；打卡 done=true 但子任务本身仍未完成', async () => {
+    const { st, todo } = await seedProgress()
+
+    const before = await agg.aggregateDayDetail(D)
+    expect(before.summary.isEmpty).toBe(false)
+    expect(before.summary.todoTotal).toBe(0)
+
+    // 与 store.toggleTodo 同序：勾待办 + setWork 写当天打卡
+    await repos.subtasks.setWork(st.id, D, true)
+    await repos.todos.toggle(todo.id, D)
+    const after = await agg.aggregateDayDetail(D)
+    expect(after.progress[0]!.items[0]!.done).toBe(true)
+    expect(after.progress[0]!.items[0]!.days).toBe(1)
+    // 今天的打卡不进「过去 6 天」点阵
+    expect(after.progress[0]!.items[0]!.recent).toEqual([false, false, false, false, false, false])
+    // 打卡 ≠ 完成：子任务自身仍是未完成
+    const sub = (await repos.subtasks.byGoal(st.goalId)).find((x) => x.id === st.id)!
+    expect(sub.done).toBe(false)
+  })
+
+  it('子任务无阶段归属时退到目标的当前阶段；子任务被删则整条不渲染', async () => {
+    const g = await repos.goals.create({ title: '考公', note: '' })
+    const s = await repos.stages.create({ goalId: g.id, title: '基础' })
+    await repos.stages.setCurrent(s.id)
+    const st = await repos.subtasks.create({ goalId: g.id, title: '刷行测' })
+    await repos.todos.create(D, '刷行测', undefined, undefined, st.id, g.title)
+
+    const d1 = await agg.aggregateDayDetail(D)
+    expect(d1.progress[0]!.stageTitle).toBe('基础')
+
+    await repos.subtasks.softDelete(st.id)
+    const d2 = await agg.aggregateDayDetail(D)
+    expect(d2.progress).toHaveLength(0)
+  })
+})

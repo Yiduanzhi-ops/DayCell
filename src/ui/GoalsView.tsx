@@ -539,12 +539,17 @@ function SubtaskRow({
       ) : stageDone ? null : subtask.done ? (
         <span className={styles.todayBtnDim}>已做</span>
       ) : inToday ? (
-        <button type="button" className={`${styles.todayBtn} ${styles.todayBtnUndo}`} onClick={() => void removeSubtaskFromToday(subtask.id)}>
-          - 每日待办
+        <button
+          type="button"
+          className={`${styles.todayBtn} ${styles.todayBtnUndo}`}
+          title="已在今日视图里，点一下撤回"
+          onClick={() => void removeSubtaskFromToday(subtask.id)}
+        >
+          已在今日
         </button>
       ) : (
         <button type="button" className={styles.todayBtn} onClick={() => void addSubtaskToToday(subtask.id)}>
-          ＋每日待办
+          ＋ 目标推进
         </button>
       )}
     </div>

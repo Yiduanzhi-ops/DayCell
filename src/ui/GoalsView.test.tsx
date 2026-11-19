@@ -220,7 +220,7 @@ describe('目标详情（v9.46 原型口径）', () => {
     expect(after.workDates ?? []).not.toContain(TODAY)
   })
 
-  it('＋每日待办 / －每日待办：加入后出现在今日待办，移除会撤销当天打卡', async () => {
+  it('＋ 目标推进 / 已在今日：加入后进入今日「目标推进」，撤回会撤销当天打卡', async () => {
     const { store, bundle } = await renderApp()
     await seedGoal(store)
     await openGoalUI()
@@ -228,14 +228,14 @@ describe('目标详情（v9.46 原型口径）', () => {
     const sid = await addSub(store, '做完教案')
     await waitFor(() => screen.getByText('做完教案'))
 
-    fireEvent.click(screen.getByRole('button', { name: '＋每日待办' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: '- 每日待办' })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: '＋ 目标推进' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: '已在今日' })).toBeInTheDocument())
     expect(store.getState().subtaskTodayIds).toContain(sid)
 
-    // 模拟今天已完成打卡，再从目标详情移除
+    // 模拟今天已完成打卡，再从目标详情撤回
     await store.getState().toggleSubtaskWork(sid)
-    fireEvent.click(screen.getByRole('button', { name: '- 每日待办' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: '＋每日待办' })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: '已在今日' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: '＋ 目标推进' })).toBeInTheDocument())
     expect(store.getState().subtaskTodayIds).not.toContain(sid)
     const sub = (await bundle.repos.subtasks.byGoal(store.getState().goalDetail!.goal.id)).find((x) => x.id === sid)!
     expect(sub.workDates ?? []).not.toContain(TODAY)
