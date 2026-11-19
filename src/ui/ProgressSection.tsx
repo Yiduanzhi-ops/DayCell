@@ -30,15 +30,13 @@ export function ProgressSection({ date }: { date?: DateKey }): JSX.Element {
   })
   const detail = useApp((s) => (date || s.detailDate !== k ? undefined : s.detail))
   const toggleTodo = useApp((s) => s.toggleTodo)
-  const setView = useApp((s) => s.setView)
-  const openGoal = useApp((s) => s.openGoal)
+  const openGoalFromProgress = useApp((s) => s.openGoalFromProgress)
 
   const groups = (cached ?? detail)?.progress ?? []
 
-  /** 进目标 tab（setView 会清 goalDetail 并 refresh）→ 再异步打开这个目标 */
+  /** v9.66 进目标详情但记住来路：返回时回到今日/周视图，而不是目标列表 */
   const goGoal = (id: string): void => {
-    setView('goals')
-    void openGoal(id)
+    void openGoalFromProgress(id)
   }
 
   return (
@@ -48,7 +46,7 @@ export function ProgressSection({ date }: { date?: DateKey }): JSX.Element {
         <span className={styles.line} />
       </div>
       {groups.length === 0 ? (
-        <button type="button" className={styles.reviewEmpty} onClick={() => setView('goals')}>
+        <button type="button" className={styles.reviewEmpty} onClick={() => void openGoalFromProgress()}>
           {date ? '这天' : '今天'}还没挑要推进的子任务
           <br />
           <span className={styles.pcEmptyGo}>点这里去目标里挑 ›</span>
@@ -66,19 +64,26 @@ export function ProgressSection({ date }: { date?: DateKey }): JSX.Element {
               {g.stageTitle && <span className={styles.pstage}>{g.stageTitle}</span>}
             </div>
             {g.items.map((it) => (
-              <div key={it.todoId} className={styles.prow}>
-                <button
-                  type="button"
-                  className={it.done ? `${styles.pchk} ${styles.pchkOn}` : styles.pchk}
-                  aria-pressed={it.done}
-                  aria-label={it.done ? `撤销今天的打卡：${it.text}` : `今天打卡：${it.text}`}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    void toggleTodo(it.todoId)
-                  }}
-                >
-                  {it.done ? '已打卡' : '打卡'}
-                </button>
+              <div key={it.virtual ? `v-${it.subtaskId}` : it.todoId} className={styles.prow}>
+                {it.virtual ? (
+                  // v9.66 未来日期的投影行：还没到那天，打卡按钮不可点（无实体待办）
+                  <span className={styles.pchkVirtual} title="到那天打开后才会生成待办，才能打卡">
+                    未开始
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    className={it.done ? `${styles.pchk} ${styles.pchkOn}` : styles.pchk}
+                    aria-pressed={it.done}
+                    aria-label={it.done ? `撤销今天的打卡：${it.text}` : `今天打卡：${it.text}`}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      void toggleTodo(it.todoId)
+                    }}
+                  >
+                    {it.done ? '已打卡' : '打卡'}
+                  </button>
+                )}
                 <span className={styles.ptext} onClick={(e) => e.stopPropagation()}>
                   {it.text}
                 </span>

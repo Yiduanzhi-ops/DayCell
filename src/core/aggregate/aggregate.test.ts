@@ -1170,6 +1170,48 @@ describe('v8.107 目标推进（DayDetail.progress）', () => {
     expect(sub.done).toBe(false)
   })
 
+  it('v9.66 未来日期：pinned 子任务以只读虚拟行投影；今天与过去不投影、不写库', async () => {
+    const g = await repos.goals.create({ title: '考研', note: '' })
+    const s = await repos.stages.create({ goalId: g.id, title: '基础' })
+    const st = await repos.subtasks.create({ goalId: g.id, title: '背单词', stageId: s.id })
+    await repos.subtasks.setPinned(st.id, true)
+
+    const tomorrow = k('2026-09-30')
+    // today 显式传 D，否则会按真实系统日期判断「未来」
+    const d = await agg.aggregateDayDetail(tomorrow, { today: D })
+    expect(d.progress).toHaveLength(1)
+    const item = d.progress[0]!.items[0]!
+    expect(item.virtual).toBe(true)
+    expect(item.todoId).toBe('')
+    expect(item.done).toBe(false)
+    expect(item.recent).toEqual([false, false, false, false, false, false])
+    // 投影不落库：目标日仍然没有实体待办
+    expect(await repos.todos.byDate(tomorrow)).toHaveLength(0)
+
+    // 今天不掺虚拟行（今天应由 materializePinned 生成实体行）
+    expect((await agg.aggregateDayDetail(D, { today: D })).progress).toHaveLength(0)
+    // 过去不回溯投影
+    expect((await agg.aggregateDayDetail(k('2026-09-28'), { today: D })).progress).toHaveLength(0)
+
+    // 已完成的子任务即使还 pinned 也不再投影
+    await repos.subtasks.setDone(st.id, true)
+    expect((await agg.aggregateDayDetail(tomorrow, { today: D })).progress).toHaveLength(0)
+  })
+
+  it('v9.66 周视图：未来格子预览 pinned 子任务，但不计入当天合计与整周合计', async () => {
+    const g = await repos.goals.create({ title: '考研', note: '' })
+    const s = await repos.stages.create({ goalId: g.id, title: '基础' })
+    const st = await repos.subtasks.create({ goalId: g.id, title: '背单词', stageId: s.id })
+    await repos.subtasks.setPinned(st.id, true)
+
+    const week = await agg.aggregateWeek(D, { today: D })
+    const tomorrow = week.days.find((x) => x.date === k('2026-09-30'))!
+    // 预览能看到，但这一格仍然是 0/0（还没发生，不计完成率）
+    expect(tomorrow.todoPreview.map((t) => t.text)).toContain('背单词')
+    expect(tomorrow.todoTotal).toBe(0)
+    expect(week.total.todoTotal).toBe(0)
+  })
+
   it('子任务无阶段归属时退到目标的当前阶段；子任务被删则整条不渲染', async () => {
     const g = await repos.goals.create({ title: '考公', note: '' })
     const s = await repos.stages.create({ goalId: g.id, title: '基础' })

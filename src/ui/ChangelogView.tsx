@@ -8,11 +8,20 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.111'
+const CURRENT_VERSION = 'v8.112'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.112',
+    date: '2026-11-19',
+    items: [
+      '「每日推进」只留一个开关：开=每天自动加进今日，关=停在今天；副行直接写「今天已加入 / 每天自动加入」',
+      '翻到明天或下周，也能看到每天推进的子任务（只读预览，到那天打开才会生成待办、才能打卡）',
+      '从今日「目标推进」进目标详情，返回会回到今日视图，不再把你丢到目标列表',
+    ],
+  },
   {
     version: 'v8.111',
     date: '2026-11-19',

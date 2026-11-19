@@ -14,6 +14,7 @@ import { createMemoryStore, type DateKey } from '@core'
 import { initCore } from '@/app/bootstrap'
 import { createAppStore } from '@/app/store'
 import { App } from './App'
+import { CURRENT_VERSION } from './ChangelogView'
 
 afterEach(cleanup)
 
@@ -37,15 +38,15 @@ async function openChangelog() {
 describe('ChangelogView（版本更新）', () => {
   it('从菜单进入版本更新页，返回后关闭', async () => {
     await openChangelog()
-    expect(screen.getByText('当前版本 v8.111')).toBeInTheDocument()
+    expect(screen.getByText(`当前版本 ${CURRENT_VERSION}`)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
-    expect(screen.queryByText('当前版本 v8.111')).not.toBeInTheDocument()
+    expect(screen.queryByText(`当前版本 ${CURRENT_VERSION}`)).not.toBeInTheDocument()
   })
 
-  it('列表倒序：第一条是最新版本 v8.111，且最新版要点可见', async () => {
+  it('列表倒序：第一条是最新版本，且最新版要点可见', async () => {
     await openChangelog()
     const vers = screen.getAllByText(/^v\d+\.\d+$/)
-    expect(vers[0].textContent).toBe('v8.111')
+    expect(vers[0]!.textContent).toBe(CURRENT_VERSION)
     // v8.110
     expect(screen.getByText(/按钮不再显示「＋ 目标推进」/)).toBeInTheDocument()
     // v8.109

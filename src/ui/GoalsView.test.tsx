@@ -220,7 +220,7 @@ describe('目标详情（v9.46 原型口径）', () => {
     expect(after.workDates ?? []).not.toContain(TODAY)
   })
 
-  it('＋ 目标推进 / 每天推进中：加入后常驻今日「目标推进」，移出会撤掉今天的行并撤销打卡', async () => {
+  it('每日推进开关：打开后常驻今日「目标推进」，关闭会撤掉今天的行并撤销打卡', async () => {
     const { store, bundle } = await renderApp()
     await seedGoal(store)
     await openGoalUI()
@@ -228,20 +228,24 @@ describe('目标详情（v9.46 原型口径）', () => {
     const sid = await addSub(store, '做完教案')
     await waitFor(() => screen.getByText('做完教案'))
 
-    fireEvent.click(screen.getByRole('button', { name: '＋ 目标推进' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: '每天推进中' })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: '每日推进：做完教案' }))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '每日推进：做完教案' })).toHaveAttribute('aria-pressed', 'true'),
+    )
     expect(store.getState().subtaskTodayIds).toContain(sid)
 
     // 模拟今天已完成打卡，再从目标详情撤回
     await store.getState().toggleSubtaskWork(sid)
-    fireEvent.click(screen.getByRole('button', { name: '每天推进中' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: '＋ 目标推进' })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: '每日推进：做完教案' }))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '每日推进：做完教案' })).toHaveAttribute('aria-pressed', 'false'),
+    )
     expect(store.getState().subtaskTodayIds).not.toContain(sid)
     const sub = (await bundle.repos.subtasks.byGoal(store.getState().goalDetail!.goal.id)).find((x) => x.id === sid)!
     expect(sub.workDates ?? []).not.toContain(TODAY)
   })
 
-  it('v8.110 已在今天：不再显示「＋ 目标推进」，点「已在今天」转每天推进且不重复建行', async () => {
+  it('v9.66 今天已加入：开关未开时副行标「今天已加入」，打开开关不重复建行', async () => {
     const { store, bundle } = await renderApp()
     await seedGoal(store)
     await openGoalUI()
@@ -252,12 +256,14 @@ describe('目标详情（v9.46 原型口径）', () => {
     await store.getState().refresh()
 
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: '已在今天，点一下改成每天推进：整理错题本' })).toBeInTheDocument(),
+      expect(screen.getByRole('button', { name: '每日推进：整理错题本' })).toHaveAttribute('aria-pressed', 'false'),
     )
-    expect(screen.queryByRole('button', { name: '＋ 目标推进' })).not.toBeInTheDocument()
+    expect(screen.getByText('打卡 0 天 · 今天已加入')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: '已在今天，点一下改成每天推进：整理错题本' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: '每天推进中' })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: '每日推进：整理错题本' }))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '每日推进：整理错题本' })).toHaveAttribute('aria-pressed', 'true'),
+    )
     const rows = (await bundle.repos.todos.byDate(TODAY)).filter((t) => t.subtaskId === sid && !t.deleted)
     expect(rows).toHaveLength(1)
     const sub = (await bundle.repos.subtasks.byGoal(store.getState().goalDetail!.goal.id)).find((x) => x.id === sid)!
@@ -271,8 +277,10 @@ describe('目标详情（v9.46 原型口径）', () => {
     const sid = await addSub(store, '每天背单词')
     await waitFor(() => screen.getByText('每天背单词'))
 
-    fireEvent.click(screen.getByRole('button', { name: '＋ 目标推进' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: '每天推进中' })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: '每日推进：每天背单词' }))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '每日推进：每天背单词' })).toHaveAttribute('aria-pressed', 'true'),
+    )
     const before = await bundle.repos.subtasks.byGoal(store.getState().goalDetail!.goal.id)
     expect(before.find((x) => x.id === sid)!.pinned).toBe(true)
 

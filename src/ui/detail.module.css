@@ -413,6 +413,11 @@
 .pchk::before { content: ""; position: absolute; inset: -7px -6px; }
 .pchk:hover { border-color: var(--accent-line); color: var(--accent); }
 .pchkOn { color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft); }
+/* v9.66 未来日期的投影行：不可打卡，视觉压暗但不抢眼 */
+.pchkVirtual {
+  flex: none; font-size: 10.5px; line-height: 1.6; padding: 1px 7px; border-radius: 5px;
+  color: var(--ink-3); border: 1px dashed var(--line); background: transparent; white-space: nowrap;
+}
 .ptext {
   flex: 1; min-width: 0;
   font-size: 13.5px; line-height: 1.5; color: var(--ink);
