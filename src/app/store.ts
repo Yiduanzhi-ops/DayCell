@@ -978,7 +978,9 @@ export function createAppStore(
         }
         set({ dataVer: get().dataVer + 1 })
         await get().refresh()
-        if (t.done) get().showToast('完成了一件')
+        // v8.107 目标推进：这里的勾选是「今天打卡」，不是「把这件子任务做完」，文案要分开
+        if (t.subtaskId) get().showToast(t.done ? '今天打卡了' : '已撤销今天的打卡')
+        else if (t.done) get().showToast('完成了一件')
       } catch (e) {
         get().showToast(errMsg(e))
       }
@@ -1061,7 +1063,7 @@ export function createAppStore(
         const date = get().today
         const existing = await repos.todos.byDate(date)
         if (existing.some((t) => t.subtaskId === subtaskId)) {
-          get().showToast('已在今日待办里')
+          get().showToast('已在今日推进里')
           return false
         }
         // v8.64 目标标题一并快照：待办行标注「· 目标名」；目标之后改名/删除不影响已加入待办
@@ -1069,7 +1071,7 @@ export function createAppStore(
         await repos.todos.create(date, subtask.title, undefined, undefined, subtaskId, d.goal.title)
         set({ dataVer: get().dataVer + 1 })
         await get().refresh()
-        get().showToast('已加入今天的待办')
+        get().showToast('已加入今天的推进')
         return true
       } catch (e) {
         get().showToast(errMsg(e))
@@ -1083,7 +1085,7 @@ export function createAppStore(
         const existing = await repos.todos.byDate(date)
         const todo = existing.find((t) => t.subtaskId === subtaskId)
         if (!todo) {
-          get().showToast('不在今日待办里')
+          get().showToast('不在今日推进里')
           return
         }
         // v9.46：移除今日待办时一并撤销当天打卡（无论这条待办是否已勾）

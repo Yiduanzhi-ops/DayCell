@@ -379,3 +379,51 @@
   padding: 5px 15px; border-radius: 6px; font-weight: 500; min-height: 32px;
 }
 .save:hover { filter: brightness(1.08); }
+
+/* ---- v8.107 目标推进（今日视图里「从目标挑进来的子任务」） ----
+   组 = 一个目标；组头是目标名 + 阶段胶囊；行首是打卡文字胶囊（打卡 ≠ 完成）。
+   点击语义由 ProgressSection 控制：组内空白跳目标详情，文字/天数/点阵不响应。 */
+.pgroup {
+  margin: 0 0 8px;
+  padding: 7px 10px 6px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--bg);
+  cursor: pointer;
+}
+.pgroup:last-child { margin-bottom: 0; }
+.pgroup:hover { background: var(--bg-hover); border-color: var(--accent-line); }
+.pgroupH { display: flex; align-items: center; gap: 7px; min-width: 0; padding: 1px 0 4px; }
+.pgoal {
+  min-width: 0; font-size: 13px; font-weight: 600; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pstage {
+  flex: none; font-size: 10px; line-height: 1.6; padding: 0 5px;
+  border-radius: 4px; color: var(--accent); background: var(--accent-soft);
+  white-space: nowrap;
+}
+.prow { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 4px 0; }
+/* 打卡键：文字胶囊。视觉很小，热区用伪元素撑到 ~33px 高（PRD §5.5 触摸目标） */
+.pchk {
+  position: relative; flex: none;
+  font-family: var(--font);
+  font-size: 10.5px; line-height: 1.6;
+  padding: 1px 7px; border-radius: 5px;
+  color: var(--ink-3); border: 1px solid var(--line); background: var(--bg);
+}
+.pchk::before { content: ""; position: absolute; inset: -7px -6px; }
+.pchk:hover { border-color: var(--accent-line); color: var(--accent); }
+.pchkOn { color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft); }
+.ptext {
+  flex: 1; min-width: 0;
+  font-size: 13.5px; line-height: 1.5; color: var(--ink);
+  word-break: break-word;
+}
+.pdays { flex: none; font-size: 10.5px; color: var(--ink-3); white-space: nowrap; }
+/* 过去 6 天点阵（不含今天）：9px、圆角 2.5、间距 3 */
+.pdots { flex: none; display: flex; gap: 3px; }
+.pdot { width: 9px; height: 9px; border-radius: 2.5px; background: var(--line-2); }
+.pdotOn { background: var(--accent-strong); }
+/* 空态第二行「点这里去目标里挑」：唯一强调色，告诉用户入口在哪 */
+.pcEmptyGo { color: var(--accent); }

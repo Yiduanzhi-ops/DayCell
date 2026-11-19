@@ -82,7 +82,9 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
   const deleteTodo = useApp((s) => s.deleteTodo)
   const toggleAnnivDone = useApp((s) => s.toggleAnnivDone)
 
-  const todos = (cached ?? detail)?.todos ?? []
+  // v8.107：目标推进项（subtaskId 非空）已在「目标推进」区块里单独渲染，待办列表不再双显。
+  // 聚合层已经过滤过一次，这里再兜一层，防止旧缓存或别的调用方把未过滤的数据塞进来。
+  const todos = ((cached ?? detail)?.todos ?? []).filter((t) => !t.subtaskId)
   // v7.6：已完成的自动沉底；v9.2.2：未完成内「有具体时间 → 置顶按时刻升序」，无时间的保持原序（稳定排序）
   const sorted = [...todos].sort((a, b) => {
     if (a.done !== b.done) return a.done ? 1 : -1
@@ -103,7 +105,7 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
   const [editingId, setEditingId] = useState<string | null>(null)
 
   return (
-    <div className={styles.sect}>
+    <div className={styles.sect} data-testid="todo-section">
       <div className={styles.sectH}>
         <h3>待办</h3>
         {total > 0 && <span className={styles.n}>{done}/{total}</span>}

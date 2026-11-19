@@ -30,6 +30,7 @@ import { addDays, dowOf, fromKey, lunarFullText } from '@core'
 import type { DateKey } from '@core'
 import { useApp } from '@/app/context'
 import { TodoSection } from './TodoSection'
+import { ProgressSection } from './ProgressSection'
 import { NoteSection } from './NoteSection'
 import { HabitSection } from './HabitSection'
 import { ReviewSection } from './ReviewSection'
@@ -418,6 +419,8 @@ function DayFull({ date }: { date?: DateKey } = {}): JSX.Element {
       {aiBanner}
 
       <TodoSection dayWord={dayWord} date={date} />
+      {/* v8.107 目标推进：被挑进来的目标子任务（待办列表里不再双显） */}
+      <ProgressSection date={date} />
       <HabitSection date={date} />
       <NoteSection dayWord={dayWord} date={date} />
       {/* v8.42 复盘：今日视图最下方，每日一条 */}

@@ -11,11 +11,12 @@
  * | `aggregateMonth` | **3**：byDateAll + anniversaries.all + categories.nameMap | ≤ 100 ms @ 4 万条 |
  * | `aggregateWeek`  | 同上 3 次（区间只有 7 天） | ≤ 50 ms |
  * | `aggregateDay`   | 同上 3 次（区间 1 天） | ≤ 10 ms |
- * | `aggregateDayDetail` | **仍是 3 次**——见下 | ≤ 20 ms（v6 首屏关键路径） |
+ * | `aggregateDayDetail` | 见下（早期 3 次，v8.107 起 12 路并行） | ≤ 20 ms（v6 首屏关键路径） |
  *
  * `aggregateDayDetail` 还要「前一天未完成待办数」来画顺延横幅。**不是**再查一次，
  * 而是把区间开成 `[date-1, date]` 一次取两天，然后按 date 劈开。多要一天数据的代价
- * 远小于多一次 IndexedDB 往返。
+ * 远小于多一次 IndexedDB 往返。v8.107 的「目标推进」另要 goals/stages/subtasks 三张
+ * 小表的全量（内存过滤），并行发出，总查询数 12 路。
  *
  * **禁止**（code review 检查项）：在循环里开事务 / 用 `all()` 拿内容记录再在内存里过滤日期 /
  * 逐日调用 `aggregateDay` 拼月视图（42 × 3 = 126 次查询）。
@@ -134,6 +135,36 @@ export interface WeekDay extends DayAggregate {
   lunarDay?: string
 }
 
+/**
+ * v8.107 今日「目标推进」的一行：今天从目标里挑进来推进的一个子任务。
+ *
+ * 它本身仍是 `todos` 里 `subtaskId` 非空的一条记录（老口径「加入今日待办」），
+ * 这里只是把归属信息（目标、阶段、累计天数、近 6 天）拼好，
+ * 让今日视图不必自己去查 goals/stages/subtasks。
+ */
+export interface ProgressItem {
+  /** 对应的待办记录 id（勾选 / 撤销都走 todos，不新增数据表） */
+  todoId: string
+  subtaskId: string
+  /** 子任务标题（实时值；改名后以子任务为准，不用待办里的标题快照） */
+  text: string
+  /** 累计打卡天数 = workDates 长度 */
+  days: number
+  /** 今天是否已打卡（= 这条待办的 done） */
+  done: boolean
+  /** 过去 6 天（date-6 … date-1）的打卡态，**不含今天** */
+  recent: boolean[]
+}
+
+/** v8.107 今日「目标推进」的一组 = 一个目标 + 它今天被挑进来的子任务 */
+export interface ProgressGroup {
+  goalId: string
+  goalTitle: string
+  /** 子任务所属阶段名（无阶段归属时取目标的当前阶段；都没有为 null） */
+  stageTitle: string | null
+  items: ProgressItem[]
+}
+
 /** 日视图（v6 的默认落地页）的唯一数据源：计数 + **全文** */
 export interface DayDetail {
   date: DateKey
@@ -161,6 +192,11 @@ export interface DayDetail {
   habits: HabitDayItem[]
   /** v8.42 当日复盘（每日一条；没写为 null） */
   review: { id: string; text: string } | null
+  /**
+   * v8.107 今日「目标推进」：今天被挑进今日视图的目标子任务，按目标分组。
+   * 这些子任务的待办**不再出现在 `todos`**（同一件事不双显），所以待办计数也不含它们。
+   */
+  progress: ProgressGroup[]
 }
 
 export interface MonthSummary {
@@ -291,6 +327,80 @@ function visibleTodos(todos: readonly TodoRecord[], date: DateKey): TodoRecord[]
       // v8.97：提醒型是单日事件——历史 date 未跟随 deadline 时，旧日期也不再显示
       todoOccurrenceDay(t) === date &&
       !(t.deadline && t.done && todoDoneDay(t) !== date),
+  )
+}
+
+/**
+ * v8.107 今日「目标推进」：把今天 `subtaskId` 非空的待办，按目标分组并补齐归属信息。
+ *
+ * 口径（用户已拍板）：
+ *  - **只认被挑进来的**：`todos` 里带 `subtaskId` 的那条就是「今天要推进它」的唯一凭据，
+ *    没有这条记录的子任务不出现在今日视图。
+ *  - **不双显**：这些记录同时从待办列表里摘出去（DayDetail.todos 已过滤），
+ *    所以待办计数也不再包含它们。
+ *  - **打卡 ≠ 完成**：`done` 只表示今天打过卡，子任务自身完成与否不在这里判断，
+ *    已完成的子任务当天仍可继续打卡。
+ *  - 子任务被删（墓碑）→ 整条不再渲染（对应待办也随之成为孤儿，由用户自行删除）。
+ */
+const LEGACY_STAGE_PREFIX = /^第[一二三四五六七八九十百0-9]+阶段\s*[·:：-]\s*/
+
+function cleanStageTitle(title: string): string {
+  return title.replace(LEGACY_STAGE_PREFIX, '').trim()
+}
+
+function buildProgress(
+  todos: readonly TodoRecord[],
+  goals: readonly GoalRecord[],
+  stages: readonly StageRecord[],
+  subtasks: readonly SubtaskRecord[],
+  date: DateKey,
+): ProgressGroup[] {
+  const goalMap = new Map(goals.filter((g) => !g.deleted).map((g) => [g.id, g]))
+  const stageMap = new Map(stages.filter((s) => !s.deleted).map((s) => [s.id, s]))
+  const subMap = new Map(subtasks.filter((s) => !s.deleted).map((s) => [s.id, s]))
+  const groups = new Map<string, ProgressGroup>()
+
+  for (const t of todos) {
+    if (!t.subtaskId) continue
+    const sub = subMap.get(t.subtaskId)
+    if (!sub) continue
+    const goal = goalMap.get(sub.goalId)
+    // 阶段：优先子任务自己的阶段；没有归属时退到目标的「当前」阶段
+    const stage = sub.stageId
+      ? stageMap.get(sub.stageId)
+      : stages.find((s) => !s.deleted && s.goalId === sub.goalId && s.isCurrent)
+    let group = groups.get(sub.goalId)
+    if (!group) {
+      group = {
+        goalId: sub.goalId,
+        // 目标记录没了（理论上不会：删目标会连带墓碑子任务）→ 用待办里的标题快照兜底
+        goalTitle: goal?.title ?? t.subtaskGoalTitle ?? '目标',
+        stageTitle: stage ? cleanStageTitle(stage.title) || null : null,
+        items: [],
+      }
+      groups.set(sub.goalId, group)
+    }
+    const workDates = Array.isArray(sub.workDates) ? sub.workDates : []
+    const recent: boolean[] = []
+    for (let i = 6; i >= 1; i -= 1) recent.push(workDates.includes(addDays(date, -i)))
+    group.items.push({
+      todoId: t.id,
+      subtaskId: sub.id,
+      text: sub.title,
+      days: workDates.length,
+      done: !!t.done,
+      recent,
+    })
+  }
+
+  // 顺序：todos 是按 id（uuid）索引取出的，天然乱序。这里统一按**子任务在目标里的
+  // 创建顺序**排——与目标详情页看到的顺序一致，刷新/换设备都不会跳。
+  const born = (subtaskId: string): number => subMap.get(subtaskId)?.createdAt ?? 0
+  for (const group of groups.values()) {
+    group.items.sort((a, b) => born(a.subtaskId) - born(b.subtaskId) || a.todoId.localeCompare(b.todoId))
+  }
+  return [...groups.values()].sort(
+    (a, b) => born(a.items[0]!.subtaskId) - born(b.items[0]!.subtaskId) || a.goalId.localeCompare(b.goalId),
   )
 }
 
@@ -853,7 +963,22 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
       // v8.29 加纪念日勾选集合（annivDones）。
       // v8.53 加第九路 activeDdl：活跃 DDL 待办注入"每天出现"。
       // v8.60 改用 ddlAll（含已完成）：完成当天保留显示，次日起不再注入。
-      const [data, annivTitles, catMap, annivRecs, habits, done, annivDone, review, ddl] = await Promise.all([
+      // v8.107 加第十到十二路 goals/stages/subtasks：拼「目标推进」的归属信息（目标名、阶段、workDates）。
+      // 三张都是小表，内存过滤；aggregateDayDetail 的查询次数因此从 9 路升到 12 路。
+      const [
+        data,
+        annivTitles,
+        catMap,
+        annivRecs,
+        habits,
+        done,
+        annivDone,
+        review,
+        ddl,
+        goalsAll,
+        stagesAll,
+        subtasksAll,
+      ] = await Promise.all([
         store.byDateAll(prev, date),
         anniversaryTitles(date, date),
         catNames(),
@@ -864,6 +989,9 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
         // v8.42 当日复盘（每日一条）
         repos.reviews.byDate(date),
         repos.todos.ddlAll(),
+        store.all<GoalRecord>('goals'),
+        store.all<StageRecord>('stages'),
+        store.all<SubtaskRecord>('subtasks'),
       ])
 
       const buckets = bucketize(data)
@@ -873,17 +1001,24 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
       const cats = makeCatResolver(catMap)
       const info = lunar?.lunarOf(date) ?? null
       const titles = annivTitles.get(date) ?? []
-      const summary = buildDay(date, today, titles, info, cats, review)
+      const progress = buildProgress(today.todos, goalsAll, stagesAll, subtasksAll, date)
+      // v8.107 子任务来源的待办已挪进「目标推进」：待办列表与 0/3 计数都不再含它们（同一件事不双显）
+      const plainTodos = today.todos.filter((t) => !t.subtaskId)
+      const base = buildDay(date, { ...today, todos: plainTodos }, titles, info, cats, review)
       const overdueTrace = overdueTracesOn(ddl, date)
+      const summary = overdueTrace.length > 0 || progress.length > 0
+        ? { ...base, isEmpty: false }
+        : base
 
       return {
         date,
         // v8.98 只有逾期痕迹也算「有内容」，否则日视图会误显示「这一天还什么都没有」。
-        summary: overdueTrace.length > 0 ? { ...summary, isEmpty: false } : summary,
+        // v8.107 只有「目标推进」也算有内容。
+        summary,
         // v8.53：todos = 当天本地待办 + 注入的活跃 DDL（截止日当天去重）。
         // 排序：带截止日的 DDL 置顶（截止日升序，逾期自然最前），普通待办保持 createdAt 升序。
         // ⚠️ 进度（todoTotal/todoDone）**不含**注入的 DDL 项——DDL 是跨天任务，不稀释每天的进度。
-        todos: mergeDdlTodos(today.todos, ddl, date),
+        todos: mergeDdlTodos(plainTodos, ddl, date),
         overdueTrace,
         notes: today.notes,
         expenses: today.expenses,
@@ -893,6 +1028,7 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
         prevDayRollable: yesterday.todos.filter(isRollable).length,
         habits: buildHabitItems(habits, done, date),
         review: review ? { id: review.id, text: review.text } : null,
+        progress,
       }
     },
 
