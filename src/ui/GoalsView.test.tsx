@@ -241,6 +241,29 @@ describe('目标详情（v9.46 原型口径）', () => {
     expect(sub.workDates ?? []).not.toContain(TODAY)
   })
 
+  it('v8.110 已在今天：不再显示「＋ 目标推进」，点「已在今天」转每天推进且不重复建行', async () => {
+    const { store, bundle } = await renderApp()
+    await seedGoal(store)
+    await openGoalUI()
+    const stageId = await addStage(store, '基础学习')
+    const sid = await addSub(store, '整理错题本', stageId)
+    // 旧版「加入今日」留下的行：有今天的待办，但没有 pinned
+    await bundle.repos.todos.create(TODAY, '整理错题本', undefined, undefined, sid, '复习考公')
+    await store.getState().refresh()
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '已在今天，点一下改成每天推进：整理错题本' })).toBeInTheDocument(),
+    )
+    expect(screen.queryByRole('button', { name: '＋ 目标推进' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '已在今天，点一下改成每天推进：整理错题本' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: '每天推进中' })).toBeInTheDocument())
+    const rows = (await bundle.repos.todos.byDate(TODAY)).filter((t) => t.subtaskId === sid && !t.deleted)
+    expect(rows).toHaveLength(1)
+    const sub = (await bundle.repos.subtasks.byGoal(store.getState().goalDetail!.goal.id)).find((x) => x.id === sid)!
+    expect(sub.pinned).toBe(true)
+  })
+
   it('v8.108 常驻：今天这行没了（模拟第二天首开）→ 打开今天会自动补一条；勾完成则自动解除并转「已做」', async () => {
     const { store, bundle } = await renderApp()
     await seedGoal(store)

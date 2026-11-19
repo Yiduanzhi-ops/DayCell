@@ -545,7 +545,7 @@ DayCell 不是一套后端、三个前端。它是：
 
 ### 分支关系
 
-- `feat/desktop-shell` 与 `main` 共享 v8.109 前端；桌面壳版本只在 `feat/desktop-shell` 到 1.4.9。
+- `feat/desktop-shell` 与 `main` 共享 v8.110 前端；桌面壳版本只在 `feat/desktop-shell` 到 1.4.9。
 - `main` 与 `v9-backend` 的 `src-tauri` 仍停在旧版本；不要从这两个分支直接构建桌面版。
 - v9 的 `README.md` 只比 main 多 8 行版本历史；v9 的 `docs/README.md`、`CORE-API.md`、`PROGRESS.md`、`v9-roadmap.md` 基本没动，不能作为 v9 当前文档。
 
