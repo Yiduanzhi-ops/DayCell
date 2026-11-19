@@ -185,6 +185,11 @@ DayCell 不是一套后端、三个前端。它是：
 - 子任务全部完成时，阶段自动完成（v9.47 起）；阶段也可手动完成。
 - 子任务有独立进度：勾选完成记 100%，否则用手填进度，都没填写 0%。
 - 子任务打卡：`workDates` 记录日期；目标卡片“已进行 N 天”取所有子任务 `workDates` 的去重并集。
+- 目标推进（v8.108 常驻）：`SubtaskRecord.pinned` 记“每天推进”，缺省 false；`repo.subtasks.all()` 读出全部（含墓碑，调用方自筛），`setPinned(id, on)` 幂等写入。
+  - `core/pinned.ts` 的 `planPinnedTodos(subtasks, goals, existing)` 是唯一规划入口：未删 + `pinned===true` + 未完成 + 目标存在 + 当天已有同 `subtaskId` 行（非墓碑）则跳过，按子任务 `createdAt` 升序。
+  - `store.materializePinned(date)` 只在 `selected === today` 时由 `refresh()` 触发（`pinnedLock` 串行锁防重入），逐条 `todos.create(date, text, …, subtaskId, goalTitle)`；多设备同日首开靠 `subtaskId` 幂等去重，不回填历史。
+  - 勾完成子任务会自动 `setPinned(false)`；移出“每天推进”会软删当天行并撤销今天这次打卡（历史日期不动）。
+  - 今日「目标推进」组头 `stageTitle` 由 `aggregate.buildProgress` 产出：同目标未删阶段按 `createdAt` 升序编号，`stageDisplayTitle(title, index)` 拼成「第N阶段 · 名字」，与目标详情页口径一致。
 - 目标完成/取消完成要维护阶段、子任务状态与 `doneOn`；删除目标级联删除阶段与子任务（通过级联快照支持恢复）。
 - 文件夹：
   - 一层扁平分类；目标可有 `folderId`；
@@ -491,8 +496,8 @@ DayCell 不是一套后端、三个前端。它是：
 
 | 维度 | `main` | `v9-backend` | `feat/desktop-shell` |
 |---|---|---|---|
-| 前端版本 | v8.101 | v9.55 | v8.101 |
-| Tauri 版本 | 1.2.0 | 1.2.0 | 1.4.2 |
+| 前端版本 | v8.108 | v9.62 | v8.108 |
+| Tauri 版本 | 1.4.6 | 1.4.6 | 1.4.8 |
 | 后端 | 无 | CloudBase 云函数 + PostgreSQL | 无 |
 | 邮箱账号 / CloudBase 同步 | 无 | 有 | 无 |
 | AI 导入 / AI 复盘 | 无 | 有 | 无 |
@@ -500,7 +505,7 @@ DayCell 不是一套后端、三个前端。它是：
 | Web Push | 无 | 有 | 无 |
 | Gitee 同步 | 有 | 有（保留兼容） | 有 |
 | 部署 | GitHub Pages | CloudBase 静态应用 | DMG / ZIP |
-| 前端测试文件 | 29 | 33 | 29 |
+| 前端测试文件 | 30 | 33 | 30 |
 | 云函数测试 | 无 | 2 个 | 无 |
 
 ### 共享功能（不要误写成 v9 独有）
