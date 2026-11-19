@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.64'
+const CURRENT_VERSION = 'v9.65'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.65',
+    date: '2026-11-19',
+    items: [
+      '偏好设置里可以单独开关「待办、目标推进、习惯、想法、复盘」：不想看的模块关掉即可，内容不会删，随时能再打开',
+      '关掉的模块不再占位置；五个全关时今日页会提示去偏好设置里打开，而不是继续喊「今天还什么都没有」',
+    ],
+  },
   {
     version: 'v9.64',
     date: '2026-11-19',

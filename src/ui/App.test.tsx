@@ -972,6 +972,38 @@ describe('v8.13 想法 tab（5 tab 布局 / 列表 / 分页 / 点击进日视图
     await waitFor(() => expect(within(cal).getAllByText('跑步').length).toBeGreaterThan(0))
   })
 
+  it('v9.65 偏好设置：今日视图模块逐个开关（默认全显），全关后给出提示', async () => {
+    const store = await renderApp()
+    await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))
+    expect(store.getState().showTodo).toBe(true)
+    expect(screen.getAllByRole('heading', { name: '待办' }).length).toBeGreaterThan(0)
+
+    // 进偏好设置：五个开关默认开
+    fireEvent.click(screen.getByRole('button', { name: '菜单' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '偏好设置' }))
+    for (const t of ['待办', '目标推进', '习惯', '想法', '复盘']) {
+      expect(screen.getByRole('switch', { name: `显示${t}` })).toHaveAttribute('aria-checked', 'true')
+    }
+
+    // 关掉「待办」→ 返回今日页，区块消失；重新进入设置仍是关（已持久化）
+    fireEvent.click(screen.getByRole('switch', { name: '显示待办' }))
+    await waitFor(() => expect(store.getState().showTodo).toBe(false))
+    fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
+    await waitFor(() => expect(screen.queryAllByRole('heading', { name: '待办' })).toHaveLength(0))
+    fireEvent.click(screen.getByRole('button', { name: '菜单' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '偏好设置' }))
+    expect(screen.getByRole('switch', { name: '显示待办' })).toHaveAttribute('aria-checked', 'false')
+
+    // 其余四个也关掉 → 今日页给「模块都隐藏了」提示，而不是"什么都没有"
+    for (const t of ['目标推进', '习惯', '想法', '复盘']) {
+      fireEvent.click(screen.getByRole('switch', { name: `显示${t}` }))
+    }
+    await waitFor(() => expect(store.getState().showReview).toBe(false))
+    fireEvent.click(screen.getByRole('button', { name: '← 返回' }))
+    await waitFor(() => expect(document.body.textContent).toContain('模块都隐藏了'))
+    expect(screen.queryAllByRole('heading', { name: '目标推进' })).toHaveLength(0)
+  })
+
   it('v8.107/108 目标推进：加入即常驻 → 今日出现且不双显 → 胶囊打卡 → 移出', async () => {
     const store = await renderApp()
     await waitFor(() => expect(document.body.textContent).toContain('2026 年 9 月 29 日'))

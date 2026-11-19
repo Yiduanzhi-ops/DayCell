@@ -240,6 +240,13 @@ export interface AppState {
   purchaseOpen: boolean
   /** v8.62：周视图显示习惯（默认关 = v8.41 现状；开则每日行列出习惯名+打卡态） */
   weekViewHabits: boolean
+
+  /** v9.65：今日视图模块显隐（默认全显；关掉后该模块不渲染，偏好设置里可再打开） */
+  showTodo: boolean
+  showProgress: boolean
+  showHabits: boolean
+  showNotes: boolean
+  showReview: boolean
   /** v9.3：早间日报通知开关与档位（'HH:mm'，null=未设置） */
   pushMorningEnabled: boolean
   pushMorningTime: string | null
@@ -472,6 +479,8 @@ export interface AppState {
   closeNotificationSettings(): void
   /** 周视图显示习惯（默认关）：写入 setting + 更新状态，周视图按此渲染 */
   setWeekViewHabits(on: boolean): Promise<void>
+  /** v9.65：今日视图模块显隐（写 settings + 即时生效；日视图与空态判断共用） */
+  setSectionVisible(key: 'todo' | 'progress' | 'habits' | 'notes' | 'review', on: boolean): Promise<void>
   /** v9.3：保存早/晚通知偏好到本地（写 settings + 更新状态；云端上报由设置页完成） */
   setPushPrefs(prefs: {
     morning?: { enabled?: boolean; time?: string | null }
@@ -648,6 +657,11 @@ export function createAppStore(
     accountOpen: false,
     purchaseOpen: false,
     weekViewHabits: false,
+    showTodo: true,
+    showProgress: true,
+    showHabits: true,
+    showNotes: true,
+    showReview: true,
     // v9.3 通知默认：早晚都关、时间默认 08:00 / 21:00（开时若未设时间用默认档）
     pushMorningEnabled: false,
     pushMorningTime: null,
@@ -677,6 +691,20 @@ export function createAppStore(
       // v8.62 用户偏好设置：周视图显示习惯（默认关，保持 v8.41 现状）
       const weekViewHabits = (await repos.settings.get('weekViewHabits', false)) as boolean
       set({ weekViewHabits })
+      const [showTodo, showProgress, showHabits, showNotes, showReview] = await Promise.all([
+        repos.settings.get('show:todo', true),
+        repos.settings.get('show:progress', true),
+        repos.settings.get('show:habits', true),
+        repos.settings.get('show:notes', true),
+        repos.settings.get('show:review', true),
+      ])
+      set({
+        showTodo: showTodo as boolean,
+        showProgress: showProgress as boolean,
+        showHabits: showHabits as boolean,
+        showNotes: showNotes as boolean,
+        showReview: showReview as boolean,
+      })
       // v9.3 通知偏好（默认全关；时间 null → 用默认档 08:00 / 21:00）
       const pushMorningEnabled = (await repos.settings.get('pushMorningEnabled', false)) as boolean
       const pushMorningTime = (await repos.settings.get('pushMorningTime', null)) as string | null
@@ -2530,6 +2558,15 @@ export function createAppStore(
     async setWeekViewHabits(on: boolean) {
       await repos.settings.set('weekViewHabits', on)
       set({ weekViewHabits: on })
+    },
+
+    async setSectionVisible(key, on) {
+      await repos.settings.set(`show:${key}`, on)
+      if (key === 'todo') set({ showTodo: on })
+      else if (key === 'progress') set({ showProgress: on })
+      else if (key === 'habits') set({ showHabits: on })
+      else if (key === 'notes') set({ showNotes: on })
+      else set({ showReview: on })
     },
 
     /** v9.3：保存早/晚通知偏好（本地设置；云端订阅上报由设置页调 pushService 完成） */
