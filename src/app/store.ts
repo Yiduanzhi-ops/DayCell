@@ -211,6 +211,12 @@ export interface AppState {
   settingsOpen: boolean
   /** v8.62：周视图显示习惯（默认关 = v8.41 现状；开则每日行列出习惯名+打卡态） */
   weekViewHabits: boolean
+
+  showTodo: boolean
+  showProgress: boolean
+  showHabits: boolean
+  showNotes: boolean
+  showReview: boolean
   /** v8.63：今天已「加入今日待办」的子任务 id（子任务行按钮两态 + 防重复判定） */
   subtaskTodayIds: string[]
   /** v8.22：首次使用引导是否打开（仅首次启动自动弹出；可从使用手册重看） */
@@ -412,6 +418,7 @@ export interface AppState {
   closeSettings(): void
   /** 周视图显示习惯（默认关）：写入 setting + 更新状态，周视图按此渲染 */
   setWeekViewHabits(on: boolean): Promise<void>
+  setSectionVisible(key: 'todo' | 'progress' | 'habits' | 'notes' | 'review', on: boolean): Promise<void>
 
   // ---- v8.22：首次使用引导 ----
   openOnboarding(): void
@@ -575,6 +582,11 @@ export function createAppStore(
     changelogOpen: false,
     settingsOpen: false,
     weekViewHabits: false,
+    showTodo: true,
+    showProgress: true,
+    showHabits: true,
+    showNotes: true,
+    showReview: true,
     subtaskTodayIds: [],
     onboardingOpen: false,
     syncStatus: syncEngine?.status() ?? null,
@@ -596,6 +608,20 @@ export function createAppStore(
       // v8.62 用户偏好设置：周视图显示习惯（默认关，保持 v8.41 现状）
       const weekViewHabits = (await repos.settings.get('weekViewHabits', false)) as boolean
       set({ weekViewHabits })
+      const [showTodo, showProgress, showHabits, showNotes, showReview] = await Promise.all([
+        repos.settings.get('show:todo', true),
+        repos.settings.get('show:progress', true),
+        repos.settings.get('show:habits', true),
+        repos.settings.get('show:notes', true),
+        repos.settings.get('show:review', true),
+      ])
+      set({
+        showTodo: showTodo as boolean,
+        showProgress: showProgress as boolean,
+        showHabits: showHabits as boolean,
+        showNotes: showNotes as boolean,
+        showReview: showReview as boolean,
+      })
       // v8.97：修复历史上提醒型 date≠deadline 的错位记录，保证报告/月周统计也用唯一归属日
       try {
         await repos.todos.normalizeReminderDates()
@@ -2308,6 +2334,15 @@ export function createAppStore(
     async setWeekViewHabits(on: boolean) {
       await repos.settings.set('weekViewHabits', on)
       set({ weekViewHabits: on })
+    },
+
+    async setSectionVisible(key, on) {
+      await repos.settings.set(`show:${key}`, on)
+      if (key === 'todo') set({ showTodo: on })
+      else if (key === 'progress') set({ showProgress: on })
+      else if (key === 'habits') set({ showHabits: on })
+      else if (key === 'notes') set({ showNotes: on })
+      else set({ showReview: on })
     },
 
     // ---- v8.22：首次使用引导 ----

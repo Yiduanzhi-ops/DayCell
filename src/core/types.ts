@@ -292,6 +292,12 @@ export const SETTING_KEYS = [
   'onboarded',
   'weekStartsOn',
   'weekViewHabits',
+  // v9.65：今日视图模块显隐（偏好设置里的 5 个开关，默认全开）
+  'show:todo',
+  'show:progress',
+  'show:habits',
+  'show:notes',
+  'show:review',
 ] as const
 
 export type SettingKey = (typeof SETTING_KEYS)[number]

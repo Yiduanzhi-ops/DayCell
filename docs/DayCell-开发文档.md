@@ -95,7 +95,7 @@ DayCell 不是一套后端、三个前端。它是：
 | `src/core/` | 领域模型、校验、仓储、聚合、报告、备份、同步引擎、IndexedDB 适配 | `src/` 全部源码（不含测试）17,269 行；core 未单独拆行数 |
 | `src/app/` | Zustand store、启动装配、Gitee 同步接线；v9 分支另有 `cloudSync.ts` | `feat/desktop-shell` 无 `cloudSync.ts` |
 | `src/ui/` | 全部视图与样式；CSS Modules | `feat/desktop-shell` 29 个测试文件 |
-| `src-tauri/` | macOS 桌面壳（Tauri 2） | `feat/desktop-shell` 版本 1.4.10 |
+| `src-tauri/` | macOS 桌面壳（Tauri 2） | `feat/desktop-shell` 版本 1.4.11 |
 | `cloudbase/functions/` | v9 云函数：`daycell-api`、`daycell-push-worker` | 仅 `v9-backend` 分支 |
 | `cloudbase/migrations/` | v9 PostgreSQL 迁移 | 仅 4 份，未覆盖全部代码引用表 |
 | `functions/` | v9 旧副本 / 早期函数目录 | 仅 `v9-backend`；`feat/desktop-shell` 不存在；与 `cloudbase/functions` 双副本，不是唯一事实源 |
@@ -157,6 +157,7 @@ DayCell 不是一套后端、三个前端。它是：
 - 日期键：`DateKey = YYYY-MM-DD`，按本地日历日处理，不做 UTC 偏移；跨时区测试由 `npm run test:tz` 覆盖。
 - 金额：整数分（`cents`），不使用浮点。
 - 设置白名单：`SETTING_KEYS` 是唯一来源；备份解析直接复用，避免“类型加了、白名单忘更新”导致整份备份误判损坏。
+- 今日视图模块显隐（v9.65 / v8.111）：`show:todo`、`show:progress`、`show:habits`、`show:notes`、`show:review` 五个 setting 键，默认 `true`；`SettingsView` 渲染为“今日视图模块”分组开关，`DayView` 按开关条件渲染，关掉不删数据。
 - 完成归属：`doneOn` 是报告、周视图逾期痕迹、目标完成归属的唯一日期；历史提醒型 `date != deadline` 的错位记录在启动迁移中修正。
 
 ## 4. core 领域规则
@@ -455,7 +456,7 @@ DayCell 不是一套后端、三个前端。它是：
 
 `src-tauri/tauri.conf.json`：
 
-- `productName: DayCell`，`identifier: com.yiduanzhi.daycell`，`version: 1.4.10`。
+- `productName: DayCell`，`identifier: com.yiduanzhi.daycell`，`version: 1.4.11`。
 - `main` 窗口：414×896、`resizable: false`、`decorations: false`、默认隐藏。
 - `ball` 窗口：80×80、透明、置顶、`skipTaskbar: true`、默认隐藏。
 - 构建命令：`beforeBuildCommand` 注入 `VITE_BASE=./` 与 `VITE_TAURI=1`；前端从本地加载，不生成 PWA。
@@ -482,11 +483,11 @@ DayCell 不是一套后端、三个前端。它是：
 ### 7.4 签名与安装包
 
 - 当前为 ad-hoc 深度签名，不是 Apple 公证签名；首次打开会被 Gatekeeper 拦，按安装指引放行。
-- `codesign --verify --deep --strict` 已通过；`CFBundleShortVersionString = 1.4.10`。
+- `codesign --verify --deep --strict` 已通过；`CFBundleShortVersionString = 1.4.11`。
 - 最终交付包（通用二进制，x86_64 + arm64）：
-  - `release/DayCell_1.4.10_universal.dmg`：10980904 bytes（10.5 MB），SHA256 `d2bc24920b3f76a94294c5e2c9d8d838724cb3829a025e07a0141d78cb32624f`；
-  - `release/DayCell-1.4.10-mac.zip`：10162723 bytes（9.7 MB），SHA256 `b8a2d82c6398c9491d4e5d5e1dcddcee9acbee795ec38fd7c5b8a13394964859`。
-- Tauri 原始打包目录 `src-tauri/target/universal-apple-darwin/release/bundle/dmg/DayCell_1.4.10_universal.dmg` 内的 App 未重新签名，**不要直接交付**；交付用 `release/` 中替换过 App 的 DMG。
+  - `release/DayCell_1.4.11_universal.dmg`：10865922 bytes（10.4 MB），SHA256 `62a6ba13c5e4492b2ac2ebc26003fa4f4b4f667439352a523cb21c4ed45a6f5e`；
+  - `release/DayCell-1.4.11-mac.zip`：10165036 bytes（9.7 MB），SHA256 `6cd1e2726d081ca4db1f65f87d23c1ea7b8226377fa0250f1de21d93f427bc08`。
+- Tauri 原始打包目录 `src-tauri/target/universal-apple-darwin/release/bundle/dmg/DayCell_1.4.11_universal.dmg` 内的 App 未重新签名，**不要直接交付**；交付用 `release/` 中替换过 App 的 DMG。
 - 安装指引：`release/DayCell-Mac安装指引.md`。其中“设置 → 导出备份”与实际顶部菜单“导出备份”不完全对应，以应用内右上角菜单为准。
 
 ## 8. 分支差异
@@ -497,8 +498,8 @@ DayCell 不是一套后端、三个前端。它是：
 
 | 维度 | `main` | `v9-backend` | `feat/desktop-shell` |
 |---|---|---|---|
-| 前端版本 | v8.108 | v9.62 | v8.108 |
-| Tauri 版本 | 1.4.6 | 1.4.6 | 1.4.10 |
+| 前端版本 | v8.111 | v9.65 | v8.111 |
+| Tauri 版本 | 1.4.6 | 1.4.6 | 1.4.11 |
 | 后端 | 无 | CloudBase 云函数 + PostgreSQL | 无 |
 | 邮箱账号 / CloudBase 同步 | 无 | 有 | 无 |
 | AI 导入 / AI 复盘 | 无 | 有 | 无 |
@@ -545,7 +546,7 @@ DayCell 不是一套后端、三个前端。它是：
 
 ### 分支关系
 
-- `feat/desktop-shell` 与 `main` 共享 v8.110 前端；桌面壳版本只在 `feat/desktop-shell` 到 1.4.10。
+- `feat/desktop-shell` 与 `main` 共享 v8.111 前端；桌面壳版本只在 `feat/desktop-shell` 到 1.4.11。
 - `main` 与 `v9-backend` 的 `src-tauri` 仍停在旧版本；不要从这两个分支直接构建桌面版。
 - v9 的 `README.md` 只比 main 多 8 行版本历史；v9 的 `docs/README.md`、`CORE-API.md`、`PROGRESS.md`、`v9-roadmap.md` 基本没动，不能作为 v9 当前文档。
 
@@ -602,7 +603,7 @@ DayCell 不是一套后端、三个前端。它是：
 5. 生成 ZIP；
 6. 校验：
    - `codesign --verify --deep --strict --verbose=2 DayCell.app`
-   - `PlistBuddy` 读版本 = 1.4.10
+   - `PlistBuddy` 读版本 = 1.4.11
    - `shasum -a 256` 与交付记录一致
    - 挂载 DMG / 解压 ZIP 复核版本和签名
 7. 更新 `release/DayCell-Mac安装指引.md`。

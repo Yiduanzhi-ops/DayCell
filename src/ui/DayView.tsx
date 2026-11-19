@@ -320,6 +320,13 @@ function DayFull({ date }: { date?: DateKey } = {}): JSX.Element {
   const shiftDay = useApp((s) => s.shiftDay)
   const edit = useApp((s) => (date ? undefined : s.edit)) // 侧页不受全局表单态影响
 
+  // v9.65：今日视图模块显隐（偏好设置里的开关，默认全显）
+  const showTodo = useApp((s) => s.showTodo)
+  const showProgress = useApp((s) => s.showProgress)
+  const showHabits = useApp((s) => s.showHabits)
+  const showNotes = useApp((s) => s.showNotes)
+  const showReview = useApp((s) => s.showReview)
+
   const effective = cached ?? detail
   if (!effective) {
     return (
@@ -335,6 +342,13 @@ function DayFull({ date }: { date?: DateKey } = {}): JSX.Element {
   const lunarEmphasis = !!(effective.lunar?.festival || effective.lunar?.solarTerm)
   const showRoll = effective.prevDayRollable > 0 && !rollDismissed[k]
   const dayWord = isToday ? '今天' : ''
+
+  // v9.65：空态只看「当前显示的模块」——把待办/习惯/复盘隐掉后，不该再喊"什么都没有"
+  const allHidden = !showTodo && !showProgress && !showHabits && !showNotes && !showReview
+  // 通用空态只在「五个模块全开」时才给：任一模块被隐藏后，各模块自己的空态已足够说明，再说一遍是废话
+  const allVisible = showTodo && showProgress && showHabits && showNotes && showReview
+  const nothingToShow =
+    !edit && allVisible && effective.summary.isEmpty && !effective.summary.hasReview && effective.habits.length === 0
 
   return (
     <div className={styles.pageInner}>
@@ -392,16 +406,20 @@ function DayFull({ date }: { date?: DateKey } = {}): JSX.Element {
         </div>
       )}
 
-      <TodoSection dayWord={dayWord} date={date} />
+      {showTodo && <TodoSection dayWord={dayWord} date={date} />}
       {/* v8.107 目标推进：被挑进来的目标子任务（待办列表里不再双显） */}
-      <ProgressSection date={date} />
-      <HabitSection date={date} />
-      <NoteSection dayWord={dayWord} date={date} />
+      {showProgress && <ProgressSection date={date} />}
+      {showHabits && <HabitSection date={date} />}
+      {showNotes && <NoteSection dayWord={dayWord} date={date} />}
       {/* v8.42 复盘：今日视图最下方，每日一条 */}
-      <ReviewSection date={date} />
+      {showReview && <ReviewSection date={date} />}
 
-      {/* v8.89 空态收口：有当日习惯或复盘也不算"什么都没有" */}
-      {effective.summary.isEmpty && !effective.summary.hasReview && effective.habits.length === 0 && !edit && (
+      {allHidden ? (
+        <div className={styles.empty}>
+          <div className={styles.big}>○</div>
+          模块都隐藏了<br />去「偏好设置」里打开想看的模块
+        </div>
+      ) : nothingToShow ? (
         <div className={styles.empty}>
           <div className={styles.big}>○</div>
           {isToday ? (
@@ -410,7 +428,7 @@ function DayFull({ date }: { date?: DateKey } = {}): JSX.Element {
             <>这一天还什么都没有<br />点各区块右上角的「+ 添加」补记</>
           )}
         </div>
-      )}
+      ) : null}
     </div>
   )
 }
