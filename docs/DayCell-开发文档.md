@@ -95,7 +95,7 @@ DayCell 不是一套后端、三个前端。它是：
 | `src/core/` | 领域模型、校验、仓储、聚合、报告、备份、同步引擎、IndexedDB 适配 | `src/` 全部源码（不含测试）17,269 行；core 未单独拆行数 |
 | `src/app/` | Zustand store、启动装配、Gitee 同步接线；v9 分支另有 `cloudSync.ts` | `feat/desktop-shell` 无 `cloudSync.ts` |
 | `src/ui/` | 全部视图与样式；CSS Modules | `feat/desktop-shell` 29 个测试文件 |
-| `src-tauri/` | macOS 桌面壳（Tauri 2） | `feat/desktop-shell` 版本 1.4.7 |
+| `src-tauri/` | macOS 桌面壳（Tauri 2） | `feat/desktop-shell` 版本 1.4.8 |
 | `cloudbase/functions/` | v9 云函数：`daycell-api`、`daycell-push-worker` | 仅 `v9-backend` 分支 |
 | `cloudbase/migrations/` | v9 PostgreSQL 迁移 | 仅 4 份，未覆盖全部代码引用表 |
 | `functions/` | v9 旧副本 / 早期函数目录 | 仅 `v9-backend`；`feat/desktop-shell` 不存在；与 `cloudbase/functions` 双副本，不是唯一事实源 |
@@ -185,6 +185,11 @@ DayCell 不是一套后端、三个前端。它是：
 - 子任务全部完成时，阶段自动完成（v9.47 起）；阶段也可手动完成。
 - 子任务有独立进度：勾选完成记 100%，否则用手填进度，都没填写 0%。
 - 子任务打卡：`workDates` 记录日期；目标卡片“已进行 N 天”取所有子任务 `workDates` 的去重并集。
+- 目标推进（v8.108 常驻）：`SubtaskRecord.pinned` 记“每天推进”，缺省 false；`repo.subtasks.all()` 读出全部（含墓碑，调用方自筛），`setPinned(id, on)` 幂等写入。
+  - `core/pinned.ts` 的 `planPinnedTodos(subtasks, goals, existing)` 是唯一规划入口：未删 + `pinned===true` + 未完成 + 目标存在 + 当天已有同 `subtaskId` 行（非墓碑）则跳过，按子任务 `createdAt` 升序。
+  - `store.materializePinned(date)` 只在 `selected === today` 时由 `refresh()` 触发（`pinnedLock` 串行锁防重入），逐条 `todos.create(date, text, …, subtaskId, goalTitle)`；多设备同日首开靠 `subtaskId` 幂等去重，不回填历史。
+  - 勾完成子任务会自动 `setPinned(false)`；移出“每天推进”会软删当天行并撤销今天这次打卡（历史日期不动）。
+  - 今日「目标推进」组头 `stageTitle` 由 `aggregate.buildProgress` 产出：同目标未删阶段按 `createdAt` 升序编号，`stageDisplayTitle(title, index)` 拼成「第N阶段 · 名字」，与目标详情页口径一致。
 - 目标完成/取消完成要维护阶段、子任务状态与 `doneOn`；删除目标级联删除阶段与子任务（通过级联快照支持恢复）。
 - 文件夹：
   - 一层扁平分类；目标可有 `folderId`；
@@ -449,7 +454,7 @@ DayCell 不是一套后端、三个前端。它是：
 
 `src-tauri/tauri.conf.json`：
 
-- `productName: DayCell`，`identifier: com.yiduanzhi.daycell`，`version: 1.4.7`。
+- `productName: DayCell`，`identifier: com.yiduanzhi.daycell`，`version: 1.4.8`。
 - `main` 窗口：414×896、`resizable: false`、`decorations: false`、默认隐藏。
 - `ball` 窗口：80×80、透明、置顶、`skipTaskbar: true`、默认隐藏。
 - 构建命令：`beforeBuildCommand` 注入 `VITE_BASE=./` 与 `VITE_TAURI=1`；前端从本地加载，不生成 PWA。
@@ -476,11 +481,11 @@ DayCell 不是一套后端、三个前端。它是：
 ### 7.4 签名与安装包
 
 - 当前为 ad-hoc 深度签名，不是 Apple 公证签名；首次打开会被 Gatekeeper 拦，按安装指引放行。
-- `codesign --verify --deep --strict` 已通过；`CFBundleShortVersionString = 1.4.7`。
+- `codesign --verify --deep --strict` 已通过；`CFBundleShortVersionString = 1.4.8`。
 - 最终交付包（通用二进制，x86_64 + arm64）：
-  - `release/DayCell_1.4.7_universal.dmg`：10861465 bytes（10.4 MB），SHA256 `f746970a7b384ccf912865526c75d569dbef01e742d27713001c929971ebdb9f`；
-  - `release/DayCell-1.4.7-mac.zip`：10160233 bytes（9.7 MB），SHA256 `c6a0a689953ebcba9b7a5d8a58ecc38a3f36fe47f908c0b842dbc5c416249795`。
-- Tauri 原始打包目录 `src-tauri/target/universal-apple-darwin/release/bundle/dmg/DayCell_1.4.7_universal.dmg` 内的 App 未重新签名，**不要直接交付**；交付用 `release/` 中替换过 App 的 DMG。
+  - `release/DayCell_1.4.8_universal.dmg`：10864024 bytes（10.4 MB），SHA256 `98e0e086ef0a1618ec6fda181636307a723e900b6f2b7c26be6b4bcae56733bb`；
+  - `release/DayCell-1.4.8-mac.zip`：10162607 bytes（9.7 MB），SHA256 `8178d4b74d2e6020f2224ac81d4862075688256af3a27cd4164ab64b0cba5755`。
+- Tauri 原始打包目录 `src-tauri/target/universal-apple-darwin/release/bundle/dmg/DayCell_1.4.8_universal.dmg` 内的 App 未重新签名，**不要直接交付**；交付用 `release/` 中替换过 App 的 DMG。
 - 安装指引：`release/DayCell-Mac安装指引.md`。其中“设置 → 导出备份”与实际顶部菜单“导出备份”不完全对应，以应用内右上角菜单为准。
 
 ## 8. 分支差异
@@ -491,8 +496,8 @@ DayCell 不是一套后端、三个前端。它是：
 
 | 维度 | `main` | `v9-backend` | `feat/desktop-shell` |
 |---|---|---|---|
-| 前端版本 | v8.101 | v9.55 | v8.101 |
-| Tauri 版本 | 1.2.0 | 1.2.0 | 1.4.2 |
+| 前端版本 | v8.108 | v9.62 | v8.108 |
+| Tauri 版本 | 1.4.6 | 1.4.6 | 1.4.8 |
 | 后端 | 无 | CloudBase 云函数 + PostgreSQL | 无 |
 | 邮箱账号 / CloudBase 同步 | 无 | 有 | 无 |
 | AI 导入 / AI 复盘 | 无 | 有 | 无 |
@@ -500,7 +505,7 @@ DayCell 不是一套后端、三个前端。它是：
 | Web Push | 无 | 有 | 无 |
 | Gitee 同步 | 有 | 有（保留兼容） | 有 |
 | 部署 | GitHub Pages | CloudBase 静态应用 | DMG / ZIP |
-| 前端测试文件 | 29 | 33 | 29 |
+| 前端测试文件 | 30 | 33 | 30 |
 | 云函数测试 | 无 | 2 个 | 无 |
 
 ### 共享功能（不要误写成 v9 独有）
