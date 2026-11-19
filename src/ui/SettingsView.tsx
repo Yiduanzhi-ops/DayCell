@@ -16,6 +16,22 @@ export function SettingsView(): JSX.Element {
   const weekViewHabits = useApp((s) => s.weekViewHabits)
   const setWeekViewHabits = useApp((s) => s.setWeekViewHabits)
 
+  // ---- v9.65：今日视图模块显隐（默认全显）----
+  const showTodo = useApp((s) => s.showTodo)
+  const showProgress = useApp((s) => s.showProgress)
+  const showHabits = useApp((s) => s.showHabits)
+  const showNotes = useApp((s) => s.showNotes)
+  const showReview = useApp((s) => s.showReview)
+  const setSectionVisible = useApp((s) => s.setSectionVisible)
+
+  const sections: { key: 'todo' | 'progress' | 'habits' | 'notes' | 'review'; title: string; desc: string; on: boolean }[] = [
+    { key: 'todo', title: '待办', desc: '今天要做的事、截止与提醒', on: showTodo },
+    { key: 'progress', title: '目标推进', desc: '从目标里挑进来的子任务，每天打一次卡', on: showProgress },
+    { key: 'habits', title: '习惯', desc: '每日打卡的习惯清单', on: showHabits },
+    { key: 'notes', title: '想法', desc: '随手记的碎片与灵感', on: showNotes },
+    { key: 'review', title: '复盘', desc: '今天做了什么、哪里可以更好', on: showReview },
+  ]
+
   return (
     <div className={styles.overlay}>
       <div className={styles.page}>
@@ -28,6 +44,7 @@ export function SettingsView(): JSX.Element {
         </div>
 
         <div className={styles.body}>
+          <div className={styles.groupTitle}>周视图</div>
           <div className={styles.group}>
             <div className={styles.row}>
               <div className={styles.rowText}>
@@ -46,7 +63,28 @@ export function SettingsView(): JSX.Element {
             </div>
           </div>
 
-          <div className={styles.hint}>更多偏好开关会陆续加在这里</div>
+          <div className={styles.groupTitle}>今日视图模块</div>
+          <div className={styles.group}>
+            {sections.map((it) => (
+              <div className={styles.row} key={it.key}>
+                <div className={styles.rowText}>
+                  <div className={styles.rowTitle}>{it.title}</div>
+                  <div className={styles.rowDesc}>{it.desc}</div>
+                </div>
+                <button
+                  role="switch"
+                  aria-checked={it.on}
+                  aria-label={`显示${it.title}`}
+                  className={it.on ? `${styles.switch} ${styles.switchOn}` : styles.switch}
+                  onClick={() => void setSectionVisible(it.key, !it.on)}
+                >
+                  <span className={styles.knob} />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className={styles.hint}>关掉的模块只是不在今日视图显示，内容不会删除；想看时随时打开</div>
         </div>
       </div>
     </div>
