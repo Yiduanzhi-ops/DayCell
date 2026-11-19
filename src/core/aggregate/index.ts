@@ -152,7 +152,7 @@ export interface ProgressItem {
   days: number
   /** 今天是否已打卡（= 这条待办的 done） */
   done: boolean
-  /** 过去 6 天（date-6 … date-1）的打卡态，**不含今天** */
+  /** 最近 6 天（date-5 … date）的打卡态，**最右一格就是今天**；打卡后立刻点亮 */
   recent: boolean[]
 }
 
@@ -424,7 +424,7 @@ function buildProgress(
     }
     const workDates = Array.isArray(sub.workDates) ? sub.workDates : []
     const recent: boolean[] = []
-    for (let i = 6; i >= 1; i -= 1) recent.push(workDates.includes(addDays(date, -i)))
+    for (let i = 5; i >= 0; i -= 1) recent.push(workDates.includes(addDays(date, -i)))
     group.items.push({
       todoId: t.id,
       subtaskId: sub.id,

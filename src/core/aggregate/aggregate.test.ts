@@ -1123,7 +1123,7 @@ describe('v8.107 目标推进（DayDetail.progress）', () => {
     return { g, s, st, todo }
   }
 
-  it('按目标分组；待办列表与计数不再含它；过去 6 天只认 workDates', async () => {
+  it('按目标分组；待办列表与计数不再含它；最近 6 天（含今天）只认 workDates', async () => {
     const { st } = await seedProgress()
     await repos.todos.create(D, '买牛奶')
     await repos.subtasks.setWork(st.id, k('2026-09-28'), true)
@@ -1146,8 +1146,8 @@ describe('v8.107 目标推进（DayDetail.progress）', () => {
     expect(item.text).toBe('背单词')
     expect(item.days).toBe(2)
     expect(item.done).toBe(false)
-    // 过去 6 天 = 9/23 9/24 9/25 9/26 9/27 9/28，**不含今天**
-    expect(item.recent).toEqual([false, false, true, false, false, true])
+    // 最近 6 天 = 9/24 9/25 9/26 9/27 9/28 + 今天 9/29，最右一格是今天
+    expect(item.recent).toEqual([false, true, false, false, true, false])
   })
 
   it('只有推进项时不算空日；打卡 done=true 但子任务本身仍未完成', async () => {
@@ -1163,8 +1163,8 @@ describe('v8.107 目标推进（DayDetail.progress）', () => {
     const after = await agg.aggregateDayDetail(D)
     expect(after.progress[0]!.items[0]!.done).toBe(true)
     expect(after.progress[0]!.items[0]!.days).toBe(1)
-    // 今天的打卡不进「过去 6 天」点阵
-    expect(after.progress[0]!.items[0]!.recent).toEqual([false, false, false, false, false, false])
+    // 今天的打卡落在最右一格（v8.109：点阵窗口含今天）
+    expect(after.progress[0]!.items[0]!.recent).toEqual([false, false, false, false, false, true])
     // 打卡 ≠ 完成：子任务自身仍是未完成
     const sub = (await repos.subtasks.byGoal(st.goalId)).find((x) => x.id === st.id)!
     expect(sub.done).toBe(false)
