@@ -8,11 +8,18 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.63'
+const CURRENT_VERSION = 'v9.64'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.64',
+    date: '2026-11-19',
+    items: [
+      '已经在今天里的子任务，按钮不再显示「＋ 目标推进」，改成「已在今天」；点一下就直接转成每天推进，不会重复加一条',
+    ],
+  },
   {
     version: 'v9.63',
     date: '2026-11-19',

@@ -555,6 +555,17 @@ function SubtaskRow({
         >
           每天推进中
         </button>
+      ) : inToday ? (
+        // v8.110：今天已经有这条（旧版手动加入今日 / 从别处带过来），别再给「＋」，否则像是没加过
+        <button
+          type="button"
+          className={styles.todayBtn}
+          title="今天已有这一条，点一下改成每天推进"
+          aria-label={`已在今天，点一下改成每天推进：${subtask.title}`}
+          onClick={() => void pinSubtaskToDaily(subtask.id)}
+        >
+          已在今天
+        </button>
       ) : (
         <button type="button" className={styles.todayBtn} onClick={() => void pinSubtaskToDaily(subtask.id)}>
           ＋ 目标推进
