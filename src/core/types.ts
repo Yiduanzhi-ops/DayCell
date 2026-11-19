@@ -220,6 +220,12 @@ export interface SubtaskRecord extends CoreRecord {
    * 旧记录/旧备份无此字段 → 读路径按 [] 归一化。
    */
   workDates?: string[]
+  /**
+   * v8.108 常驻推进：勾进「目标推进」后置 true，**每天**自动出现在今日视图，
+   * 直到子任务完成（自动解除）、目标/子任务删除，或用户手动移出。
+   * 旧记录无此字段 → 视为 false，读路径按 `!!pinned` 归一化。
+   */
+  pinned?: boolean
 }
 
 /**

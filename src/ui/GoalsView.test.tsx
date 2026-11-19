@@ -220,7 +220,7 @@ describe('目标详情（v9.46 原型口径）', () => {
     expect(after.workDates ?? []).not.toContain(TODAY)
   })
 
-  it('＋ 目标推进 / 已在今日：加入后进入今日「目标推进」，撤回会撤销当天打卡', async () => {
+  it('＋ 目标推进 / 每天推进中：加入后常驻今日「目标推进」，移出会撤掉今天的行并撤销打卡', async () => {
     const { store, bundle } = await renderApp()
     await seedGoal(store)
     await openGoalUI()
@@ -229,16 +229,48 @@ describe('目标详情（v9.46 原型口径）', () => {
     await waitFor(() => screen.getByText('做完教案'))
 
     fireEvent.click(screen.getByRole('button', { name: '＋ 目标推进' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: '已在今日' })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: '每天推进中' })).toBeInTheDocument())
     expect(store.getState().subtaskTodayIds).toContain(sid)
 
     // 模拟今天已完成打卡，再从目标详情撤回
     await store.getState().toggleSubtaskWork(sid)
-    fireEvent.click(screen.getByRole('button', { name: '已在今日' }))
+    fireEvent.click(screen.getByRole('button', { name: '每天推进中' }))
     await waitFor(() => expect(screen.getByRole('button', { name: '＋ 目标推进' })).toBeInTheDocument())
     expect(store.getState().subtaskTodayIds).not.toContain(sid)
     const sub = (await bundle.repos.subtasks.byGoal(store.getState().goalDetail!.goal.id)).find((x) => x.id === sid)!
     expect(sub.workDates ?? []).not.toContain(TODAY)
+  })
+
+  it('v8.108 常驻：今天这行没了（模拟第二天首开）→ 打开今天会自动补一条；勾完成则自动解除并转「已做」', async () => {
+    const { store, bundle } = await renderApp()
+    await seedGoal(store)
+    await openGoalUI()
+    const sid = await addSub(store, '每天背单词')
+    await waitFor(() => screen.getByText('每天背单词'))
+
+    fireEvent.click(screen.getByRole('button', { name: '＋ 目标推进' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: '每天推进中' })).toBeInTheDocument())
+    const before = await bundle.repos.subtasks.byGoal(store.getState().goalDetail!.goal.id)
+    expect(before.find((x) => x.id === sid)!.pinned).toBe(true)
+
+    // 模拟"第二天首开"：把当天这条待办删成墓碑，再 refresh（真实入口是每天首次打开今天）
+    const todayTodos = await bundle.repos.todos.byDate(TODAY)
+    const row = todayTodos.find((t) => t.subtaskId === sid)!
+    await bundle.repos.todos.softDelete(row.id)
+    await store.getState().refresh()
+    const again = await bundle.repos.todos.byDate(TODAY)
+    expect(again.filter((t) => t.subtaskId === sid && !t.deleted)).toHaveLength(1)
+    expect(store.getState().subtaskTodayIds).toContain(sid)
+
+    // 勾完成 → 自动解 pin，按钮转「已做」，之后不再每天补建
+    fireEvent.click(screen.getByRole('checkbox', { name: '标记完成：每天背单词' }))
+    await waitFor(() => expect(screen.getByText('已做')).toBeInTheDocument())
+    const after = (await bundle.repos.subtasks.byGoal(store.getState().goalDetail!.goal.id)).find((x) => x.id === sid)!
+    expect(after.done).toBe(true)
+    expect(after.pinned).toBeUndefined()
+    await bundle.repos.todos.softDelete((await bundle.repos.todos.byDate(TODAY)).find((t) => t.subtaskId === sid)!.id)
+    await store.getState().refresh()
+    expect((await bundle.repos.todos.byDate(TODAY)).filter((t) => t.subtaskId === sid && !t.deleted)).toHaveLength(0)
   })
 
   it('编辑态强制展开已完成阶段；退出后恢复默认收起', async () => {

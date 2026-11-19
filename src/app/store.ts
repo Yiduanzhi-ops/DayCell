@@ -32,6 +32,7 @@ import {
   today as todayKey,
   weekKeys,
   sortHabits,
+  planPinnedTodos,
   type AnniversaryInput,
   type AnniversaryRecord,
   type CategoryRecord,
@@ -367,10 +368,13 @@ export interface AppState {
   restoreSubtaskCascade(snapshot: SubtaskDeleteSnapshot): Promise<boolean>
   /** v8.45 子任务打卡切换（只记录今天；v8.103 起不再写复盘，取消时清理旧自动句） */
   toggleSubtaskWork(id: string): Promise<boolean>
-  /** v8.63 子任务「加入今日待办」：今天生成一条该子任务的待办（当天有效、防重复） */
-  addSubtaskToToday(subtaskId: string): Promise<boolean>
-  /** v8.63 撤销「加入今日待办」：删除当天待办；已勾选完成则同步撤销当天打卡 */
-  removeSubtaskFromToday(subtaskId: string): Promise<void>
+  /**
+   * v8.108 目标的子任务「每天推进」：pin 一次，此后每天自动出现在今日视图
+   * （每天首次打开当天视图时按 subtaskId 幂等补建当天待办行；不回填历史）。
+   */
+  pinSubtaskToDaily(subtaskId: string): Promise<boolean>
+  /** v8.108 移出每日推进：取消 pin + 撤掉今天的待办行（历史打卡记录保留） */
+  unpinSubtaskFromDaily(subtaskId: string): Promise<void>
 
   // ---- v8.0：习惯（今日视图区块 + 菜单「习惯设置」） ----
   /** 刷新习惯设置页列表（打开/CRUD 后调用） */
@@ -496,6 +500,35 @@ export function createAppStore(
 
   const canHistory = (): boolean => typeof globalThis.history?.pushState === 'function'
 
+  /**
+   * v8.108 常驻推进：把「每天推进中」的子任务在 `date` 上补齐成待办行（幂等）。
+   * 只在当天调用（不回填历史）；同一子任务同一天最多一条。
+   * 返回是否真的补建了（调用方据此决定要不要重读当天待办）。
+   */
+  let pinnedLock: Promise<boolean> | null = null
+  const materializePinned = (date: DateKey): Promise<boolean> => {
+    // 同日并发（refresh 与写操作叠加）串成一条，避免同一子任务被建两行
+    if (pinnedLock) return pinnedLock
+    const run = (async () => {
+      const [subtasks, goals, existing] = await Promise.all([
+        repos.subtasks.all(),
+        repos.goals.all(),
+        repos.todos.byDate(date),
+      ])
+      const drafts = planPinnedTodos(subtasks, goals, existing)
+      if (drafts.length === 0) return false
+      for (const d of drafts) {
+        await repos.todos.create(date, d.text, undefined, undefined, d.subtaskId, d.goalTitle)
+      }
+      return true
+    })()
+    pinnedLock = run
+    void run.finally(() => {
+      if (pinnedLock === run) pinnedLock = null
+    })
+    return run
+  }
+
   const api = createStore<AppState>()((set, get) => ({
     today: opts.today ?? todayKey(),
     view: 'day',
@@ -576,6 +609,9 @@ export function createAppStore(
       const seq = ++loadSeq
       const { selected, view } = get()
       try {
+        // v8.108 常驻推进：打开「今天」时先把 pinned 子任务补齐成今天的待办行（幂等，
+        // 不回填历史）。补完再读今天的待办，下面两组状态才是最新快照。
+        if (selected === get().today) await materializePinned(get().today)
         // v8.63 今日已「加入今日待办」的子任务（子任务行按钮两态；任何写操作后都会随 refresh 更新）
         const todayTodos = await repos.todos.byDate(get().today)
         const subtaskTodayIds = todayTodos.filter((t) => t.subtaskId).map((t) => t.subtaskId!)
@@ -963,25 +999,36 @@ export function createAppStore(
       }
     },
 
-    // ---- v8.63 子任务「加入今日待办」：当天有效，勾选=打卡，删除=撤销加入 ----
+    // ---- v8.108 子任务「每天推进」（常驻）：pin 一次，每天自动进今日视图 ----
 
-    async addSubtaskToToday(subtaskId) {
+    async pinSubtaskToDaily(subtaskId) {
       try {
         const d = get().goalDetail
         const subtask = d?.subtasks.find((x) => x.id === subtaskId)
         if (!subtask || !d) return false
-        const date = get().today
-        const existing = await repos.todos.byDate(date)
-        if (existing.some((t) => t.subtaskId === subtaskId)) {
-          get().showToast('已在今日推进里')
+        if (subtask.done) {
+          get().showToast('已完成的子任务不用再推进')
           return false
         }
-        // v8.64 目标标题一并快照：待办行标注「· 目标名」；目标之后改名/删除不影响已加入待办
-        // v9.2.2 起 create 第 4 参为 time：subtaskId/subtaskGoalTitle 顺延到第 5/6 参
-        await repos.todos.create(date, subtask.title, undefined, undefined, subtaskId, d.goal.title)
+        if (subtask.pinned) {
+          get().showToast('已经在每天推进里')
+          return false
+        }
+        const date = get().today
+        const next = await repos.subtasks.setPinned(subtaskId, true)
+        // 立刻补今天这条（不等下次 refresh）；下面 refresh 里还会幂等兜一次
+        const existing = await repos.todos.byDate(date)
+        if (!existing.some((t) => t.subtaskId === subtaskId)) {
+          await repos.todos.create(date, subtask.title, undefined, undefined, subtaskId, d.goal.title)
+        }
         set({ dataVer: get().dataVer + 1 })
+        set((s) =>
+          s.goalDetail
+            ? { goalDetail: { ...s.goalDetail, subtasks: s.goalDetail.subtasks.map((x) => (x.id === subtaskId ? next : x)) } }
+            : s,
+        )
         await get().refresh()
-        get().showToast('已加入今天的推进')
+        get().showToast('已加入每天推进')
         return true
       } catch (e) {
         get().showToast(errMsg(e))
@@ -989,31 +1036,31 @@ export function createAppStore(
       }
     },
 
-    async removeSubtaskFromToday(subtaskId) {
+    async unpinSubtaskFromDaily(subtaskId) {
       try {
         const date = get().today
-        const existing = await repos.todos.byDate(date)
-        const todo = existing.find((t) => t.subtaskId === subtaskId)
-        if (!todo) {
-          get().showToast('不在今日推进里')
-          return
-        }
-        // v9.46：移除今日待办时一并撤销当天打卡（无论这条待办是否已勾）
         const d = get().goalDetail
         const subtask = d?.subtasks.find((x) => x.id === subtaskId)
-        const next = await repos.subtasks.setWork(subtaskId, date, false)
+        const next = await repos.subtasks.setPinned(subtaskId, false)
+        // 撤掉今天这条（历史的日子不动）；如果这条已经勾了，同步撤销今天的打卡
+        const existing = await repos.todos.byDate(date)
+        const todo = existing.find((t) => t.subtaskId === subtaskId)
+        if (todo) {
+          // 与旧「撤出今日」一致：移出即撤销今天这次打卡（历史日子的记录不动）
+          await repos.subtasks.setWork(subtaskId, date, false)
+          if (d && subtask) {
+            await removeReviewSentence(date, `[目标打卡] 今日进行了目标「${d.goal.title}」的子目标「${subtask.title}」工作`)
+          }
+          await repos.todos.softDelete(todo.id)
+        }
+        set({ dataVer: get().dataVer + 1 })
         set((s) =>
           s.goalDetail
             ? { goalDetail: { ...s.goalDetail, subtasks: s.goalDetail.subtasks.map((x) => (x.id === subtaskId ? next : x)) } }
             : s,
         )
-        if (d && subtask) {
-          await removeReviewSentence(date, `[目标打卡] 今日进行了目标「${d.goal.title}」的子目标「${subtask.title}」工作`)
-        }
-        await repos.todos.softDelete(todo.id)
-        set({ dataVer: get().dataVer + 1 })
         await get().refresh()
-        get().showToast('已从今天移除')
+        get().showToast('已移出每天推进')
       } catch (e) {
         get().showToast(errMsg(e))
       }
@@ -1946,6 +1993,8 @@ export function createAppStore(
         if (done) {
           // v8.103 勾完成只记当天打卡，不再往复盘写固定句子
           next = await repos.subtasks.setWork(id, date, true)
+          // v8.108 完成即自动解除「每天推进」：完成的子任务不再每天补建（今天的记录保留）
+          next = await repos.subtasks.setPinned(id, false)
         } else {
           next = await repos.subtasks.setWork(id, date, false)
           await removeReviewSentence(date, sentence)

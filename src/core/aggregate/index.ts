@@ -343,9 +343,36 @@ function visibleTodos(todos: readonly TodoRecord[], date: DateKey): TodoRecord[]
  *  - 子任务被删（墓碑）→ 整条不再渲染（对应待办也随之成为孤儿，由用户自行删除）。
  */
 const LEGACY_STAGE_PREFIX = /^第[一二三四五六七八九十百0-9]+阶段\s*[·:：-]\s*/
+/** 老数据里可能存了「第二阶段」而完全没名字：剥离时不要求跟随分隔符 */
+const LEGACY_STAGE_TOKEN = /^第[一二三四五六七八九十百0-9]+阶段\s*/
+const CN_DIGITS = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九']
 
 function cleanStageTitle(title: string): string {
-  return title.replace(LEGACY_STAGE_PREFIX, '').trim()
+  return title.replace(LEGACY_STAGE_PREFIX, '').replace(LEGACY_STAGE_TOKEN, '').trim()
+}
+
+/** 1 → 一、2 → 二 … 10 → 十、11 → 十一、23 → 二十三（与详情页同一套规则） */
+function stageOrdinal(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return '一'
+  if (n < 10) return CN_DIGITS[n]!
+  if (n === 10) return '十'
+  if (n < 20) return `十${CN_DIGITS[n - 10]!}`
+  if (n < 100) {
+    const tens = Math.floor(n / 10)
+    const ones = n % 10
+    return `${CN_DIGITS[tens]!}十${ones ? CN_DIGITS[ones]! : ''}`
+  }
+  return String(n)
+}
+
+/**
+ * 组头阶段文案：**位置推导**出「第N阶段」，再拼名字（与详情页 `stageDisplayTitle` 一致）。
+ * 阶段顺序 = 同目标未删除阶段按 createdAt 升序（见 stagesOfGoal）。
+ */
+function stageDisplayTitle(title: string, index: number): string {
+  const name = cleanStageTitle(title)
+  const prefix = `第${stageOrdinal(index + 1)}阶段`
+  return name ? `${prefix} · ${name}` : prefix
 }
 
 function buildProgress(
@@ -358,6 +385,21 @@ function buildProgress(
   const goalMap = new Map(goals.filter((g) => !g.deleted).map((g) => [g.id, g]))
   const stageMap = new Map(stages.filter((s) => !s.deleted).map((s) => [s.id, s]))
   const subMap = new Map(subtasks.filter((s) => !s.deleted).map((s) => [s.id, s]))
+  // v8.108 组头「第N阶段」：位置来自同目标阶段 createdAt 升序（与详情页同口径）
+  const stageIndex = new Map<string, number>()
+  {
+    const byGoal = new Map<string, StageRecord[]>()
+    for (const s of stages) {
+      if (s.deleted) continue
+      const list = byGoal.get(s.goalId)
+      if (list) list.push(s)
+      else byGoal.set(s.goalId, [s])
+    }
+    for (const list of byGoal.values()) {
+      list.sort((a, b) => a.createdAt - b.createdAt)
+      list.forEach((s, i) => stageIndex.set(s.id, i))
+    }
+  }
   const groups = new Map<string, ProgressGroup>()
 
   for (const t of todos) {
@@ -375,7 +417,7 @@ function buildProgress(
         goalId: sub.goalId,
         // 目标记录没了（理论上不会：删目标会连带墓碑子任务）→ 用待办里的标题快照兜底
         goalTitle: goal?.title ?? t.subtaskGoalTitle ?? '目标',
-        stageTitle: stage ? cleanStageTitle(stage.title) || null : null,
+        stageTitle: stage ? stageDisplayTitle(stage.title, stageIndex.get(stage.id) ?? 0) : null,
         items: [],
       }
       groups.set(sub.goalId, group)
