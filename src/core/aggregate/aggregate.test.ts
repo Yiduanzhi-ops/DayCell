@@ -1198,7 +1198,7 @@ describe('v8.107 目标推进（DayDetail.progress）', () => {
     expect((await agg.aggregateDayDetail(tomorrow, { today: D })).progress).toHaveLength(0)
   })
 
-  it('v9.66 周视图：未来格子预览 pinned 子任务，但不计入当天合计与整周合计', async () => {
+  it('v9.68 周视图：未来日期不再预览 pinned 子任务，周行预览与合计都不含推进项', async () => {
     const g = await repos.goals.create({ title: '考研', note: '' })
     const s = await repos.stages.create({ goalId: g.id, title: '基础' })
     const st = await repos.subtasks.create({ goalId: g.id, title: '背单词', stageId: s.id })
@@ -1206,10 +1206,25 @@ describe('v8.107 目标推进（DayDetail.progress）', () => {
 
     const week = await agg.aggregateWeek(D, { today: D })
     const tomorrow = week.days.find((x) => x.date === k('2026-09-30'))!
-    // 预览能看到，但这一格仍然是 0/0（还没发生，不计完成率）
-    expect(tomorrow.todoPreview.map((t) => t.text)).toContain('背单词')
+    expect(tomorrow.todoPreview.map((t) => t.text)).not.toContain('背单词')
     expect(tomorrow.todoTotal).toBe(0)
     expect(week.total.todoTotal).toBe(0)
+  })
+
+  it('v9.68 周视图只保留普通待办：当天已有推进任务时 preview/计数/整周合计都不混入', async () => {
+    await seedProgress()
+    await repos.todos.create(D, '买牛奶')
+
+    const week = await agg.aggregateWeek(D)
+    const today = week.days.find((x) => x.date === D)!
+    expect(today.todoPreview.map((t) => t.text)).toEqual(['买牛奶'])
+    expect(today.todoTotal).toBe(1)
+    expect(week.total.todoTotal).toBe(1)
+
+    // 日视图仍把同一条推进任务放在「目标推进」里，底层数据没有被删
+    const detail = await agg.aggregateDayDetail(D)
+    expect(detail.todos.map((t) => t.text)).toEqual(['买牛奶'])
+    expect(detail.progress[0]!.items.map((x) => x.text)).toEqual(['背单词'])
   })
 
   it('子任务无阶段归属时退到目标的当前阶段；子任务被删则整条不渲染', async () => {
