@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.113'
+const CURRENT_VERSION = 'v8.114'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.114',
+    date: '2026-11-21',
+    items: [
+      '周视图的每天小框不再混入「目标推进」：只显示普通待办，待办计数和整周合计也同步排除',
+      '目标推进仍只在日视图的「目标推进」区出现，数据、打卡和历史记录都不受影响',
+    ],
+  },
   {
     version: 'v8.113',
     date: '2026-11-21',
