@@ -52,7 +52,9 @@ export function ExpenseSection({ dayWord }: { dayWord: string }): JSX.Element {
                 <button
                   className={styles.edel}
                   aria-label={`删除这笔支出：${formatMoney(x.amountCents)} 元`}
-                  onClick={() => void deleteExpense(x.id)}
+                  onClick={() => {
+                    if (window.confirm('删除这笔支出？')) void deleteExpense(x.id)
+                  }}
                 >
                   ×
                 </button>
