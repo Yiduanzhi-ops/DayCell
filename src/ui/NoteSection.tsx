@@ -82,7 +82,13 @@ export function NoteSection({ dayWord, date }: { dayWord: string; date?: DateKey
                     编辑
                   </button>
                 </div>
-                <button className={styles.ndel} aria-label="删除这条想法" onClick={() => void deleteNote(n.id)}>
+                <button
+                  className={styles.ndel}
+                  aria-label="删除这条想法"
+                  onClick={() => {
+                    if (window.confirm('删除这条想法？')) void deleteNote(n.id)
+                  }}
+                >
                   ×
                 </button>
               </div>

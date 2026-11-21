@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.66'
+const CURRENT_VERSION = 'v9.67'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.67',
+    date: '2026-11-21',
+    items: [
+      '删除前先确认：今日待办、今日想法、清空复盘都会先弹确认，点取消不会误删',
+      '目标、文件夹、习惯、特殊日原本就有确认；子任务和阶段仍保留 5 秒撤销，不额外打断编辑',
+    ],
+  },
   {
     version: 'v9.66',
     date: '2026-11-19',

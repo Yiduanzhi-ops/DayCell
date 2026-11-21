@@ -186,7 +186,13 @@ export function TodoSection({ dayWord, date }: { dayWord: string; date?: DateKey
                   没设具体时间的待办不再单独走旧徽标，统一这一套。 */}
               {(t.time || t.deadline) && <TimePill t={t} k={k} />}
               {/* v8.79：源记录不再渲染，删除按钮对所有行可见（不再有删不掉的待办） */}
-              <button className={styles.tdel} aria-label={`删除待办：${t.text}`} onClick={() => void deleteTodo(t.id)}>
+              <button
+                className={styles.tdel}
+                aria-label={`删除待办：${t.text}`}
+                onClick={() => {
+                  if (window.confirm(`删除待办「${t.text}」？`)) void deleteTodo(t.id)
+                }}
+              >
                 ×
               </button>
             </div>

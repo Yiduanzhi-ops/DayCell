@@ -42,7 +42,13 @@ const ReviewEdit = ({ initial, onDone }: { initial: string; onDone: () => void }
         onChange={(e) => setV(e.target.value)}
       />
       <div className={styles.acts}>
-        <button className={styles.rcDel} aria-label="清空当天复盘" onClick={() => void clear()}>
+        <button
+          className={styles.rcDel}
+          aria-label="清空当天复盘"
+          onClick={() => {
+            if (window.confirm('清空当天复盘？')) void clear()
+          }}
+        >
           清空
         </button>
         <button className={styles.cancel} onClick={onDone}>
