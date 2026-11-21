@@ -947,41 +947,15 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
 
     async aggregateWeek(cursor, opts) {
       const keys = weekKeys(cursor, opts?.weekStartsOn ?? 1)
-      // v9.66 未来格子要预览 pinned 子任务（只读），先拿真实今天划界
-      const todayKey = opts?.today ?? systemToday()
-      const futureKeys = keys.filter((k) => k > todayKey)
       const built = await buildRangeDetailed(keys)
       // v8.62 周行习惯预览（形态 B）：每日该做习惯 + 打卡态，与日详情/今日区块同口径
       // （buildHabitItems：排除删除/暂停，只从设定那天起出现，freq 命中才列出）。
-      // 数据层无条件带，UI 按「周视图显示习惯」开关渲染。
-      const [habits, dones, ddl, goalsP, subsP] = await Promise.all([
+      // 数据层无条件带，UI 按「周视图显示习惯」开关决定是否渲染（默认关）。
+      const [habits, dones, ddl] = await Promise.all([
         store.all<HabitRecord>('habits'),
         Promise.all(keys.map((k) => repos.checkins.doneOn(k))),
         repos.todos.ddlAll(),
-        futureKeys.length ? store.all<GoalRecord>('goals') : Promise.resolve([] as GoalRecord[]),
-        futureKeys.length ? store.all<SubtaskRecord>('subtasks') : Promise.resolve([] as SubtaskRecord[]),
       ])
-      // v9.66 未来日期的投影行：与日视图同口径（pinned、未完成、目标还在），不写库
-      const goalLive = new Map(goalsP.filter((g) => !g.deleted).map((g) => [g.id, g]))
-      const pinnedLive = subsP.filter((x) => !x.deleted && !x.done && x.pinned === true && goalLive.has(x.goalId))
-      const virtualPinned = (date: DateKey, existing: readonly TodoRecord[]): TodoRecord[] => {
-        if (!futureKeys.includes(date)) return []
-        const have = new Set(existing.filter((t) => t.subtaskId).map((t) => t.subtaskId as string))
-        return pinnedLive
-          .filter((sub) => !have.has(sub.id))
-          .map((sub) => ({
-            id: `virtual-${sub.id}-${date}`,
-            type: 'todo' as const,
-            date,
-            createdAt: sub.createdAt,
-            updatedAt: sub.createdAt,
-            deleted: false,
-            text: sub.title,
-            done: false,
-            subtaskId: sub.id,
-            subtaskGoalTitle: goalLive.get(sub.goalId)?.title,
-          }))
-      }
 
       // v8.95 截止任务在周视图的两种落点：
       //  1) 已完成：归位到完成归属日（日期行只显示它，不吞掉）；
@@ -991,7 +965,7 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
       const completedByDoneDay = new Map<DateKey, TodoRecord[]>()
       const overdueByDeadline = new Map<DateKey, OverdueTrace[]>()
       for (const t of ddl) {
-        if (!t.done || t.rolledTo) continue
+        if (!t.done || t.rolledTo || t.subtaskId) continue
         if ((t.timeType ?? 'due') !== 'due') continue
         const deadline = t.deadline
         if (!deadline) continue
@@ -1021,14 +995,15 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
         const trace = overdueByDeadline.get(date) ?? []
         // mergeDdlTodos 负责：按 id 去重、按完成归属日过滤、DDL 置顶排序。
         // 完成日传入当天归位的已完成 DDL，于是计数与预览同时正确。
-        // v9.66 未来日期只做「计划预览」：虚拟行进预览、不算合计，否则会稀释完成率
-        const projected = virtualPinned(date, bucket.todos)
-        const counted = mergeDdlTodos(bucket.todos, completed, date)
-        const visible = mergeDdlTodos([...bucket.todos, ...projected], completed, date)
+        // v9.68 周视图不混排「目标推进」：带 subtaskId 的记录归日视图，不进入周行预览、
+        // 周待办计数和整周合计（同一件事在两个视图里保持不同层级的呈现）。
+        const plain = bucket.todos.filter((t) => !t.subtaskId)
+        const completedPlain = completed.filter((t) => !t.subtaskId)
+        const visible = mergeDdlTodos(plain, completedPlain, date)
         return {
           ...agg,
-          todoDone: counted.filter((t) => t.done).length,
-          todoTotal: counted.length,
+          todoDone: visible.filter((t) => t.done).length,
+          todoTotal: visible.length,
           // v8.104 预览按时间排：截止型置顶，组内有时间升序、无时间沉底
           todoPreview: sortPreviewByTime(visible).slice(0, 3),
           overdueTrace: trace,
