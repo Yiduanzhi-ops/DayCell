@@ -189,6 +189,39 @@ describe('App 冒烟', () => {
     expect(screen.queryByText('买牛奶')).not.toBeInTheDocument()
   })
 
+  it('删除待办需二次确认：取消不删、确认后才删', async () => {
+    await renderApp()
+    fireEvent.click(within(screen.getByTestId('day-center')).getByRole('button', { name: '添加待办' }))
+    const input = screen.getByLabelText('新待办')
+    fireEvent.change(input, { target: { value: '要删的待办' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    const del = await screen.findByLabelText('删除待办：要删的待办')
+
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    fireEvent.click(del)
+    expect(confirmSpy).toHaveBeenCalled()
+    expect(screen.getByLabelText('删除待办：要删的待办')).toBeInTheDocument()
+
+    confirmSpy.mockReturnValue(true)
+    fireEvent.click(screen.getByLabelText('删除待办：要删的待办'))
+    await waitFor(() => expect(screen.queryByLabelText('删除待办：要删的待办')).not.toBeInTheDocument())
+  })
+
+  it('今日视图删除想法需二次确认：取消不删、确认后才删', async () => {
+    const store = await renderApp()
+    await store.getState().createNote('今日的想法')
+    const del = await screen.findByLabelText('删除这条想法')
+
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    fireEvent.click(del)
+    expect(confirmSpy).toHaveBeenCalled()
+    expect(screen.getByText('今日的想法')).toBeInTheDocument()
+
+    confirmSpy.mockReturnValue(true)
+    fireEvent.click(screen.getByLabelText('删除这条想法'))
+    await waitFor(() => expect(screen.queryByText('今日的想法')).not.toBeInTheDocument())
+  })
+
   it('切月视图出 42 格；点「今天」标签回到今天（v7 / D19）', async () => {
     const store = await renderApp()
     fireEvent.click(screen.getByRole('tab', { name: '月' }))
