@@ -49,3 +49,54 @@ export function planPinnedTodos(
       return [{ subtaskId: s.id, text: s.title, goalTitle: goal.title }]
     })
 }
+
+/**
+ * v9.69 同一子任务同一天只应有一条活待办。历史竞态/跨设备同步可能留下多条，
+ * 这里给出「保留哪条、软删哪些条」的确定性方案。
+ *
+ * - 优先保留与 `doneBySubtask`（= subtasks.workDates 的当天打卡态）一致的那条；
+ * - 没有打卡真值可参考时，优先已完成，再按 updatedAt 新→旧，最后按 id 保证多端选择一致；
+ * - 若保留条的 done 与真值不一致，调用方需 flip 一次（`toggleKeep`）。
+ */
+export interface SubtaskTodoDedupePlan {
+  keep: TodoRecord
+  remove: TodoRecord[]
+  toggleKeep: boolean
+}
+
+export function planSubtaskTodoDedupe(
+  existing: readonly TodoRecord[],
+  doneBySubtask?: ReadonlyMap<string, boolean>,
+): SubtaskTodoDedupePlan[] {
+  const groups = new Map<string, TodoRecord[]>()
+  for (const t of existing) {
+    if (t.deleted || !t.subtaskId) continue
+    const key = `${t.date}\u0000${t.subtaskId}`
+    const list = groups.get(key)
+    if (list) list.push(t)
+    else groups.set(key, [t])
+  }
+
+  const plans: SubtaskTodoDedupePlan[] = []
+  for (const [key, rows] of groups) {
+    if (rows.length < 2) continue
+    const subtaskId = key.slice(key.indexOf('\u0000') + 1)
+    const want = doneBySubtask?.get(subtaskId)
+    const sorted = [...rows].sort((a, b) => {
+      if (want !== undefined && a.done !== b.done) {
+        // 与真值一致的那条排前面
+        return a.done === want ? -1 : 1
+      }
+      if (a.done !== b.done) return a.done ? -1 : 1
+      if (a.updatedAt !== b.updatedAt) return b.updatedAt - a.updatedAt
+      return a.id.localeCompare(b.id)
+    })
+    const keep = sorted[0]!
+    plans.push({
+      keep,
+      remove: sorted.slice(1),
+      toggleKeep: want !== undefined && keep.done !== want,
+    })
+  }
+  return plans
+}

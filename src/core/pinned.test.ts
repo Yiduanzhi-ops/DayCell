@@ -8,10 +8,10 @@ import { describe, expect, it } from 'vitest'
 import { createFakeClock, type FakeClock } from './clock'
 import { createSeqIdGen } from './id'
 import type { PinnedTodoDraft } from './pinned'
-import { planPinnedTodos } from './pinned'
+import { planPinnedTodos, planSubtaskTodoDedupe } from './pinned'
 import { createRepos, type Repos } from './repo'
 import { createMemoryStore } from './store/memory'
-import type { SubtaskRecord, TodoRecord } from './types'
+import type { DateKey, SubtaskRecord, TodoRecord } from './types'
 
 interface Harness {
   repos: Repos
@@ -104,5 +104,54 @@ describe('v8.108 planPinnedTodos（常驻推进每日补建）', () => {
     expect(on2.updatedAt).toBe(on1.updatedAt)
     const off = await repos.subtasks.setPinned(sub.id, false)
     expect(off.pinned).toBeUndefined()
+  })
+})
+
+describe('v9.69 planSubtaskTodoDedupe（同日同子任务重复行收敛）', () => {
+  const D = '2026-09-29' as DateKey
+
+  const todo = (
+    id: string,
+    done: boolean,
+    updatedAt: number,
+    subtaskId = 'sub-1',
+    deleted = false,
+  ): TodoRecord => ({
+    id,
+    type: 'todo',
+    date: D,
+    text: '背单词',
+    done,
+    subtaskId,
+    createdAt: updatedAt,
+    updatedAt,
+    deleted,
+  })
+
+  it('优先保留与 workDates 当天打卡态一致的记录，其余全部标记删除', () => {
+    const plans = planSubtaskTodoDedupe(
+      [todo('a', false, 3000), todo('b', true, 1000), todo('c', false, 2000)],
+      new Map([['sub-1', true]]),
+    )
+    expect(plans).toHaveLength(1)
+    expect(plans[0]!.keep.id).toBe('b')
+    expect(plans[0]!.remove.map((r) => r.id)).toEqual(['a', 'c'])
+    expect(plans[0]!.toggleKeep).toBe(false)
+  })
+
+  it('真值为未打卡时保留最新的未打卡记录；墓碑与单条记录不产生计划', () => {
+    const plans = planSubtaskTodoDedupe(
+      [todo('a', false, 3000), todo('b', true, 1000), todo('gone', false, 9000, 'sub-1', true)],
+      new Map([['sub-1', false]]),
+    )
+    expect(plans).toHaveLength(1)
+    expect(plans[0]!.keep.id).toBe('a')
+    expect(plans[0]!.remove.map((r) => r.id)).toEqual(['b'])
+
+    expect(planSubtaskTodoDedupe([todo('only', false, 1000)])).toEqual([])
+    // 不同 subtaskId 各自一组，互不影响
+    expect(
+      planSubtaskTodoDedupe([todo('x', false, 1000, 'sub-1'), todo('y', false, 2000, 'sub-2')]),
+    ).toEqual([])
   })
 })
