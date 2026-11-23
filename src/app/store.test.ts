@@ -1050,6 +1050,40 @@ describe('子任务打卡与复盘', () => {
   })
 })
 
+describe('v9.69 目标推进重复行收敛', () => {
+  async function seedSubtask(bundle: Awaited<ReturnType<typeof makeBundle>>) {
+    const goal = await bundle.repos.goals.create({ title: '考研', note: '' })
+    const sub = await bundle.repos.subtasks.create({ goalId: goal.id, title: '背单词' })
+    return { goal, sub }
+  }
+
+  it('同一子任务当天已有两条活待办：refresh 只留一条，日视图只显示一项', async () => {
+    const { app, bundle } = await makeApp()
+    const { sub } = await seedSubtask(bundle)
+    await bundle.repos.todos.create(TODAY, '背单词', undefined, undefined, sub.id, '考研')
+    const checked = await bundle.repos.todos.create(TODAY, '背单词', undefined, undefined, sub.id, '考研')
+    await bundle.repos.todos.toggle(checked.id, TODAY)
+    await bundle.repos.subtasks.setWork(sub.id, TODAY, true)
+
+    await S(app).refresh()
+
+    const rows = (await bundle.repos.todos.byDate(TODAY)).filter((t) => t.subtaskId === sub.id)
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.id).toBe(checked.id)
+    expect(S(app).detail!.progress[0]!.items).toHaveLength(1)
+    expect(S(app).detail!.progress[0]!.items[0]!.done).toBe(true)
+  })
+
+  it('开启每日推进走串行补建，只生成一条当天待办', async () => {
+    const { app, bundle } = await makeApp()
+    const { goal, sub } = await seedSubtask(bundle)
+    await S(app).openGoal(goal.id)
+    expect(await S(app).pinSubtaskToDaily(sub.id)).toBe(true)
+    const rows = (await bundle.repos.todos.byDate(TODAY)).filter((t) => t.subtaskId === sub.id)
+    expect(rows).toHaveLength(1)
+  })
+})
+
 describe('v8.74 周/月报告', () => {
   it('进「报告」tab 自动拉一次本地统计（report 非空、loading 复位）', async () => {
     const { app } = await makeApp()
