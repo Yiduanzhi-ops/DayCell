@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v9.68'
+const CURRENT_VERSION = 'v9.69'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v9.69',
+    date: '2026-11-23',
+    items: [
+      '目标推进不再重复：同一天同一个子任务只显示一条，重启或同步后会收敛已有的重复行',
+      '关闭「每日推进」时会把当天留下的重复行全部撤掉，不再只删一条',
+    ],
+  },
   {
     version: 'v9.68',
     date: '2026-11-21',

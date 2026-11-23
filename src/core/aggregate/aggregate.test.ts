@@ -1152,6 +1152,25 @@ describe('v8.107 目标推进（DayDetail.progress）', () => {
     expect(item.recent).toEqual([false, true, false, false, true, false])
   })
 
+  it('v9.69 同日同子任务两条未删除待办只显示一条，且优先已打卡那条的 todoId', async () => {
+    const { st, todo } = await seedProgress()
+    // 模拟竞态/跨设备同步留下的第二条同 subtaskId 待办
+    const dup = await repos.todos.create(D, '背单词', undefined, undefined, st.id, '考研')
+    expect((await agg.aggregateDayDetail(D)).progress[0]!.items).toHaveLength(1)
+
+    // 后一条已打卡：聚合仍只有一条，打卡态与可操作 todoId 都指向后一条
+    await repos.todos.toggle(dup.id, D)
+    await repos.subtasks.setWork(st.id, D, true)
+    const d = await agg.aggregateDayDetail(D)
+    expect(d.progress[0]!.items).toHaveLength(1)
+    expect(d.progress[0]!.items[0]!.done).toBe(true)
+    expect(d.progress[0]!.items[0]!.todoId).toBe(dup.id)
+    expect(d.progress[0]!.items[0]!.todoId).not.toBe(todo.id)
+    // 不双显：待办计数与普通待办列表仍排除全部推进行
+    expect(d.summary.todoTotal).toBe(0)
+    expect(d.todos).toEqual([])
+  })
+
   it('只有推进项时不算空日；打卡 done=true 但子任务本身仍未完成', async () => {
     const { st, todo } = await seedProgress()
 

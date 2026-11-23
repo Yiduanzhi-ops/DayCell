@@ -33,6 +33,7 @@ import {
   shiftCursor,
   sortHabits,
   planPinnedTodos,
+  planSubtaskTodoDedupe,
   type AnniversaryInput,
   type AnniversaryRecord,
   type BackupFile,
@@ -598,8 +599,26 @@ export function createAppStore(
         repos.goals.all(),
         repos.todos.byDate(date),
       ])
+      // v9.69 先收敛同一子任务当天的重复待办：以 workDates 的当天打卡态为准，
+      // 保留一条、其余软删；重复条若 done 与真值相反则翻正保留条。
+      const doneBySubtask = new Map(
+        subtasks
+          .filter((s) => !s.deleted)
+          .map((s) => [s.id, Array.isArray(s.workDates) && s.workDates.includes(date)]),
+      )
+      let changed = false
+      for (const plan of planSubtaskTodoDedupe(existing, doneBySubtask)) {
+        if (plan.toggleKeep) {
+          await repos.todos.toggle(plan.keep.id, date)
+          changed = true
+        }
+        for (const dup of plan.remove) {
+          await repos.todos.softDelete(dup.id)
+          changed = true
+        }
+      }
       const drafts = planPinnedTodos(subtasks, goals, existing)
-      if (drafts.length === 0) return false
+      if (drafts.length === 0) return changed
       for (const d of drafts) {
         await repos.todos.create(date, d.text, undefined, undefined, d.subtaskId, d.goalTitle)
       }
@@ -1173,13 +1192,10 @@ export function createAppStore(
         }
         const date = get().today
         const next = await repos.subtasks.setPinned(subtaskId, true)
-        // 立刻补今天这条（不等下次 refresh）；下面 refresh 里还会幂等兜一次
-        // v8.64 目标标题一并快照：待办行标注「· 目标名」；目标之后改名/删除不影响已加入待办
-        // v9.2.2 参数位移：第 4 位改 time（undefined 占位），subtaskId/subtaskGoalTitle 后移到 5/6 位
-        const existing = await repos.todos.byDate(date)
-        if (!existing.some((t) => t.subtaskId === subtaskId)) {
-          await repos.todos.create(date, subtask.title, undefined, undefined, subtaskId, d.goal.title)
-        }
+        // v9.69 不再在锁外自行 create：统一走 materializePinned 串行补建，
+        // 避免与 refresh / 回到前台的补建同时各建一条。已有在途补建先等它结束。
+        if (pinnedLock) await pinnedLock
+        await materializePinned(date)
         set({ dataVer: get().dataVer + 1 })
         set((s) =>
           s.goalDetail
@@ -1203,14 +1219,15 @@ export function createAppStore(
         const next = await repos.subtasks.setPinned(subtaskId, false)
         // 撤掉今天这条（历史的日子不动）；如果这条已经勾了，同步撤销今天的打卡
         const existing = await repos.todos.byDate(date)
-        const todo = existing.find((t) => t.subtaskId === subtaskId)
-        if (todo) {
+        const todos = existing.filter((t) => t.subtaskId === subtaskId)
+        if (todos.length > 0) {
           // 与旧「撤出今日」一致：移出即撤销今天这次打卡（历史日子的记录不动）
           await repos.subtasks.setWork(subtaskId, date, false)
           if (d && subtask) {
             await removeReviewSentence(date, `[目标打卡] 今日进行了目标「${d.goal.title}」的子目标「${subtask.title}」工作`)
           }
-          await repos.todos.softDelete(todo.id)
+          // v9.69 若历史上已留下重复行，移出时全部软删，不能只删第一条
+          for (const todo of todos) await repos.todos.softDelete(todo.id)
         }
         set({ dataVer: get().dataVer + 1 })
         set((s) =>

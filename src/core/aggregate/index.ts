@@ -442,20 +442,35 @@ function buildProgress(
   }
 
   const inDay = new Set<string>()
+  // v9.69 同一天同一子任务若因竞态/跨设备同步留下多条未删除待办，
+  // 这里按 subtaskId 兜底去重：只显示一条，优先保留已打卡那条的 todoId。
+  const shown = new Map<string, ProgressGroup['items'][number]>()
   for (const t of todos) {
     if (!t.subtaskId) continue
     const sub = subMap.get(t.subtaskId)
     if (!sub) continue
     inDay.add(sub.id)
-    const group = ensureGroup(sub, t.subtaskGoalTitle ?? '目标')
-    group.items.push({
+    const key = `${sub.goalId}\u0000${sub.id}`
+    const item: ProgressGroup['items'][number] = {
       todoId: t.id,
       subtaskId: sub.id,
       text: sub.title,
       days: Array.isArray(sub.workDates) ? sub.workDates.length : 0,
       done: !!t.done,
       recent: recentOf(sub),
-    })
+    }
+    const prev = shown.get(key)
+    if (prev) {
+      // 保留先出现的行序；若后一条已打卡，则把打卡态与可操作 todoId 换到它上面
+      if (item.done && !prev.done) {
+        prev.done = true
+        prev.todoId = item.todoId
+      }
+      continue
+    }
+    const group = ensureGroup(sub, t.subtaskGoalTitle ?? '目标')
+    group.items.push(item)
+    shown.set(key, item)
   }
 
   // v9.66 未来日期投影：pinned 子任务在那天还没有实体待办，按「每天自动加入」的承诺
