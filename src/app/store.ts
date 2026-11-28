@@ -345,13 +345,12 @@ export interface AppState {
   toggleGoalFavorite(id: string): Promise<void>
   /** 删目标（连带其全部阶段，repo 维护） */
   deleteGoal(id: string): Promise<boolean>
-  // ---- v9.14：目标文件夹（创建/删除/收藏/折叠；不嵌套；删夹不删目标） ----
+  // ---- v9.14：目标文件夹（创建/删除/折叠；不嵌套；删夹不删目标） ----
   refreshFolders(): Promise<void>
   createFolder(name: string): Promise<boolean>
   /** v8.87 重命名已存在的文件夹（名称校验与新建同口径：必填、≤12 字） */
   renameFolder(id: string, name: string): Promise<boolean>
   deleteFolder(id: string): Promise<boolean>
-  toggleFolderFavorite(id: string): Promise<boolean>
   setFolderCollapsed(id: string, collapsed: boolean): Promise<boolean>
   /** 移动目标到文件夹：folderId null = 移出到未分类 */
   moveGoalToFolder(goalId: string, folderId: string | null): Promise<boolean>
@@ -1698,18 +1697,6 @@ export function createAppStore(
           aggregates.goalSummaries(),
         ])
         set({ folderList, goalList })
-        return true
-      } catch (e) {
-        get().showToast(errMsg(e))
-        return false
-      }
-    },
-
-    async toggleFolderFavorite(id) {
-      try {
-        const f = get().folderList.find((x) => x.folder.id === id)
-        await repos.folders.setFavorite(id, !(f?.folder.favorite ?? false))
-        await get().refreshFolders()
         return true
       } catch (e) {
         get().showToast(errMsg(e))

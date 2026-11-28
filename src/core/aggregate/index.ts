@@ -815,16 +815,11 @@ export function createAggregates(deps: AggregateDeps): Aggregates {
     })
   }
 
-  /** v9.14 文件夹列表：活文件夹，收藏置顶（内部按收藏时间新的在前）+ createdAt 升序；附目标数（读路径归一化后） */
+  /** v9.14 文件夹列表：活文件夹，createdAt 升序；附目标数（读路径归一化后）。
+   *  v8.116 文件夹收藏下线：不再写 favorite/favoritedAt，也不再置顶（字段保留兼容旧数据） */
   const foldersAll = async (): Promise<FolderSummary[]> => {
     const [folderList, goalsList] = await Promise.all([repos.folders.all(), repos.goals.all()])
-    const liveFolders = [...folderList].sort((a, b) => {
-      const af = a.favorite ?? false
-      const bf = b.favorite ?? false
-      if (af !== bf) return af ? -1 : 1
-      if (af && bf) return (b.favoritedAt ?? 0) - (a.favoritedAt ?? 0)
-      return a.createdAt - b.createdAt
-    })
+    const liveFolders = [...folderList].sort((a, b) => a.createdAt - b.createdAt)
     const liveGoals = goalsList.filter((g) => !g.deleted)
     return liveFolders.map((folder) => ({
       folder,

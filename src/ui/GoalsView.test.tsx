@@ -558,3 +558,58 @@ describe('目标级三操作（… Sheet）', () => {
     expect(await bundle.repos.subtasks.byGoal(gid)).toHaveLength(0)
   })
 })
+
+describe('目标页收藏视图（v8.116）', () => {
+  const favOf = (store: ReturnType<typeof createAppStore>, title: string): string => {
+    const g = store.getState().goalList.find((x) => x.goal.title === title)
+    if (!g) throw new Error(`目标不存在：${title}`)
+    return g.goal.id
+  }
+
+  it('开启后只显示收藏的目标，再点一次回到全部视图', async () => {
+    const { store } = await renderApp()
+    await seedGoal(store, '收藏目标甲')
+    await seedGoal(store, '未收藏目标乙')
+    await store.getState().toggleGoalFavorite(favOf(store, '收藏目标甲'))
+
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    fireEvent.click(await screen.findByRole('button', { name: '只看收藏的目标' }))
+
+    expect(screen.getByRole('button', { name: '关闭收藏视图' })).toBeInTheDocument()
+    expect(screen.getByText('进行中的目标（1）')).toBeInTheDocument()
+    expect(screen.getByText('收藏目标甲')).toBeInTheDocument()
+    expect(screen.queryByText('未收藏目标乙')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '关闭收藏视图' }))
+    expect(await screen.findByText('未收藏目标乙')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '只看收藏的目标' })).toBeInTheDocument()
+  })
+
+  it('没有收藏目标时给空态引导', async () => {
+    const { store } = await renderApp()
+    await seedGoal(store, '普通目标')
+
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    fireEvent.click(await screen.findByRole('button', { name: '只看收藏的目标' }))
+
+    expect(screen.getByText(/还没有收藏的目标/)).toBeInTheDocument()
+    expect(screen.getByText(/在目标卡右上角点 ☆ 收藏/)).toBeInTheDocument()
+  })
+
+  it('点文件夹 chip 自动退出收藏视图，切到该文件夹', async () => {
+    const { store } = await renderApp()
+    await store.getState().createFolder('学习')
+    const fid = store.getState().folderList[0].folder.id
+    const gid = await seedGoal(store, '收藏目标甲')
+    await store.getState().moveGoalToFolder(gid, fid)
+    await store.getState().toggleGoalFavorite(gid)
+
+    fireEvent.click(screen.getByRole('tab', { name: '目标' }))
+    fireEvent.click(await screen.findByRole('button', { name: '只看收藏的目标' }))
+    expect(screen.getByRole('button', { name: '关闭收藏视图' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '学习 1' }))
+    expect(screen.getByRole('button', { name: '只看收藏的目标' })).toBeInTheDocument()
+    expect(screen.getByText(/学习（1）/)).toBeInTheDocument()
+  })
+})
