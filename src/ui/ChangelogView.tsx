@@ -8,11 +8,19 @@ import type { JSX } from 'react'
 import { useApp } from '@/app/context'
 import styles from './ChangelogView.module.css'
 
-const CURRENT_VERSION = 'v8.115'
+const CURRENT_VERSION = 'v8.116'
 export { CURRENT_VERSION }
 
 /** 版本要点（倒序：最新在最前）。维护约定：发版时在数组头部插入新条目。 */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: 'v8.116',
+    date: '2026-11-29',
+    items: [
+      '目标页新增「收藏」视图：一键只看收藏的目标，再点一次回到全部；点文件夹会自动退出收藏视图',
+      '文件夹不再支持收藏：菜单里的「收藏文件夹」和文件夹名后的 ★ 都已去掉，目标收藏不受影响',
+    ],
+  },
   {
     version: 'v8.115',
     date: '2026-11-23',

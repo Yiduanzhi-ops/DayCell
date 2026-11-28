@@ -662,16 +662,18 @@ describe('folders', () => {
     expect(sums.find((x) => x.goal.id === g.id)?.folder).toBeNull()
   })
 
-  it('foldersAll：收藏置顶 + 目标计数；goalSummaries.folder 归一化', async () => {
+  it('foldersAll：只按 createdAt 排序（收藏不再置顶）+ 目标计数；goalSummaries.folder 归一化', async () => {
     const f1 = await repos.folders.create({ name: 'A' })
+    await new Promise((r) => setTimeout(r, 5)) // 保证 createdAt 有序
     const f2 = await repos.folders.create({ name: 'B' })
+    // v8.116：文件夹收藏下线；即使旧数据里带 favorite，也不再影响排序
     await repos.folders.setFavorite(f2.id, true)
     await repos.goals.create({ title: 'g1', folderId: f1.id })
     await repos.goals.create({ title: 'g2', folderId: f2.id })
     await repos.goals.create({ title: 'g3' }) // 未分类
 
     const list = await agg.foldersAll()
-    expect(list.map((x) => x.folder.name)).toEqual(['B', 'A']) // 收藏在前
+    expect(list.map((x) => x.folder.name)).toEqual(['A', 'B'])
     expect(list.find((x) => x.folder.id === f1.id)?.count).toBe(1)
     expect(list.find((x) => x.folder.id === f2.id)?.count).toBe(1)
 

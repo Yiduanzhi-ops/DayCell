@@ -179,7 +179,7 @@ function FolderPick({
           className={value === folder.id ? `${styles.folderPickChip} ${styles.folderPickOn}` : styles.folderPickChip}
           onClick={() => onChange(folder.id)}
         >
-          {folder.favorite ? '★ ' : ''}{folder.name}
+          {folder.name}
         </button>
       ))}
       {folderList.length === 0 && includeNull && (
@@ -323,7 +323,7 @@ function RenameFolderSheet({
 }
 
 // ---------------------------------------------------------------------------
-// v9.14 文件夹组头菜单（重命名、收藏/取消收藏、删除）
+// v9.14 文件夹组头菜单（添加目标、重命名、删除）；v8.116 收藏文件夹下线
 // ---------------------------------------------------------------------------
 
 function FolderMenuSheet({
@@ -335,12 +335,10 @@ function FolderMenuSheet({
   onClose: () => void
   onDeleted?: () => void
 }): JSX.Element {
-  const toggleFolderFavorite = useApp((s) => s.toggleFolderFavorite)
   const [confirmDel, setConfirmDel] = useState(false)
   const [renameOpen, setRenameOpen] = useState(false)
   // v9.41 菜单里直接给这个文件夹加目标（归属锁定为本文件夹）
   const [addGoalOpen, setAddGoalOpen] = useState(false)
-  const fav = folder.folder.favorite ?? false
   if (addGoalOpen) {
     return <NewGoalSheet defaultFolderId={folder.folder.id} lockFolder onClose={onClose} />
   }
@@ -354,16 +352,6 @@ function FolderMenuSheet({
         <button className={styles.menuItem} onClick={() => setRenameOpen(true)}>
           <span className={styles.menuIcon}>✎</span>
           重命名文件夹
-        </button>
-        <button
-          className={styles.menuItem}
-          onClick={() => {
-            void toggleFolderFavorite(folder.folder.id)
-            onClose()
-          }}
-        >
-          <span className={styles.menuIcon}>{fav ? '★' : '☆'}</span>
-          {fav ? '取消收藏' : '收藏文件夹'}
         </button>
         <button className={`${styles.menuItem} ${styles.menuItemDanger}`} onClick={() => setConfirmDel(true)}>
           <span className={styles.menuIcon}>🗑</span>
@@ -1369,7 +1357,9 @@ function GoalList(): JSX.Element {
     }
   }
   // v9.14 文件夹区：'all' = 平铺（保持原样两组）；folderId = 只看该文件夹（组头可折叠，持久化）
-  const [filter, setFilter] = useState<string | 'all'>('all')
+  // v8.116 新增 'favorites' = 只看收藏的目标（与文件夹筛选互斥，不持久化）
+  type Filter = 'all' | 'favorites' | string
+  const [filter, setFilter] = useState<Filter>('all')
   const [folderSheet, setFolderSheet] = useState(false)
   const [menuFor, setMenuFor] = useState<FolderSummary | null>(null)
 
@@ -1547,7 +1537,7 @@ function GoalList(): JSX.Element {
               {collapsed ? '▸' : '▾'}
             </span>
             <span className={styles.folderGroupTitle}>
-              {fs.folder.name}（{items.length}）{fs.folder.favorite ? ' ★' : ''}
+              {fs.folder.name}（{items.length}）
             </span>
           </button>
           <button className={styles.folderGroupMenu} aria-label="文件夹菜单" onClick={() => setMenuFor(fs)}>
@@ -1601,7 +1591,7 @@ function GoalList(): JSX.Element {
                     {collapsed ? '▸' : '▾'}
                   </span>
                   <span className={styles.folderGroupTitle}>
-                    {folder.name}（{items.length}）{folder.favorite ? ' ★' : ''}
+                    {folder.name}（{items.length}）
                   </span>
                 </button>
                 {/* v8.87 「全部」页的组头也挂 ··· 菜单：此前只有切进单文件夹视图才有编辑入口，
@@ -1662,10 +1652,35 @@ function GoalList(): JSX.Element {
     return () => el.removeEventListener('wheel', onWheel)
   }, [folderList.length])
 
+  // v8.116 收藏视图：只看被收藏的目标，平铺「进行中/已完成」两组，不按文件夹分组（卡片保留文件夹标签）
+  const renderFavorites = (): JSX.Element => {
+    const favs = goalList.filter((x) => x.goal.favorite)
+    const favActive = favs.filter((x) => !x.goal.done)
+    const favDone = favs.filter((x) => x.goal.done)
+    if (favs.length === 0) {
+      return (
+        <div className={styles.empty}>
+          <span className={styles.emptyBig}>★</span>
+          还没有收藏的目标
+          <br />
+          在目标卡右上角点 ☆ 收藏
+        </div>
+      )
+    }
+    return (
+      <>
+        {favActive.length > 0 && renderGroup('进行中的目标', favActive, false)}
+        {favDone.length > 0 && renderGroup('已完成的目标', favDone, true)}
+      </>
+    )
+  }
+
   // v9.28 顶部工具条：新建文件夹、新建目标两端固定（不随 chips 横滑被滚走），中间 chips 横滑
   // 新建目标的默认归属跟随当前视图：全部 → 未分类；单文件夹视图 → 该文件夹
+  // v8.116 收藏视图与文件夹视图互斥；新建目标只在单文件夹视图下预填归属
+  const isFolderView = filter !== 'all' && filter !== 'favorites'
   const openNewGoal = (): void => {
-    setNewGoalFolder(filter === 'all' ? null : filter)
+    setNewGoalFolder(isFolderView ? filter : null)
     setNewOpen(true)
   }
   const folderBar = (
@@ -1686,7 +1701,7 @@ function GoalList(): JSX.Element {
                 className={filter === folder.id ? `${styles.folderChip} ${styles.folderChipOn}` : styles.folderChip}
                 onClick={() => setFilter(folder.id)}
               >
-                {folder.favorite ? '★ ' : ''}{folder.name} {count}
+                {folder.name} {count}
               </button>
             ))}
           </div>
@@ -1694,10 +1709,19 @@ function GoalList(): JSX.Element {
       )}
       <div className={styles.actionRow}>
         <button className={styles.folderNew} aria-label="新建文件夹" onClick={() => setFolderSheet(true)}>
-          <span className={styles.plus}>＋</span>新建文件夹
+          <span className={styles.plus}>＋</span>文件夹
+        </button>
+        <button
+          className={filter === 'favorites' ? `${styles.favToggle} ${styles.favToggleOn}` : styles.favToggle}
+          aria-pressed={filter === 'favorites'}
+          aria-label={filter === 'favorites' ? '关闭收藏视图' : '只看收藏的目标'}
+          onClick={() => setFilter(filter === 'favorites' ? 'all' : 'favorites')}
+        >
+          <span className={styles.favStar}>{filter === 'favorites' ? '★' : '☆'}</span>
+          {filter === 'favorites' ? '收藏中' : '收藏'}
         </button>
         <button className={styles.folderNewGoal} aria-label="新建目标" onClick={openNewGoal}>
-          <span className={styles.plus}>＋</span>新建目标
+          <span className={styles.plus}>＋</span>目标
         </button>
       </div>
     </>
@@ -1706,7 +1730,9 @@ function GoalList(): JSX.Element {
   return (
     <div className={styles.list}>
       {folderBar}
-      {filter === 'all' ? (
+      {filter === 'favorites' ? (
+        renderFavorites()
+      ) : filter === 'all' ? (
         folderList.length === 0 ? (
           <>
             {renderGroup('进行中的目标', active, false)}
@@ -1720,7 +1746,7 @@ function GoalList(): JSX.Element {
       )}
       {newOpen && (
         <NewGoalSheet
-          defaultFolderId={newGoalFolder ?? (filter !== 'all' ? filter : null)}
+          defaultFolderId={newGoalFolder ?? (filter !== 'all' && filter !== 'favorites' ? filter : null)}
           onClose={() => {
             setNewGoalFolder(null)
             setNewOpen(false)
